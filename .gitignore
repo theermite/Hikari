@@ -1,0 +1,57 @@
+# --- Rust / Cargo ---
+/target/
+**/target/
+*.pdb
+Cargo.lock.bak
+
+# --- Tauri ---
+/src-tauri/target/
+/src-tauri/gen/
+/src-tauri/WixTools/
+/src-tauri/binaries/
+
+# --- Moteur OBS embarqué ---
+# Les binaires OBS sont récupérés au build/à l'exécution, jamais versionnés (ils pèsent
+# des centaines de Mo et ont leur propre distribution). Voir la brique installation.
+/obs-runtime/
+/libobs/
+*.dll
+*.so
+*.dylib
+
+# --- Node / front ---
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# --- Secrets : rien de sensible ne doit jamais partir ici ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.*
+
+# --- Sorties de spike (code jetable, mesures brutes) ---
+# Les spikes B0.x produisent des relevés et des fichiers encodés lourds.
+# Les MESURES sont reportées dans le plan d'exécution ; les artefacts restent locaux.
+/spikes/**/out/
+/spikes/**/*.mp4
+/spikes/**/*.mkv
+/spikes/**/*.flv
+
+# --- Éditeurs / OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# --- Divers ---
+coverage/
+*.log
