@@ -1,0 +1,13 @@
+# Normalisation des fins de ligne, imposée par le DÉPÔT et non par la machine.
+# Pourquoi : ce dépôt est public. Un contributeur sous Windows sans core.autocrlf
+# correct injecterait des CRLF et rendrait le prochain diff illisible.
+* text=auto eol=lf
+
+# Binaires : jamais touchés.
+*.png binary
+*.jpg binary
+*.ico binary
+*.mp4 binary
+*.dll binary
+*.so  binary
+*.exe binary

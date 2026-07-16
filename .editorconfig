@@ -1,0 +1,24 @@
+# Hikari — conventions d'édition
+# Pourquoi : le projet se développe sous Windows et se déploie sous Linux. Sans règle
+# commune, les fins de ligne divergent et un diff devient illisible (« tout a changé »
+# alors que rien n'a changé). Voir Conventions.md — UTF-8 sans BOM, LF, sans exception.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{rs,toml}]
+indent_size = 4
+
+[*.md]
+# Deux espaces en fin de ligne = saut de ligne en Markdown : on ne les rogne pas.
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab
