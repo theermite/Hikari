@@ -1,19 +1,19 @@
-//! Hikari — spike B0.0, processus CONTRÔLEUR.
+//! Hikari — spike B0.0, processus CONTRÔLEUR (épreuve b : survie + relance).
 //!
-//! Lance le moteur dans un PROCESSUS SÉPARÉ (ADR-013) et observe sa sortie. C'est la
-//! forme prouvée par league_record : un moteur qui ne partage pas notre fil ne peut pas
-//! geler notre interface, et il peut mourir sans nous emporter.
+//! Lance le moteur dans un PROCESSUS SÉPARÉ (ADR-013) et observe sa vie. Si le moteur
+//! meurt sans finir (planté, tué), le contrôleur — processus distinct — SURVIT : il le
+//! détecte, le relance une fois, et le DIT. Le silence serait le vrai défaut (leçon
+//! `adressage par identité`, un « ok » menteur coûte une journée).
 //!
-//! Étape 1 (ici) : lancer, relayer les lignes d'état, rapporter le code de sortie.
-//! Étape 2 (épreuve b) : TUER le moteur en pleine diffusion → prouver que le contrôleur
-//! survit, détecte la mort, relance, et le DIT. Le silence serait le vrai défaut.
+//! C'est l'ADR-001 (isolation des pannes) rendu observable : le moteur peut mourir,
+//! l'application non.
 //!
 //! Code JETABLE (régime spike §9bis).
 
 use std::env;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 
 use anyhow::{Context, Result, bail};
 
@@ -29,32 +29,47 @@ fn engine_path() -> Result<PathBuf> {
     Ok(dir.join(name))
 }
 
-fn main() -> Result<()> {
-    // Durée transmise telle quelle au moteur (défaut 5 s).
-    let secs = env::args().nth(1).unwrap_or_else(|| "5".into());
-
-    let engine = engine_path()?;
-    println!(
-        "CTRL: lancement du moteur (processus séparé) : {}",
-        engine.display()
-    );
-
-    let mut child = Command::new(&engine)
-        .arg(&secs)
+/// Lance le moteur une fois, relaie sa sortie ligne à ligne, rend son code de sortie.
+fn run_engine_once(engine: &PathBuf, secs: &str) -> Result<ExitStatus> {
+    let mut child = Command::new(engine)
+        .arg(secs)
         .stdout(Stdio::piped())
         .spawn()
         .with_context(|| format!("échec du lancement de {}", engine.display()))?;
 
-    // Relayer chaque ligne d'état du moteur, préfixée, pour tracer l'IPC.
     let stdout = child.stdout.take().context("stdout du moteur absent")?;
     for line in BufReader::new(stdout).lines() {
         println!("CTRL: [moteur] {}", line?);
     }
+    child.wait().context("attente du moteur")
+}
 
-    let status = child.wait().context("attente du moteur")?;
-    println!("CTRL: moteur terminé avec {status}");
-    if !status.success() {
-        bail!("le moteur a échoué");
+fn main() -> Result<()> {
+    let secs = env::args().nth(1).unwrap_or_else(|| "5".into());
+    let engine = engine_path()?;
+    let max_relaunch = 1usize;
+    let mut relaunched = 0usize;
+
+    loop {
+        println!(
+            "CTRL: lancement du moteur (processus séparé) : {}",
+            engine.display()
+        );
+        let status = run_engine_once(&engine, &secs)?;
+
+        // Sortie 0 = le moteur a fini sa diffusion normalement.
+        if status.success() {
+            println!("CTRL: moteur terminé normalement ({status})");
+            return Ok(());
+        }
+
+        // Sinon : le moteur est mort sans finir. Le contrôleur, lui, tourne toujours.
+        println!("CTRL: /!\\ MOTEUR MORT sans finir (code {status}) — le controleur a SURVECU");
+        if relaunched < max_relaunch {
+            relaunched += 1;
+            println!("CTRL: relance isolee {relaunched}/{max_relaunch}...");
+            continue;
+        }
+        bail!("moteur mort et relances epuisees");
     }
-    Ok(())
 }
