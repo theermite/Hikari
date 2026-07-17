@@ -4,7 +4,7 @@ created: 2026-07-11
 updated: 2026-07-17
 status: active
 type: pet
-version: 1.4.0
+version: 1.5.0
 project: Hikari Stream
 ---
 
@@ -13,10 +13,19 @@ project: Hikari Stream
 > **Carnet de bord vivant.** Référence le CDC (`CDC.md`) ; le CDC ne référence pas le PET.
 > Mis à jour à chaque brique (avant + après). Créé le 2026-07-11 au `/concevoir`.
 >
-> ⚠️ **Aucun code de production avant le spike moteur (B0.0)** — il mesure, il ne décide plus.
+> ✅ **Spike moteur B0.0 FAIT (2026-07-17) — verdict GO, branche A** (décision Jay). Pile prouvée :
+> diffusion en direct depuis Rust (NVENC) + survie du processus séparé. Le développement de
+> production peut commencer (B0.3 → B1). Détail et preuves : fiche B0.0 §7.
 > ⚠️ **Passe d'exhaustivité complète prévue APRÈS B0.0** : le détail interne de plusieurs briques
 > dépend de sa mesure. Ce PET pré-décide tout le connaissable, puis sera raffiné en version finale
 > exhaustive une fois le spike passé (décision Jay 2026-07-11).
+>
+> **v1.5.0 (2026-07-17) — le spike B0.0 est exécuté : verdict GO, branche A.** La pile est prouvée
+> sur la machine cible — diffusion en direct depuis Rust avec NVENC (reçue par un serveur RTMP) et
+> survie du moteur en processus séparé. Le coût d'Hikari est mesuré (faible, surtout GPU). Restent
+> différées, **en fin de développement** (décision Jay), la comparaison vs OBS nu et les épreuves
+> (d)/(e) — un spike nu ne donne pas le coût du produit. Le développement de production démarre
+> (B0.3 → B1). Détail et preuves : fiche B0.0 §7.
 >
 > **v1.4.0 (2026-07-17) — le pari technique est tombé, le spike change de nature.**
 > Une recherche de contre-exemple (**demandée par Jay**, pas spontanée — voir la mémoire
@@ -138,7 +147,7 @@ project: Hikari Stream
 ### Phase P0 — Dérisquage (AVANT tout dev)
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
-| B0.0 | **Spike `libobs-rs`** : scène + capture + encodage NVENC + session longue → **go/no-go** | Critique | ⬜ |
+| B0.0 | **Spike moteur** : diffusion RTMP depuis Rust + moteur en processus séparé + coût mesuré | Critique | ✅ GO branche A (2026-07-17) |
 | B0.1 | Spike sous-titres live locaux (modèle type whisper.cpp) | Sensible | ⬜ |
 | B0.2 | Validation double encodage RTX 3060 (H + vertical) | Critique | ⬜ |
 | B0.4 | Spike détachement panneau dockview sur Tauri (`WebviewWindow` + sync `emit`/`listen`) | Sensible | ⬜ |
@@ -281,15 +290,15 @@ project: Hikari Stream
 
 | Élément | Valeur | Vérifié |
 |---|---|---|
-| Machine | poste principal, **RTX 3060** (⚠️ **NVIDIA seulement** — voir la limite ci-dessus) | — |
-| Système | Windows 11 (Windows d'abord, CDC §6) | — |
-| **OBS Studio installé** | **32.x — indispensable : c'est la MESURE DE RÉFÉRENCE.** Sans lui, le surcoût est incalculable, et le spike ne sert qu'à Jay | — |
-| Rust | **1.97.1** stable | 2026-07-16 ⚠️ publiée le jour même (correctif d'urgence LLVM). C'est la bonne version, mais elle a 9 h de vécu → re-vérifier le jour J |
-| ⚠️ Chaîne de compilation | **`league_record` exige Rust nightly** (dépendances de type artefact binaire, fonctionnalité cargo instable). À confirmer : notre pont l'exige-t-il aussi ? Si oui, **c'est une contrainte permanente** du projet, pas un détail de spike | à vérifier au spike |
-| `libobs-wrapper` | **9.0.4+32.0.2** (cible OBS 32.0.2) | 2026-07-16 via API crates.io — **jamais 3.0.3** (chiffre faux de docs.rs, ADR-010) |
-| `libobs-sources` | 3.3.1+32.0.2 | 2026-07-16 |
-| `cargo-obs-build` | **2.0.3** — outil officiel qui construit `libobs` et le pose dans `target/` | 2026-07-16 |
-| `libobs-bootstrapper` | 0.4.0 — pour l'épreuve (e) | 2026-07-16 |
+| Machine | poste principal, **RTX 3060** (⚠️ **NVIDIA seulement** — voir la limite ci-dessus) | ✅ RTX 3060 confirmée 2026-07-17 |
+| Système | Windows 11 (Windows d'abord, CDC §6) | ✅ build 26200 |
+| **OBS Studio installé** | 32.x — servait de mesure de référence. ⚠️ **Comparaison vs OBS différée** (Jay 2026-07-17 : mesurer sur l'app finie, pas un spike nu) | ✅ 32.1.2 présent |
+| Rust | **1.97.1** stable (msvc) | ✅ mis à jour 1.94.0 → 1.97.1 le 2026-07-17 |
+| Chaîne de compilation | nightly ? (league_record l'exige pour ses artefacts binaires) | ✅ **RÉSOLU : nightly PAS nécessaire** — on évite `-Z bindeps` (2 binaires workspace, moteur lancé par chemin) → **Rust stable**. Contrainte permanente écartée |
+| `libobs-wrapper` | **9.0.4+32.0.2** | ✅ 2026-07-17 crates.io — binaires résolus à **32.0.4** par cargo-obs-build (checksums OK) |
+| `libobs-sources` | 3.3.1+32.0.2 | ✅ 2026-07-17 |
+| `cargo-obs-build` | **2.0.3** — pose `libobs` dans `target/` | ✅ 2026-07-17 installé + exécuté |
+| `libobs-bootstrapper` | 0.4.0 — pour l'épreuve (e) | 2026-07-17 (épreuve e différée) |
 
 **Durée bornée : 1 jour ouvré** *(réduite de 2 j → 1 j le 2026-07-17 : on ne cherche plus dans le
 noir, on part d'une architecture prouvée)*. Au-delà → **arrêt + escalade à Jay**, sans exception. Un
@@ -321,7 +330,7 @@ combattre — un moteur qui ne partage pas notre fil ne peut pas geler notre int
 |---|---|---|---|
 | **a** | **DIFFUSER en direct** ⭐ | Diffuser 5 min vers un serveur d'ingestion (local ou clé de test), depuis le processus séparé | Le flux **arrive** · codec matériel **confirmé** (jamais un repli logiciel muet) · **0 image perdue** · débit stable |
 | **b** | **Le processus séparé tient** ⭐ | **Tuer le processus moteur pendant la diffusion**, observer l'app | L'app **survit** (elle ne meurt pas avec lui) · elle **détecte** la mort · elle **relance** · elle le **dit** à l'utilisateur. C'est l'ADR-001 prouvé, ou infirmé. |
-| **c** | **Notre surcoût vs OBS nu** ⭐⭐ | **Le même travail deux fois** : OBS Studio nu diffuse 10 min → relever processeur/mémoire/images perdues. Puis Hikari fait l'identique. **Comparer.** | Surcoût **< 20 %** de processeur à travail égal. **C'est LE chiffre du spike** — le seul transférable aux autres machines. |
+| **c** | **Notre surcoût vs OBS nu** ⭐⭐ ⏳ *différé fin de dev* | **Le même travail deux fois** : OBS Studio nu diffuse → relever GPU/CPU/mémoire/images. Puis Hikari fait l'identique. **Comparer.** | ⚠️ Le coût mesuré est **sur le GPU** (NVENC), le CPU est quasi nul → le seuil « < 20 % CPU » est à revoir. Comparaison vs OBS **reportée à l'app finie** (Jay 2026-07-17) : un spike nu ne donne pas le coût du produit. |
 | **d** | Double encodage en jouant | Horizontal + vertical, **avec un jeu qui tourne** | **0 image perdue** sur les deux sorties **ET** chute du jeu **< 10 %** |
 | **e** | Installation | Taille des deux options + le pont expose-t-il une somme de contrôle ? | Deux tailles relevées **ET** réponse binaire (non → l'embarqué devient obligatoire, CDC §8). Repère : leur moteur pèse **75 Mo** |
 
@@ -347,6 +356,11 @@ combattre — un moteur qui ne partage pas notre fil ne peut pas geler notre int
 | **A′ — confirmé, mais on coûte cher** | (a) + (b) passent, (c) ≥ 20 % | On bâtit quand même — **et on remonte le plancher matériel annoncé**. Honnêteté : mieux vaut un plancher haut et vrai qu'une promesse fausse. |
 | **B — repli** | **(a) échoue** — la diffusion ne tient pas depuis Rust | **C'est le seul vrai no-go restant.** Repli Electron + `obs-studio-node`. ⚠️ **La licence passe alors en GPL-2.0** — le dépôt public est en GPL-3.0, il faut re-trancher **avec Jay, au moment du verdict**. |
 
+> ✅ **Verdict rendu le 2026-07-17 : branche A.** (a) et (b) passent ; le coût sur la machine cible
+> est faible. La condition « (c) < 20 % » est **différée** (comparaison vs OBS en fin de dev, Jay) —
+> le verdict A est prononcé sur (a)+(b) + coût absolu faible, jamais sur un chiffre de surcoût qu'un
+> spike nu ne peut pas donner honnêtement. La branche B (repli Electron) est écartée.
+
 > ⚠️ **Piège de la branche B — relevé le 2026-07-16, à ne PAS découvrir le jour du no-go.**
 > Le paquet npm `obs-studio-node@0.10.10` date de **décembre 2020** et se décrit « Experimental » —
 > un fantôme. Le vrai projet `stream-labs/obs-studio-node` est **poussé le 2026-07-16**, 681 étoiles,
@@ -360,8 +374,25 @@ ni chat, ni deck. **Diffuser, mesurer, comparer.** Rien d'autre.
 **Ce qu'il ne PEUT PAS dire, et qu'on n'écrira donc nulle part** : le comportement sur AMD, Intel, ou
 sans encodeur matériel. Une seule machine, un seul point. La matrice vient des premiers utilisateurs.
 
-- **Statut** : ⬜ non commencé.
-- **Verdict** : *(à écrire ici à la fin — go/no-go + le chiffre qui tranche + date)*
+- **Statut** : ✅ **fait — 2026-07-17** (branche `spike/b0.0-libobs`, commits `78bde90` → `eb08e3e`).
+- **Verdict** : **GO — branche A** (décision Jay, 2026-07-17). La pile est prouvée.
+  - **(a) diffusion** ✅ : Rust + moteur d'OBS en **processus séparé** diffuse en direct, reçu de
+    bout en bout par un serveur RTMP (MediaMTX). **Codec matériel confirmé** :
+    `OBS_NVENC_H264_TEX hardware=true` (jamais un repli x264 muet). Preuve :
+    `spikes/b0.0-libobs/mesures/epreuve-a-diffusion.md`.
+  - **(b) survie** ✅ : moteur **tué en plein flux** → le contrôleur survit, détecte, relance, le
+    dit. Prouvé des **deux côtés** (contrôleur + 2 sessions de publication MediaMTX). C'est
+    l'ADR-001/ADR-013 rendus observables. Preuve : `mesures/epreuve-b-survie.md`.
+  - **(c) coût** : mesuré côté Hikari — **CPU 0,8 % · GPU 27 % · encodeur NVENC 35 % · RAM 487 Mo**
+    (capture 1080p, NVENC CBR 6000). Constat : le coût est **sur le GPU**, le CPU est quasi nul.
+    Preuve : `mesures/epreuve-c-surcout.md`.
+  - **Inconnu résolu** : Rust **nightly PAS nécessaire** — on évite `-Z bindeps` (2 binaires
+    workspace, moteur lancé par chemin) → **Rust stable**. Une contrainte permanente écartée.
+  - **Différé par décision de Jay (2026-07-17)** : la **comparaison surcoût vs OBS nu** (c), le sceau
+    5 min + Twitch de (a), le **double encodage (d)**, la **taille d'installation (e)**. Raison : le
+    surcoût pertinent est celui de l'**application finie**, jamais d'un spike nu — on mesurera vs OBS
+    **en fin de développement**, et la matrice matérielle viendra des premiers utilisateurs. Rien de
+    cela ne bloque le développement pour Jay (D12). Voir amendement ADR-014.
 
 ### B0.1 — Spike sous-titres live locaux *(fiche complétée 2026-07-16)*
 
@@ -618,11 +649,17 @@ contournement, ou pire, un spike qu'on garde « parce qu'il est testé ».
 - **ADR-011 (2026-07-16)** : **Le moteur expose une interface interne stable ; le deck n'est qu'un client.** Le moteur d'automations offre trois opérations — *lister les automations exposables · en lancer une (avec arguments) · s'abonner aux événements*. Le **deck local** (B4) et le **deck distant** (B5) sont deux clients de cette même interface. **Pourquoi** : (1) zéro logique dupliquée entre local et distant — donc zéro dérive entre les deux ; (2) c'est le modèle prouvé de Streamer.bot, dont le deck officiel et les greffons tiers passent tous par la même interface (analyse concurrence §2, §6) ; (3) ça rend le deck remplaçable sans toucher au moteur. **Corollaire (CDC §13 anti-pattern #4)** : cette interface vit **dans l'application**, jamais derrière le pont VPS — le deck local doit marcher sans réseau. Le pont distant est un client de plus, pas un passage obligé.
 - **ADR-012 (2026-07-16)** : **Le déclencheur est un attribut de l'automation, pas une nature.** Un clic de bouton, une commande de chat, un événement et un minuteur sont le même mécanisme ; l'automation ignore qui l'a déclenchée. **Pourquoi** : sans ça, « les automations » et « les boutons du deck » deviennent deux modèles à maintenir en parallèle, avec deux endroits où corriger un bug. Vérifié par rétro-ingénierie (le fichier de données réel de Streamer.bot stocke `triggers[]` comme un simple attribut de l'action). **Conséquence produit** : une automation à déclencheur « bouton » apparaît **d'office** comme touche assignable ; les autres non, sauf demande explicite.
 - **ADR-013 (2026-07-17)** : **Le moteur vidéo tourne dans un PROCESSUS SÉPARÉ, jamais dans l'application.** L'app lui parle par un tuyau. **Pourquoi** : (1) **c'est prouvé** — `league_record` le fait depuis mars 2022 (Tauri + Rust + moteur d'OBS, application livrée, binaires téléchargés) via ses modules `intprocess-recorder` + `ipc-link` + le binaire `extprocess_recorder` ; (2) ça **contourne** la friction async au lieu de la combattre — un moteur qui ne partage pas notre fil ne peut pas geler notre interface, et le README du pont dit noir sur blanc que « la fonctionnalité async a été retirée à cause de toutes sortes de problèmes » ; (3) **c'est l'ADR-001 rendu réel** — la raison fondatrice de Jay était d'isoler les pannes ; un processus séparé est l'isolation la plus forte qui existe : le moteur peut mourir, l'app survit et le relance. **Conséquence** : le spike B0.0 teste cette forme, il ne la découvre pas. **Coût connu** : un tuyau à maintenir, et la latence qu'il ajoute (à mesurer).
-- **ADR-014 (2026-07-17)** : **Le plancher matériel d'Hikari = plancher publié d'OBS + notre surcoût mesuré.** **Pourquoi** (correction de cadrage de Jay) : mesurer « ça marche sur la machine de Jay » ne sert presque à rien — Hikari doit tourner chez n'importe qui, et une machine est **un point**, jamais une courbe. En revanche, **le surcoût par rapport à OBS nu est transférable** : si on coûte X % de plus qu'OBS à travail égal, ce X vaut sur toutes les machines. OBS publie ses exigences et a dix ans de terrain → on **hérite** de son plancher, on mesure seulement ce qu'on **ajoute**. **Conséquences** : (1) toute épreuve de performance exige une **mesure de référence sur OBS nu**, sinon elle ne parle que de la machine de test ; (2) le code **détecte** la capacité matérielle à l'exécution, il ne la **présume** jamais (F-003) ; (3) la vraie matrice matérielle (AMD, Intel, sans encodeur) vient des **premiers utilisateurs**, jamais d'un spike.
+- **ADR-014 (2026-07-17)** : **Le plancher matériel d'Hikari = plancher publié d'OBS + notre surcoût mesuré.** **Pourquoi** (correction de cadrage de Jay) : mesurer « ça marche sur la machine de Jay » ne sert presque à rien — Hikari doit tourner chez n'importe qui, et une machine est **un point**, jamais une courbe. En revanche, **le surcoût par rapport à OBS nu est transférable** : si on coûte X % de plus qu'OBS à travail égal, ce X vaut sur toutes les machines. OBS publie ses exigences et a dix ans de terrain → on **hérite** de son plancher, on mesure seulement ce qu'on **ajoute**. **Conséquences** : (1) toute épreuve de performance exige une **mesure de référence sur OBS nu**, sinon elle ne parle que de la machine de test ; (2) le code **détecte** la capacité matérielle à l'exécution, il ne la **présume** jamais (F-003) ; (3) la vraie matrice matérielle (AMD, Intel, sans encodeur) vient des **premiers utilisateurs**, jamais d'un spike. **Amendement 2026-07-17 (Jay)** : la mesure du surcoût vs OBS se fait sur l'**application finie**, jamais sur un spike nu — le coût d'un spike n'est pas le coût du produit. B0.0 a mesuré le coût *absolu* d'Hikari (faible) et prouvé la faisabilité ; la comparaison vs OBS est reportée à la fin du développement.
 
 ## 13. Déviations vs CDC
 
-*(Suivies ici ; si permanentes → mettre à jour le CDC.)* Aucune à ce jour.
+*(Suivies ici ; si permanentes → mettre à jour le CDC.)*
+
+| Date | Déviation | Statut |
+|---|---|---|
+| 2026-07-17 | **Surcoût vs OBS nu (c) mesuré en fin de développement**, pas au spike — le coût pertinent est celui de l'app finie, pas d'un spike nu (décision Jay). Amende la méthode de l'ADR-014. | actif |
+| 2026-07-17 | **Seuil « surcoût < 20 % CPU » à revoir** : avec NVENC le coût est sur le GPU, le CPU est quasi nul. Le juge sera GPU/encodeur, pas le seul CPU. | à trancher (fin de dev) |
+| 2026-07-17 | Épreuves (a) sceau 5 min/Twitch, (d) double encodage, (e) taille d'install **différées** à leur brique (d↔B3, e↔B-pack). | différé |
 
 ## 14. Journal de session
 
@@ -634,3 +671,4 @@ contournement, ou pire, un spike qu'on garde « parce qu'il est testé ».
 | 2026-07-16 | Takumi 002 (suite) | **Lien automation ↔ deck posé → PET v1.3.0.** Nourri par une analyse concurrence (recherche datée + **rétro-ingénierie du fichier de données réel de Streamer.bot**) → `refs-concurrence/Analyse-Streamerbot-TouchPortal.md`. **ADR-011** (le moteur expose une interface, le deck en est un client) + **ADR-012** (le déclencheur est un attribut, pas une nature). Sens de la dépendance **corrigé** : B-auto avant B4, et non l'inverse. Assertion ajoutée (type de déclencheur ∈ ensemble fermé). Origine : question de Jay — « certaines automations ont besoin d'un bouton, d'autres non ». |
 | 2026-07-17 | Takumi 002 (suite) | 🔄 **Le pari technique tombe → PET v1.4.0.** Recherche de contre-exemple **demandée par Jay** : `league_record` (Rust + Tauri + moteur d'OBS, **livré depuis mars 2022**) + Cap + 4 autres. « Aucune app en production » = **faux, jamais vérifié**. Leur architecture = **moteur en processus séparé** (`ipc-link` + `extprocess_recorder`) → **ADR-013** : ça contourne la friction async **et** réalise l'isolation des pannes de l'ADR-001. **B0.0 réécrit** : de « go/no-go » à « mesure », 2 j → 1 j, épreuve reine = **la diffusion en direct** (seul inconnu : personne n'a croisé Rust + diffusion). **Correction de cadrage de Jay** : un spike sur sa machine ne sert pas les autres → **ADR-014**, on mesure le **surcoût vs OBS nu** (transférable), plancher = celui d'OBS + surcoût, et la matrice matérielle viendra des utilisateurs. `Veille-Technique.md` marqué **périmé** (source de l'erreur 3.0.3 + « aucune app en prod » + « réutiliser l'ancien repo »). Mémoire Shinzo : `rare-n-est-pas-impossible`. |
 | 2026-07-16 | Takumi 002 (suite) | **Écran Automations maquetté** (`Mockup-Hikari-Stream.html`) — le trou relevé à l'audit : F-023 était le différenciateur du projet sans aucun écran. Livré : entrée de menu (groupe Produire, collée au Deck), liste des automations, chaîne **Quand → Si → Alors** lisible en français, bandeau des 4 garde-fous, 3 langues. La maquette **applique ADR-008** : les automations y sont une donnée que l'écran lit et dessine (`AUTOS`), jamais du balisage figé. Vérifié au navigateur : 5 automations, bascule au clic, 0 erreur. Reste à valider par Jay (placement dans le menu). |
+| 2026-07-17 | Takumi (session dév) | 🧱 **B0.0 EXÉCUTÉ → GO branche A.** Scaffold workspace 2 processus (Rust **stable**, nightly écarté). **(a)** diffusion RTMP NVENC prouvée (reçue par MediaMTX) · **(b)** survie + relance du moteur prouvée des 2 côtés · **(c)** coût Hikari mesuré (CPU 0,8 % / GPU 27 % / RAM 487 Mo). Comparaison vs OBS + (d)/(e) **différées fin de dev** (décision Jay). Commits `78bde90`→`eb08e3e`. Preuves : `spikes/b0.0-libobs/mesures/`. |
