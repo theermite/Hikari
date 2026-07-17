@@ -4,7 +4,7 @@ created: 2026-07-11
 updated: 2026-07-17
 status: active
 type: pet
-version: 1.8.0
+version: 1.8.1
 project: Hikari Stream
 ---
 
@@ -175,7 +175,7 @@ project: Hikari Stream
 ### Phase P1 — Socle & moteur
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
-| B0.3 | Scaffold Tauri 2.x + Rust + React 19 + Tailwind 4 | Standard | ⬜ |
+| B0.3 | Scaffold Tauri 2.x + Rust + React 19 + Tailwind 4 | Standard | ✅ FAIT (2026-07-18, fc1b278) |
 | B1 | Moteur : scène simple + sources + preview | Critique | ⬜ |
 | B2 | Encodage + diffusion (single) + connexion comptes OAuth | Critique | ⬜ |
 
@@ -566,7 +566,15 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 >
 > **Légende autonomie** : 🟢 prête pour un run autonome · 🟡 cadrage humain / mini-spike d'abord.
 
-### B0.3 — Scaffold de l'application (Tauri 2 + React 19 + Tailwind 4) · Standard · 🟢
+### B0.3 — Scaffold de l'application (Tauri 2 + React 19 + Tailwind 4) · Standard · 🟢 — ✅ FAIT (2026-07-18)
+
+> **✅ Livré (commit `fc1b278`, sur `main`)** : socle Tauri 2.11 + React 19.2 + Vite 7 + TS 5.8
+> strict + Tailwind 4.3 + Biome 2.5 + Vitest 4.1. Tous verts : `pnpm test`/`lint`/`build`,
+> `cargo build`/`clippy` (0 avertissement). Combo **stable** (Vite 8 / TS 7 reportés). Socle pur
+> (boilerplate retiré). **Constat pour B1** : `@testing-library/react` 16.3 + jsdom sont
+> incompatibles avec l'`act` de React 19.2 (`React.act` = `undefined`) → retirés ; test smoke via
+> `renderToStaticMarkup`. Le test interactif (jsdom + Testing Library) est à recâbler en B1 avec une
+> veille fraîche (autre lib, ou attendre une version RTL compatible).
 
 - **Objectif** : le socle réel — fenêtre Tauri, front React qui build, lint + tests câblés. B1+ s'y greffent.
 - **Approche décidée** : Tauri **2.11.x** (`src-tauri/`) · React **19.x** + Vite + Tailwind **4** (`src/`) · pnpm · Biome (lint TS) + Clippy (Rust). Le **moteur reste une crate/binaire séparé** (ADR-013) : le workspace `src-tauri` accueillera `engine` en B1. `dockview` **pas ici** (B-shell). Zéro logique métier.
@@ -577,6 +585,9 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Pré-vol** : `pnpm -v` + `cargo -V` sortent 0 · brique non ambiguë.
 
 ### B1 — Moteur intégré : scène + sources + aperçu · Critique · 🟡 (à scinder)
+
+> ⚠️ **Dette test héritée de B0.3** : jsdom + Testing Library sont retirés (incompat `act` React
+> 19.2). Recâbler le test interactif ici, veille fraîche — sinon les tests de rendu de B1 n'ont pas d'outil.
 
 - **Objectif** : l'app pilote le moteur (processus séparé) ; une scène avec ≥1 source s'affiche en **aperçu**.
 - **Approche décidée** : porter l'`engine` du spike en crate du workspace `src-tauri`. Le contrôleur (Rust) lance + supervise le moteur (survie/relance **prouvées** en B0.0). **Protocole du tuyau** = messages **JSON lignes** sur stdio (c'est l'interface de l'ADR-011, à figer ici). Sources via `libobs-simple` (capture écran/jeu/fenêtre, API **prouvée** au spike).
@@ -920,6 +931,7 @@ contournement, ou pire, un spike qu'on garde « parce qu'il est testé ».
 | 2026-07-16 | Takumi 002 (suite) | **Lien automation ↔ deck posé → PET v1.3.0.** Nourri par une analyse concurrence (recherche datée + **rétro-ingénierie du fichier de données réel de Streamer.bot**) → `refs-concurrence/Analyse-Streamerbot-TouchPortal.md`. **ADR-011** (le moteur expose une interface, le deck en est un client) + **ADR-012** (le déclencheur est un attribut, pas une nature). Sens de la dépendance **corrigé** : B-auto avant B4, et non l'inverse. Assertion ajoutée (type de déclencheur ∈ ensemble fermé). Origine : question de Jay — « certaines automations ont besoin d'un bouton, d'autres non ». |
 | 2026-07-17 | Takumi 002 (suite) | 🔄 **Le pari technique tombe → PET v1.4.0.** Recherche de contre-exemple **demandée par Jay** : `league_record` (Rust + Tauri + moteur d'OBS, **livré depuis mars 2022**) + Cap + 4 autres. « Aucune app en production » = **faux, jamais vérifié**. Leur architecture = **moteur en processus séparé** (`ipc-link` + `extprocess_recorder`) → **ADR-013** : ça contourne la friction async **et** réalise l'isolation des pannes de l'ADR-001. **B0.0 réécrit** : de « go/no-go » à « mesure », 2 j → 1 j, épreuve reine = **la diffusion en direct** (seul inconnu : personne n'a croisé Rust + diffusion). **Correction de cadrage de Jay** : un spike sur sa machine ne sert pas les autres → **ADR-014**, on mesure le **surcoût vs OBS nu** (transférable), plancher = celui d'OBS + surcoût, et la matrice matérielle viendra des utilisateurs. `Veille-Technique.md` marqué **périmé** (source de l'erreur 3.0.3 + « aucune app en prod » + « réutiliser l'ancien repo »). Mémoire Shinzo : `rare-n-est-pas-impossible`. |
 | 2026-07-16 | Takumi 002 (suite) | **Écran Automations maquetté** (`Mockup-Hikari-Stream.html`) — le trou relevé à l'audit : F-023 était le différenciateur du projet sans aucun écran. Livré : entrée de menu (groupe Produire, collée au Deck), liste des automations, chaîne **Quand → Si → Alors** lisible en français, bandeau des 4 garde-fous, 3 langues. La maquette **applique ADR-008** : les automations y sont une donnée que l'écran lit et dessine (`AUTOS`), jamais du balisage figé. Vérifié au navigateur : 5 automations, bascule au clic, 0 erreur. Reste à valider par Jay (placement dans le menu). |
+| 2026-07-18 | Takumi (session dév) | 🧱 **B0.3 LIVRÉ (`fc1b278`, sur `main`).** Scaffold Tauri 2.11 + React 19.2 + Vite 7 + TS 5.8 strict + Tailwind 4.3 + Biome 2.5 + Vitest 4.1 ; socle pur ; tous verts (front + `cargo build`/`clippy`). Combo stable (Vite 8/TS 7 reportés). Dette : jsdom+RTL retirés (incompat `act` React 19.2) → test interactif recâblé en B1. Prochain brique autonome : B1a. |
 | 2026-07-17 | Takumi (session dév) | **Passe d'exhaustivité TERMINÉE (§7quinquies) + veille libobs.** 12 dernières briques détaillées (B8, B11-B16, B-dash/settings/cloud/stats/pack). Veille pont : source générique + filtres + replay buffer → B6/B-cam/B7-mouvements → 🟢. Les 25 briques de prod ont une fiche autonome ou un cadrage 🟡. PET exécutable de bout en bout. Version 1.7.0 → 1.8.0. |
 | 2026-07-17 | Takumi (session dév) | **Passe d'exhaustivité vagues 2 & 3 (§7ter, §7quater).** B-shell/B-auto/B4/B5 (cockpit) + B6/B7/B-cam/B9/B10 (live riche). Drapeaux honnêtes : vague 3 majoritairement 🟡 (API libobs audio/transitions/caméra non prouvée au spike → à confirmer par veille). Version 1.6.0 → 1.7.0. |
 | 2026-07-17 | Takumi (session dév) | **Passe d'exhaustivité vague 1 (§7bis).** Fiches autonomes B0.3/B1/B2/B3 (7 champs + vérité externe). **B1 scindé** B1a/B1b (aperçu cross-process = mini-spike). Le PET devient exécutable en autonome, brique par brique, sur le chemin critique. Version 1.5.0 → 1.6.0. |
