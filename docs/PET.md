@@ -4,7 +4,7 @@ created: 2026-07-11
 updated: 2026-07-17
 status: active
 type: pet
-version: 1.7.0
+version: 1.8.0
 project: Hikari Stream
 ---
 
@@ -19,6 +19,12 @@ project: Hikari Stream
 > ⚠️ **Passe d'exhaustivité complète prévue APRÈS B0.0** : le détail interne de plusieurs briques
 > dépend de sa mesure. Ce PET pré-décide tout le connaissable, puis sera raffiné en version finale
 > exhaustive une fois le spike passé (décision Jay 2026-07-11).
+>
+> **v1.8.0 (2026-07-17) — passe d'exhaustivité TERMINÉE (vagues 4+) + veille libobs.** §7quinquies :
+> les 12 dernières briques (B8, B11-B16, B-dash/settings/cloud/stats/pack). **Veille faite** sur le
+> pont : création de source générique + filtres + replay buffer → **B6, B-cam, B7-mouvements passent
+> 🟢**. Les 25 briques de production ont une fiche autonome (🟢) ou un cadrage honnête (🟡 + veille au
+> démarrage). **Le PET est exécutable de bout en bout.**
 >
 > **v1.7.0 (2026-07-17) — passe d'exhaustivité, vagues 2 et 3.** §7ter (cockpit interactif :
 > B-shell, B-auto, B4, B5) + §7quater (live riche : B6, B7, B-cam, B9, B10). Honnêteté assumée :
@@ -647,9 +653,15 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 
 ## 7quater. Fiches exhaustives — VAGUE 3 (le live riche) *(ajouté 2026-07-17)*
 
-> Même avertissement. Point commun 🟡 : **l'API libobs pour audio / transitions / caméra n'a PAS été
-> explorée au spike** (seuls diffusion + capture le sont). Leur vérité externe = « API
-> `libobs-wrapper` à confirmer par veille au démarrage de la brique » — honnêteté, pas fausse certitude.
+> Même avertissement. Point de départ 🟡 : l'API libobs audio / transitions / caméra n'avait pas été
+> explorée au spike (seuls diffusion + capture le sont).
+>
+> **✅ Veille faite le 2026-07-17 (source : dépôt libobs-rs)** : le pont expose la **création de source
+> générique** (`obs_source_create` par id + réglages — comme le service RTMP du spike) ET l'**API de
+> filtres** (`obs_source_filter_add`, `sources/filter.rs`). Conséquence : **B6 (audio) et B-cam
+> (caméra) passent 🟢** — source `wasapi_input` / `dshow_input` + filtres (suppression bruit, sidechain,
+> masque, retrait de fond) = transcriptibles. **B7 : 🟢 mouvements** (scene items + transforms prouvés)
+> **· 🟡-léger transitions** (source de transition à activer — un appel à confirmer, pas un inconnu).
 
 ### B6 — Audio · Standard · 🟡 (API à confirmer)
 - **Objectif** : mixage + filtres micro + suppression bruit + ducking + routage écoute/diffusion + waveforms (F-021, F-037, F-039).
@@ -696,7 +708,84 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Vérité externe** : les API **officielles** chat/EventSub des plateformes — **à confirmer par veille** (versions, scopes). 🟡.
 - **Autonomie** : 🟡 — confirmer les API plateformes d'abord.
 
-### Vagues 4+ — reste à détailler juste-à-temps (B8 · B11 · B12 · B13 · B14 · B15 · B16 · B-dash · B-settings · B-cloud · B-stats · B-pack)
+## 7quinquies. Fiches — VAGUES 4+ (finition, publication, avatar, livraison) *(ajouté 2026-07-17)*
+
+> Rédigées d'avance ; re-valider au tour venu. Veille externe (API plateformes, libs avatar/cloud) =
+> **à faire au démarrage** — elles bougent vite, les figer maintenant serait périmé (leçon Cross-Project).
+
+### B8 — Kit de marque + propagation · Standard · 🟢
+- **Objectif** : kit de marque (F-004, F-072) propagé aux overlays/clips/posts/miniatures.
+- **Approche** : kit = **donnée JSON**, source unique consommée partout. Frontend + data.
+- **Fichiers** : `src/features/brand/*` · `src-tauri/src/brand.rs`. **Tests** : `should_propagate_brand_to_all_surfaces`.
+- **Vérité externe** : logique de propagation (déterministe, testable), pas d'API externe. 🟢.
+
+### B11 — Marqueurs + clips + replay + sous-titres · Standard/Sensible · 🟢 (sous-titres 🟡→B0.1)
+- **Objectif** : marqueurs → clips, replay instantané, chapitres, sous-titres live (F-040→F-045).
+- **Approche** : marqueurs horodatés → **FFmpeg** (découpe) ; replay = **tampon circulaire libobs** (`replay_buffer`, **prouvé présent** : `libobs-simple/output/replay.rs`) ; sous-titres live = whisper.cpp (**spike B0.1**).
+- **Fichiers** : `src-tauri/crates/engine/src/replay.rs` · `src-tauri/src/editing/{markers,clips,ffmpeg}.rs` · `src/features/editing/*`.
+- **Tests** : `should_cut_clip_from_marker` · `should_replay_instantly` · assertion §5 (borne début < fin).
+- **Vérité externe** : API `replay_buffer` (dépôt libobs) + FFmpeg (officiel). 🟢 · sous-titres 🟡 (B0.1).
+
+### B12 — Publication native + planning + miniatures + pont Kobo · Sensible · 🟡 (API plateformes)
+- **Objectif** : publier + planifier + miniatures + infos diffusion + pont Kobo (F-050→F-054).
+- **Approche** : upload via API **officielles** (YouTube Data, Twitch) ; OAuth **réutilisé de B2** ; jeton relu frais à chaque publication (assertion). Pied de description constant par marque.
+- **Fichiers** : `src-tauri/src/publish/*` · `src/features/publish/*`. **Tests** : `should_refresh_token_before_publish` · `should_target_correct_platform`.
+- **Vérité externe** : API upload **officielles** — **veille au démarrage** (quotas, scopes). 🟡.
+
+### B13 — Avatar VRM étape 1 (Spout2) · Standard · 🟡 (source Spout2)
+- **Objectif** : avatar VRM via source externe (Spout2).
+- **Approche** : source Spout2 en entrée du moteur (création de source générique par id, mécanisme vérifié).
+- **Fichiers** : `src-tauri/crates/engine/src/spout.rs` · `src/features/avatar/*`. **Tests** : `should_capture_spout_source`.
+- **Vérité externe** : id/plugin Spout2 pour OBS — **veille au démarrage**. 🟡.
+
+### B14 — Avatar VRM étape 2 (MediaPipe + three-vrm) · Standard · 🟡 (libs)
+- **Objectif** : avatar natif (MediaPipe → mapper maison → three-vrm ; Kalidokit déprécié).
+- **Approche** : webcam → MediaPipe (blendshapes) → three-vrm dans le front (3D, expertise Takumi).
+- **Fichiers** : `src/features/avatar-native/*`. **Tests** : rendu + mapping (visuel).
+- **Vérité externe** : versions MediaPipe / three-vrm — **veille au démarrage**. 🟡.
+
+### B15 — Morphique + palette Ctrl+K + WCAG · Standard · 🟢 (réutilise)
+- **Objectif** : morphique (densité/police/langue/contraste) + palette Ctrl+K + WCAG 2.2 AA + widget feedback (F-006, F-070, F-105, F-107→109).
+- **Approche** : **réutilise le Module Morphique** de l'écosystème (ADR-006, jamais réécrit) ; palette = index d'actions/écrans filtrable.
+- **Fichiers** : `src/features/morphic/*` (import) · `src/features/command-palette/*`. **Tests** : `should_persist_preference` · `should_reach_action_from_palette` · axe-core 0 violation.
+- **Vérité externe** : le Module Morphique existant (Lego) + axe-core. 🟢.
+
+### B16 — Contrôles rapides + caméra virtuelle + don · Standard · 🟢
+- **Objectif** : mute micro · confidentialité écran · silence alertes 1 clic (toujours visible) · caméra virtuelle · co-stream · don discret (F-028, F-046, F-090→093).
+- **Approche** : caméra virtuelle = **sortie virtualcam** de libobs (output générique, API prouvée) ; le reste = frontend + commandes moteur.
+- **Fichiers** : `src/features/quick-controls/*` · `src-tauri/crates/engine/src/virtualcam.rs`. **Tests** : `should_mute_mic_when_toggled` · `should_silence_all_alerts_in_one_click`.
+- **Vérité externe** : API output libobs (prouvée) + logique frontend. 🟢.
+
+### B-dash — Dashboard d'accueil · Standard · 🟢
+- **Objectif** : chiffres clés + derniers streams + à venir (F-102). Frontend, lit B-stats.
+- **Fichiers** : `src/features/dashboard/*`. **Tests** : `should_show_kpis_and_recent_streams`. **Vérité externe** : données locales. 🟢.
+
+### B-settings — Écran Paramètres unifié · Sensible · 🟢
+- **Objectif** : onglets comptes/périph/encodage/deck+appairage/marque/stockage/à-propos (F-103).
+- **Fichiers** : `src/features/settings/*`. **Tests** : réglages persistés. **Vérité externe** : `plugin-store` (local). 🟢.
+
+### B-cloud — Espace cloud utilisateur + archivage · Sensible · 🟡 (OAuth fournisseurs)
+- **Objectif** : Drive/Dropbox/OneDrive/S3-WebDAV ; archivage post-live vers le dossier **de l'utilisateur** (Hikari n'héberge rien, ADR-007).
+- **Approche** : rclone (ou équiv.) ; OAuth par fournisseur ; assertion (fournisseur ∈ liste · jeton non expiré).
+- **Fichiers** : `src-tauri/src/cloud/*` · `src/features/cloud/*`. **Tests** : `should_archive_to_user_folder`.
+- **Vérité externe** : API OAuth par fournisseur — **veille au démarrage**. 🟡.
+
+### B-stats — Écran Suivi · Standard · 🟢 (viewers 🟡)
+- **Objectif** : stats lives/clips + stabilité & débit + compteur viewers (F-060→062).
+- **Approche** : débit/stabilité **lus du moteur** (source unique, prouvé) ; stats persistées localement ; viewers via API plateformes (dégradation propre si indispo — jamais un zéro trompeur).
+- **Fichiers** : `src/features/tracking/*` · `src-tauri/src/stats.rs`. **Tests** : `should_report_bitrate_from_engine` · `should_degrade_gracefully_when_platform_down`.
+- **Vérité externe** : stats moteur (prouvées) 🟢 · compteur viewers = API plateformes 🟡 (veille).
+
+### B-pack — Installation unique · Sensible · 🟡-léger (bundling + ex-épreuve e)
+- **Objectif** : empaquetage Tauri + moteur OBS embarqué (`libobs-bootstrapper`) + somme de contrôle + 1ère ouverture sur machine vierge (F-001).
+- **Approche** : bundler Tauri (Windows d'abord) ; stratégie embarqué vs téléchargé **tranchée à l'ex-épreuve B0.0(e)** (à faire) ; somme de contrôle **avant** d'exécuter un binaire téléchargé (assertion).
+- **Fichiers** : `src-tauri/tauri.conf.json` (bundle) · `src-tauri/src/bootstrap.rs`. **Tests** : machine vierge sans OBS → install → 1ère ouverture réussie.
+- **Vérité externe** : bundler Tauri (officiel) + crate `libobs-bootstrapper`. 🟡-léger.
+
+### Toutes les briques de production sont détaillées
+Les **25 briques de production** ont désormais une fiche à qualité autonome (🟢) ou un cadrage honnête (🟡 + veille au démarrage). Le PET est **exécutable de bout en bout**.
+
+### Références d'approche (héritées — désormais couvertes par les fiches ci-dessus)
 - Scope, approche, tests et critères **cadrés** par le CDC (§3 fonctions, §7 risques, §8 FMEA) et la roadmap §6.
 - **Détail exhaustif figé quand leur vague approche** — le figer maintenant = deviner sur des décisions que la construction des vagues 1-2 va trancher (ADR-004, anti-sur-ingénierie).
 - Approches déjà décidées, indépendantes du moteur :
@@ -831,6 +920,7 @@ contournement, ou pire, un spike qu'on garde « parce qu'il est testé ».
 | 2026-07-16 | Takumi 002 (suite) | **Lien automation ↔ deck posé → PET v1.3.0.** Nourri par une analyse concurrence (recherche datée + **rétro-ingénierie du fichier de données réel de Streamer.bot**) → `refs-concurrence/Analyse-Streamerbot-TouchPortal.md`. **ADR-011** (le moteur expose une interface, le deck en est un client) + **ADR-012** (le déclencheur est un attribut, pas une nature). Sens de la dépendance **corrigé** : B-auto avant B4, et non l'inverse. Assertion ajoutée (type de déclencheur ∈ ensemble fermé). Origine : question de Jay — « certaines automations ont besoin d'un bouton, d'autres non ». |
 | 2026-07-17 | Takumi 002 (suite) | 🔄 **Le pari technique tombe → PET v1.4.0.** Recherche de contre-exemple **demandée par Jay** : `league_record` (Rust + Tauri + moteur d'OBS, **livré depuis mars 2022**) + Cap + 4 autres. « Aucune app en production » = **faux, jamais vérifié**. Leur architecture = **moteur en processus séparé** (`ipc-link` + `extprocess_recorder`) → **ADR-013** : ça contourne la friction async **et** réalise l'isolation des pannes de l'ADR-001. **B0.0 réécrit** : de « go/no-go » à « mesure », 2 j → 1 j, épreuve reine = **la diffusion en direct** (seul inconnu : personne n'a croisé Rust + diffusion). **Correction de cadrage de Jay** : un spike sur sa machine ne sert pas les autres → **ADR-014**, on mesure le **surcoût vs OBS nu** (transférable), plancher = celui d'OBS + surcoût, et la matrice matérielle viendra des utilisateurs. `Veille-Technique.md` marqué **périmé** (source de l'erreur 3.0.3 + « aucune app en prod » + « réutiliser l'ancien repo »). Mémoire Shinzo : `rare-n-est-pas-impossible`. |
 | 2026-07-16 | Takumi 002 (suite) | **Écran Automations maquetté** (`Mockup-Hikari-Stream.html`) — le trou relevé à l'audit : F-023 était le différenciateur du projet sans aucun écran. Livré : entrée de menu (groupe Produire, collée au Deck), liste des automations, chaîne **Quand → Si → Alors** lisible en français, bandeau des 4 garde-fous, 3 langues. La maquette **applique ADR-008** : les automations y sont une donnée que l'écran lit et dessine (`AUTOS`), jamais du balisage figé. Vérifié au navigateur : 5 automations, bascule au clic, 0 erreur. Reste à valider par Jay (placement dans le menu). |
+| 2026-07-17 | Takumi (session dév) | **Passe d'exhaustivité TERMINÉE (§7quinquies) + veille libobs.** 12 dernières briques détaillées (B8, B11-B16, B-dash/settings/cloud/stats/pack). Veille pont : source générique + filtres + replay buffer → B6/B-cam/B7-mouvements → 🟢. Les 25 briques de prod ont une fiche autonome ou un cadrage 🟡. PET exécutable de bout en bout. Version 1.7.0 → 1.8.0. |
 | 2026-07-17 | Takumi (session dév) | **Passe d'exhaustivité vagues 2 & 3 (§7ter, §7quater).** B-shell/B-auto/B4/B5 (cockpit) + B6/B7/B-cam/B9/B10 (live riche). Drapeaux honnêtes : vague 3 majoritairement 🟡 (API libobs audio/transitions/caméra non prouvée au spike → à confirmer par veille). Version 1.6.0 → 1.7.0. |
 | 2026-07-17 | Takumi (session dév) | **Passe d'exhaustivité vague 1 (§7bis).** Fiches autonomes B0.3/B1/B2/B3 (7 champs + vérité externe). **B1 scindé** B1a/B1b (aperçu cross-process = mini-spike). Le PET devient exécutable en autonome, brique par brique, sur le chemin critique. Version 1.5.0 → 1.6.0. |
 | 2026-07-17 | Takumi (session dév) | 🧱 **B0.0 EXÉCUTÉ → GO branche A.** Scaffold workspace 2 processus (Rust **stable**, nightly écarté). **(a)** diffusion RTMP NVENC prouvée (reçue par MediaMTX) · **(b)** survie + relance du moteur prouvée des 2 côtés · **(c)** coût Hikari mesuré (CPU 0,8 % / GPU 27 % / RAM 487 Mo). Comparaison vs OBS + (d)/(e) **différées fin de dev** (décision Jay). Commits `78bde90`→`eb08e3e`. Preuves : `spikes/b0.0-libobs/mesures/`. |
