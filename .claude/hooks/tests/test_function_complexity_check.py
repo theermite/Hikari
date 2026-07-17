@@ -14,11 +14,32 @@ tests"). Non-Python files pass (file-length guard covers them).
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
+import pytest
+
 HOOK = Path(__file__).resolve().parents[1] / "quality" / "function-complexity-check.py"
+# .claude/hooks/tests/<this file> -> <project>. Mirrors the hook's own PROJECT_ROOT.
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+@pytest.fixture
+def project_tmp():
+    """A scratch dir INSIDE the project.
+
+    The gate only polices files it owns (parents[2] filter). A fixture writing
+    to the OS temp dir puts every case out of scope, so the hook exits 0 and the
+    assertions stop proving anything. `tmp/` is gitignored.
+    """
+    base = PROJECT_ROOT / "tmp" / "hook-tests"
+    base.mkdir(parents=True, exist_ok=True)
+    scratch = Path(tempfile.mkdtemp(dir=base))
+    yield scratch
+    shutil.rmtree(scratch, ignore_errors=True)
 
 
 def _run(file_path: Path) -> subprocess.CompletedProcess:
@@ -36,51 +57,55 @@ def _write(path: Path, content: str) -> Path:
     return path
 
 
+def _long_function(name: str = "big", lines: int = 31) -> str:
+    return f"def {name}():\n" + "".join(f"    x{i} = {i}\n" for i in range(lines))
+
+
 # --- pass cases -------------------------------------------------------------
 
 
-def test_short_simple_function_passes(tmp_path):
-    f = _write(tmp_path / "ok.py", "def f(x):\n    return x + 1\n")
+def test_short_simple_function_passes(project_tmp):
+    f = _write(project_tmp / "ok.py", "def f(x):\n    return x + 1\n")
     res = _run(f)
     assert res.returncode == 0
 
 
-def test_non_python_passes(tmp_path):
+def test_non_python_passes(project_tmp):
     # 40 lines of TS — file-length guard covers it, this hook must not parse it.
     body = "function f() {\n" + "  doThing();\n" * 40 + "}\n"
-    f = _write(tmp_path / "big.ts", body)
+    f = _write(project_tmp / "big.ts", body)
     res = _run(f)
     assert res.returncode == 0
 
 
-def test_unparseable_python_passes(tmp_path):
+def test_unparseable_python_passes(project_tmp):
     # An Edit fragment / syntactically invalid file must not false-block.
-    f = _write(tmp_path / "frag.py", "def f(:\n    retur")
+    f = _write(project_tmp / "frag.py", "def f(:\n    retur")
     res = _run(f)
     assert res.returncode == 0
 
 
-def test_missing_file_passes(tmp_path):
-    res = _run(tmp_path / "does-not-exist.py")
+def test_missing_file_passes(project_tmp):
+    res = _run(project_tmp / "does-not-exist.py")
     assert res.returncode == 0
 
 
 # --- block: function too long ----------------------------------------------
 
 
-def test_long_function_blocks(tmp_path):
+def test_long_function_blocks(project_tmp):
     body = "def big():\n" + "".join(f"    x{i} = {i}\n" for i in range(31))
-    f = _write(tmp_path / "long.py", body)
+    f = _write(project_tmp / "long.py", body)
     res = _run(f)
     assert res.returncode == 2
     assert b"big" in res.stderr
     assert b"30" in res.stderr
 
 
-def test_function_exactly_30_lines_passes(tmp_path):
+def test_function_exactly_30_lines_passes(project_tmp):
     # def line + 29 body lines = 30 total -> at the limit, allowed.
     body = "def edge():\n" + "".join(f"    x{i} = {i}\n" for i in range(29))
-    f = _write(tmp_path / "edge.py", body)
+    f = _write(project_tmp / "edge.py", body)
     res = _run(f)
     assert res.returncode == 0
 
@@ -88,22 +113,22 @@ def test_function_exactly_30_lines_passes(tmp_path):
 # --- block: complexity too high --------------------------------------------
 
 
-def test_high_complexity_blocks(tmp_path):
+def test_high_complexity_blocks(project_tmp):
     # 11 if-statements -> CC = 1 + 11 = 12 > 10. Few lines, so length is fine:
     # isolates the complexity signal.
     body = "def branchy(a):\n" + "".join(f"    if a == {i}:\n        a += 1\n" for i in range(11))
-    f = _write(tmp_path / "cc.py", body)
+    f = _write(project_tmp / "cc.py", body)
     res = _run(f)
     assert res.returncode == 2
     assert b"branchy" in res.stderr
     assert b"complex" in res.stderr.lower()
 
 
-def test_boolean_operators_count_toward_complexity(tmp_path):
+def test_boolean_operators_count_toward_complexity(project_tmp):
     # one if with 11 `or` operands -> CC = 1 + 1(if) + 10(extra bool operands) = 12.
     cond = " or ".join(f"a == {i}" for i in range(11))
     body = f"def booly(a):\n    if {cond}:\n        return 1\n    return 0\n"
-    f = _write(tmp_path / "bool.py", body)
+    f = _write(project_tmp / "bool.py", body)
     res = _run(f)
     assert res.returncode == 2
     assert b"booly" in res.stderr
@@ -112,36 +137,47 @@ def test_boolean_operators_count_toward_complexity(tmp_path):
 # --- exclusions & per-function isolation ------------------------------------
 
 
-def test_test_file_excluded(tmp_path):
+def test_test_file_excluded(project_tmp):
     body = "def test_big():\n" + "".join(f"    x{i} = {i}\n" for i in range(40))
-    f = _write(tmp_path / "test_something.py", body)
+    f = _write(project_tmp / "test_something.py", body)
     res = _run(f)
     assert res.returncode == 0
 
 
-def test_conftest_excluded(tmp_path):
+def test_conftest_excluded(project_tmp):
     body = "def fixture_heavy():\n" + "".join(f"    x{i} = {i}\n" for i in range(40))
-    f = _write(tmp_path / "conftest.py", body)
+    f = _write(project_tmp / "conftest.py", body)
     res = _run(f)
     assert res.returncode == 0
 
 
-def test_scripts_tooling_excluded(tmp_path):
+def test_scripts_tooling_excluded(project_tmp):
     # Internal automation under scripts/ is exempt (like tests): orchestration
     # scripts legitimately have long functions, they are not product code.
     # (Jay 2026-06-13 — adding a project to propagate-methodology.py must not
     #  trip the gate on that legacy script's pre-existing long functions.)
     body = "def big():\n" + "".join(f"    x{i} = {i}\n" for i in range(40))
-    f = _write(tmp_path / "scripts" / "propagate.py", body)
+    f = _write(project_tmp / "scripts" / "propagate.py", body)
     res = _run(f)
     assert res.returncode == 0
 
 
-def test_complexity_is_per_function_not_summed(tmp_path):
+def test_file_outside_project_passes(tmp_path):
+    # A vendored fork or a third-party repo opened in the same session is not
+    # ours to police (Jay 2026-07-12: the gate broke editing ACE-Step-Studio,
+    # whose upstream engine legitimately exceeds 30 lines). `tmp_path` is the OS
+    # temp dir -> outside PROJECT_ROOT on purpose. This is the ONLY case here
+    # allowed to live outside the project.
+    f = _write(tmp_path / "vendored.py", _long_function("upstream_engine"))
+    res = _run(f)
+    assert res.returncode == 0
+
+
+def test_complexity_is_per_function_not_summed(project_tmp):
     # outer has 6 ifs (CC 7), nested inner has 6 ifs (CC 7). Neither exceeds 10.
     # If nested decisions leaked into outer, outer would be 13 -> false block.
     inner = "    def inner(b):\n" + "".join(f"        if b == {i}:\n            b += 1\n" for i in range(6))
     outer = "def outer(a):\n" + "".join(f"    if a == {i}:\n        a += 1\n" for i in range(6)) + inner
-    f = _write(tmp_path / "nested.py", outer)
+    f = _write(project_tmp / "nested.py", outer)
     res = _run(f)
     assert res.returncode == 0

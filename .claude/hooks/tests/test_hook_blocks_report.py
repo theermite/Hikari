@@ -1,4 +1,4 @@
-"""Tests for scripts/hook-blocks-report.py — A2-v2 cumulative guardrail report.
+"""Tests for .claude/hooks/lifecycle/hook-blocks-report.py — A2-v2 cumulative guardrail report.
 
 Reads the per-session journal written by hook-blocks-stats.py (A2):
   {"session_id","ts","blocks":{sig:count},"warns":{sig:count}}
@@ -15,7 +15,7 @@ import importlib.util
 import json
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "hook-blocks-report.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "lifecycle" / "hook-blocks-report.py"
 
 
 def _load():
