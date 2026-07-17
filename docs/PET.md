@@ -4,7 +4,7 @@ created: 2026-07-11
 updated: 2026-07-17
 status: active
 type: pet
-version: 1.6.0
+version: 1.7.0
 project: Hikari Stream
 ---
 
@@ -19,6 +19,13 @@ project: Hikari Stream
 > ⚠️ **Passe d'exhaustivité complète prévue APRÈS B0.0** : le détail interne de plusieurs briques
 > dépend de sa mesure. Ce PET pré-décide tout le connaissable, puis sera raffiné en version finale
 > exhaustive une fois le spike passé (décision Jay 2026-07-11).
+>
+> **v1.7.0 (2026-07-17) — passe d'exhaustivité, vagues 2 et 3.** §7ter (cockpit interactif :
+> B-shell, B-auto, B4, B5) + §7quater (live riche : B6, B7, B-cam, B9, B10). Honnêteté assumée :
+> beaucoup de briques vague 3 sont **🟡 (API libobs audio/transitions/caméra non prouvée au spike)**
+> — leur vérité externe = « API à confirmer par veille au démarrage ». Solides 🟢 : B-auto (logique
+> pure + Streamer.bot), B9 (détection encodeurs prouvée). Reste vagues 4+ : B8, B11-B16, B-dash/
+> settings/cloud/stats/pack.
 >
 > **v1.6.0 (2026-07-17) — passe d'exhaustivité, vague 1 (chemin critique).** Ajout §7bis : fiches
 > **exécutables par un run autonome** pour B0.3 · B1 · B2 · B3, chacune avec sa **vérité externe**
@@ -597,7 +604,99 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Pré-vol** : B2 livrée et verte · un jeu disponible pour la mesure.
 - **Autonomie** : 🟢 réplication d'un motif prouvé — dépend de B2 livrée.
 
-### B4 → B16, B-* (vagues 2+, à détailler juste-à-temps)
+## 7ter. Fiches exhaustives — VAGUE 2 (le cockpit interactif) *(ajouté 2026-07-17)*
+
+> ⚠️ **Rédigées AVANT la construction de la vague 1.** À re-valider quand leur tour vient — bâtir
+> B1-B3 peut les affiner (ADR-004). 🟢 vérité externe solide aujourd'hui · 🟡 un point à prouver/cadrer.
+
+### B-shell — Coque cockpit (dockview) · Sensible · 🟢 (détachement 🟡)
+- **Objectif** : coque à panneaux dock/onglets/redimension + modes Préparation/Live/Focus + presets + centre de santé (F-027, F-100, F-101, F-106). Héberge tous les écrans.
+- **Approche décidée** : `dockview-react` (ADR-005, jamais un dock maison). Layouts `toJSON`/`fromJSON` → presets (persistés `plugin-store`). Empaquetée Lego `@shinkofa/ui`. Détachement 2ᵉ écran = `WebviewWindow` Tauri + sync `emit`/`listen` (jamais `BroadcastChannel`).
+- **Fichiers** : `src/features/shell/{Cockpit.tsx, layout.ts, presets.ts}` · `src/features/health/*`.
+- **Tests TDG** : `should_restore_layout_when_deserialized` · `should_switch_preset_when_selected` · `should_never_lose_panel_when_window_closed` (assertion §5).
+- **Critère d'acceptation** : dock/onglets/resize OK · bascule preset OK · layout survit à un redémarrage.
+- **Vérité externe** : doc **officielle** dockview-react (`toJSON`/`fromJSON`, prouvable par test) — 🟢. **Le détachement 2ᵉ écran dépend du spike B0.4** (non fait) → 🟡.
+- **Autonomie** : 🟢 coque mono-fenêtre · 🟡 détachement (attendre B0.4).
+
+### B-auto — Moteur d'automations · Critique · 🟢
+- **Objectif** : automation = **donnée** (déclencheur → conditions → séquence), jamais du code exécuté (F-023, ADR-008). Expose l'interface consommée par B4/B5 (ADR-011).
+- **Approche décidée** : modèle `{nom, déclencheur, conditions[], actions[], actif}` ; déclencheur = bouton|chat|événement|minuteur (attribut, ADR-012). Moteur d'évaluation **pur**. Détection de cycle **à l'enregistrement**. Refus **fermé** sur condition non évaluable. Exécution hors du fil UI, une tâche isolée par automation (Let It Crash). Sans réseau.
+- **Fichiers** : `src-tauri/crates/automation/{model.rs, engine.rs, triggers.rs}` · `src/features/automations/*` (écran déjà maquetté).
+- **Tests TDG** (Critique 95 % + propriétés + mutation) : `should_run_action_when_condition_true` · `should_refuse_when_condition_unevaluable` · `should_reject_cycle_at_save` · `should_reject_unknown_trigger_type` (assertion §5) · `should_never_expose_event_trigger_as_deck_key` (ADR-012).
+- **Critère d'acceptation** : 5 assertions §5 tenues · anti-circulaire (mutation) sur le moteur d'éval.
+- **Vérité externe** : le **fichier de données réel de Streamer.bot** (`refs-concurrence/`) = le modèle prouvé · logique pure vérifiable par propriétés/mutation (pas d'API externe). 🟢.
+- **Autonomie** : 🟢 — logique déterministe. Excellent candidat (Critique → relecture modèle différent obligatoire).
+
+### B4 — Deck local · Critique · 🟢 (après B-auto)
+- **Objectif** : deck local-first (< 100 ms, sans réseau) ; une touche lance une action simple **ou une automation** (client de l'interface B-auto, ADR-011).
+- **Approche décidée** : consomme l'interface du moteur (lister exposables · lancer avec args · s'abonner). 4 types de touches, palette, boards. Chemin local prioritaire.
+- **Fichiers** : `src/features/deck/*` · `src-tauri/src/deck_bridge.rs`.
+- **Tests TDG** : `should_trigger_action_under_100ms_when_pressed` · `should_work_when_offline` · `should_show_button_automation_as_key` (ADR-012).
+- **Critère d'acceptation** : latence < 100 ms · marche sans réseau · automation à bouton d'office sur le deck.
+- **Vérité externe** : l'interface B-auto (livrée avant) + mesure de latence. 🟢.
+- **Autonomie** : 🟢 après B-auto.
+
+### B5 — Pont VPS + deck distant + permissions · Critique · 🟡 (infra)
+- **Objectif** : 2ᵉ client de la même interface (ADR-011) via pont VPS optionnel + permissions rôle fail-closed (F-047, F-048).
+- **Approche décidée** : Phoenix côté pont (websocket), appairage QR, permissions **refus par défaut**. Jamais un passage obligé. Assertions §5 : session authentifiée avant action · origine appairée valide.
+- **Fichiers** : pont `phoenix/*` (VPS) · `src/features/deck-remote/*` · `src-tauri/src/pairing.rs`.
+- **Tests TDG** : `should_block_moderator_beyond_role` · `should_require_auth_before_action` · `should_reject_unpaired_origin`.
+- **Critère d'acceptation** : modérateur bloqué au-delà de ses droits · appairage QR OK · le local reste autonome sans le pont.
+- **Vérité externe** : specs Phoenix/websocket (officielles) + logique fail-closed (vérifiable). 🟡 la 1ʳᵉ mise en place du pont (infra, ports → consulter `Shinkofa-Infra`) mérite une validation humaine.
+- **Autonomie** : 🟢 la logique permissions/appairage · 🟡 le déploiement du pont VPS.
+
+## 7quater. Fiches exhaustives — VAGUE 3 (le live riche) *(ajouté 2026-07-17)*
+
+> Même avertissement. Point commun 🟡 : **l'API libobs pour audio / transitions / caméra n'a PAS été
+> explorée au spike** (seuls diffusion + capture le sont). Leur vérité externe = « API
+> `libobs-wrapper` à confirmer par veille au démarrage de la brique » — honnêteté, pas fausse certitude.
+
+### B6 — Audio · Standard · 🟡 (API à confirmer)
+- **Objectif** : mixage + filtres micro + suppression bruit + ducking + routage écoute/diffusion + waveforms (F-021, F-037, F-039).
+- **Approche décidée** : sources/filtres audio libobs (suppression bruit = filtre NVIDIA/RNNoise, ducking = sidechain). Waveform = niveau réel lu du moteur.
+- **Fichiers** : `src-tauri/crates/engine/src/audio.rs` · `src/features/audio/*`.
+- **Tests TDG** : `should_apply_noise_suppression_when_enabled` · `should_duck_when_voice_detected` · `should_reflect_real_level_in_waveform`.
+- **Critère d'acceptation** : bruit supprimé · ducking à la voix · waveform = niveau réel.
+- **Vérité externe** : API filtres audio `libobs-wrapper` — **à confirmer par veille** (non explorée). 🟡.
+- **Autonomie** : 🟡 — mini-veille de l'API d'abord, puis 🟢.
+
+### B7 — Scènes avancées · Standard · 🟡 (API à confirmer)
+- **Objectif** : transitions, mouvements, auto-move (F-029, F-038).
+- **Approche décidée** : transitions via l'API scènes libobs ; mouvements = filtres/animations de sources.
+- **Fichiers** : `src-tauri/crates/engine/src/scenes.rs` · `src/features/scenes/*`.
+- **Tests TDG** : `should_apply_transition_when_switching` · `should_move_source_when_switch`.
+- **Critère d'acceptation** : transition appliquée au switch · source déplacée.
+- **Vérité externe** : API transitions `libobs-wrapper` — **à confirmer par veille**. 🟡.
+- **Autonomie** : 🟡.
+
+### B-cam — Caméra · Standard · 🟡 (API à confirmer)
+- **Objectif** : caméra perso, masques (cercle), fond sans écran vert, cam mobile (F-024, F-036).
+- **Approche décidée** : source dshow (webcam) + filtres (masque, retrait de fond NVIDIA/segmentation).
+- **Fichiers** : `src-tauri/crates/engine/src/camera.rs` · `src/features/camera/*`.
+- **Tests TDG** : `should_apply_circle_mask` · `should_remove_background_without_greenscreen`.
+- **Critère d'acceptation** : masque cercle · fond retiré sans écran vert.
+- **Vérité externe** : API dshow + filtres `libobs-wrapper` — **à confirmer**. 🟡.
+- **Autonomie** : 🟡.
+
+### B9 — Pré-vol + wizard + presets de scènes · Sensible · 🟢
+- **Objectif** : détection matériel + réglage sûr + wizard + presets + feu vert pré-vol (F-002, F-003, F-005, F-010→F-012).
+- **Approche décidée** : détecter la capacité (`available_video_encoders`, **API prouvée** au spike) → réglage sûr par défaut. Pré-vol = checks auto → Go Live.
+- **Fichiers** : `src-tauri/src/preflight.rs` · `src/features/onboarding/*`.
+- **Tests TDG** : `should_detect_available_encoders` · `should_pick_safe_default_when_detected` · `should_block_golive_when_precheck_fails`.
+- **Critère d'acceptation** : matériel détecté (jamais présumé, F-003) · réglage sûr · feu vert fonctionnel.
+- **Vérité externe** : l'API de détection d'encodeurs (**prouvée** au spike : `ENGINE:ENCODERS`) + les checks. 🟢.
+- **Autonomie** : 🟢.
+
+### B10 — Interaction : chat + modération + alertes · Sensible · 🟡 (API plateformes)
+- **Objectif** : chat multi-plateforme + modération auto + inline + alertes + pop-up + bandeaux + objectifs (F-030→F-035).
+- **Approche décidée** : connexions chat **officielles** par plateforme (Twitch IRC/EventSub, YouTube) ; modération inline (timeout/ban/épingler).
+- **Fichiers** : `src-tauri/src/chat/*` · `src/features/{chat,alerts}/*`.
+- **Tests TDG** : `should_timeout_user_from_message` · `should_raise_alert_when_event` · `should_merge_multiplatform_chat`.
+- **Critère d'acceptation** : chat multi-plateforme fusionné · modération inline OK · alertes déclenchées.
+- **Vérité externe** : les API **officielles** chat/EventSub des plateformes — **à confirmer par veille** (versions, scopes). 🟡.
+- **Autonomie** : 🟡 — confirmer les API plateformes d'abord.
+
+### Vagues 4+ — reste à détailler juste-à-temps (B8 · B11 · B12 · B13 · B14 · B15 · B16 · B-dash · B-settings · B-cloud · B-stats · B-pack)
 - Scope, approche, tests et critères **cadrés** par le CDC (§3 fonctions, §7 risques, §8 FMEA) et la roadmap §6.
 - **Détail exhaustif figé quand leur vague approche** — le figer maintenant = deviner sur des décisions que la construction des vagues 1-2 va trancher (ADR-004, anti-sur-ingénierie).
 - Approches déjà décidées, indépendantes du moteur :
@@ -732,5 +831,6 @@ contournement, ou pire, un spike qu'on garde « parce qu'il est testé ».
 | 2026-07-16 | Takumi 002 (suite) | **Lien automation ↔ deck posé → PET v1.3.0.** Nourri par une analyse concurrence (recherche datée + **rétro-ingénierie du fichier de données réel de Streamer.bot**) → `refs-concurrence/Analyse-Streamerbot-TouchPortal.md`. **ADR-011** (le moteur expose une interface, le deck en est un client) + **ADR-012** (le déclencheur est un attribut, pas une nature). Sens de la dépendance **corrigé** : B-auto avant B4, et non l'inverse. Assertion ajoutée (type de déclencheur ∈ ensemble fermé). Origine : question de Jay — « certaines automations ont besoin d'un bouton, d'autres non ». |
 | 2026-07-17 | Takumi 002 (suite) | 🔄 **Le pari technique tombe → PET v1.4.0.** Recherche de contre-exemple **demandée par Jay** : `league_record` (Rust + Tauri + moteur d'OBS, **livré depuis mars 2022**) + Cap + 4 autres. « Aucune app en production » = **faux, jamais vérifié**. Leur architecture = **moteur en processus séparé** (`ipc-link` + `extprocess_recorder`) → **ADR-013** : ça contourne la friction async **et** réalise l'isolation des pannes de l'ADR-001. **B0.0 réécrit** : de « go/no-go » à « mesure », 2 j → 1 j, épreuve reine = **la diffusion en direct** (seul inconnu : personne n'a croisé Rust + diffusion). **Correction de cadrage de Jay** : un spike sur sa machine ne sert pas les autres → **ADR-014**, on mesure le **surcoût vs OBS nu** (transférable), plancher = celui d'OBS + surcoût, et la matrice matérielle viendra des utilisateurs. `Veille-Technique.md` marqué **périmé** (source de l'erreur 3.0.3 + « aucune app en prod » + « réutiliser l'ancien repo »). Mémoire Shinzo : `rare-n-est-pas-impossible`. |
 | 2026-07-16 | Takumi 002 (suite) | **Écran Automations maquetté** (`Mockup-Hikari-Stream.html`) — le trou relevé à l'audit : F-023 était le différenciateur du projet sans aucun écran. Livré : entrée de menu (groupe Produire, collée au Deck), liste des automations, chaîne **Quand → Si → Alors** lisible en français, bandeau des 4 garde-fous, 3 langues. La maquette **applique ADR-008** : les automations y sont une donnée que l'écran lit et dessine (`AUTOS`), jamais du balisage figé. Vérifié au navigateur : 5 automations, bascule au clic, 0 erreur. Reste à valider par Jay (placement dans le menu). |
+| 2026-07-17 | Takumi (session dév) | **Passe d'exhaustivité vagues 2 & 3 (§7ter, §7quater).** B-shell/B-auto/B4/B5 (cockpit) + B6/B7/B-cam/B9/B10 (live riche). Drapeaux honnêtes : vague 3 majoritairement 🟡 (API libobs audio/transitions/caméra non prouvée au spike → à confirmer par veille). Version 1.6.0 → 1.7.0. |
 | 2026-07-17 | Takumi (session dév) | **Passe d'exhaustivité vague 1 (§7bis).** Fiches autonomes B0.3/B1/B2/B3 (7 champs + vérité externe). **B1 scindé** B1a/B1b (aperçu cross-process = mini-spike). Le PET devient exécutable en autonome, brique par brique, sur le chemin critique. Version 1.5.0 → 1.6.0. |
 | 2026-07-17 | Takumi (session dév) | 🧱 **B0.0 EXÉCUTÉ → GO branche A.** Scaffold workspace 2 processus (Rust **stable**, nightly écarté). **(a)** diffusion RTMP NVENC prouvée (reçue par MediaMTX) · **(b)** survie + relance du moteur prouvée des 2 côtés · **(c)** coût Hikari mesuré (CPU 0,8 % / GPU 27 % / RAM 487 Mo). Comparaison vs OBS + (d)/(e) **différées fin de dev** (décision Jay). Commits `78bde90`→`eb08e3e`. Preuves : `spikes/b0.0-libobs/mesures/`. |
