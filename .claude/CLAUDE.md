@@ -20,7 +20,7 @@ No exception. No shortcut.
 | Type | Desktop streaming cockpit, open-source, free |
 | Status | **Conception done + audited. No production code yet.** |
 | Repo | `theermite/Hikari` — public, **GPL-3.0** (embedded `libobs` forces it) |
-| Docs | `Takumi/docs/hikari-stream/` — CDC v1.3.0 · PET v1.4.0 · mockup · `refs-concurrence/`. They stay there **until the spike is done** (Jay's decision 2026-07-16). |
+| Docs | `docs/` — CDC v1.3.0 · PET v1.4.0 · mockup · `refs-concurrence/` · `legacy-ancien-repo/`. Moved here from `Takumi/` on 2026-07-17 (Jay). ⚠️ `docs/Veille-Technique.md` is **stale** — 3 of its core claims were false, see `docs/README.md`. |
 | Project note | `Shinzo/02-Projets/Hikari-Stream.md` — sync at session start and end |
 
 ## ⛔ BLOCKING — no production code before B0.0
