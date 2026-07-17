@@ -124,6 +124,17 @@ fn main() -> anyhow::Result<()> {
 
     thread::sleep(Duration::from_secs(secs));
 
+    // Images perdues réseau (le vrai indicateur de l'épreuve a), lues sur le fil libobs.
+    let stats_ptr = output.as_ptr();
+    let stats_runtime = context.runtime().clone();
+    let (dropped, total) = run_with_obs!(stats_runtime, (stats_ptr), move || unsafe {
+        (
+            obs::obs_output_get_frames_dropped(stats_ptr.get_ptr()),
+            obs::obs_output_get_total_frames(stats_ptr.get_ptr()),
+        )
+    })?;
+    println!("ENGINE:FRAMES dropped={dropped} total={total}");
+
     output.stop()?;
     println!("ENGINE:STOPPED");
     Ok(())
