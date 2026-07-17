@@ -1,0 +1,19 @@
+# Artefacts de build et binaires OBS posés par cargo-obs-build — jamais suivis.
+/target
+/obs-build
+
+# Dossiers de DONNÉES des plugins OBS, déposés à la racine à l'exécution (le plugin
+# rtmp-services réécrit services.json, win-capture/text-freetype2 posent leurs données).
+# Ce sont des artefacts du moteur, jamais du code authoré.
+/rtmp-services
+/win-capture
+/text-freetype2
+
+# Sorties lourdes du spike (enregistrements, captures) — jamais suivies.
+*.mp4
+*.mkv
+*.flv
+*.ts
+
+# Le dossier mesures/ EST suivi (relevés .md/.csv/.txt = la preuve du verdict),
+# mais pas les captures vidéo lourdes qu'on y dépose.

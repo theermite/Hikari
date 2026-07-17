@@ -1,0 +1,12 @@
+[package]
+name = "controller"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "hikari-controller"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }

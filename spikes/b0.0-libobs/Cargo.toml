@@ -1,0 +1,13 @@
+[workspace]
+resolver = "3"
+members = ["crates/engine", "crates/controller"]
+
+# Spike B0.0 — code jetable (régime §9bis du PET). Jamais fusionné dans `main`.
+# Deux binaires = deux processus : le contrôleur lance le moteur (ADR-013, isolation
+# des pannes). On reste sur Rust STABLE — pas de `-Z bindeps`, donc pas de nightly.
+
+[workspace.dependencies]
+libobs-wrapper = "9.0.4"
+libobs-simple = "8.0.1"
+anyhow = "1"
+env_logger = "0.11"
