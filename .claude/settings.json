@@ -1,0 +1,315 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/bash-guard.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "All Bash guards: secrets, destructive, commits, deploy, migrations, deps"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/session-start-mandatory-read.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Block first state-mutating tool until MANDATORY FIRST READ files are read"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/obsidian-mandatory-read.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Block first state-mutating tool until 4 Obsidian project notes are loaded via vault_read"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/docs-progress-update.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn on git commit feat/fix without today's session report"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/atomic-commit-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn on git commit spanning >= 3 distinct scopes (atomic commit heuristic)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/anti-quick-fix.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Block git commit fix:/hotfix: without [ROBUSTNESS] (6 mois / cause racine / alternative durable) or [ROBUSTNESS-SKIP] motif"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/deploy/smoke-test-required.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn when a deploy command runs without a subsequent smoke test"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/pre-deploy-vault-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "D2 — Block deploy when env vars from docs/architecture/env-vars.md are missing in Vault"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/pre-deploy-registry-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "D3 — Block deploy when docs/registry/ has uncommitted changes"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/pre-infra-drift-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "D3-infra — Block deploy when Shinkofa-Infra registry drifts from live VPS (check-drift.py)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/deploy/maintenance-pages-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn if deploy proceeds without nginx 502/503/504 maintenance pages"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/deploy/safari-test-required.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn on public deploy without .browserslistrc or [SAFARI-OK]/[SAFARI-SKIP] marker"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/deploy/axe-violations.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn on public deploy without [AXE-OK]/[AXE-SKIP] marker"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/deploy/a11y-checks.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn on public deploy when CSS lacks prefers-reduced-motion or touch-target rules"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/time-tracker/estimation-capture.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Capture time-estimation phrases (e.g. 'ca prendra 10 min') to estimations.jsonl"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/pre-push-drift-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn (never block) on methodology drift vs MNK-GoRin before git push (D1 brick 2)"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/write-guard.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "All Write/Edit guards: env, JWT, secrets, SHA pin, naming"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/pre-code-veille-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Veille / SKB evidence guard: block source code writes without [VEILLE]/[SKB]/[VEILLE-SKIP] marker"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/session-start-mandatory-read.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Block first state-mutating tool until MANDATORY FIRST READ files are read"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/obsidian-mandatory-read.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Block first state-mutating tool until 4 Obsidian project notes are loaded via vault_read"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/memory/rules-vs-memory.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn when Takumi cites methodology rules from memory instead of source files"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/reformulate-gate.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Block 2nd Write|Edit in same turn without REFORMULATION marker"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/tdg-test-first.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn on source code write with no sibling test (TDG)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/logs-first.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn on Edit after failed Bash without log Read between (LOGS FIRST)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/veille-extended.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Block docs/Audits|Decisions|Research writes without [VEILLE]/[SKB]/[VEILLE-SKIP] marker"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lego/shinkofa-ui-inventory.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn when a React component named like @shinkofa/ui inventory is defined without importing from the package"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lego/i18n-no-hardcode.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn on hardcoded UI strings in .tsx/.jsx (use @shinkofa/i18n)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lego/shared-types-only.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn on local redeclaration of types shared via @shinkofa/types"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/time-tracker/estimation-capture.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Capture time-estimation phrases on Write|Edit too (observability — never blocks)"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/post-write-guard.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "All post-write guards: file size, BOM, console.log"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/utf8-french-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn on French .md content with unaccented words (UTF-8 regression)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/function-complexity-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Maintainability: block Python functions > 30 lines or cyclomatic complexity > 10 (F1)"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/post-commit-push-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "D1 — Warn after git commit when branch is ahead of upstream (unpushed)"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/time-awareness.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Inject [TIME] YYYY-MM-DD HH:MM Europe/Madrid CET|CEST at each user prompt"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/simple-language-inject.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Option A — Inject Simple Language violations from previous Stop hook into Takumi's next context (functional BLOCKING for Stop hook)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/clock-not-fatigue-inject.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Option A — Inject clock-is-not-fatigue violation from previous Stop hook into Takumi's next context (Identity.md 'The Clock Is Not a Fatigue Signal')"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/pre-session-end-readme-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "D4 — Warn at /session-end when README appears out of sync (new commands, manifests, breaking changes)"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/time-tracker/realtime-tracker.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Record started_at for the session (time tracker)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/session-start-obsidian.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "SessionStart reminder: load 4 mandatory Obsidian project notes (companion to obsidian-mandatory-read.py)"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/notes-jay-markers.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Count Notes-Jay items without status markers and surface summary"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/time-tracker/realtime-tracker.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Append session duration to sessions.jsonl (time tracker)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/time-tracker/session-report-stats.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Write last-session-stats.md and emit one-line ratio summary"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/session-end-metrics.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Write objective session metrics (unpushed commits, TODO/FIXME, veille markers) to .claude/state/last-session-metrics.md"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/state-cleanup.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Archive handoff briefs older than 7 days into .claude/state/_archive/"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/hook-blocks-stats.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "A2 — Count hook blocks/warns per signature to .claude/state/hook-blocks.jsonl (guardrail-fatigue meter, never blocks)"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/simple-language-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Scan Takumi's last response for Simple Language violations (Honesty.md, WARN only)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/clock-not-fatigue-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Scan Takumi's last response for clock-is-not-fatigue violations (Identity.md 'The Clock Is Not a Fatigue Signal', WARN + next-turn injection)"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/pre-compact-handoff.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Auto-snapshot handoff brief before compaction (auto-resume architecture)"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lifecycle/post-compact-recheck.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Surface handoff brief path after compaction (non-blocking, WARN only)"
+          }
+        ]
+      }
+    ]
+  }
+}

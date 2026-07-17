@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  TEMPLATE DE PRÉSENTATION /concevoir — Shinkofa
+  ============================================================================
+  But : présenter un projet à N'IMPORTE QUI (non-tech) de façon claire,
+        attractive, motivante et visuelle. Le lecteur doit COMPRENDRE le
+        projet ET avoir envie d'y adhérer.
+
+  Règles de remplissage (BLOCKING — voir skill /concevoir step 9) :
+    1. LANGAGE NON-TECH. Zéro jargon. Si un terme technique est inévitable,
+       le glose en une parenthèse simple. Pas de noms de fonctions, pas de
+       stack, pas de FMEA, pas de tableau de risques. Tout ça reste dans le
+       CDC/PET, jamais ici.
+    2. BÉNÉFICES, pas features. On dit ce que ça CHANGE pour la personne,
+       pas comment c'est codé.
+    3. Remplace chaque {{JETON}} et chaque bloc <!-- À REMPLIR --> .
+       Supprime les sections optionnelles non pertinentes.
+    4. Garde le thème sombre, le back-to-top, et l'accessibilité intacts.
+    5. Le résultat doit être partageable tel quel : un seul fichier, aucune
+       dépendance externe, ouvrable d'un double-clic.
+
+  Sortie : fichier autonome dans docs/ (ex: docs/Presentation-<Projet>.html).
+  ============================================================================
+-->
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="{{META_DESCRIPTION — une phrase qui donne envie, non-tech}}" />
+  <title>{{PROJET}} — {{ACCROCHE_COURTE}}</title>
+  <style>
+    /* ===== Thème sombre — tokens ===== */
+    :root {
+      --bg:        #0d1117;   /* fond profond */
+      --bg-soft:   #161b22;   /* cartes / sections alternées */
+      --bg-raised: #1c2330;   /* éléments surélevés */
+      --border:    #2a3340;
+      --text:      #e8edf3;   /* texte principal — contraste AA sur --bg */
+      --text-soft: #aab6c4;   /* texte secondaire */
+      --accent:    #5e6ad2;   /* accent principal (indigo doux) */
+      --accent-2:  #3fb6a8;   /* accent secondaire (teal) */
+      --accent-ink:#ffffff;
+      --radius:    16px;
+      --maxw:      900px;     /* prose lisible, jamais pleine largeur */
+      --gap:       clamp(2.5rem, 6vw, 5rem);
+      --shadow:    0 8px 30px rgba(0,0,0,.35);
+      font-synthesis: none;
+    }
+
+    /* ===== Reset léger ===== */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+      font-size: 18px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+    img { max-width: 100%; height: auto; display: block; }
+    a { color: var(--accent); }
+
+    /* ===== Layout ===== */
+    .wrap { max-width: var(--maxw); margin-inline: auto; padding-inline: clamp(1.2rem, 5vw, 2.5rem); }
+    section { padding-block: var(--gap); border-bottom: 1px solid var(--border); }
+    section:nth-of-type(even) { background: var(--bg-soft); }
+
+    h1, h2, h3 { line-height: 1.25; letter-spacing: -0.01em; margin: 0 0 .6em; }
+    h1 { font-size: clamp(2.2rem, 6vw, 3.6rem); }
+    h2 { font-size: clamp(1.6rem, 4vw, 2.3rem); }
+    h3 { font-size: 1.25rem; }
+    p  { margin: 0 0 1.1em; max-width: 70ch; }
+    .lead { font-size: clamp(1.15rem, 2.4vw, 1.4rem); color: var(--text-soft); }
+    .eyebrow {
+      display: inline-block; font-size: .85rem; font-weight: 700;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: var(--accent-2); margin-bottom: 1rem;
+    }
+
+    /* ===== Hero ===== */
+    .hero {
+      position: relative; text-align: center;
+      padding-block: clamp(4rem, 12vh, 8rem);
+      background:
+        radial-gradient(1200px 500px at 50% -10%, rgba(94,106,210,.22), transparent 60%),
+        radial-gradient(900px 400px at 50% 110%, rgba(63,182,168,.14), transparent 60%),
+        var(--bg);
+    }
+    .hero h1 { max-width: 16ch; margin-inline: auto; }
+    .hero .lead { max-width: 46ch; margin-inline: auto; }
+    .badge {
+      display: inline-block; padding: .35rem .9rem; border-radius: 999px;
+      background: var(--bg-raised); border: 1px solid var(--border);
+      color: var(--text-soft); font-size: .9rem; margin-bottom: 1.6rem;
+    }
+
+    /* ===== Cartes (bénéfices / étapes) ===== */
+    .grid { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .card {
+      background: var(--bg-raised); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.6rem; box-shadow: var(--shadow);
+    }
+    .card .ico { font-size: 2rem; line-height: 1; margin-bottom: .6rem; }
+    .card h3 { margin-bottom: .35em; }
+    .card p { color: var(--text-soft); margin: 0; font-size: 1rem; }
+
+    /* ===== Étapes numérotées ===== */
+    .steps { display: grid; gap: 1.4rem; counter-reset: step; }
+    .step { display: flex; gap: 1.1rem; align-items: flex-start; }
+    .step::before {
+      counter-increment: step; content: counter(step);
+      flex: 0 0 auto; width: 2.6rem; height: 2.6rem; border-radius: 50%;
+      display: grid; place-items: center; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: var(--accent-ink);
+    }
+    .step h3 { margin: .2em 0 .2em; }
+    .step p { color: var(--text-soft); margin: 0; }
+
+    /* ===== Vision (bloc fort) ===== */
+    .vision { text-align: center; }
+    .vision blockquote {
+      margin: 0 auto; max-width: 32ch;
+      font-size: clamp(1.5rem, 3.5vw, 2.2rem); font-weight: 600; line-height: 1.35;
+    }
+    .vision blockquote::before { content: "« "; color: var(--accent-2); }
+    .vision blockquote::after  { content: " »"; color: var(--accent-2); }
+
+    /* ===== Roadmap simple (non-tech : grandes étapes) ===== */
+    .timeline { list-style: none; padding: 0; margin: 0; display: grid; gap: 1rem; }
+    .timeline li {
+      background: var(--bg-raised); border: 1px solid var(--border);
+      border-left: 4px solid var(--accent); border-radius: 12px; padding: 1.1rem 1.3rem;
+    }
+    .timeline .phase { font-weight: 700; color: var(--text); }
+    .timeline .when  { color: var(--text-soft); font-size: .9rem; }
+
+    /* ===== Sticky nav (ancres internes) ===== */
+    .topnav {
+      position: sticky; top: 0; z-index: 20;
+      background: rgba(13,17,23,.82); backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+    }
+    .topnav .wrap { display: flex; gap: 1.2rem; align-items: center; padding-block: .8rem; }
+    .topnav strong { font-size: 1rem; }
+    .topnav nav { margin-left: auto; display: flex; gap: 1.1rem; flex-wrap: wrap; }
+    .topnav a { color: var(--text-soft); text-decoration: none; font-size: .95rem; }
+    .topnav a:hover, .topnav a:focus { color: var(--text); }
+
+    /* ===== Back to top ===== */
+    #backToTop {
+      position: fixed; right: 1.4rem; bottom: 1.4rem; z-index: 30;
+      width: 3rem; height: 3rem; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--accent); color: var(--accent-ink); font-size: 1.3rem;
+      cursor: pointer; box-shadow: var(--shadow);
+      opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease;
+      display: grid; place-items: center;
+    }
+    #backToTop.show { opacity: 1; pointer-events: auto; }
+    #backToTop:hover { transform: translateY(-3px); }
+
+    /* ===== Accessibilité : focus visible ===== */
+    a:focus-visible, button:focus-visible {
+      outline: 3px solid var(--accent-2); outline-offset: 3px; border-radius: 6px;
+    }
+    .skip {
+      position: absolute; left: -9999px; top: 0;
+      background: var(--accent); color: #fff; padding: .6rem 1rem; border-radius: 0 0 8px 0;
+    }
+    .skip:focus { left: 0; z-index: 50; }
+
+    footer { padding-block: 3rem; text-align: center; color: var(--text-soft); font-size: .95rem; }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#contenu">Aller au contenu</a>
+
+  <!-- ===== Nav ancrée (adapte / supprime les liens selon les sections gardées) ===== -->
+  <header class="topnav">
+    <div class="wrap">
+      <strong>{{PROJET}}</strong>
+      <nav aria-label="Sections">
+        <a href="#projet">Le projet</a>
+        <a href="#benefices">Ce que ça change</a>
+        <a href="#fonctionnement">Comment ça marche</a>
+        <a href="#vision">La vision</a>
+        <a href="#suite">La suite</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenu">
+
+    <!-- ===== HERO ===== -->
+    <section class="hero" id="projet">
+      <div class="wrap">
+        <span class="badge">{{CATÉGORIE — ex: Application mobile · Plateforme web · Outil}}</span>
+        <h1>{{PROJET}} — {{PROMESSE_EN_UNE_LIGNE}}</h1>
+        <p class="lead">{{PHRASE_QUI_DONNE_ENVIE — décris le projet comme à un ami, sans aucun mot technique}}</p>
+      </div>
+    </section>
+
+    <!-- ===== POURQUOI / LE PROBLÈME (relatable) ===== -->
+    <section>
+      <div class="wrap">
+        <span class="eyebrow">Pourquoi ce projet</span>
+        <h2>{{LE_BESOIN_OU_LE_PROBLÈME}}</h2>
+        <p>{{Décris la situation que vit la personne aujourd'hui, et pourquoi c'est frustrant. Parle d'elle, pas de la technique.}}</p>
+        <p>{{Une ou deux phrases de plus si nécessaire. Sinon supprime.}}</p>
+      </div>
+    </section>
+
+    <!-- ===== CE QUE ÇA CHANGE (bénéfices, pas features) ===== -->
+    <section id="benefices">
+      <div class="wrap">
+        <span class="eyebrow">Ce que ça change</span>
+        <h2>{{LE_BÉNÉFICE_PRINCIPAL_EN_UNE_PHRASE}}</h2>
+        <div class="grid">
+          <!-- 3 à 6 cartes. Chaque carte = un bénéfice concret pour la personne. -->
+          <article class="card"><div class="ico" aria-hidden="true">✨</div><h3>{{Bénéfice 1}}</h3><p>{{Ce que la personne gagne, en clair.}}</p></article>
+          <article class="card"><div class="ico" aria-hidden="true">🧭</div><h3>{{Bénéfice 2}}</h3><p>{{Ce que la personne gagne, en clair.}}</p></article>
+          <article class="card"><div class="ico" aria-hidden="true">🌿</div><h3>{{Bénéfice 3}}</h3><p>{{Ce que la personne gagne, en clair.}}</p></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== COMMENT ÇA MARCHE (3 étapes intuitives) ===== -->
+    <section id="fonctionnement">
+      <div class="wrap">
+        <span class="eyebrow">Comment ça marche</span>
+        <h2>{{Simple comme {{N}} étapes}}</h2>
+        <div class="steps">
+          <div class="step"><div><h3>{{Étape 1}}</h3><p>{{Ce que la personne fait, en une phrase.}}</p></div></div>
+          <div class="step"><div><h3>{{Étape 2}}</h3><p>{{Ce que la personne fait, en une phrase.}}</p></div></div>
+          <div class="step"><div><h3>{{Étape 3}}</h3><p>{{Le résultat qu'elle obtient.}}</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== LA VISION (POUR QUOI / L3 — motivant) ===== -->
+    <section class="vision" id="vision">
+      <div class="wrap">
+        <span class="eyebrow">La vision</span>
+        <blockquote>{{LA_PHRASE_VISION — pourquoi ce projet compte vraiment, ce qu'il rend possible}}</blockquote>
+      </div>
+    </section>
+
+    <!-- ===== LA SUITE (roadmap NON-TECH : grandes étapes, pas de "bricks") ===== -->
+    <section id="suite">
+      <div class="wrap">
+        <span class="eyebrow">La suite</span>
+        <h2>Où on va</h2>
+        <ul class="timeline">
+          <li><span class="phase">{{Étape A — nom simple}}</span> — {{ce que ça apporte}} <span class="when">· {{quand / statut}}</span></li>
+          <li><span class="phase">{{Étape B — nom simple}}</span> — {{ce que ça apporte}} <span class="when">· {{quand / statut}}</span></li>
+          <li><span class="phase">{{Étape C — nom simple}}</span> — {{ce que ça apporte}} <span class="when">· {{quand / statut}}</span></li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>{{PROJET}} · {{ligne de clôture simple — ex: « Un projet Shinkofa »}}</p>
+    </div>
+  </footer>
+
+  <!-- ===== Back to top ===== -->
+  <button id="backToTop" type="button" aria-label="Revenir en haut de la page" title="Haut de page">↑</button>
+
+  <script>
+    (function () {
+      var btn = document.getElementById('backToTop');
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      function onScroll() {
+        if (window.scrollY > 600) { btn.classList.add('show'); }
+        else { btn.classList.remove('show'); }
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      btn.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+      });
+      onScroll();
+    })();
+  </script>
+</body>
+</html>
