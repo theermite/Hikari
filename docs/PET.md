@@ -4,7 +4,7 @@ created: 2026-07-11
 updated: 2026-07-17
 status: active
 type: pet
-version: 1.5.0
+version: 1.6.0
 project: Hikari Stream
 ---
 
@@ -19,6 +19,13 @@ project: Hikari Stream
 > ⚠️ **Passe d'exhaustivité complète prévue APRÈS B0.0** : le détail interne de plusieurs briques
 > dépend de sa mesure. Ce PET pré-décide tout le connaissable, puis sera raffiné en version finale
 > exhaustive une fois le spike passé (décision Jay 2026-07-11).
+>
+> **v1.6.0 (2026-07-17) — passe d'exhaustivité, vague 1 (chemin critique).** Ajout §7bis : fiches
+> **exécutables par un run autonome** pour B0.3 · B1 · B2 · B3, chacune avec sa **vérité externe**
+> (le champ anti-circulaire). Découverte utile : **B1 doit être scindé** — B1a (moteur + sources =
+> autonome) et B1b (aperçu cross-process = mini-spike humain, inconnu réel non prouvé au spike).
+> Vagues 2+ détaillées juste-à-temps. Répond à la question de Jay : oui, le PET devient exécutable
+> en autonome, brique par brique, sur le chemin critique.
 >
 > **v1.5.0 (2026-07-17) — le spike B0.0 est exécuté : verdict GO, branche A.** La pile est prouvée
 > sur la machine cible — diffusion en direct depuis Rust avec NVENC (reçue par un serveur RTMP) et
@@ -537,9 +544,63 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Statut** : ⬜ non commencé.
 - **Verdict** : *(à écrire ici — go/repli/arbitrage + les mesures + date)*
 
-### B1 → B16 (à détailler exhaustivement après B0.0)
-- Scope, approche, tests et critères sont **cadrés** par le CDC (§3 fonctions, §7 risques, §8 FMEA) et la roadmap ci-dessus.
-- Le **détail d'implémentation interne** (surtout B1/B2/B3, moteur-dépendants) sera figé une fois la branche moteur connue — décision Jay 2026-07-11 : raffiner le PET en version exhaustive post-spike.
+## 7bis. Fiches exhaustives — VAGUE 1 (chemin critique) *(ajouté 2026-07-17, post-spike)*
+
+> **But** : rendre chaque brique **exécutable par un run autonome**. Chaque fiche porte 7 champs,
+> dont la **vérité externe** (contre quoi un relecteur d'un autre contexte vérifie le résultat —
+> sans elle, un run s'auto-valide, `Quality.md` anti-circulaire). Détaillé **juste-à-temps** : on
+> ne fige que les briques dont le détail est *connaissable* aujourd'hui (le spike a prouvé l'API).
+>
+> **Légende autonomie** : 🟢 prête pour un run autonome · 🟡 cadrage humain / mini-spike d'abord.
+
+### B0.3 — Scaffold de l'application (Tauri 2 + React 19 + Tailwind 4) · Standard · 🟢
+
+- **Objectif** : le socle réel — fenêtre Tauri, front React qui build, lint + tests câblés. B1+ s'y greffent.
+- **Approche décidée** : Tauri **2.11.x** (`src-tauri/`) · React **19.x** + Vite + Tailwind **4** (`src/`) · pnpm · Biome (lint TS) + Clippy (Rust). Le **moteur reste une crate/binaire séparé** (ADR-013) : le workspace `src-tauri` accueillera `engine` en B1. `dockview` **pas ici** (B-shell). Zéro logique métier.
+- **Fichiers** : `package.json` · `src-tauri/{Cargo.toml, tauri.conf.json, build.rs, src/main.rs, src/lib.rs}` · `src/{main.tsx, App.tsx}` · `index.html` · `vite.config.ts` · `tsconfig.json` · `biome.json` · `.gitignore`.
+- **Tests TDG** : `should_build_release_when_scaffolded` (`pnpm tauri build` exit 0) · `should_render_shell_when_mounted` (Vitest) · `should_pass_tsc_strict` (0 erreur type).
+- **Critère d'acceptation** : `pnpm build` + `cargo build` verts · `pnpm test` + `cargo test` verts · Biome + Clippy zéro · fenêtre s'ouvre en `tauri dev`.
+- **Vérité externe** : la doc **officielle** Tauri 2 (versions re-vérifiées au démarrage de la brique) + le build/run **mécanique**. Rien à inventer → le relecteur rejoue `build` + `dev`.
+- **Pré-vol** : `pnpm -v` + `cargo -V` sortent 0 · brique non ambiguë.
+
+### B1 — Moteur intégré : scène + sources + aperçu · Critique · 🟡 (à scinder)
+
+- **Objectif** : l'app pilote le moteur (processus séparé) ; une scène avec ≥1 source s'affiche en **aperçu**.
+- **Approche décidée** : porter l'`engine` du spike en crate du workspace `src-tauri`. Le contrôleur (Rust) lance + supervise le moteur (survie/relance **prouvées** en B0.0). **Protocole du tuyau** = messages **JSON lignes** sur stdio (c'est l'interface de l'ADR-011, à figer ici). Sources via `libobs-simple` (capture écran/jeu/fenêtre, API **prouvée** au spike).
+- **⚠️ L'inconnu réel — l'APERÇU** : le spike a prouvé la diffusion, **jamais l'affichage d'un aperçu** depuis un processus séparé vers le webview Tauri. `libobs` expose un display (exemple `obs-preview` du dépôt), mais le rendre dans le webview à travers 2 processus **n'est pas prouvé**.
+- **Fichiers** : `src-tauri/crates/engine/*` (porté) · `src-tauri/src/{engine_bridge.rs, protocol.rs}` · `src/features/preview/*`.
+- **Tests TDG** : `should_parse_command_when_valid_json` (protocole, test par propriétés) · `should_relaunch_engine_when_it_dies` (repris B0.0) · `should_list_sources_when_scene_created`.
+- **Critère d'acceptation** : une scène + une capture s'affichent en aperçu · protocole JSON testé par propriétés · survie/relance verte.
+- **Vérité externe** : l'API `libobs-wrapper` (transcrite, **prouvée** au spike) pour tout SAUF l'aperçu. **L'aperçu n'a pas de vérité externe transférable** → risque.
+- **Pré-vol** : `cargo test` (engine) exit 0 · MAIS l'aperçu est ambigu.
+- **Autonomie 🟡 — scinder** : **B1a** (moteur + sources + protocole = 🟢 autonome, tout est transcrit/prouvé) · **B1b** (aperçu cross-process = **mini-spike humain**, inconnu réel). Ne pas confier B1b à un run tant que le mécanisme d'aperçu n'est pas prouvé.
+
+### B2 — Encodage + diffusion (single) + connexion comptes OAuth · Critique · 🟢/🟡
+
+- **Objectif** : diffuser une scène vers UNE plateforme réelle, avec compte connecté (OAuth) et jetons au coffre.
+- **Approche décidée** : la diffusion est **prouvée au spike** (`rtmp_output` + NVENC + service, FFI `run_with_obs!`). Ici : la porter dans l'`engine` intégré + **connexion de comptes** (OAuth Twitch/YouTube). Jetons au **coffre système** (jamais loggés/en clair — assertion §5). URL/clé du service RTMP **depuis le compte** (jamais en dur).
+- **Fichiers** : `src-tauri/crates/engine/src/stream.rs` (porté) · `src-tauri/src/accounts/{oauth.rs, vault.rs}` · `src/features/accounts/*`.
+- **Tests TDG** : `should_refuse_stream_when_token_expired` · `should_store_token_in_system_vault_never_plaintext` · `should_target_only_whitelisted_platforms` · OAuth = test d'intégration (flux réel en bac à sable).
+- **Critère d'acceptation** : diffusion réelle vers 1 plateforme (clé de test) · jeton rafraîchi frais · coffre vérifié (aucun jeton en clair sur disque).
+- **Vérité externe** : la diffusion (prouvée) + les specs **officielles** OAuth des plateformes (re-vérifiées le jour J) + le coffre système (API de l'OS). Transcription, pas invention.
+- **Pré-vol** : `cargo test` (engine) exit 0 · une clé de test disponible (fournie par Jay au moment voulu, **jamais committée**).
+- **Autonomie** : 🟢 la partie **diffusion + coffre** · 🟡 la **1ʳᵉ** intégration OAuth d'une plateforme (redirect URI, scopes) mérite une validation humaine — les suivantes deviennent autonomes.
+
+### B3 — Multistream + vertical simultané · Critique · 🟢 (dépend de B2)
+
+- **Objectif** : diffuser vers N plateformes **et** une sortie verticale, en même temps (F-025, F-026). **Absorbe l'ex-spike B0.2** (double encodage en jouant).
+- **Approche décidée** : plusieurs `rtmp_output` + services (motif **prouvé** en B2) · un 2ᵉ encodeur/sortie pour le vertical. NVENC gère ≥ 3 sessions (peur périmée levée). **Mesurer en jouant** (un jeu qui tourne) = l'ex-épreuve (d).
+- **Fichiers** : `src-tauri/crates/engine/src/multistream.rs` · `src/features/multistream/*` · `src/features/health/*` (centre de santé F-106).
+- **Tests TDG** : `should_open_n_outputs_when_multistream` · `should_report_per_platform_status` · `should_not_drop_frames_when_dual_encode` (banc, jeu qui tourne) · `should_confirm_hardware_codec_on_each_output`.
+- **Critère d'acceptation** : N/N plateformes atteintes (aucun échec silencieux) · 0 image perdue par sortie · chute du jeu < 10 % (seuil CDC §6).
+- **Vérité externe** : le motif de diffusion (prouvé B2) **répliqué** · le compteur d'images perdues (`obs_output_get_frames_dropped`, **prouvé** au spike) · réception vérifiée **côté serveur** (MediaMTX / plateforme).
+- **Pré-vol** : B2 livrée et verte · un jeu disponible pour la mesure.
+- **Autonomie** : 🟢 réplication d'un motif prouvé — dépend de B2 livrée.
+
+### B4 → B16, B-* (vagues 2+, à détailler juste-à-temps)
+- Scope, approche, tests et critères **cadrés** par le CDC (§3 fonctions, §7 risques, §8 FMEA) et la roadmap §6.
+- **Détail exhaustif figé quand leur vague approche** — le figer maintenant = deviner sur des décisions que la construction des vagues 1-2 va trancher (ADR-004, anti-sur-ingénierie).
+- Approches déjà décidées, indépendantes du moteur :
 - Approches déjà décidées, indépendantes du moteur :
   - **B4/B5 deck** : Phoenix côté pont VPS, protocole websocket, permissions rôle fail-closed (refus par défaut), chemin local prioritaire sans serveur.
   - **B8 marque** : kit stocké en donnée structurée (JSON) = source unique consommée par overlays/clips/posts/miniatures.
@@ -671,4 +732,5 @@ contournement, ou pire, un spike qu'on garde « parce qu'il est testé ».
 | 2026-07-16 | Takumi 002 (suite) | **Lien automation ↔ deck posé → PET v1.3.0.** Nourri par une analyse concurrence (recherche datée + **rétro-ingénierie du fichier de données réel de Streamer.bot**) → `refs-concurrence/Analyse-Streamerbot-TouchPortal.md`. **ADR-011** (le moteur expose une interface, le deck en est un client) + **ADR-012** (le déclencheur est un attribut, pas une nature). Sens de la dépendance **corrigé** : B-auto avant B4, et non l'inverse. Assertion ajoutée (type de déclencheur ∈ ensemble fermé). Origine : question de Jay — « certaines automations ont besoin d'un bouton, d'autres non ». |
 | 2026-07-17 | Takumi 002 (suite) | 🔄 **Le pari technique tombe → PET v1.4.0.** Recherche de contre-exemple **demandée par Jay** : `league_record` (Rust + Tauri + moteur d'OBS, **livré depuis mars 2022**) + Cap + 4 autres. « Aucune app en production » = **faux, jamais vérifié**. Leur architecture = **moteur en processus séparé** (`ipc-link` + `extprocess_recorder`) → **ADR-013** : ça contourne la friction async **et** réalise l'isolation des pannes de l'ADR-001. **B0.0 réécrit** : de « go/no-go » à « mesure », 2 j → 1 j, épreuve reine = **la diffusion en direct** (seul inconnu : personne n'a croisé Rust + diffusion). **Correction de cadrage de Jay** : un spike sur sa machine ne sert pas les autres → **ADR-014**, on mesure le **surcoût vs OBS nu** (transférable), plancher = celui d'OBS + surcoût, et la matrice matérielle viendra des utilisateurs. `Veille-Technique.md` marqué **périmé** (source de l'erreur 3.0.3 + « aucune app en prod » + « réutiliser l'ancien repo »). Mémoire Shinzo : `rare-n-est-pas-impossible`. |
 | 2026-07-16 | Takumi 002 (suite) | **Écran Automations maquetté** (`Mockup-Hikari-Stream.html`) — le trou relevé à l'audit : F-023 était le différenciateur du projet sans aucun écran. Livré : entrée de menu (groupe Produire, collée au Deck), liste des automations, chaîne **Quand → Si → Alors** lisible en français, bandeau des 4 garde-fous, 3 langues. La maquette **applique ADR-008** : les automations y sont une donnée que l'écran lit et dessine (`AUTOS`), jamais du balisage figé. Vérifié au navigateur : 5 automations, bascule au clic, 0 erreur. Reste à valider par Jay (placement dans le menu). |
+| 2026-07-17 | Takumi (session dév) | **Passe d'exhaustivité vague 1 (§7bis).** Fiches autonomes B0.3/B1/B2/B3 (7 champs + vérité externe). **B1 scindé** B1a/B1b (aperçu cross-process = mini-spike). Le PET devient exécutable en autonome, brique par brique, sur le chemin critique. Version 1.5.0 → 1.6.0. |
 | 2026-07-17 | Takumi (session dév) | 🧱 **B0.0 EXÉCUTÉ → GO branche A.** Scaffold workspace 2 processus (Rust **stable**, nightly écarté). **(a)** diffusion RTMP NVENC prouvée (reçue par MediaMTX) · **(b)** survie + relance du moteur prouvée des 2 côtés · **(c)** coût Hikari mesuré (CPU 0,8 % / GPU 27 % / RAM 487 Mo). Comparaison vs OBS + (d)/(e) **différées fin de dev** (décision Jay). Commits `78bde90`→`eb08e3e`. Preuves : `spikes/b0.0-libobs/mesures/`. |
