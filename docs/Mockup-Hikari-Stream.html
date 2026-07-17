@@ -1,0 +1,1923 @@
+<!DOCTYPE html>
+<html lang="fr" data-density="confort" data-motion="on" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hikari Stream — Mock-up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ============ CHARTE GRAPHIQUE HIKARI (光 — lumière d'aube) ============ */
+  :root{
+    --bg:#0d1117;            /* ardoise très sombre */
+    --bg-2:#151b23;          /* panneaux */
+    --bg-3:#1c232d;          /* cartes / surfaces élevées */
+    --line:#2a333f;          /* bordures fines */
+    --txt:#e6edf3;           /* texte principal */
+    --txt-dim:#9aa7b4;       /* texte secondaire */
+    --txt-faint:#5c6672;     /* labels faibles */
+    --accent:#f5b642;        /* lumière d'aube — ambre/or doux */
+    --accent-soft:rgba(245,182,66,.14);
+    --cyan:#3dc3ff;          /* info transitoire (froide, discrète) */
+    --cyan-soft:rgba(61,195,255,.12);
+    --green:#4ade80;         /* état OK */
+    --red:#f87171;           /* état bloquant */
+    --live:#ff4d4f;          /* pastille live */
+    --radius:10px;
+    --radius-s:7px;
+    --gap:16px;
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --side-w:224px;
+    --dur:.22s;
+  }
+  /* Densité morphique */
+  [data-density="compact"]{ --gap:10px; --radius:8px; }
+  [data-density="spacieux"]{ --gap:24px; --radius:12px; }
+  /* Mouvement réductible */
+  [data-motion="off"] *{ transition:none !important; animation:none !important; }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; } }
+  /* Thème clair (option morphique) */
+  [data-theme="light"]{
+    --bg:#f3f5f8; --bg-2:#ffffff; --bg-3:#eef1f5; --line:#d7dde5;
+    --txt:#1a2029; --txt-dim:#55606c; --txt-faint:#8a95a1;
+    --accent-soft:rgba(245,182,66,.20); --cyan-soft:rgba(61,195,255,.16);
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    font-family:var(--font); background:var(--bg); color:var(--txt);
+    font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
+    display:flex; min-height:100vh;
+  }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+  .muted{ color:var(--txt-dim); }
+  .faint{ color:var(--txt-faint); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+
+  /* ============ SIDEBAR ============ */
+  .sidebar{
+    width:var(--side-w); flex-shrink:0; background:var(--bg-2);
+    border-right:1px solid var(--line); display:flex; flex-direction:column;
+    padding:18px 12px; position:sticky; top:0; height:100vh; overflow-y:auto;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; padding:6px 8px 18px; }
+  .brand-logo{
+    width:34px; height:34px; border-radius:9px; flex-shrink:0;
+    background:radial-gradient(circle at 30% 30%, var(--accent), #c8891f);
+    display:grid; place-items:center; font-weight:800; color:#1a1206; font-size:19px;
+  }
+  .brand-name{ font-weight:700; font-size:17px; letter-spacing:.01em; }
+  .brand-sub{ font-size:11px; color:var(--txt-faint); }
+  .nav{ display:flex; flex-direction:column; gap:2px; }
+  .nav-item{
+    display:flex; align-items:center; gap:11px; padding:10px 11px;
+    border-radius:var(--radius-s); color:var(--txt-dim); font-weight:500;
+    transition:background var(--dur),color var(--dur); text-align:left; width:100%;
+  }
+  .nav-item .ic{ font-size:16px; width:20px; text-align:center; }
+  .nav-item:hover{ background:var(--bg-3); color:var(--txt); }
+  .nav-item.active{ background:var(--accent-soft); color:var(--accent); }
+  .nav-step{ margin-left:auto; font-size:11px; color:var(--txt-faint); }
+  .nav-sep{ height:1px; background:var(--line); margin:12px 6px; }
+
+  /* Panneau morphique */
+  .morphic{ margin-top:auto; padding:12px 8px 4px; }
+  .morphic h4{ font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--txt-faint); margin-bottom:10px; }
+  .m-row{ margin-bottom:12px; }
+  .m-row > span{ font-size:12px; color:var(--txt-dim); display:block; margin-bottom:5px; }
+  .seg{ display:flex; background:var(--bg-3); border-radius:7px; padding:3px; gap:2px; }
+  .seg button{ flex:1; padding:5px 4px; font-size:11px; border-radius:5px; color:var(--txt-dim); transition:all var(--dur); }
+  .seg button.on{ background:var(--accent); color:#1a1206; font-weight:600; }
+  .segx{ display:flex; background:var(--bg-3); border-radius:7px; padding:3px; gap:2px; }
+  .segx button{ flex:1; padding:5px 4px; font-size:11px; border-radius:5px; color:var(--txt-dim); transition:all var(--dur); }
+  .segx button.on{ background:var(--accent); color:#1a1206; font-weight:600; }
+
+  /* ============ MAIN ============ */
+  .main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .topbar{
+    height:56px; flex-shrink:0; border-bottom:1px solid var(--line); background:var(--bg-2);
+    display:flex; align-items:center; gap:16px; padding:0 22px; position:sticky; top:0; z-index:20;
+  }
+  .hamb{ display:none; font-size:22px; }
+  .topbar h1{ font-size:16px; font-weight:600; }
+  .top-right{ margin-left:auto; display:flex; align-items:center; gap:14px; }
+  .pill{ display:inline-flex; align-items:center; gap:7px; padding:6px 12px; border-radius:20px; background:var(--bg-3); font-size:13px; font-weight:500; }
+  .pill.live{ background:rgba(255,77,79,.14); color:var(--live); }
+  .dot{ width:8px; height:8px; border-radius:50%; background:currentColor; }
+  .dot.pulse{ animation:pulse 1.6s infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1 } 50%{ opacity:.3 } }
+  .btn-quiet{ padding:7px 13px; border-radius:var(--radius-s); background:var(--bg-3); font-size:13px; font-weight:500; border:1px solid var(--line); transition:all var(--dur); }
+  .btn-quiet:hover{ border-color:var(--accent); color:var(--accent); }
+  .btn-accent{ padding:8px 16px; border-radius:var(--radius-s); background:var(--accent); color:#1a1206; font-weight:600; font-size:13px; transition:filter var(--dur); }
+  .btn-accent:hover{ filter:brightness(1.08); }
+  .btn-accent:disabled{ background:var(--bg-3); color:var(--txt-faint); cursor:not-allowed; }
+
+  .content{ padding:22px; flex:1; max-width:none; }
+  .screen{ display:none; animation:fade var(--dur) ease; }
+  .screen.active{ display:block; }
+  @keyframes fade{ from{ opacity:0; transform:translateY(4px) } to{ opacity:1; transform:none } }
+
+  .card{ background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius); padding:18px; }
+  .card h3{ font-size:14px; font-weight:600; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .card h3 .tag{ margin-left:auto; font-size:10px; font-weight:600; color:var(--accent); background:var(--accent-soft); padding:2px 8px; border-radius:10px; letter-spacing:.03em; }
+  .grid{ display:grid; gap:var(--gap); }
+
+  /* ============ COCKPIT LIVE ============ */
+  .cockpit{ display:grid; grid-template-columns: 260px 1fr 300px; gap:var(--gap); align-items:start; }
+  .preview{
+    background:#000; border:1px solid var(--line); border-radius:var(--radius); aspect-ratio:16/9;
+    position:relative; overflow:hidden; display:grid; place-items:center;
+    background-image:linear-gradient(135deg,#12202e 0%,#1a2b3d 50%,#0e1620 100%);
+  }
+  .preview .scene-label{ position:absolute; top:12px; left:12px; background:rgba(0,0,0,.55); padding:5px 12px; border-radius:16px; font-size:12px; font-weight:500; }
+  .preview .cam{
+    position:absolute; bottom:16px; right:16px; width:120px; height:120px; border-radius:50%;
+    border:3px solid var(--accent); background:linear-gradient(160deg,#2a3a4a,#16222e);
+    display:grid; place-items:center; font-size:34px; box-shadow:0 6px 20px rgba(0,0,0,.4);
+  }
+  .preview .lower3{ position:absolute; bottom:22px; left:20px; }
+  .preview .lower3 .l3-name{ font-size:22px; font-weight:700; text-shadow:0 2px 8px rgba(0,0,0,.6); }
+  .preview .lower3 .l3-sub{ font-size:13px; color:var(--cyan); }
+  .scene-list{ display:flex; flex-direction:column; gap:8px; }
+  .scene{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-s); background:var(--bg-3); border:1px solid transparent; transition:all var(--dur); }
+  .scene:hover{ border-color:var(--line); }
+  .scene.on{ border-color:var(--accent); background:var(--accent-soft); }
+  .scene .thumb{ width:44px; height:26px; border-radius:4px; background:linear-gradient(135deg,#22323f,#16212b); flex-shrink:0; }
+  .scene .nm{ font-size:13px; font-weight:500; }
+  .scene.on .nm{ color:var(--accent); }
+  .collection-tabs{ display:flex; gap:6px; margin-bottom:12px; }
+  .collection-tabs button{ padding:5px 11px; font-size:12px; border-radius:14px; background:var(--bg-3); color:var(--txt-dim); }
+  .collection-tabs button.on{ background:var(--accent); color:#1a1206; font-weight:600; }
+
+  /* audio mixer */
+  .mixer{ display:flex; flex-direction:column; gap:14px; }
+  .channel .ch-top{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .channel .ch-name{ font-size:13px; font-weight:500; }
+  .channel .ch-icon{ font-size:14px; }
+  .wave{ display:flex; align-items:center; gap:2px; height:26px; margin-bottom:6px; }
+  .wave i{ display:block; width:3px; background:var(--green); border-radius:2px; opacity:.85; }
+  .slider{ height:6px; border-radius:3px; background:var(--bg-3); position:relative; }
+  .slider .fill{ position:absolute; left:0; top:0; bottom:0; border-radius:3px; background:var(--accent); }
+  .slider .knob{ position:absolute; top:50%; transform:translate(-50%,-50%); width:14px; height:14px; border-radius:50%; background:var(--txt); box-shadow:0 1px 4px rgba(0,0,0,.5); }
+  .mute-btn{ font-size:12px; padding:3px 8px; border-radius:5px; background:var(--bg-3); color:var(--txt-dim); }
+  .mute-btn.muted{ background:rgba(248,113,113,.16); color:var(--red); }
+
+  /* deck */
+  .deck-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .deck-btn{ aspect-ratio:1.35; border-radius:var(--radius-s); background:var(--bg-3); border:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; font-size:11px; color:var(--txt-dim); transition:all var(--dur); text-align:center; padding:4px; }
+  .deck-btn .di{ font-size:19px; }
+  .deck-btn .st{ font-size:9px; letter-spacing:.06em; opacity:.85; font-weight:700; }
+  .deck-btn:hover{ border-color:var(--accent); color:var(--txt); }
+  .deck-btn.hot{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  .deck-btn.state-on{ background:rgba(74,222,128,.15); border-color:var(--green); color:var(--green); }
+  /* type "valeur live" affichée sur la touche */
+  .deck-val{ aspect-ratio:1.35; border-radius:var(--radius-s); background:var(--cyan-soft); border:1px solid rgba(61,195,255,.3); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+  .deck-val .dv{ font-size:20px; font-weight:800; color:var(--cyan); line-height:1; }
+  .deck-val .dl{ font-size:10px; color:var(--txt-dim); }
+  /* type "curseur" */
+  .deck-slider{ margin-top:10px; }
+  .deck-slider .dsl-top{ display:flex; justify-content:space-between; font-size:12px; color:var(--txt-dim); margin-bottom:5px; }
+  .deck-slider .dsl-val{ color:var(--accent); font-weight:600; }
+  .deck-legend{ display:flex; flex-wrap:wrap; gap:10px 14px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+  .deck-legend span{ font-size:11px; color:var(--txt-faint); display:inline-flex; align-items:center; gap:5px; }
+  .deck-legend i{ width:9px; height:9px; border-radius:3px; display:inline-block; }
+  /* routing audio écoute / diffusion */
+  .route{ display:flex; gap:5px; margin-top:7px; }
+  .route button{ font-size:11px; padding:3px 9px; border-radius:6px; background:var(--bg); border:1px solid var(--line); color:var(--txt-faint); display:inline-flex; align-items:center; gap:5px; transition:all var(--dur); }
+  .route button.on{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  .route button.mon.on{ background:var(--cyan-soft); border-color:var(--cyan); color:var(--cyan); }
+
+  /* ---- Modes de disposition + panels déplaçables ---- */
+  .modebar{ display:flex; align-items:center; gap:14px; margin-bottom:18px; flex-wrap:wrap; }
+  .modebar .mlabel{ font-size:11px; color:var(--txt-faint); text-transform:uppercase; letter-spacing:.07em; }
+  .mode-seg{ display:inline-flex; background:var(--bg-2); border:1px solid var(--line); border-radius:8px; padding:3px; gap:2px; }
+  .mode-seg button{ padding:7px 16px; font-size:13px; border-radius:6px; color:var(--txt-dim); font-weight:500; transition:all var(--dur); }
+  .mode-seg button.on{ background:var(--accent); color:#1a1206; font-weight:600; }
+  .modebar .mhint{ font-size:12.5px; color:var(--txt-dim); }
+  .ptools{ display:inline-flex; gap:4px; margin-left:10px; }
+  .ptools button{ font-size:13px; color:var(--txt-faint); width:24px; height:24px; border-radius:5px; display:grid; place-items:center; transition:all var(--dur); }
+  .ptools button:hover{ background:var(--bg-3); color:var(--accent); }
+  .only-setup{ display:none; }
+  .cockpit.mode-setup .only-live{ display:none; }
+  .cockpit.mode-setup .only-setup{ display:block; }
+  .swatches{ display:flex; gap:8px; margin:4px 0 14px; }
+  .swatches i{ width:30px; height:30px; border-radius:7px; display:inline-block; border:1px solid var(--line); }
+
+  /* ---- Sources en ligne sous la scène active ---- */
+  .scene .chev{ margin-left:auto; color:var(--txt-faint); font-size:11px; }
+  .source-list{ margin:2px 0 6px 6px; padding-left:12px; border-left:2px solid var(--line); display:flex; flex-direction:column; gap:3px; }
+  .src{ display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:6px; font-size:12.5px; color:var(--txt-dim); }
+  .src:hover{ background:var(--bg-3); }
+  .src .eye{ margin-left:auto; font-size:13px; opacity:.75; }
+  .src.off{ color:var(--txt-faint); }
+  .src.off .eye{ opacity:.3; }
+  /* ---- Sélecteur de transition ---- */
+  .transition-row{ margin-top:12px; padding-top:12px; border-top:1px solid var(--line); display:flex; align-items:center; gap:8px; font-size:13px; color:var(--txt-dim); }
+  .tsel{ margin-left:auto; display:inline-flex; align-items:center; gap:7px; padding:5px 11px; border-radius:7px; background:var(--bg-3); border:1px solid var(--line); font-size:12.5px; color:var(--txt); cursor:pointer; }
+  .tsel .cy{ color:var(--accent); font-weight:600; }
+  /* ---- Pop-ups médias (F-033) ---- */
+  .popup-layer{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .popup-emo{ position:absolute; bottom:20%; font-size:42px; animation:floatUp 2.2s ease-out forwards; }
+  @keyframes floatUp{ 0%{ transform:translateY(24px) scale(.5); opacity:0 } 18%{ opacity:1; transform:translateY(0) scale(1) } 100%{ transform:translateY(-140px) scale(1.15); opacity:0 } }
+  .deck-board{ }
+
+  /* chat */
+  .chat{ display:flex; flex-direction:column; height:100%; }
+  .chat-log{ display:flex; flex-direction:column; gap:11px; margin-bottom:12px; }
+  .msg .who{ font-weight:600; font-size:13px; }
+  .msg .who.mod{ color:var(--cyan); }
+  .msg .who.vip{ color:var(--accent); }
+  .msg .tx{ font-size:13px; color:var(--txt-dim); }
+  .chat-flag{ font-size:11px; color:var(--red); background:rgba(248,113,113,.12); padding:2px 7px; border-radius:8px; }
+
+  /* alerts overlay demo */
+  .alert-banner{ display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:var(--radius-s); background:var(--cyan-soft); border:1px solid rgba(61,195,255,.3); font-size:13px; margin-bottom:10px; }
+  .alert-banner .who{ color:var(--cyan); font-weight:600; }
+
+  /* ============ CHECKLIST / PRE-VOL ============ */
+  .check{ display:flex; align-items:center; gap:14px; padding:14px 16px; border-radius:var(--radius-s); background:var(--bg-3); margin-bottom:10px; }
+  .check .ck-ic{ width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font-size:15px; flex-shrink:0; font-weight:700; }
+  .ck-ic.ok{ background:rgba(74,222,128,.16); color:var(--green); }
+  .ck-ic.warn{ background:rgba(248,113,113,.16); color:var(--red); }
+  .check .ck-body{ flex:1; }
+  .check .ck-title{ font-weight:500; font-size:14px; }
+  .check .ck-sub{ font-size:12.5px; color:var(--txt-dim); }
+  .check .ck-fix{ font-size:12px; color:var(--accent); }
+
+  /* ============ ÉDITION ============ */
+  .timeline{ position:relative; height:70px; background:var(--bg-3); border-radius:var(--radius-s); margin:8px 0 20px; overflow:hidden; }
+  .timeline .track{ position:absolute; inset:0; background-image:repeating-linear-gradient(90deg,transparent,transparent 59px,var(--line) 59px,var(--line) 60px); }
+  .timeline .played{ position:absolute; left:0; top:0; bottom:0; width:62%; background:var(--accent-soft); }
+  .timeline .head{ position:absolute; top:0; bottom:0; width:2px; background:var(--accent); left:62%; }
+  .marker{ position:absolute; top:8px; width:14px; height:14px; border-radius:50%; background:var(--accent); border:2px solid var(--bg); transform:translateX(-50%); cursor:pointer; }
+  .marker .mtip{ position:absolute; bottom:20px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:11px; background:#000; padding:3px 8px; border-radius:6px; opacity:0; transition:opacity var(--dur); pointer-events:none; }
+  .marker:hover .mtip{ opacity:1; }
+  .marker.auto{ background:var(--cyan); }
+  .clip-row{ display:flex; align-items:center; gap:14px; padding:12px; border-radius:var(--radius-s); background:var(--bg-3); margin-bottom:10px; }
+  .clip-thumb{ width:88px; height:50px; border-radius:6px; background:linear-gradient(135deg,#1d2c3a,#101922); flex-shrink:0; position:relative; display:grid; place-items:center; font-size:11px; color:var(--txt-faint); }
+  .clip-thumb .dur{ position:absolute; bottom:3px; right:4px; font-size:10px; background:rgba(0,0,0,.6); padding:1px 5px; border-radius:4px; color:var(--txt); }
+  .clip-meta{ flex:1; }
+  .clip-meta .t{ font-weight:500; font-size:14px; }
+  .clip-meta .s{ font-size:12px; color:var(--txt-dim); }
+  .badge{ font-size:11px; padding:3px 9px; border-radius:10px; background:var(--cyan-soft); color:var(--cyan); font-weight:500; }
+  .badge.g{ background:rgba(74,222,128,.14); color:var(--green); }
+
+  /* ============ PUBLICATION ============ */
+  .plat{ display:flex; align-items:center; gap:12px; padding:13px 15px; border-radius:var(--radius-s); background:var(--bg-3); margin-bottom:10px; border:1px solid transparent; transition:all var(--dur); }
+  .plat.on{ border-color:var(--accent); }
+  .plat .pl-ic{ width:34px; height:34px; border-radius:8px; display:grid; place-items:center; font-size:17px; flex-shrink:0; }
+  .plat .pl-name{ font-weight:500; font-size:14px; }
+  .plat .pl-sub{ font-size:12px; color:var(--txt-dim); }
+  .toggle{ margin-left:auto; width:42px; height:24px; border-radius:12px; background:var(--bg); position:relative; transition:background var(--dur); flex-shrink:0; border:1px solid var(--line); }
+  .toggle.on{ background:var(--accent); border-color:var(--accent); }
+  .toggle .tg{ position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:var(--txt); transition:transform var(--dur); }
+  .toggle.on .tg{ transform:translateX(18px); background:#1a1206; }
+  .thumb-preview{ aspect-ratio:16/9; border-radius:var(--radius); overflow:hidden; position:relative; background-image:linear-gradient(135deg,#1a2b3d,#0e1620); display:grid; place-items:center; border:1px solid var(--line); }
+  .thumb-preview .tp-brand{ position:absolute; top:10px; left:12px; display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; }
+  .thumb-preview .tp-brand .bl{ width:18px; height:18px; border-radius:5px; background:var(--accent); }
+  .thumb-preview .tp-title{ position:absolute; bottom:14px; left:16px; right:16px; font-size:22px; font-weight:800; line-height:1.15; }
+  .thumb-preview .tp-accent{ position:absolute; bottom:0; left:0; right:0; height:5px; background:var(--accent); }
+
+  /* ============ WIZARD ============ */
+  .wizard-wrap{ max-width:760px; margin:20px auto; }
+  .wz-progress{ display:flex; gap:8px; margin-bottom:28px; }
+  .wz-progress i{ flex:1; height:4px; border-radius:2px; background:var(--bg-3); }
+  .wz-progress i.done{ background:var(--accent); }
+  .wz-title{ font-size:24px; font-weight:700; margin-bottom:6px; }
+  .wz-sub{ color:var(--txt-dim); margin-bottom:24px; }
+  .choice-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+  .choice{ padding:18px; border-radius:var(--radius); background:var(--bg-2); border:2px solid var(--line); transition:all var(--dur); text-align:left; }
+  .choice:hover{ border-color:var(--txt-faint); }
+  .choice.on{ border-color:var(--accent); background:var(--accent-soft); }
+  .choice .ch-ic{ font-size:26px; margin-bottom:10px; }
+  .choice .ch-t{ font-weight:600; margin-bottom:4px; }
+  .choice .ch-d{ font-size:12.5px; color:var(--txt-dim); }
+  .wz-nav{ display:flex; justify-content:space-between; margin-top:28px; align-items:center; }
+  .exit-link{ font-size:13px; color:var(--txt-faint); }
+
+  /* ============ DECK MOBILE ============ */
+  .phone-row{ display:flex; gap:40px; flex-wrap:wrap; justify-content:center; align-items:flex-start; }
+  .phone{ width:300px; background:#000; border-radius:34px; padding:12px; border:1px solid var(--line); box-shadow:0 10px 40px rgba(0,0,0,.5); }
+  .phone-screen{ background:var(--bg); border-radius:24px; padding:16px; height:600px; overflow:hidden; display:flex; flex-direction:column; }
+  .phone-top{ display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .phone-top .pt-live{ margin-left:auto; }
+  .mdeck-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .mdeck-btn{ aspect-ratio:1.2; border-radius:12px; background:var(--bg-3); border:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:12px; color:var(--txt-dim); }
+  .mdeck-btn .mdi{ font-size:24px; }
+  .mdeck-btn.hot{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
+  .phone-cap{ text-align:center; margin-top:14px; font-size:13px; color:var(--txt-dim); max-width:300px; }
+  .role-note{ font-size:11px; color:var(--cyan); background:var(--cyan-soft); padding:3px 9px; border-radius:8px; display:inline-block; margin-top:6px; }
+
+  /* ---------- Automations (F-023) — la logique se LIT, elle ne se code pas ---------- */
+  .auto-wrap{ display:grid; grid-template-columns:290px 1fr; gap:var(--gap); align-items:start; }
+  .auto-item{ display:flex; align-items:center; gap:11px; padding:12px 13px; border-radius:var(--radius-s);
+              background:var(--bg-3); border:1px solid transparent; margin-bottom:9px; cursor:pointer;
+              transition:border-color var(--dur), background var(--dur); text-align:left; width:100%; }
+  .auto-item:hover{ border-color:var(--line); }
+  .auto-item.on{ border-color:var(--accent); background:var(--accent-soft); }
+  .auto-item .ai-ic{ width:30px; height:30px; border-radius:8px; display:grid; place-items:center;
+                     background:var(--bg-2); font-size:14px; flex-shrink:0; }
+  .auto-item.on .ai-ic{ background:rgba(0,0,0,.22); }
+  .auto-item .ai-name{ font-size:13.5px; font-weight:500; }
+  .auto-item .ai-trig{ font-size:11.5px; color:var(--txt-dim); }
+  .auto-item.off .ai-name, .auto-item.off .ai-trig{ opacity:.45; }
+
+  /* La chaîne : QUAND -> SI -> ALORS */
+  .chain-step{ display:grid; grid-template-columns:64px 1fr; gap:14px; align-items:start; }
+  .chain-key{ font-size:10.5px; font-weight:700; letter-spacing:.09em; color:var(--txt-faint);
+              padding-top:13px; text-align:right; }
+  .chain-key.k-when{ color:var(--accent); }
+  .chain-box{ background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-s); padding:12px 14px; }
+  .chain-box.when{ border-color:rgba(245,182,66,.34); background:var(--accent-soft); }
+  .chain-link{ margin:5px 0 5px 30px; width:1px; height:14px; background:var(--line); }
+  .act-row{ display:flex; align-items:center; gap:11px; padding:8px 0; }
+  .act-row + .act-row{ border-top:1px solid var(--line-soft); }
+  .act-n{ width:20px; height:20px; border-radius:50%; background:var(--bg); color:var(--txt-dim);
+          font-size:11px; font-weight:600; display:grid; place-items:center; flex-shrink:0; }
+  .act-txt{ font-size:13.5px; }
+  .act-tag{ margin-left:auto; font-size:10.5px; color:var(--txt-faint); background:var(--bg);
+            padding:2px 8px; border-radius:9px; white-space:nowrap; }
+  /* Garde-fou : ce que l'app REFUSE, montré comme une protection, jamais comme une punition */
+  .guard{ display:flex; gap:12px; align-items:flex-start; padding:12px 14px; border-radius:var(--radius-s);
+          background:var(--bg-3); border:1px solid var(--line); }
+  .guard .g-ic{ width:26px; height:26px; border-radius:7px; display:grid; place-items:center;
+                font-size:13px; flex-shrink:0; background:rgba(74,222,128,.14); color:var(--green); }
+  .guard.stop .g-ic{ background:rgba(248,113,113,.14); color:var(--red); }
+  .guard .g-t{ font-size:13px; font-weight:500; }
+  .guard .g-s{ font-size:12px; color:var(--txt-dim); line-height:1.5; }
+  /* Badge « sur le deck » — dit d'un coup d'œil quelles automations ont une touche */
+  .deck-tag{ display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600;
+             color:var(--cyan); background:var(--cyan-soft); padding:2px 7px; border-radius:9px;
+             letter-spacing:.02em; white-space:nowrap; }
+  .deck-tag svg{ width:10px; height:10px; }
+  .auto-item .ai-deck{ margin-left:auto; flex-shrink:0; }
+
+  /* Ajouter une étape : on CHERCHE, on ne fouille pas dans un menu en cascade (principe P2) */
+  .add-step{ margin-top:10px; border-top:1px solid var(--line-soft); padding-top:11px; }
+  .add-open{ display:flex; align-items:center; gap:8px; width:100%; padding:8px 10px;
+             border-radius:var(--radius-s); background:var(--bg); border:1px dashed var(--line);
+             color:var(--txt-dim); font-size:13px; transition:all var(--dur); }
+  .add-open:hover{ border-color:var(--accent); color:var(--accent); border-style:solid; }
+  .search-box{ background:var(--bg); border:1px solid var(--accent); border-radius:var(--radius-s); padding:10px; }
+  .search-in{ display:flex; align-items:center; gap:9px; padding-bottom:9px; border-bottom:1px solid var(--line-soft); }
+  .search-in input{ flex:1; background:none; border:none; outline:none; color:var(--txt);
+                    font-size:13.5px; font-family:var(--font); }
+  .search-in input::placeholder{ color:var(--txt-faint); }
+  .sugg{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:6px;
+         cursor:pointer; font-size:13.5px; }
+  .sugg:hover{ background:var(--bg-3); }
+  .sugg .s-ic{ width:22px; height:22px; border-radius:6px; background:var(--bg-3); display:grid;
+               place-items:center; font-size:11px; flex-shrink:0; }
+  .sugg .s-fam{ margin-left:auto; font-size:10.5px; color:var(--txt-faint); }
+  .sugg-hint{ font-size:11.5px; color:var(--txt-faint); padding:6px 6px 2px; }
+  @media(max-width:1100px){ .auto-wrap{ grid-template-columns:1fr; } }
+
+  .cols-2{ display:grid; grid-template-columns:1fr 1fr; gap:var(--gap); }
+  .cols-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:var(--gap); }
+  .stat .sv{ font-size:26px; font-weight:700; }
+  .stat .sl{ font-size:12px; color:var(--txt-dim); }
+  .stat .sv .u{ font-size:14px; color:var(--txt-faint); font-weight:500; }
+
+  .scrim{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:30; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 1100px){
+    .cockpit{ grid-template-columns:1fr; }
+    .cols-2,.cols-3{ grid-template-columns:1fr; }
+  }
+  @media (max-width: 820px){
+    .sidebar{ position:fixed; left:0; top:0; z-index:40; transform:translateX(-100%); transition:transform var(--dur); }
+    body.nav-open .sidebar{ transform:none; }
+    body.nav-open .scrim{ display:block; }
+    .hamb{ display:block; }
+    .content{ padding:16px; }
+  }
+
+  /* ============ FINITION — profondeur douce, rythme, élégance (reste plat) ============ */
+  body{
+    background:
+      radial-gradient(1100px 520px at 82% -12%, rgba(245,182,66,.06), transparent 62%),
+      radial-gradient(900px 500px at -5% 108%, rgba(61,195,255,.045), transparent 60%),
+      var(--bg);
+    letter-spacing:.01em;
+  }
+  /* Onglets deck mobile */
+  .mtabs{ display:flex; gap:5px; margin-bottom:12px; }
+  .mtabs button{ flex:1; padding:6px 4px; font-size:11px; border-radius:8px; background:var(--bg-3); color:var(--txt-dim); border:1px solid transparent; transition:all var(--dur); }
+  .mtabs button.on{ background:var(--accent); color:#1a1206; font-weight:600; }
+
+  /* Cartes : élévation douce (flat, pas de biseau) + entête raffiné */
+  .card{ box-shadow:0 1px 2px rgba(0,0,0,.28), 0 6px 20px -12px rgba(0,0,0,.5); }
+  [data-theme="light"] .card{ box-shadow:0 1px 2px rgba(16,24,40,.06), 0 8px 24px -14px rgba(16,24,40,.18); }
+  .card h3{ font-weight:650; letter-spacing:.005em; }
+  .card h3 .tag{ font-weight:600; }
+
+  /* Barre latérale + topbar : séparation par la bordure seule (pas d'ombre dure) */
+  :root{ --side-w:240px; }
+  .sidebar{ padding:20px 12px 16px; box-shadow:none; }
+  .topbar{ box-shadow:none; }
+  .brand-logo{ box-shadow:0 2px 10px -2px rgba(245,182,66,.4); }
+
+  /* Nav groupée + icônes linéaires */
+  .nav{ gap:4px; }
+  .nav-group{ margin-bottom:20px; }
+  .nav-group:last-child{ margin-bottom:0; }
+  .nav-group-label{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:var(--txt-faint); padding:0 10px 7px; }
+  .nav-item{ height:36px; padding:0 10px; gap:10px; font-size:14px; }
+  .nav-item.active{ background:var(--accent-soft); color:var(--accent); box-shadow:none; }
+  .nav-item .ic{ width:18px; height:18px; display:grid; place-items:center; }
+  .nav-item .ic svg{ width:100%; height:100%; }
+  .nav-item.active .ic svg{ stroke-width:2; }
+  .morphic{ border-top:1px solid var(--line); padding-top:16px; }
+
+  /* Topbar : hiérarchie allégée (LIVE domine, le reste s'efface) */
+  .topbar h1{ font-size:15px; }
+  .pill{ padding:5px 10px; border-radius:8px; background:transparent; border:1px solid var(--line); font-size:12.5px; color:var(--txt-dim); box-shadow:none; }
+  .pill.live{ border-radius:20px; background:rgba(255,77,79,.14); border-color:rgba(255,77,79,.25); color:var(--live); font-weight:600; }
+  .btn-quiet{ background:transparent; }
+
+  /* Aperçu : vignette subtile + liseré de lumière (réalisme) */
+  .preview{ box-shadow:inset 0 0 90px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04); }
+  .preview .cam{ box-shadow:0 8px 24px rgba(0,0,0,.45), 0 0 0 1px rgba(245,182,66,.25); }
+
+  /* Micro-interactions (désactivées si mouvement réduit) */
+  .deck-btn:hover, .mdeck-btn:hover{ transform:translateY(-1px); }
+  .btn-accent:hover{ transform:translateY(-1px); box-shadow:0 6px 16px -6px rgba(245,182,66,.55); }
+  .scene{ transition:all var(--dur); }
+  .pill{ box-shadow:inset 0 0 0 1px rgba(255,255,255,.02); }
+
+  /* Barres de défilement fines */
+  *{ scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:6px; border:2px solid transparent; background-clip:content-box; }
+  ::-webkit-scrollbar-thumb:hover{ background:var(--txt-faint); }
+  ::-webkit-scrollbar-track{ background:transparent; }
+
+  /* Titres d'écran un peu plus présents */
+  .topbar h1{ font-weight:650; letter-spacing:.01em; }
+
+  /* ============ BORDS & LIGNES — hairlines qui captent la lumière ============ */
+  :root{
+    --line:rgba(255,255,255,.08);       /* filet fin translucide (au lieu de l'ardoise franche) */
+    --line-soft:rgba(255,255,255,.045);  /* séparateur secondaire, presque effacé */
+  }
+  /* Cartes : filet fin + fine arête de lumière en haut + ombre douce basse */
+  .card{
+    border-color:var(--line);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.03), 0 1px 2px rgba(0,0,0,.18), 0 12px 30px -20px rgba(0,0,0,.6);
+  }
+  [data-theme="light"] .card{ box-shadow:inset 0 1px 0 rgba(255,255,255,.6), 0 1px 2px rgba(16,24,40,.05), 0 10px 26px -18px rgba(16,24,40,.16); }
+  /* Séparateurs internes : le plus discret possible */
+  .source-list{ border-left-color:var(--line-soft); }
+  .transition-row, .deck-legend, .morphic, .nav-sep{ border-color:var(--line); }
+  .collection-tabs button, .seg, .mode-seg, .tsel, .pill, .btn-quiet,
+  .deck-btn, .mdeck-btn, .scene, .plat, .route button, .check, .mtabs button{ border-color:var(--line); }
+  /* Aperçu : liseré de lumière plus fin */
+  .preview{ border-color:var(--line); box-shadow:inset 0 0 90px rgba(0,0,0,.42), inset 0 0 0 1px rgba(255,255,255,.05); }
+  /* Cadre de l'app : filets structurels un cran plus lisibles que les internes */
+  .sidebar{ border-right-color:rgba(255,255,255,.06); }
+  .topbar{ border-bottom-color:rgba(255,255,255,.06); }
+  .phone{ border-color:rgba(255,255,255,.08); }
+
+  /* ============ COQUE — panneaux flottants arrondis (façon Telegram / Discord 2026) ============ */
+  :root{ --radius:12px; --radius-s:8px; --canvas:#090c11; }
+  html{ background:var(--canvas); }
+  body{
+    padding:14px; gap:14px;
+    background:
+      radial-gradient(1100px 520px at 82% -12%, rgba(245,182,66,.06), transparent 62%),
+      radial-gradient(900px 500px at -5% 108%, rgba(61,195,255,.045), transparent 60%),
+      var(--canvas);
+  }
+  .main{ gap:14px; min-width:0; }
+  .content{ padding:0; }
+  .card{ border-radius:14px; }
+
+  /* Sidebar + topbar = panneaux flottants, plus aucun bord collé au cadre */
+  .sidebar, .topbar{
+    border-radius:16px;
+    background:var(--bg-2);
+    border:1px solid var(--line);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.03), 0 1px 2px rgba(0,0,0,.18), 0 16px 36px -26px rgba(0,0,0,.6);
+  }
+  .topbar{ padding:0 20px; }
+
+  /* Décollement réel sur desktop (gouttières) */
+  @media (min-width:821px){
+    .sidebar{ top:14px; height:calc(100vh - 28px); }
+    .topbar{ top:14px; }
+  }
+  /* Mobile : la sidebar reste un tiroir, arrondi côté intérieur */
+  @media (max-width:820px){
+    .sidebar{ border-radius:0 16px 16px 0; top:0; height:100vh; }
+  }
+
+  /* ============ MENUS DÉROULANTS, MODALE, DRAPEAUX, DASHBOARD ============ */
+  .flag{ width:20px; height:13px; border-radius:2px; flex-shrink:0; box-shadow:0 0 0 1px rgba(255,255,255,.12); display:inline-block; }
+  .dd-wrap{ position:relative; }
+  .dropdown{ position:absolute; z-index:70; min-width:210px; background:var(--bg-2); border:1px solid var(--line); border-radius:12px; padding:6px; box-shadow:0 16px 40px -12px rgba(0,0,0,.65); display:flex; flex-direction:column; gap:2px; }
+  .dropdown[hidden]{ display:none; }
+  .dropdown > button{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; font-size:13px; color:var(--txt); text-align:left; width:100%; transition:background var(--dur); }
+  .dropdown > button:hover{ background:var(--bg-3); }
+  .dropdown .dd-sec{ font-size:10px; color:var(--txt-faint); text-transform:uppercase; letter-spacing:.06em; padding:7px 10px 4px; }
+  .dropdown .dd-sub{ font-size:11.5px; color:var(--txt-dim); font-weight:400; }
+  .dropdown .dd-title{ font-weight:600; }
+  .dropdown .dd-item{ flex-direction:column; align-items:flex-start; gap:2px; }
+
+  /* Pied de sidebar : 2 boutons compacts */
+  .side-footer{ margin-top:auto; padding-top:14px; border-top:1px solid var(--line); display:flex; gap:8px; }
+  .sf-btn{ display:flex; align-items:center; justify-content:center; gap:8px; padding:9px 10px; border-radius:9px; background:var(--bg-3); border:1px solid var(--line); font-size:12.5px; color:var(--txt-dim); transition:all var(--dur); }
+  .sf-btn:hover{ border-color:var(--accent); color:var(--txt); }
+
+  /* Modale */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:90; display:grid; place-items:center; padding:20px; }
+  .modal-overlay[hidden]{ display:none; }
+  .modal{ width:100%; max-width:420px; background:var(--bg-2); border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 30px 80px -20px rgba(0,0,0,.7); }
+  .modal-head{ display:flex; align-items:center; margin-bottom:6px; }
+  .modal-head h3{ font-size:17px; font-weight:650; }
+  .modal-head .sub{ margin-left:auto; }
+  .modal-x{ width:30px; height:30px; border-radius:8px; color:var(--txt-dim); display:grid; place-items:center; font-size:15px; }
+  .modal-x:hover{ background:var(--bg-3); color:var(--txt); }
+  .modal .msub{ font-size:12.5px; color:var(--txt-dim); margin-bottom:18px; }
+  .modal .m-row{ margin-bottom:16px; }
+  .modal .m-row > span{ font-size:13px; color:var(--txt-dim); display:block; margin-bottom:6px; }
+
+  /* Topbar : preset + démarrer */
+  .btn-preset{ display:inline-flex; align-items:center; gap:9px; padding:7px 12px; border-radius:9px; background:var(--bg-3); border:1px solid var(--line); font-size:13px; color:var(--txt); transition:all var(--dur); }
+  .btn-preset:hover{ border-color:var(--accent); }
+  .btn-preset .pk{ color:var(--txt-faint); font-size:12px; }
+  .btn-start{ display:inline-flex; align-items:center; gap:7px; padding:8px 14px; border-radius:9px; background:var(--accent); color:#1a1206; font-weight:600; font-size:13px; transition:filter var(--dur); }
+  .btn-start:hover{ filter:brightness(1.08); }
+
+  /* Dashboard Accueil */
+  .dash-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:var(--gap); margin-bottom:var(--gap); }
+  .kpi .kv{ font-size:27px; font-weight:800; line-height:1.1; }
+  .kpi .kl{ font-size:12px; color:var(--txt-dim); margin-top:2px; }
+  .kpi .kd{ font-size:12px; margin-top:8px; display:inline-flex; align-items:center; gap:4px; }
+  .kd.up{ color:var(--green); } .kd.down{ color:var(--red); }
+  .dash-2{ display:grid; grid-template-columns:1.7fr 1fr; gap:var(--gap); }
+  .stream-row{ display:flex; align-items:center; gap:14px; padding:11px; border-radius:10px; background:var(--bg-3); margin-bottom:10px; }
+  .stream-thumb{ width:92px; height:52px; border-radius:8px; background:linear-gradient(135deg,#1d2c3a,#101922); flex-shrink:0; position:relative; }
+  .stream-thumb .st-tag{ position:absolute; bottom:4px; left:5px; font-size:10px; background:rgba(0,0,0,.6); padding:1px 6px; border-radius:5px; color:var(--txt); }
+  .stream-meta{ flex:1; min-width:0; }
+  .stream-meta .t{ font-weight:500; font-size:14px; }
+  .stream-meta .s{ font-size:12px; color:var(--txt-dim); }
+  .stream-nums{ display:flex; gap:16px; text-align:right; }
+  .stream-nums .sn .v{ font-weight:600; font-size:14px; }
+  .stream-nums .sn .l{ font-size:11px; color:var(--txt-faint); }
+  @media (max-width:1100px){ .dash-grid{ grid-template-columns:repeat(2,1fr); } .dash-2{ grid-template-columns:1fr; } }
+  @media (max-width:560px){ .dash-grid{ grid-template-columns:1fr; } .stream-nums{ display:none; } }
+
+  /* ============ SIDEBAR RÉDUCTIBLE (icônes seules) ============ */
+  .sidebar{ transition:width var(--dur) ease; }
+  .collapse-btn{ display:flex; align-items:center; justify-content:flex-end; width:100%; padding:0 10px 12px; color:var(--txt-faint); }
+  .collapse-btn svg{ width:18px; height:18px; transition:transform var(--dur); }
+  .collapse-btn:hover{ color:var(--txt); }
+  .sidebar.collapsed{ width:74px; }
+  .sidebar.collapsed .brand{ justify-content:center; }
+  .sidebar.collapsed .brand-txt{ display:none; }
+  .sidebar.collapsed .collapse-btn{ justify-content:center; padding:0 0 12px; }
+  .sidebar.collapsed .collapse-btn svg{ transform:rotate(180deg); }
+  .sidebar.collapsed .nav-group{ margin-bottom:12px; }
+  .sidebar.collapsed .nav-group-label{ display:none; }
+  .sidebar.collapsed .nav-item{ justify-content:center; padding:0; gap:0; }
+  .sidebar.collapsed .nav-item span[data-i18n]{ display:none; }
+  .sidebar.collapsed .side-footer{ flex-direction:column; }
+  .sidebar.collapsed .sf-btn{ justify-content:center; width:100%; }
+  .sidebar.collapsed #langCur, .sidebar.collapsed .caret, .sidebar.collapsed #adaptBtn span{ display:none; }
+
+  /* ============ PARAMÈTRES ============ */
+  .settings{ display:grid; grid-template-columns:220px 1fr; gap:var(--gap); align-items:start; }
+  .set-nav{ display:flex; flex-direction:column; gap:3px; }
+  .set-nav button{ text-align:left; padding:10px 12px; border-radius:9px; color:var(--txt-dim); font-size:13.5px; display:flex; align-items:center; gap:10px; transition:all var(--dur); }
+  .set-nav button:hover{ background:var(--bg-3); color:var(--txt); }
+  .set-nav button.on{ background:var(--accent-soft); color:var(--accent); font-weight:600; }
+  .set-pane{ display:none; }
+  .set-pane.on{ display:block; }
+  .set-row{ display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--line); }
+  .set-row:last-child{ border-bottom:none; }
+  .set-row .sr-l{ flex:1; }
+  .set-row .sr-t{ font-size:14px; font-weight:500; }
+  .set-row .sr-d{ font-size:12.5px; color:var(--txt-dim); }
+  .sel{ padding:8px 12px; border-radius:8px; background:var(--bg-3); border:1px solid var(--line); color:var(--txt); font-size:13px; cursor:pointer; }
+  .conn{ display:flex; align-items:center; gap:14px; padding:14px; border-radius:11px; background:var(--bg-3); margin-bottom:10px; }
+  .conn .cih{ width:40px; height:40px; border-radius:10px; display:grid; place-items:center; font-size:19px; flex-shrink:0; }
+  .conn .cinfo{ flex:1; }
+  .conn .cn{ font-weight:500; font-size:14px; }
+  .conn .cs{ font-size:12.5px; color:var(--txt-dim); display:inline-flex; align-items:center; gap:6px; }
+  .qr{ width:148px; height:148px; border-radius:12px; background:#fff; padding:12px; display:grid; grid-template-columns:repeat(7,1fr); grid-template-rows:repeat(7,1fr); gap:3px; }
+  .qr i{ background:#0d1117; border-radius:2px; }
+  .qr i.o{ background:transparent; }
+  .swatch-edit{ display:flex; gap:10px; align-items:center; margin:6px 0 14px; flex-wrap:wrap; }
+  .swatch-edit .sw{ width:34px; height:34px; border-radius:8px; border:1px solid var(--line); }
+
+  /* ============ PALETTE DE COMMANDES (Ctrl+K) ============ */
+  .cmdk{ position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:95; display:grid; place-items:start center; padding-top:12vh; }
+  .cmdk[hidden]{ display:none; }
+  .cmdk-box{ width:100%; max-width:560px; background:var(--bg-2); border:1px solid var(--line); border-radius:16px; box-shadow:0 30px 80px -20px rgba(0,0,0,.7); overflow:hidden; }
+  .cmdk-in{ width:100%; padding:16px 18px; background:transparent; border:none; color:var(--txt); font-size:15px; border-bottom:1px solid var(--line); font-family:inherit; }
+  .cmdk-in:focus{ outline:none; }
+  .cmdk-list{ padding:8px; max-height:340px; overflow:auto; }
+  .cmdk-list button{ width:100%; text-align:left; display:flex; align-items:center; gap:12px; padding:11px 12px; border-radius:9px; color:var(--txt); font-size:13.5px; }
+  .cmdk-list button:hover{ background:var(--bg-3); }
+  .cmdk-list .k{ margin-left:auto; font-size:11px; color:var(--txt-faint); border:1px solid var(--line); border-radius:5px; padding:1px 6px; }
+
+  /* ============ WIDGET DE RETOUR ============ */
+  .fab{ position:fixed; right:18px; bottom:18px; z-index:85; width:48px; height:48px; border-radius:50%; background:var(--accent); color:#1a1206; display:grid; place-items:center; font-size:20px; box-shadow:0 10px 26px -8px rgba(245,182,66,.5); }
+  .fab:hover{ filter:brightness(1.08); }
+  .fb-modal .modal{ max-width:420px; }
+  .fb-rate{ display:flex; gap:8px; margin:6px 0 14px; }
+  .fb-rate button{ width:40px; height:40px; border-radius:10px; background:var(--bg-3); border:1px solid var(--line); font-size:19px; }
+  .fb-rate button:hover{ border-color:var(--accent); }
+  .fb-ta{ width:100%; min-height:88px; background:var(--bg-3); border:1px solid var(--line); border-radius:10px; padding:11px; color:var(--txt); font-family:inherit; font-size:13.5px; resize:vertical; }
+  .fb-note{ font-size:11.5px; color:var(--txt-faint); margin-top:10px; display:flex; gap:6px; align-items:center; }
+
+  /* ============ CHAT — modération inline ============ */
+  .msg{ position:relative; padding-right:4px; }
+  .msg-actions{ display:none; position:absolute; right:0; top:-10px; gap:3px; background:var(--bg-2); border:1px solid var(--line); border-radius:8px; padding:3px; box-shadow:0 6px 16px -6px rgba(0,0,0,.5); }
+  .msg:hover .msg-actions{ display:flex; }
+  .msg-actions button{ width:24px; height:24px; border-radius:6px; font-size:12px; color:var(--txt-dim); }
+  .msg-actions button:hover{ background:var(--bg-3); color:var(--txt); }
+
+  /* ============ APERÇU — chips options + sous-titres live ============ */
+  .opt-chips{ position:absolute; top:12px; right:12px; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:72%; z-index:2; }
+  .chip{ padding:5px 10px; border-radius:14px; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.14); font-size:11px; color:var(--txt-dim); }
+  .chip.on{ background:var(--accent); color:#1a1206; border-color:var(--accent); font-weight:600; }
+  .cc{ position:absolute; bottom:76px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.72); padding:5px 14px; border-radius:7px; font-size:14px; max-width:78%; text-align:center; z-index:2; }
+
+  /* ============ THÈME CONTRASTE ÉLEVÉ ============ */
+  [data-theme="contrast"]{ --bg:#000; --bg-2:#0b0b0b; --bg-3:#1a1a1a; --line:rgba(255,255,255,.42); --txt:#fff; --txt-dim:#e6e6e6; --txt-faint:#bdbdbd; --accent:#ffd24a; --accent-soft:rgba(255,210,74,.2); }
+</style>
+</head>
+<body>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <div class="brand-logo">光</div>
+    <div class="brand-txt">
+      <div class="brand-name">Hikari</div>
+      <div class="brand-sub" data-i18n="brand.tag">Stream l'esprit tranquille</div>
+    </div>
+  </div>
+  <button class="collapse-btn" id="collapseBtn" title="Réduire le menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg>
+  </button>
+
+  <nav class="nav">
+    <div class="nav-group">
+      <button class="nav-item" data-screen="home">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span> <span data-i18n="nav.home">Accueil</span>
+      </button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label" data-i18n="grp.broadcast">Diffuser</div>
+      <button class="nav-item" data-screen="prevol">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span> <span data-i18n="nav.prevol">Pré-vol</span>
+      </button>
+      <button class="nav-item active" data-screen="cockpit">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg></span> <span data-i18n="nav.cockpit">Cockpit Live</span>
+      </button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label" data-i18n="grp.produce">Produire</div>
+      <button class="nav-item" data-screen="edition">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span> <span data-i18n="nav.edit">Édition</span>
+      </button>
+      <button class="nav-item" data-screen="publication">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span> <span data-i18n="nav.publish">Publication</span>
+      </button>
+      <button class="nav-item" data-screen="deck">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg></span> <span data-i18n="nav.deck">Deck mobile</span>
+      </button>
+      <button class="nav-item" data-screen="automations">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span> <span data-i18n="nav.auto">Automations</span>
+      </button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label" data-i18n="grp.track">Suivre</div>
+      <button class="nav-item" data-screen="stats">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span> <span data-i18n="nav.stats">Suivi</span>
+      </button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label" data-i18n="grp.system">Système</div>
+      <button class="nav-item" data-screen="settings">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span> <span data-i18n="nav.settings">Paramètres</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Panneau morphique (F-070) -->
+  <div class="side-footer">
+    <div class="dd-wrap" style="flex:1">
+      <button class="sf-btn" id="langBtn" style="width:100%">
+        <span id="langFlag"><svg class="flag" viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#0055A4"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg></span>
+        <span id="langCur">FR</span> <span class="caret">▾</span>
+      </button>
+      <div class="dropdown" id="langMenu" hidden style="left:0;right:0;bottom:calc(100% + 6px)">
+        <button data-lang="fr"><svg class="flag" viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#0055A4"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg> Français</button>
+        <button data-lang="en"><svg class="flag" viewBox="0 0 60 30"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="4"/><rect x="25" width="10" height="30" fill="#fff"/><rect y="10" width="60" height="10" fill="#fff"/><rect x="27" width="6" height="30" fill="#C8102E"/><rect y="12" width="60" height="6" fill="#C8102E"/></svg> English</button>
+        <button data-lang="es"><svg class="flag" viewBox="0 0 3 2"><rect width="3" height="2" fill="#c60b1e"/><rect y="0.5" width="3" height="1" fill="#F1BF00"/></svg> Español</button>
+      </div>
+    </div>
+    <button class="sf-btn" id="adaptBtn" style="flex:1">✨ <span data-i18n="m.title">Adaptation</span></button>
+  </div>
+</aside>
+<div class="scrim" id="scrim"></div>
+
+<!-- ============ MAIN ============ -->
+<div class="main">
+  <header class="topbar">
+    <button class="hamb" id="hamb">☰</button>
+    <h1 id="screenTitle">Cockpit Live</h1>
+    <div class="dd-wrap ts-preset">
+      <button class="btn-preset" id="presetBtn">🎚️ <span class="pk">Preset</span> <strong id="presetCur">LoL du soir</strong> ▾</button>
+      <div class="dropdown" id="presetMenu" hidden style="left:0;top:calc(100% + 8px);min-width:280px">
+        <div class="dd-sec">Presets de stream</div>
+        <button data-preset="LoL du soir" class="dd-item"><span class="dd-title">🎮 LoL du soir</span><span class="dd-sub">Twitch + YouTube · scènes LoL · « Ranked grind »</span></button>
+        <button data-preset="Just Chatting" class="dd-item"><span class="dd-title">💬 Just Chatting</span><span class="dd-sub">Twitch · scènes Discussion · « On papote »</span></button>
+        <button data-preset="Dofus Retro" class="dd-item"><span class="dd-title">⚔️ Dofus Retro</span><span class="dd-sub">YouTube · scènes Dofus · « Aventure Retro »</span></button>
+        <button style="color:var(--txt-dim)">⚙️ Gérer les presets…</button>
+      </div>
+    </div>
+    <div class="top-right">
+      <div class="dd-wrap">
+        <button class="btn-start" id="startBtn">▶ Démarrer ▾</button>
+        <div class="dropdown" id="startMenu" hidden style="right:0;top:calc(100% + 8px)">
+          <button>🔴 Démarrer le direct</button>
+          <button>⏺️ Démarrer l'enregistrement</button>
+          <button>🧪 Test privé (sans diffuser)</button>
+        </div>
+      </div>
+      <span class="pill"><span class="ic">👁️</span> 342</span>
+      <div class="dd-wrap">
+        <button class="pill" id="healthBtn" style="cursor:pointer"><span class="dot" style="background:var(--green)"></span> 6,2 Mb/s</button>
+        <div class="dropdown" id="healthMenu" hidden style="right:0;top:calc(100% + 8px);min-width:250px">
+          <div class="dd-sec">Santé du stream</div>
+          <button style="cursor:default"><span class="dot" style="background:var(--green)"></span> Twitch <span class="dd-sub" style="margin-left:auto">stable · 6,2 Mb/s</span></button>
+          <button style="cursor:default"><span class="dot" style="background:var(--accent)"></span> YouTube <span class="dd-sub" style="margin-left:auto">reconnexion…</span></button>
+          <button style="cursor:default"><span class="dot" style="background:var(--txt-faint)"></span> TikTok <span class="dd-sub" style="margin-left:auto">non connecté</span></button>
+        </div>
+      </div>
+      <button class="btn-quiet" id="silenceBtn">🔕 Silence alertes</button>
+      <span class="pill live"><span class="dot pulse"></span> EN DIRECT · 1:24:07</span>
+    </div>
+  </header>
+
+  <div class="content">
+
+  <!-- ---------- ACCUEIL (Dashboard pleine largeur) ---------- -->
+  <section class="screen" id="home">
+    <div class="dash-grid">
+      <div class="card kpi"><div class="kv">1 284</div><div class="kl">Abonnés</div><div class="kd up">▲ +38 cette semaine</div></div>
+      <div class="card kpi"><div class="kv">312</div><div class="kl">Spectateurs moyens</div><div class="kd up">▲ +6 % ce mois</div></div>
+      <div class="card kpi"><div class="kv">18 h</div><div class="kl">Streamé ce mois</div><div class="kd up">▲ 7 lives</div></div>
+      <div class="card kpi"><div class="kv">24</div><div class="kl">Clips publiés</div><div class="kd down">▼ −3 vs mois dernier</div></div>
+    </div>
+    <div class="dash-2">
+      <div class="card">
+        <h3>Derniers streams</h3>
+        <div class="stream-row">
+          <div class="stream-thumb"><span class="st-tag">2:14</span></div>
+          <div class="stream-meta"><div class="t">Ranked grind — route vers Master</div><div class="s">Hier · LoL · Twitch + YouTube</div></div>
+          <div class="stream-nums"><div class="sn"><div class="v">401</div><div class="l">pic</div></div><div class="sn"><div class="v">6</div><div class="l">clips</div></div></div>
+        </div>
+        <div class="stream-row">
+          <div class="stream-thumb"><span class="st-tag">1:47</span></div>
+          <div class="stream-meta"><div class="t">On papote + review du patch</div><div class="s">Dim. · Just Chatting · Twitch</div></div>
+          <div class="stream-nums"><div class="sn"><div class="v">288</div><div class="l">pic</div></div><div class="sn"><div class="v">3</div><div class="l">clips</div></div></div>
+        </div>
+        <div class="stream-row">
+          <div class="stream-thumb"><span class="st-tag">3:02</span></div>
+          <div class="stream-meta"><div class="t">Aventure Dofus Retro — Donjon Bworker</div><div class="s">Ven. · Dofus · YouTube</div></div>
+          <div class="stream-nums"><div class="sn"><div class="v">356</div><div class="l">pic</div></div><div class="sn"><div class="v">5</div><div class="l">clips</div></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>À venir & à faire</h3>
+        <div class="check"><div class="ck-ic ok">📅</div><div class="ck-body"><div class="ck-title">Prochain live</div><div class="ck-sub">Demain 18 h · preset « LoL du soir »</div></div></div>
+        <div class="check"><div class="ck-ic warn">3</div><div class="ck-body"><div class="ck-title">Clips à publier</div><div class="ck-sub">2 prêts, 1 à finir</div></div></div>
+        <div class="check"><div class="ck-ic ok">✓</div><div class="ck-body"><div class="ck-title">Matériel OK</div><div class="ck-sub">micro, caméra, encodage prêts</div></div></div>
+        <button class="btn-quiet" style="width:100%;margin-top:12px" data-goto-onboard>↻ Revoir l'accueil guidé</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- WIZARD (onboarding, 1er lancement) ---------- -->
+  <section class="screen" id="wizard">
+    <div class="wizard-wrap">
+      <div class="wz-progress"><i class="done"></i><i class="done"></i><i></i><i></i></div>
+      <div class="faint">Étape 2 sur 4 · avant tout, ton confort</div>
+      <h1 class="wz-title">Comment veux-tu qu'Hikari se présente ?</h1>
+      <p class="wz-sub">On règle ton confort <strong>avant</strong> de parler de ton stream. Tu pourras tout changer plus tard, à tout moment.</p>
+
+      <div class="choice-grid">
+        <button class="choice on"><div class="ch-ic">🌙</div><div class="ch-t">Calme</div><div class="ch-d">Peu d'animation, couleurs douces. Le regard se repose.</div></button>
+        <button class="choice"><div class="ch-ic">⚡</div><div class="ch-t">Vif</div><div class="ch-d">Animations fluides, retours visuels riches.</div></button>
+        <button class="choice"><div class="ch-ic">🎯</div><div class="ch-t">Épuré</div><div class="ch-d">L'essentiel affiché, le reste se déplie au besoin.</div></button>
+      </div>
+
+      <div class="wz-nav">
+        <a class="exit-link" href="#">← Je reprends plus tard</a>
+        <button class="btn-accent">Continuer →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- COCKPIT LIVE ---------- -->
+  <section class="screen active" id="cockpit">
+    <div class="modebar">
+      <span class="mlabel">Disposition</span>
+      <div class="mode-seg" id="modeSeg">
+        <button data-mode="setup">🛠️ Préparation</button>
+        <button data-mode="live" class="on">🔴 Live</button>
+      </div>
+      <span class="mhint" id="modeHint">En direct : le superflu s'efface, l'essentiel reste sous la main.</span>
+    </div>
+    <div class="cockpit mode-live" id="cockpitGrid">
+
+      <!-- Colonne gauche : scènes -->
+      <div class="card">
+        <h3>Scènes <span class="tag">1 clic</span><span class="ptools"><button title="Déplacer le panneau">⠿</button><button title="Détacher sur un autre écran">⧉</button></span></h3>
+        <div class="collection-tabs">
+          <button class="on">LoL</button>
+          <button>Interview</button>
+          <button>Pause</button>
+        </div>
+        <div class="scene-list">
+          <div class="scene on"><div class="thumb"></div><div class="nm">🎮 En jeu</div><span class="chev">▾</span></div>
+          <div class="source-list">
+            <div class="src">🎥 Caméra <span class="eye">👁</span></div>
+            <div class="src">🖥️ Capture du jeu <span class="eye">👁</span></div>
+            <div class="src">🖼️ Overlay LoL <span class="eye">👁</span></div>
+            <div class="src off">🌿 Fond animé <span class="eye">🚫</span></div>
+          </div>
+          <div class="scene"><div class="thumb"></div><div class="nm">💬 Discussion</div><span class="chev">▸</span></div>
+          <div class="scene"><div class="thumb"></div><div class="nm">⏸️ Bientôt de retour</div><span class="chev">▸</span></div>
+          <div class="scene"><div class="thumb"></div><div class="nm">📊 Écran partagé</div><span class="chev">▸</span></div>
+        </div>
+        <div class="transition-row">
+          🎬 Transition
+          <span class="tsel">Fondu <span class="cy">0,3 s</span> ▾</span>
+        </div>
+      </div>
+
+      <!-- Colonne centre : aperçu + mixage + deck -->
+      <div class="grid" style="gap:var(--gap)">
+        <div class="preview">
+          <span class="scene-label">🎮 En jeu · aperçu réel</span>
+          <div class="opt-chips">
+            <button class="chip on" data-chip>📐 9:16 Vertical</button>
+            <button class="chip on" data-chip>💬 Sous-titres live</button>
+            <button class="chip" data-chip>📷 Caméra virtuelle</button>
+            <button class="chip" data-chip>👥 Inviter</button>
+          </div>
+          <div class="lower3">
+            <div class="l3-name">The Ermite</div>
+            <div class="l3-sub">Diamant IV · Jungle</div>
+          </div>
+          <div class="cc">« …et voilà comment on gère ce match-up »</div>
+          <div class="cam">🧑‍💻</div>
+          <div class="popup-layer" id="popupLayer"></div>
+        </div>
+
+        <div class="cols-2">
+          <div class="card">
+            <h3>Mixage audio <span class="tag">écoute / diffusion</span><span class="ptools"><button title="Déplacer le panneau">⠿</button><button title="Détacher sur un autre écran">⧉</button></span></h3>
+            <div class="mixer">
+              <div class="channel">
+                <div class="ch-top"><span class="ch-icon">🎙️</span><span class="ch-name">Micro</span><button class="mute-btn" style="margin-left:auto">Actif</button></div>
+                <div class="wave" data-wave="mic"></div>
+                <div class="slider"><div class="fill" style="width:72%"></div><div class="knob" style="left:72%"></div></div>
+                <div class="route">
+                  <button class="mon">🎧 Écoute</button>
+                  <button class="on">📡 Diffusé</button>
+                </div>
+              </div>
+              <div class="channel">
+                <div class="ch-top"><span class="ch-icon">🎮</span><span class="ch-name">Jeu</span><span class="badge g" style="margin-left:auto">baisse auto</span></div>
+                <div class="wave" data-wave="game"></div>
+                <div class="slider"><div class="fill" style="width:45%"></div><div class="knob" style="left:45%"></div></div>
+                <div class="route">
+                  <button class="mon on">🎧 Écoute</button>
+                  <button class="on">📡 Diffusé</button>
+                </div>
+              </div>
+              <div class="channel">
+                <div class="ch-top"><span class="ch-icon">🎵</span><span class="ch-name">Musique</span><span class="badge" style="margin-left:auto">perso</span></div>
+                <div class="slider"><div class="fill" style="width:35%"></div><div class="knob" style="left:35%"></div></div>
+                <div class="route">
+                  <button class="mon on">🎧 Écoute</button>
+                  <button>📡 Diffusé</button>
+                </div>
+                <div class="muted" style="font-size:11px;margin-top:6px">Tu l'entends, le stream non — pratique pour la musique protégée.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Deck de contrôle <span class="tag">4 types de touches</span><span class="ptools"><button title="Déplacer le panneau">⠿</button><button title="Détacher sur un autre écran">⧉</button></span></h3>
+            <div class="collection-tabs" id="deckBoards">
+              <button class="on" data-board="principal">Principal</button>
+              <button data-board="recording">Recording</button>
+              <button data-board="emotes">Émotes</button>
+            </div>
+            <div class="deck-grid deck-board" data-board="principal">
+              <button class="deck-btn state-on"><span class="di">🔴</span> LIVE <span class="st">ON</span></button>
+              <button class="deck-btn state-on"><span class="di">🎙️</span> Micro <span class="st">ON</span></button>
+              <div class="deck-val"><span class="dv">342</span><span class="dl">👁 viewers</span></div>
+              <button class="deck-btn hot"><span class="di">🏷️</span> Marqueur</button>
+              <button class="deck-btn"><span class="di">📸</span> Clip</button>
+              <button class="deck-btn"><span class="di">⏪</span> Replay 30s</button>
+              <button class="deck-btn"><span class="di">📊</span> Sondage</button>
+              <button class="deck-btn"><span class="di">🔊</span> Soundboard</button>
+              <button class="deck-btn"><span class="di">🙈</span> Cacher</button>
+            </div>
+            <div class="deck-grid deck-board" data-board="recording" style="display:none">
+              <button class="deck-btn state-on"><span class="di">⏺️</span> REC <span class="st">ON</span></button>
+              <button class="deck-btn"><span class="di">⏸️</span> Pause</button>
+              <button class="deck-btn hot"><span class="di">🏷️</span> Marqueur</button>
+              <button class="deck-btn"><span class="di">💾</span> Sauver replay</button>
+              <button class="deck-btn"><span class="di">📑</span> Chapitre</button>
+              <button class="deck-btn"><span class="di">🖼️</span> Capture écran</button>
+            </div>
+            <div class="deck-grid deck-board" data-board="emotes" style="display:none">
+              <button class="deck-btn" data-emo="👋"><span class="di">👋</span> Salut</button>
+              <button class="deck-btn" data-emo="🙏"><span class="di">🙏</span> Merci</button>
+              <button class="deck-btn" data-emo="💜"><span class="di">💜</span> Cœur</button>
+              <button class="deck-btn" data-emo="🔥"><span class="di">🔥</span> Hype</button>
+              <button class="deck-btn" data-emo="🎉"><span class="di">🎉</span> GG</button>
+              <button class="deck-btn" data-emo="🐸"><span class="di">🐸</span> Meme gif</button>
+            </div>
+            <div class="deck-slider">
+              <div class="dsl-top"><span>🔉 Volume général</span><span class="dsl-val">78 %</span></div>
+              <div class="slider"><div class="fill" style="width:78%"></div><div class="knob" style="left:78%"></div></div>
+            </div>
+            <div class="deck-legend">
+              <span><i style="background:var(--txt-faint)"></i> Action</span>
+              <span><i style="background:var(--green)"></i> Bascule à état</span>
+              <span><i style="background:var(--cyan)"></i> Valeur live</span>
+              <span><i style="background:var(--accent)"></i> Curseur</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Colonne droite : chat (mode Live) -->
+      <div class="card chat only-live">
+        <h3>Chat <span class="tag">modération auto</span><span class="ptools"><button title="Déplacer le panneau">⠿</button><button title="Détacher sur un autre écran">⧉</button></span></h3>
+        <div class="alert-banner"><span class="ic">✨</span> <span><span class="who">Nova_92</span> vient de s'abonner !</span></div>
+        <div class="chat-log">
+          <div class="msg"><span class="who mod">ModoLuna</span> <span class="tx">Pensez au /vote de fin de game 👀</span></div>
+          <div class="msg"><span class="who vip">Kaede</span> <span class="tx">ce gank était énorme</span></div>
+          <div class="msg"><span class="who">pixel_owl</span> <span class="tx">gg le stream 🔥</span></div>
+          <div class="msg"><span class="who">spammer_x</span> <span class="tx faint">(message masqué)</span> <span class="chat-flag">lien bloqué</span></div>
+          <div class="msg"><span class="who">Rin</span> <span class="tx">tu joues quoi au prochain patch ?</span></div>
+        </div>
+      </div>
+
+      <!-- Colonne droite : préparation (mode Setup) -->
+      <div class="card only-setup">
+        <h3>Préparation <span class="tag">avant le direct</span><span class="ptools"><button title="Déplacer le panneau">⠿</button><button title="Détacher sur un autre écran">⧉</button></span></h3>
+        <div class="faint" style="margin-bottom:8px">Kit de marque</div>
+        <div class="swatches">
+          <i style="background:#f5b642"></i><i style="background:#3dc3ff"></i><i style="background:#0d1117"></i><i style="background:#e6edf3"></i>
+        </div>
+        <div class="faint" style="margin-bottom:8px">Sources à vérifier</div>
+        <div class="check" style="padding:9px 12px"><div class="ck-ic ok" style="width:24px;height:24px;font-size:12px">✓</div><div class="ck-body"><div class="ck-title" style="font-size:13px">Overlay + caméra</div></div></div>
+        <div class="check" style="padding:9px 12px"><div class="ck-ic ok" style="width:24px;height:24px;font-size:12px">✓</div><div class="ck-body"><div class="ck-title" style="font-size:13px">Alertes branchées</div></div></div>
+        <div class="check" style="padding:9px 12px"><div class="ck-ic warn" style="width:24px;height:24px;font-size:12px">!</div><div class="ck-body"><div class="ck-title" style="font-size:13px">Titre du live à définir</div></div></div>
+        <button class="btn-accent" style="width:100%;margin-top:12px" data-goto-live>Passer en mode Live →</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ---------- PRÉ-VOL ---------- -->
+  <section class="screen" id="prevol">
+    <div class="cols-2">
+      <div class="card">
+        <h3>Vérifications avant le direct <span class="tag">auto</span></h3>
+        <div class="check">
+          <div class="ck-ic ok">✓</div>
+          <div class="ck-body"><div class="ck-title">Micro détecté</div><div class="ck-sub">Casque · niveau correct</div></div>
+        </div>
+        <div class="check">
+          <div class="ck-ic ok">✓</div>
+          <div class="ck-body"><div class="ck-title">Caméra active</div><div class="ck-sub">1080p · 30 i/s</div></div>
+        </div>
+        <div class="check">
+          <div class="ck-ic warn">!</div>
+          <div class="ck-body">
+            <div class="ck-title">Connexion instable</div>
+            <div class="ck-sub">Débit qui varie — le direct pourrait couper.</div>
+          </div>
+          <a class="ck-fix">Voir comment →</a>
+        </div>
+        <div class="check">
+          <div class="ck-ic ok">✓</div>
+          <div class="ck-body"><div class="ck-title">Encodage prêt</div><div class="ck-sub">Réglage sûr pour ta machine</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="display:flex;flex-direction:column">
+        <h3>Test privé</h3>
+        <div class="preview" style="margin-bottom:16px">
+          <span class="scene-label">Aperçu — personne ne te voit encore</span>
+          <div class="cam" style="width:90px;height:90px;font-size:26px">🧑‍💻</div>
+        </div>
+        <p class="muted" style="font-size:13px;margin-bottom:auto">Le <strong>feu vert</strong> reste bloqué tant qu'un point est rouge. On te dit toujours pourquoi — jamais de « raté » en direct.</p>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:16px">
+          <button class="btn-accent" disabled>🔒 Go Live</button>
+          <span class="muted" style="font-size:13px">Bloqué : connexion instable</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- ÉDITION ---------- -->
+  <section class="screen" id="edition">
+    <div class="card" style="margin-bottom:var(--gap)">
+      <h3>Marqueurs du live <span class="tag">le chemin vers le clip</span></h3>
+      <p class="muted" style="font-size:13px;margin-bottom:6px">Chaque moment marqué (à la main <span style="color:var(--accent)">●</span> ou repéré tout seul <span style="color:var(--cyan)">●</span>) devient un clip en un clic.</p>
+      <div class="timeline">
+        <div class="track"></div>
+        <div class="played"></div>
+        <div class="marker" style="left:15%"><span class="mtip">Premier sang</span></div>
+        <div class="marker auto" style="left:33%"><span class="mtip">Pic de chat (auto)</span></div>
+        <div class="marker" style="left:48%"><span class="mtip">Triple kill</span></div>
+        <div class="marker auto" style="left:58%"><span class="mtip">Pic de chat (auto)</span></div>
+        <div class="head"></div>
+      </div>
+    </div>
+    <div class="cols-2">
+      <div class="card">
+        <h3>Clips prêts</h3>
+        <div class="clip-row">
+          <div class="clip-thumb">▶<span class="dur">0:42</span></div>
+          <div class="clip-meta"><div class="t">Triple kill décisif</div><div class="s">Sous-titres générés · vertical prêt</div></div>
+          <span class="badge g">prêt</span>
+        </div>
+        <div class="clip-row">
+          <div class="clip-thumb">▶<span class="dur">0:28</span></div>
+          <div class="clip-meta"><div class="t">Premier sang</div><div class="s">Sous-titres en cours…</div></div>
+          <span class="badge">à finir</span>
+        </div>
+        <div class="clip-row">
+          <div class="clip-thumb">▶<span class="dur">1:05</span></div>
+          <div class="clip-meta"><div class="t">Moment drôle du chat</div><div class="s">Repéré automatiquement</div></div>
+          <span class="badge">à finir</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Depuis un marqueur</h3>
+        <div class="clip-thumb" style="width:100%;height:150px;margin-bottom:14px;font-size:14px">Aperçu du clip · Triple kill</div>
+        <div class="cols-2" style="gap:10px">
+          <button class="btn-quiet">✂️ Ajuster le début/fin</button>
+          <button class="btn-quiet">💬 Sous-titres</button>
+          <button class="btn-quiet">📐 Format vertical</button>
+          <button class="btn-accent">🚀 Envoyer en publication</button>
+        </div>
+        <p class="muted" style="font-size:12.5px;margin-top:14px">Montage avancé (multi-pistes) ? → passe par le pont Kobo. Ici, l'essentiel suffit pour publier vite.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- PUBLICATION ---------- -->
+  <section class="screen" id="publication">
+    <div class="cols-2">
+      <div class="card">
+        <h3>Où publier <span class="tag">marque appliquée</span></h3>
+        <div class="plat on">
+          <div class="pl-ic" style="background:rgba(145,70,255,.18);color:#a970ff">📺</div>
+          <div><div class="pl-name">Twitch — Clips</div><div class="pl-sub">Connecté</div></div>
+          <div class="toggle on"><div class="tg"></div></div>
+        </div>
+        <div class="plat on">
+          <div class="pl-ic" style="background:rgba(255,77,79,.16);color:#ff4d4f">▶️</div>
+          <div><div class="pl-name">YouTube — Short</div><div class="pl-sub">Connecté</div></div>
+          <div class="toggle on"><div class="tg"></div></div>
+        </div>
+        <div class="plat">
+          <div class="pl-ic" style="background:rgba(61,195,255,.16);color:var(--cyan)">🎵</div>
+          <div><div class="pl-name">TikTok</div><div class="pl-sub">Non connecté</div></div>
+          <div class="toggle"><div class="tg"></div></div>
+        </div>
+
+        <h3 style="margin-top:22px">Quand</h3>
+        <div style="display:flex;gap:10px">
+          <button class="btn-accent">Publier maintenant</button>
+          <button class="btn-quiet">📅 Planifier · demain 18h00</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Miniature brandée</h3>
+        <div class="thumb-preview">
+          <div class="tp-brand"><span class="bl"></span> The Ermite</div>
+          <div class="tp-title">TRIPLE KILL<br>qui retourne la game</div>
+          <div class="tp-accent"></div>
+        </div>
+        <p class="muted" style="font-size:12.5px;margin:14px 0 12px">Ta charte (couleurs, logo, typo) s'applique toute seule — live, clip, post et miniature, sans rien refaire.</p>
+        <div style="display:flex;gap:10px">
+          <button class="btn-quiet">🎨 Changer le fond</button>
+          <button class="btn-quiet">✏️ Éditer le titre</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- DECK MOBILE ---------- -->
+  <section class="screen" id="deck">
+    <div class="phone-row">
+      <div style="text-align:center">
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-top">
+              <div class="brand-logo" style="width:26px;height:26px;font-size:14px;border-radius:7px">光</div>
+              <strong style="font-size:14px">Mon deck</strong>
+              <span class="pill live pt-live" style="padding:4px 10px;font-size:11px"><span class="dot pulse"></span> LIVE</span>
+            </div>
+            <div class="mtabs" id="mtabs">
+              <button class="on" data-mboard="principal">Principal</button>
+              <button data-mboard="scenes">Scènes</button>
+              <button data-mboard="emotes">Émotes</button>
+            </div>
+            <div class="mdeck-grid mboard" data-mboard="principal">
+              <button class="mdeck-btn hot"><span class="mdi">🔴</span> Marqueur</button>
+              <button class="mdeck-btn"><span class="mdi">⏪</span> Replay</button>
+              <button class="mdeck-btn"><span class="mdi">📸</span> Clip</button>
+              <button class="mdeck-btn"><span class="mdi">🔇</span> Muet micro</button>
+              <button class="mdeck-btn"><span class="mdi">🙈</span> Cacher</button>
+              <button class="mdeck-btn"><span class="mdi">🔕</span> Silence</button>
+            </div>
+            <div class="mdeck-grid mboard" data-mboard="scenes" style="display:none">
+              <button class="mdeck-btn hot"><span class="mdi">🎮</span> En jeu</button>
+              <button class="mdeck-btn"><span class="mdi">💬</span> Discussion</button>
+              <button class="mdeck-btn"><span class="mdi">⏸️</span> Pause</button>
+              <button class="mdeck-btn"><span class="mdi">📊</span> Partage</button>
+            </div>
+            <div class="mdeck-grid mboard" data-mboard="emotes" style="display:none">
+              <button class="mdeck-btn"><span class="mdi">👋</span> Salut</button>
+              <button class="mdeck-btn"><span class="mdi">🙏</span> Merci</button>
+              <button class="mdeck-btn"><span class="mdi">💜</span> Cœur</button>
+              <button class="mdeck-btn"><span class="mdi">🔥</span> Hype</button>
+              <button class="mdeck-btn"><span class="mdi">🎉</span> GG</button>
+              <button class="mdeck-btn"><span class="mdi">🐸</span> Meme</button>
+            </div>
+            <div style="margin-top:auto;padding-top:14px" class="faint">Marche sur ton WiFi, sans serveur</div>
+          </div>
+        </div>
+        <div class="phone-cap"><strong>Vue créateur</strong> — toutes les commandes</div>
+      </div>
+
+      <div style="text-align:center">
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-top">
+              <div class="brand-logo" style="width:26px;height:26px;font-size:14px;border-radius:7px;background:var(--cyan)">M</div>
+              <strong style="font-size:14px">Deck modérateur</strong>
+              <span class="pill live pt-live" style="padding:4px 10px;font-size:11px"><span class="dot pulse"></span> LIVE</span>
+            </div>
+            <div class="mdeck-grid">
+              <button class="mdeck-btn"><span class="mdi">⏱️</span> Pause pub</button>
+              <button class="mdeck-btn"><span class="mdi">📌</span> Épingler</button>
+              <button class="mdeck-btn"><span class="mdi">🧹</span> Nettoyer chat</button>
+              <button class="mdeck-btn"><span class="mdi">🚫</span> Bannir</button>
+            </div>
+            <div style="margin-top:auto;padding-top:14px">
+              <span class="role-note">🔒 Accès limité — pas de contrôle du direct</span>
+            </div>
+          </div>
+        </div>
+        <div class="phone-cap"><strong>Vue modérateur</strong> — droits réduits<br><span class="faint">Les commandes du live sont cachées, pas grisées</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- AUTOMATIONS (F-023) ---------- -->
+  <!-- Principe (ADR-008) : une automation est une DONNÉE lisible, jamais du code exécuté.
+       C'est ce qui la sépare d'un Streamer.bot scriptable — et ce qui rend les boucles
+       détectables AVANT le direct, au moment où on enregistre. -->
+  <section class="screen" id="automations">
+    <div class="auto-wrap">
+
+      <!-- ---- Colonne gauche : mes automations ---- -->
+      <div class="card" style="padding:14px">
+        <h3 style="padding:0 4px">Mes automations <span class="tag">4 actives</span></h3>
+
+        <button class="auto-item on" data-auto="pause">
+          <span class="ai-ic">⏸️</span>
+          <span><span class="ai-name">Je pars en pause</span><br><span class="ai-trig">Quand je clique sur « Pause »</span></span>
+        </button>
+        <button class="auto-item" data-auto="clip">
+          <span class="ai-ic">📸</span>
+          <span><span class="ai-name">Clip demandé au chat</span><br><span class="ai-trig">Quand un viewer tape !clip</span></span>
+        </button>
+        <button class="auto-item" data-auto="jeu">
+          <span class="ai-ic">🎮</span>
+          <span><span class="ai-name">Je passe en jeu</span><br><span class="ai-trig">Quand la scène « En jeu » s'ouvre</span></span>
+        </button>
+        <button class="auto-item" data-auto="follow">
+          <span class="ai-ic">💜</span>
+          <span><span class="ai-name">Nouveau follower</span><br><span class="ai-trig">Quand quelqu'un me suit</span></span>
+        </button>
+        <button class="auto-item off" data-auto="raid">
+          <span class="ai-ic">🚀</span>
+          <span><span class="ai-name">Fin de live · raid</span><br><span class="ai-trig">En pause — je la reprendrai</span></span>
+        </button>
+
+        <button class="btn-quiet" style="width:100%;margin-top:6px">+ Nouvelle automation</button>
+      </div>
+
+      <!-- ---- Colonne droite : la chaîne, lisible en français ---- -->
+      <div>
+        <div class="card" style="margin-bottom:var(--gap)">
+          <h3>
+            <span class="ai-ic" id="acIc" style="width:26px;height:26px;font-size:13px">⏸️</span>
+            <span id="acName">Je pars en pause</span>
+            <span class="toggle on" id="acToggle" style="margin-left:auto"><span class="tg"></span></span>
+          </h3>
+
+          <!-- QUAND -->
+          <div class="chain-step">
+            <div class="chain-key k-when">QUAND</div>
+            <div class="chain-box when" id="acWhen"></div>
+          </div>
+          <div class="chain-link"></div>
+
+          <!-- SI -->
+          <div class="chain-step">
+            <div class="chain-key">SI</div>
+            <div class="chain-box" id="acIf"></div>
+          </div>
+          <div class="chain-link"></div>
+
+          <!-- ALORS -->
+          <div class="chain-step">
+            <div class="chain-key">ALORS</div>
+            <div>
+              <div class="chain-box" id="acThen"></div>
+
+              <!-- Ajouter une étape : on décrit ce qu'on veut, on ne fouille pas un menu (P2) -->
+              <div class="add-step" id="addStep">
+                <button class="add-open" id="addOpen">
+                  <span style="font-size:15px;line-height:1">+</span> Ajouter une étape
+                </button>
+                <div class="search-box" id="searchBox" hidden>
+                  <div class="search-in">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input id="searchInput" type="text" placeholder="Qu'est-ce que tu veux faire ?" autocomplete="off">
+                    <button class="btn-quiet" id="searchCancel" style="padding:4px 9px;font-size:12px">Annuler</button>
+                  </div>
+                  <div id="suggList" style="margin-top:6px;max-height:230px;overflow-y:auto"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Le lien deck — conséquence du déclencheur, jamais un réglage isolé (ADR-012) -->
+          <div id="acDeck" style="margin-top:14px"></div>
+
+          <div style="display:flex;gap:9px;margin-top:16px;align-items:center">
+            <button class="btn-accent">Enregistrer</button>
+            <button class="btn-quiet">Essayer maintenant</button>
+            <!-- .muted (prose) et non .faint : .faint force les majuscules — réservé aux étiquettes
+                 courtes. Une phrase en capitales se lit mal (la silhouette des mots disparaît), ce que
+                 le CDC §9 « charge mentale » cherche à éviter. -->
+            <span class="muted" id="acNote" style="margin-left:auto;font-size:12px"></span>
+          </div>
+        </div>
+
+        <!-- ---- Garde-fous : la sérénité se MONTRE ---- -->
+        <div class="card">
+          <h3>Ce que Hikari surveille pour toi <span class="tag">toujours actif</span></h3>
+          <div style="display:grid;gap:10px">
+
+            <div class="guard stop">
+              <div class="g-ic">↺</div>
+              <div>
+                <div class="g-t">Une automation ne peut pas se rappeler elle-même</div>
+                <div class="g-s">Si l'enchaînement revient sur ses pas, Hikari le refuse <strong>à l'enregistrement</strong> — jamais en plein direct. Tu vois le trajet fautif, tu corriges, tu gardes la main.</div>
+              </div>
+            </div>
+
+            <div class="guard">
+              <div class="g-ic">✓</div>
+              <div>
+                <div class="g-t">Dans le doute, rien ne part</div>
+                <div class="g-s">Si une condition ne peut pas être vérifiée, l'action <strong>ne se déclenche pas</strong> et c'est noté. Un silence vaut mieux qu'une bêtise devant ton public.</div>
+              </div>
+            </div>
+
+            <div class="guard">
+              <div class="g-ic">⧗</div>
+              <div>
+                <div class="g-s"><span class="g-t">Une action lente ne fige jamais ton live</span><br>Chaque action a son temps maximum. Si l'une traîne, elle est abandonnée seule — ton stream continue, le reste du deck répond.</div>
+              </div>
+            </div>
+
+            <div class="guard">
+              <div class="g-ic">⛨</div>
+              <div>
+                <div class="g-t">Le chat ne déclenche que ce que tu ouvres</div>
+                <div class="g-s">Seules les commandes que tu exposes sont accessibles aux viewers. Tout le reste leur est fermé par défaut, sans que tu aies à y penser.</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ---------- SUIVI / STATS ---------- -->
+  <section class="screen" id="stats">
+    <div class="cols-3" style="margin-bottom:var(--gap)">
+      <div class="card stat"><div class="sv">342</div><div class="sl">Spectateurs en direct</div></div>
+      <div class="card stat"><div class="sv">6,2 <span class="u">Mb/s</span></div><div class="sl">Débit · stable</div></div>
+      <div class="card stat"><div class="sv">1:24<span class="u">:07</span></div><div class="sl">Durée du live</div></div>
+    </div>
+    <div class="cols-2">
+      <div class="card">
+        <h3>Ce live</h3>
+        <div class="check"><div class="ck-ic ok">▲</div><div class="ck-body"><div class="ck-title">Pic à 401 spectateurs</div><div class="ck-sub">pendant le triple kill</div></div></div>
+        <div class="check"><div class="ck-ic ok">✓</div><div class="ck-body"><div class="ck-title">0 coupure</div><div class="ck-sub">reconnexion jamais déclenchée</div></div></div>
+        <div class="check"><div class="ck-ic ok">4</div><div class="ck-body"><div class="ck-title">4 clips repérés</div><div class="ck-sub">prêts pour la publication</div></div></div>
+      </div>
+      <div class="card">
+        <h3>Régularité</h3>
+        <div style="display:flex;align-items:flex-end;gap:8px;height:130px;padding:10px 0">
+          <div style="flex:1;background:var(--bg-3);height:60%;border-radius:5px"></div>
+          <div style="flex:1;background:var(--bg-3);height:80%;border-radius:5px"></div>
+          <div style="flex:1;background:var(--bg-3);height:45%;border-radius:5px"></div>
+          <div style="flex:1;background:var(--accent);height:95%;border-radius:5px"></div>
+          <div style="flex:1;background:var(--bg-3);height:70%;border-radius:5px"></div>
+          <div style="flex:1;background:var(--bg-3);height:85%;border-radius:5px"></div>
+          <div style="flex:1;background:var(--accent-soft);height:30%;border-radius:5px"></div>
+        </div>
+        <p class="muted" style="font-size:12.5px">7 lives cette semaine — ta plus longue série. La régularité nourrit ta visibilité.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- PARAMÈTRES ---------- -->
+  <section class="screen" id="settings">
+    <div class="settings">
+      <div class="card set-nav">
+        <button class="on" data-pane="comptes">🔗 Comptes & destinations</button>
+        <button data-pane="devices">🎛️ Périphériques</button>
+        <button data-pane="encode">📶 Encodage</button>
+        <button data-pane="deck">📱 Deck & appairage</button>
+        <button data-pane="brand">🎨 Kit de marque</button>
+        <button data-pane="storage">💾 Stockage & archives</button>
+        <button data-pane="about">💛 À propos</button>
+      </div>
+
+      <div>
+        <!-- Comptes -->
+        <div class="card set-pane on" data-pane="comptes">
+          <h3>Comptes & destinations</h3>
+          <div class="conn">
+            <div class="cih" style="background:rgba(145,70,255,.18);color:#a970ff">📺</div>
+            <div class="cinfo"><div class="cn">Twitch</div><div class="cs"><span class="dot" style="background:var(--green)"></span> Connecté · jeton valide</div></div>
+            <button class="btn-quiet">Déconnecter</button>
+          </div>
+          <div class="conn">
+            <div class="cih" style="background:rgba(255,77,79,.16);color:#ff4d4f">▶️</div>
+            <div class="cinfo"><div class="cn">YouTube</div><div class="cs"><span class="dot" style="background:var(--green)"></span> Connecté</div></div>
+            <button class="btn-quiet">Déconnecter</button>
+          </div>
+          <div class="conn">
+            <div class="cih" style="background:rgba(61,195,255,.16);color:var(--cyan)">🎵</div>
+            <div class="cinfo"><div class="cn">TikTok</div><div class="cs"><span class="dot" style="background:var(--txt-faint)"></span> Non connecté</div></div>
+            <button class="btn-accent">Connecter</button>
+          </div>
+          <p class="muted" style="font-size:12.5px;margin-top:8px">Les jetons sont gardés dans le coffre du système — jamais en clair, jamais partagés.</p>
+        </div>
+
+        <!-- Périphériques -->
+        <div class="card set-pane" data-pane="devices">
+          <h3>Périphériques</h3>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">🎙️ Micro</div><div class="sr-d">Entrée audio principale</div></div><select class="sel"><option>Casque USB — Micro</option><option>Interface XLR</option></select></div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">🎧 Écoute (monitoring)</div><div class="sr-d">Sortie perso, non diffusée</div></div><select class="sel"><option>Casque USB</option><option>Haut-parleurs</option></select></div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">🎥 Caméra</div><div class="sr-d">Source vidéo principale</div></div><select class="sel"><option>Webcam 1080p</option><option>Reflex (capture)</option></select></div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">🔇 Suppression de bruit</div><div class="sr-d">Filtre micro</div></div><div class="toggle on"><div class="tg"></div></div></div>
+        </div>
+
+        <!-- Encodage -->
+        <div class="card set-pane" data-pane="encode">
+          <h3>Encodage</h3>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Encodeur</div><div class="sr-d">Réglage sûr détecté pour ta machine (RTX 3060)</div></div><select class="sel"><option>NVENC (carte graphique)</option><option>x264 (processeur)</option></select></div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Résolution / images</div><div class="sr-d">Sortie principale</div></div><select class="sel"><option>1080p · 60 i/s</option><option>1080p · 30 i/s</option><option>720p · 60 i/s</option></select></div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Débit</div><div class="sr-d">Plafonné selon ta connexion</div></div><select class="sel"><option>6 000 kb/s</option><option>4 500 kb/s</option></select></div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Vertical simultané (9:16)</div><div class="sr-d">Double encodage — validé pour ta machine</div></div><div class="toggle on"><div class="tg"></div></div></div>
+        </div>
+
+        <!-- Deck & appairage -->
+        <div class="card set-pane" data-pane="deck">
+          <h3>Deck & appairage</h3>
+          <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:center">
+            <div class="qr" id="qr"></div>
+            <div style="flex:1;min-width:220px">
+              <div class="sr-t" style="margin-bottom:6px">Ajouter un appareil</div>
+              <p class="muted" style="font-size:13px">Scanne ce code avec ton téléphone (même WiFi) — le deck marche sans serveur.</p>
+              <div class="conn" style="margin-top:12px"><div class="cih" style="background:var(--accent-soft)">📱</div><div class="cinfo"><div class="cn">Téléphone — créateur</div><div class="cs"><span class="dot" style="background:var(--green)"></span> Connecté · tous droits</div></div></div>
+              <div class="conn"><div class="cih" style="background:var(--cyan-soft)">🛡️</div><div class="cinfo"><div class="cn">Tablette — modérateur</div><div class="cs"><span class="dot" style="background:var(--green)"></span> Accès limité</div></div><button class="btn-quiet">Droits</button></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kit de marque -->
+        <div class="card set-pane" data-pane="brand">
+          <h3>Kit de marque</h3>
+          <div class="sr-d" style="margin-bottom:4px">Couleurs</div>
+          <div class="swatch-edit">
+            <div class="sw" style="background:#f5b642"></div>
+            <div class="sw" style="background:#3dc3ff"></div>
+            <div class="sw" style="background:#0d1117"></div>
+            <div class="sw" style="background:#e6edf3"></div>
+            <button class="btn-quiet">+ Ajouter</button>
+          </div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Logo</div><div class="sr-d">Appliqué aux miniatures & overlays</div></div><button class="btn-quiet">📁 Changer</button></div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Typographie</div></div><select class="sel"><option>Inter</option><option>Atkinson (lisible)</option></select></div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Ton verbal</div><div class="sr-d">Titres & descriptions auto</div></div><select class="sel"><option>Chaleureux</option><option>Énergique</option><option>Sobre</option></select></div>
+          <p class="muted" style="font-size:12.5px;margin-top:8px">Ce kit s'applique tout seul : live → clip → post → miniature.</p>
+        </div>
+
+        <!-- Stockage -->
+        <div class="card set-pane" data-pane="storage">
+          <h3>Stockage & archives</h3>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Dossier des enregistrements</div><div class="sr-d">D:\Streams\VODs</div></div><button class="btn-quiet">Changer</button></div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Archivage automatique</div><div class="sr-d">Copie vers ton cloud après le live</div></div><div class="toggle on"><div class="tg"></div></div></div>
+          <div class="sr-d" style="margin:16px 0 8px">Ton espace cloud — tu connectes le tien</div>
+          <div class="conn">
+            <div class="cih" style="background:rgba(66,133,244,.16);color:#4285F4">📁</div>
+            <div class="cinfo"><div class="cn">Google Drive</div><div class="cs"><span class="dot" style="background:var(--green)"></span> Connecté · dossier « Hikari-VODs »</div></div>
+            <button class="btn-quiet">Déconnecter</button>
+          </div>
+          <div class="conn">
+            <div class="cih" style="background:rgba(0,97,254,.16);color:#0061FE">🗂️</div>
+            <div class="cinfo"><div class="cn">Dropbox</div><div class="cs"><span class="dot" style="background:var(--txt-faint)"></span> Non connecté</div></div>
+            <button class="btn-accent">Connecter</button>
+          </div>
+          <div class="conn">
+            <div class="cih" style="background:rgba(0,164,239,.16);color:#00A4EF">☁️</div>
+            <div class="cinfo"><div class="cn">OneDrive</div><div class="cs"><span class="dot" style="background:var(--txt-faint)"></span> Non connecté</div></div>
+            <button class="btn-accent">Connecter</button>
+          </div>
+          <div class="conn">
+            <div class="cih" style="background:var(--bg-2)">🔧</div>
+            <div class="cinfo"><div class="cn">Serveur perso (S3 / WebDAV)</div><div class="cs">Pour les avancés · ton propre stockage</div></div>
+            <button class="btn-quiet">Configurer</button>
+          </div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Espace local utilisé</div><div class="sr-d">128 Go sur 500 Go</div></div><span class="badge">26 %</span></div>
+        </div>
+
+        <!-- À propos -->
+        <div class="card set-pane" data-pane="about">
+          <h3>À propos de Hikari</h3>
+          <p class="muted" style="font-size:13.5px;margin-bottom:14px">Hikari est libre et gratuit. Streame l'esprit tranquille — sans t'épuiser, sans être le produit.</p>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">💛 Soutenir Hikari</div><div class="sr-d">Un coup de pouce au projet — discret, jamais forcé</div></div><button class="btn-accent">Soutenir</button></div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Caméra virtuelle</div><div class="sr-d">Utiliser ta scène dans Zoom / Teams / Meet</div></div><div class="toggle"><div class="tg"></div></div></div>
+          <div class="set-row"><div class="sr-l"><div class="sr-t">Version</div><div class="sr-d">Hikari 1.0 · open-source</div></div><button class="btn-quiet">Code source</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  </div>
+</div>
+
+<!-- ============ MODALE — Adaptation morphique ============ -->
+<div class="modal-overlay" id="adaptModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 data-i18n="m.title">Adaptation</h3>
+      <button class="modal-x" data-close-adapt>✕</button>
+    </div>
+    <div class="msub">Règle l'interface à ton confort — à tout moment, sans rien casser.</div>
+    <div class="m-row">
+      <span data-i18n="m.density">Densité</span>
+      <div class="seg" data-set="density">
+        <button data-v="compact" data-i18n="m.d.compact">Compact</button>
+        <button data-v="confort" class="on" data-i18n="m.d.confort">Confort</button>
+        <button data-v="spacieux" data-i18n="m.d.spacieux">Spacieux</button>
+      </div>
+    </div>
+    <div class="m-row">
+      <span data-i18n="m.motion">Mouvement</span>
+      <div class="seg" data-set="motion">
+        <button data-v="on" class="on" data-i18n="m.mo.on">Animé</button>
+        <button data-v="off" data-i18n="m.mo.off">Réduit</button>
+      </div>
+    </div>
+    <div class="m-row">
+      <span data-i18n="m.theme">Thème</span>
+      <div class="seg" data-set="theme">
+        <button data-v="dark" class="on" data-i18n="m.th.dark">Sombre</button>
+        <button data-v="light" data-i18n="m.th.light">Clair</button>
+        <button data-v="contrast" data-i18n="m.th.contrast">Contraste</button>
+      </div>
+    </div>
+    <div class="m-row" style="margin-bottom:0">
+      <span data-i18n="m.font">Police</span>
+      <div class="segx" data-set="font">
+        <button data-v="inter" class="on">Inter</button>
+        <button data-v="lisible" data-i18n="m.font.readable">Lisible</button>
+        <button data-v="systeme" data-i18n="m.font.system">Système</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PALETTE DE COMMANDES (Ctrl+K) ============ -->
+<div class="cmdk" id="cmdk" hidden>
+  <div class="cmdk-box">
+    <input class="cmdk-in" id="cmdkIn" placeholder="Tape une commande… (scène, clip, direct, paramètres)">
+    <div class="cmdk-list" id="cmdkList">
+      <button data-cmd="cockpit">🎛️ Aller au Cockpit Live</button>
+      <button data-cmd="start">🔴 Démarrer le direct <span class="k">Ctrl+D</span></button>
+      <button data-cmd="clip">📸 Créer un clip <span class="k">C</span></button>
+      <button data-cmd="marker">🏷️ Poser un marqueur <span class="k">M</span></button>
+      <button data-cmd="home">🏠 Aller à l'Accueil</button>
+      <button data-cmd="edition">✂️ Ouvrir l'Édition</button>
+      <button data-cmd="publication">🚀 Ouvrir la Publication</button>
+      <button data-cmd="settings">⚙️ Ouvrir les Paramètres</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ WIDGET DE RETOUR ============ -->
+<button class="fab" id="fbBtn" title="Donner un retour">💬</button>
+<div class="modal-overlay fb-modal" id="fbModal" hidden>
+  <div class="modal">
+    <div class="modal-head"><h3>Ton retour</h3><button class="modal-x" data-close-fb>✕</button></div>
+    <div class="msub">En 2 clics. Le contexte technique est joint tout seul.</div>
+    <div class="fb-rate"><button>😕</button><button>😐</button><button>🙂</button><button>😃</button><button>🤩</button></div>
+    <textarea class="fb-ta" placeholder="Qu'est-ce qui t'a plu ou gêné ?"></textarea>
+    <div class="fb-note">🔒 Zéro donnée personnelle envoyée.</div>
+    <button class="btn-accent" style="width:100%;margin-top:14px" data-close-fb>Envoyer</button>
+  </div>
+</div>
+
+<script>
+  // ---- Navigation entre écrans ----
+  const titles = { home:'Accueil', wizard:'Accueil', cockpit:'Cockpit Live', prevol:'Pré-vol', edition:'Édition', publication:'Publication', deck:'Deck mobile', automations:'Automations', stats:'Suivi', settings:'Paramètres' };
+  function showScreen(s){
+    document.querySelectorAll('.screen').forEach(sc=>sc.classList.remove('active'));
+    const el = document.getElementById(s); if(el) el.classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.screen===s));
+    if(titles[s]) document.getElementById('screenTitle').textContent = titles[s];
+    document.body.classList.remove('nav-open');
+    window.scrollTo(0,0);
+  }
+  document.querySelectorAll('.nav-item').forEach(btn=>btn.addEventListener('click',()=>showScreen(btn.dataset.screen)));
+  document.querySelector('[data-goto-onboard]')?.addEventListener('click',()=>showScreen('wizard'));
+
+  // ---- Automations (F-023) ----
+  // ADR-008 : une automation est une DONNÉE, jamais du code exécuté. Cette maquette applique
+  // le principe littéralement — l'écran ne fait que LIRE la donnée ci-dessous et la dessiner.
+  // ADR-012 : le déclencheur est un ATTRIBUT, pas une nature. 'bouton' => la touche EST le
+  // déclencheur, donc l'automation apparaît d'office sur le deck. Les autres non (sauf aussiDeck).
+  const DECLENCHEURS = {
+    bouton:    { label:'touche du deck', deck:true  },
+    chat:      { label:'commande du chat', deck:false },
+    evenement: { label:'événement', deck:false },
+    minuteur:  { label:'minuteur', deck:false }
+  };
+  const surLeDeck = a => DECLENCHEURS[a.decl].deck || !!a.aussiDeck;
+
+  const AUTOS = {
+    pause: { ic:'⏸️', name:'Je pars en pause', active:true, decl:'bouton',
+      when:{ t:'Je clique sur « Pause »', tag:'touche du deck' },
+      ifs:[ { t:'le live est <strong>en cours</strong>', tag:'condition' } ],
+      then:[ {t:'Basculer sur la scène « Pause »',tag:'scène'}, {t:'Couper mon micro',tag:'audio'},
+             {t:'Attendre <strong>2 secondes</strong>',tag:'délai'}, {t:"Lancer la musique d'attente",tag:'média'},
+             {t:'Afficher le bandeau « je reviens »',tag:'bandeau'} ],
+      note:'retour automatique à la fin de la pause' },
+
+    clip: { ic:'📸', name:'Clip demandé au chat', active:true, decl:'chat',
+      when:{ t:'Un viewer tape <strong>!clip</strong>', tag:'commande du chat' },
+      ifs:[ { t:'la personne est <strong>abonnée ou modératrice</strong>', tag:'condition' },
+             { t:'aucun clip demandé depuis <strong>30 secondes</strong>', tag:'condition' } ],
+      then:[ {t:'Créer le clip des 30 dernières secondes',tag:'direct'}, {t:'Attendre <strong>2 secondes</strong>',tag:'délai'},
+             {t:'Répondre le lien dans le chat',tag:'chat'}, {t:'Ajouter un marqueur sur le live',tag:'marqueur'} ],
+      note:'4 actions sur 20 · seule commande ouverte aux viewers' },
+
+    jeu: { ic:'🎮', name:'Je passe en jeu', active:true, decl:'evenement', aussiDeck:true,
+      when:{ t:'La scène « En jeu » s\'ouvre', tag:'événement' },
+      ifs:[ { t:'ma caméra est <strong>branchée</strong>', tag:'condition' } ],
+      then:[ {t:'Déplacer la caméra en bas à droite',tag:'source'}, {t:'Baisser le son du jeu quand je parle',tag:'audio'},
+             {t:'Armer les alertes follow et sub',tag:'alertes'} ],
+      note:'3 actions sur 20' },
+
+    follow: { ic:'💜', name:'Nouveau follower', active:true, decl:'evenement',
+      when:{ t:'Quelqu\'un me suit', tag:'événement' },
+      ifs:[ { t:'je suis <strong>en direct</strong>', tag:'condition' } ],
+      then:[ {t:'Retenir son nom',tag:'variable'}, {t:'Afficher une alerte discrète 3 s',tag:'alerte'},
+             {t:'Le remercier dans le chat',tag:'chat'} ],
+      note:'3 actions sur 20 · alerte fine par défaut' },
+
+    raid: { ic:'🚀', name:'Fin de live · raid', active:false, decl:'bouton',
+      when:{ t:'Je clique sur « Terminer »', tag:'touche du deck' },
+      ifs:[ { t:'un ami est <strong>en direct</strong>', tag:'condition' } ],
+      then:[ {t:'Afficher le bandeau « on part chez… »',tag:'bandeau'}, {t:'Attendre <strong>10 secondes</strong>',tag:'délai'},
+             {t:'Lancer le raid',tag:'direct'} ],
+      note:'en pause — je la reprendrai' }
+  };
+  const row = (o, n) => `<div class="act-row">${n?`<span class="act-n">${n}</span>`:''}<span class="act-txt">${o.t}</span><span class="act-tag">${o.tag}</span></div>`;
+  const ICO_DECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>';
+  const badgeDeck = () => `<span class="deck-tag">${ICO_DECK} deck</span>`;
+
+  function renderAuto(key){
+    const a = AUTOS[key]; if(!a) return;
+    document.getElementById('acIc').textContent = a.ic;
+    document.getElementById('acName').textContent = a.name;
+    document.getElementById('acToggle').classList.toggle('on', a.active);
+    document.getElementById('acWhen').innerHTML = row(a.when);
+    document.getElementById('acIf').innerHTML   = a.ifs.map(o=>row(o)).join('');
+    document.getElementById('acThen').innerHTML = a.then.map((o,i)=>row(o,i+1)).join('');
+    document.getElementById('acNote').textContent = a.note;
+    document.querySelectorAll('.auto-item').forEach(b=>b.classList.toggle('on', b.dataset.auto===key));
+
+    // Le lien deck : conséquence du déclencheur, jamais un réglage indépendant (ADR-012)
+    const zone = document.getElementById('acDeck');
+    if (DECLENCHEURS[a.decl].deck) {
+      zone.innerHTML = `<div class="guard" style="padding:10px 12px">
+        <div class="g-ic" style="background:var(--cyan-soft);color:var(--cyan)">${ICO_DECK}</div>
+        <div><div class="g-t">Cette automation est sur ton deck</div>
+        <div class="g-s">Son déclencheur est un bouton — la touche <strong>est</strong> le déclencheur. Rien à régler.</div></div></div>`;
+    } else {
+      zone.innerHTML = `<div class="guard" style="padding:10px 12px">
+        <div class="g-ic" style="background:var(--bg);color:var(--txt-faint)">${ICO_DECK}</div>
+        <div style="flex:1"><div class="g-t">Aussi sur le deck ?</div>
+        <div class="g-s">Elle part toute seule (${DECLENCHEURS[a.decl].label}). Tu peux <em>en plus</em> lui donner une touche pour la lancer à la main.</div></div>
+        <span class="toggle ${a.aussiDeck?'on':''}" id="acDeckTg" style="align-self:center"><span class="tg"></span></span></div>`;
+      document.getElementById('acDeckTg').addEventListener('click', () => {
+        a.aussiDeck = !a.aussiDeck; renderAuto(key);
+      });
+    }
+    renderListe();
+  }
+
+  // La liste affiche le badge deck — on voit d'un coup d'œil qui a une touche
+  function renderListe(){
+    document.querySelectorAll('.auto-item').forEach(b=>{
+      const a = AUTOS[b.dataset.auto]; if(!a) return;
+      let slot = b.querySelector('.ai-deck');
+      if(!slot){ slot = document.createElement('span'); slot.className='ai-deck'; b.appendChild(slot); }
+      slot.innerHTML = surLeDeck(a) ? badgeDeck() : '';
+    });
+  }
+
+  document.querySelectorAll('.auto-item').forEach(b=>b.addEventListener('click',()=>renderAuto(b.dataset.auto)));
+  renderAuto('pause');
+
+  // ---- Ajouter une étape : chercher, pas fouiller (principe P2) ----
+  // Chez Streamer.bot il faut plonger dans Add -> OBS Studio -> Sources -> ... sur des centaines
+  // d'entrées. Ici on décrit ce qu'on veut, en français.
+  const ETAPES = [
+    { t:'Basculer sur une scène',        ic:'🎬', fam:'scène',   mots:'scene basculer changer passer' },
+    { t:'Couper / rétablir mon micro',   ic:'🎙️', fam:'audio',   mots:'micro couper mute son muet' },
+    { t:'Baisser le son du jeu',         ic:'🔉', fam:'audio',   mots:'son jeu baisser volume ducking' },
+    { t:'Attendre un moment',            ic:'⏱️', fam:'délai',   mots:'attendre delai pause temps seconde' },
+    { t:'Afficher un bandeau',           ic:'💬', fam:'bandeau', mots:'bandeau afficher texte message info' },
+    { t:'Créer un clip',                 ic:'📸', fam:'direct',  mots:'clip creer capturer moment' },
+    { t:'Poser un marqueur',             ic:'🔖', fam:'marqueur',mots:'marqueur reperer noter moment' },
+    { t:'Déplacer la caméra',            ic:'🎥', fam:'source',  mots:'camera deplacer bouger cam position' },
+    { t:'Faire clignoter la caméra',     ic:'✨', fam:'effet',   mots:'clignoter camera effet cam animation' },
+    { t:'Écrire dans le chat',           ic:'⌨️', fam:'chat',    mots:'chat ecrire message repondre dire' },
+    { t:'Lancer un son',                 ic:'🔊', fam:'média',   mots:'son jouer lancer audio musique' },
+    { t:'Changer le titre du live',      ic:'✏️', fam:'direct',  mots:'titre changer categorie live info' }
+  ];
+  const suggHTML = e => `<div class="sugg"><span class="s-ic">${e.ic}</span><span>${e.t}</span><span class="s-fam">${e.fam}</span></div>`;
+  function filtrer(q){
+    q = q.trim().toLowerCase();
+    const res = q ? ETAPES.filter(e => (e.t+' '+e.mots+' '+e.fam).toLowerCase().includes(q)) : ETAPES.slice(0,5);
+    const box = document.getElementById('suggList');
+    box.innerHTML = res.length
+      ? (q?'':'<div class="sugg-hint">Les plus utilisées — ou tape ce que tu cherches</div>') + res.map(suggHTML).join('')
+      : `<div class="sugg-hint">Rien pour « ${q} ». Essaie un autre mot — on cherche dans tout ce que Hikari sait faire.</div>`;
+  }
+  const zoneAdd = document.getElementById('addStep');
+  if (zoneAdd) {
+    document.getElementById('addOpen').addEventListener('click', ()=>{
+      zoneAdd.querySelector('.add-open').hidden = true;
+      document.getElementById('searchBox').hidden = false;
+      const inp = document.getElementById('searchInput');
+      filtrer(''); inp.focus();
+      inp.oninput = () => filtrer(inp.value);
+    });
+    document.getElementById('searchCancel').addEventListener('click', ()=>{
+      document.getElementById('searchBox').hidden = true;
+      zoneAdd.querySelector('.add-open').hidden = false;
+      document.getElementById('searchInput').value = '';
+    });
+  }
+
+  // ---- Sidebar réductible (icônes seules) ----
+  document.getElementById('collapseBtn').addEventListener('click',()=>document.getElementById('sidebar').classList.toggle('collapsed'));
+  document.querySelectorAll('.nav-item').forEach(b=>{ const l=b.querySelector('span[data-i18n]'); if(l) b.title=l.textContent; });
+
+  // ---- Panneau morphique ----
+  document.querySelectorAll('.seg').forEach(seg=>{
+    const attr = { density:'data-density', motion:'data-motion', theme:'data-theme' }[seg.dataset.set];
+    seg.querySelectorAll('button').forEach(b=>{
+      b.addEventListener('click',()=>{
+        seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+        b.classList.add('on');
+        document.documentElement.setAttribute(attr, b.dataset.v);
+      });
+    });
+  });
+
+  // ---- Police (live) + Langue (menu) — morphique ----
+  const FONTS = {
+    inter:   "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
+    lisible: "'Atkinson Hyperlegible','Inter',sans-serif",
+    systeme: "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif"
+  };
+  const I18N = {
+    fr:{ 'brand.tag':"Stream l'esprit tranquille",'grp.broadcast':'Diffuser','grp.produce':'Produire','grp.track':'Suivre','nav.home':'Accueil','nav.prevol':'Pré-vol','nav.cockpit':'Cockpit Live','nav.edit':'Édition','nav.publish':'Publication','nav.deck':'Deck mobile','nav.auto':'Automations','nav.stats':'Suivi','m.title':'Adaptation','m.density':'Densité','m.motion':'Mouvement','m.theme':'Thème','m.font':'Police','m.lang':'Langue','m.d.compact':'Compact','m.d.confort':'Confort','m.d.spacieux':'Spacieux','m.mo.on':'Animé','m.mo.off':'Réduit','m.th.dark':'Sombre','m.th.light':'Clair','m.font.readable':'Lisible','m.font.system':'Système','m.th.contrast':'Contraste','grp.system':'Système','nav.settings':'Paramètres' },
+    en:{ 'brand.tag':'Stream with peace of mind','grp.broadcast':'Broadcast','grp.produce':'Produce','grp.track':'Track','nav.home':'Home','nav.prevol':'Pre-flight','nav.cockpit':'Live Cockpit','nav.edit':'Editing','nav.publish':'Publishing','nav.deck':'Mobile deck','nav.auto':'Automations','nav.stats':'Analytics','m.title':'Adaptation','m.density':'Density','m.motion':'Motion','m.theme':'Theme','m.font':'Font','m.lang':'Language','m.d.compact':'Compact','m.d.confort':'Comfort','m.d.spacieux':'Spacious','m.mo.on':'Animated','m.mo.off':'Reduced','m.th.dark':'Dark','m.th.light':'Light','m.font.readable':'Readable','m.font.system':'System','m.th.contrast':'Contrast','grp.system':'System','nav.settings':'Settings' },
+    es:{ 'brand.tag':'Transmite con calma','grp.broadcast':'Emitir','grp.produce':'Producir','grp.track':'Seguir','nav.home':'Inicio','nav.prevol':'Previo','nav.cockpit':'Cockpit en vivo','nav.edit':'Edición','nav.publish':'Publicación','nav.deck':'Deck móvil','nav.auto':'Automatizaciones','nav.stats':'Seguimiento','m.title':'Adaptación','m.density':'Densidad','m.motion':'Movimiento','m.theme':'Tema','m.font':'Fuente','m.lang':'Idioma','m.d.compact':'Compacto','m.d.confort':'Cómodo','m.d.spacieux':'Amplio','m.mo.on':'Animado','m.mo.off':'Reducido','m.th.dark':'Oscuro','m.th.light':'Claro','m.font.readable':'Legible','m.font.system':'Sistema','m.th.contrast':'Contraste','grp.system':'Sistema','nav.settings':'Ajustes' }
+  };
+  function applyLang(l){
+    document.documentElement.lang = l;
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const t = I18N[l] && I18N[l][el.dataset.i18n];
+      if(t) el.textContent = t;
+    });
+  }
+  document.querySelectorAll('.segx').forEach(seg=>{
+    seg.querySelectorAll('button').forEach(b=>{
+      b.addEventListener('click',()=>{
+        seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+        if(seg.dataset.set==='font') document.documentElement.style.setProperty('--font', FONTS[b.dataset.v]);
+        if(seg.dataset.set==='lang') applyLang(b.dataset.v);
+      });
+    });
+  });
+
+  // ---- Menus déroulants (langue, preset, démarrer) + modale Adaptation ----
+  const FLAG = {
+    fr:'<svg class="flag" viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#0055A4"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg>',
+    en:'<svg class="flag" viewBox="0 0 60 30"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="4"/><rect x="25" width="10" height="30" fill="#fff"/><rect y="10" width="60" height="10" fill="#fff"/><rect x="27" width="6" height="30" fill="#C8102E"/><rect y="12" width="60" height="6" fill="#C8102E"/></svg>',
+    es:'<svg class="flag" viewBox="0 0 3 2"><rect width="3" height="2" fill="#c60b1e"/><rect y="0.5" width="3" height="1" fill="#F1BF00"/></svg>'
+  };
+  const CODE = { fr:'FR', en:'EN', es:'ES' };
+  function closeAllMenus(){ document.querySelectorAll('.dropdown').forEach(d=>d.hidden = true); }
+  function wireMenu(btnId, menuId){
+    const btn=document.getElementById(btnId), menu=document.getElementById(menuId);
+    if(!btn||!menu) return;
+    btn.addEventListener('click',(e)=>{ e.stopPropagation(); const open=menu.hidden; closeAllMenus(); menu.hidden=!open; });
+  }
+  wireMenu('langBtn','langMenu'); wireMenu('presetBtn','presetMenu'); wireMenu('startBtn','startMenu'); wireMenu('healthBtn','healthMenu');
+
+  document.querySelectorAll('#langMenu button').forEach(b=>b.addEventListener('click',()=>{
+    const l=b.dataset.lang; applyLang(l);
+    document.getElementById('langFlag').innerHTML = FLAG[l];
+    document.getElementById('langCur').textContent = CODE[l];
+    closeAllMenus();
+  }));
+  document.querySelectorAll('#presetMenu button[data-preset]').forEach(b=>b.addEventListener('click',()=>{
+    document.getElementById('presetCur').textContent = b.dataset.preset;
+    closeAllMenus();
+  }));
+
+  // Modale Adaptation
+  const adaptModal = document.getElementById('adaptModal');
+  document.getElementById('adaptBtn').addEventListener('click',(e)=>{ e.stopPropagation(); closeAllMenus(); adaptModal.hidden=false; });
+  document.querySelector('[data-close-adapt]').addEventListener('click',()=>adaptModal.hidden=true);
+  adaptModal.addEventListener('click',(e)=>{ if(e.target===adaptModal) adaptModal.hidden=true; });
+
+  // Fermer au clic extérieur / Échap
+  document.addEventListener('click',()=>closeAllMenus());
+  document.addEventListener('keydown',(e)=>{ if(e.key==='Escape'){ closeAllMenus(); adaptModal.hidden=true; } });
+
+  // ---- Menu mobile ----
+  document.getElementById('hamb').addEventListener('click',()=>document.body.classList.toggle('nav-open'));
+  document.getElementById('scrim').addEventListener('click',()=>document.body.classList.remove('nav-open'));
+
+  // ---- Silence alertes ----
+  const sb = document.getElementById('silenceBtn');
+  sb.addEventListener('click',()=>{
+    sb.classList.toggle('btn-accent');
+    sb.textContent = sb.classList.contains('btn-accent') ? '🔔 Alertes coupées' : '🔕 Silence alertes';
+  });
+
+  // ---- Modes de disposition du cockpit (Préparation / Live) ----
+  const cockpitGrid = document.getElementById('cockpitGrid');
+  const modeHint = document.getElementById('modeHint');
+  const hints = {
+    setup: 'Préparation : sources, kit de marque et checklist en avant — le chat s’efface.',
+    live:  'En direct : le superflu s’efface, l’essentiel reste sous la main.'
+  };
+  function setMode(mode){
+    cockpitGrid.classList.remove('mode-setup','mode-live');
+    cockpitGrid.classList.add('mode-'+mode);
+    document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on', b.dataset.mode===mode));
+    modeHint.textContent = hints[mode];
+  }
+  document.querySelectorAll('#modeSeg button').forEach(b=>{
+    b.addEventListener('click',()=>setMode(b.dataset.mode));
+  });
+  document.querySelector('[data-goto-live]')?.addEventListener('click',()=>setMode('live'));
+
+  // ---- Boards du deck (Principal / Recording / Émotes) ----
+  document.querySelectorAll('#deckBoards button').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const board = b.dataset.board;
+      document.querySelectorAll('#deckBoards button').forEach(x=>x.classList.toggle('on', x===b));
+      document.querySelectorAll('.deck-board').forEach(g=>g.style.display = (g.dataset.board===board?'grid':'none'));
+    });
+  });
+
+  // ---- Onglets du deck mobile (Principal / Scènes / Émotes) ----
+  document.querySelectorAll('#mtabs button').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const board = b.dataset.mboard;
+      document.querySelectorAll('#mtabs button').forEach(x=>x.classList.toggle('on', x===b));
+      document.querySelectorAll('.mboard').forEach(g=>g.style.display = (g.dataset.mboard===board?'grid':'none'));
+    });
+  });
+
+  // ---- Pop-ups d'émotes sur l'aperçu (F-033, démonstratif) ----
+  const popupLayer = document.getElementById('popupLayer');
+  document.querySelectorAll('[data-emo]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const el = document.createElement('span');
+      el.className = 'popup-emo';
+      el.textContent = b.dataset.emo;
+      el.style.left = (20 + Math.random()*55) + '%';
+      popupLayer.appendChild(el);
+      setTimeout(()=>el.remove(), 2300);
+    });
+  });
+
+  // ---- Poignées / détacher (démonstratif) ----
+  document.querySelectorAll('.ptools button[title^="Détacher"]').forEach(b=>{
+    b.addEventListener('click',(e)=>{ e.stopPropagation(); alert('Panneau détaché dans sa propre fenêtre — glisse-la sur ton 2ᵉ écran.'); });
+  });
+
+  // ---- Paramètres : sous-navigation ----
+  document.querySelectorAll('.set-nav button').forEach(b=>b.addEventListener('click',()=>{
+    const p=b.dataset.pane;
+    document.querySelectorAll('.set-nav button').forEach(x=>x.classList.toggle('on', x===b));
+    document.querySelectorAll('.set-pane').forEach(pane=>pane.classList.toggle('on', pane.dataset.pane===p));
+  }));
+  // QR décoratif (deck & appairage)
+  const qr=document.getElementById('qr');
+  if(qr){ [1,0,1,1,0,1,1, 0,1,1,0,1,0,0, 1,1,0,1,1,0,1, 1,0,1,0,0,1,1, 0,1,1,0,1,1,0, 1,0,0,1,0,1,1, 1,1,0,1,1,0,1].forEach(v=>{ const i=document.createElement('i'); if(!v) i.className='o'; qr.appendChild(i); }); }
+
+  // ---- Palette de commandes (Ctrl+K) ----
+  const cmdk=document.getElementById('cmdk'), cmdkIn=document.getElementById('cmdkIn');
+  function filterCmdk(){ const q=cmdkIn.value.toLowerCase(); document.querySelectorAll('#cmdkList button').forEach(b=>{ b.style.display=b.textContent.toLowerCase().includes(q)?'flex':'none'; }); }
+  function openCmdk(){ cmdk.hidden=false; cmdkIn.value=''; filterCmdk(); setTimeout(()=>cmdkIn.focus(),30); }
+  function closeCmdk(){ cmdk.hidden=true; }
+  cmdkIn.addEventListener('input', filterCmdk);
+  cmdk.addEventListener('click',(e)=>{ if(e.target===cmdk) closeCmdk(); });
+  const SCREENCMD={ cockpit:'cockpit', home:'home', edition:'edition', publication:'publication', settings:'settings' };
+  document.querySelectorAll('#cmdkList button').forEach(b=>b.addEventListener('click',()=>{ const c=b.dataset.cmd; if(SCREENCMD[c]) showScreen(SCREENCMD[c]); closeCmdk(); }));
+
+  // ---- Widget de retour ----
+  const fbModal=document.getElementById('fbModal');
+  document.getElementById('fbBtn').addEventListener('click',()=>fbModal.hidden=false);
+  document.querySelectorAll('[data-close-fb]').forEach(b=>b.addEventListener('click',()=>fbModal.hidden=true));
+  fbModal.addEventListener('click',(e)=>{ if(e.target===fbModal) fbModal.hidden=true; });
+
+  // ---- Chips d'options sur l'aperçu ----
+  document.querySelectorAll('.chip[data-chip]').forEach(c=>c.addEventListener('click',()=>c.classList.toggle('on')));
+
+  // ---- Chat : modération inline au survol ----
+  document.querySelectorAll('#cockpit .chat-log .msg').forEach(m=>{
+    const a=document.createElement('span'); a.className='msg-actions';
+    a.innerHTML='<button title="Timeout">⏳</button><button title="Bannir">🚫</button><button title="Épingler">📌</button>';
+    m.appendChild(a);
+  });
+
+  // ---- Raccourcis clavier : Ctrl+K + Échap ----
+  document.addEventListener('keydown',(e)=>{
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); cmdk.hidden?openCmdk():closeCmdk(); }
+    if(e.key==='Escape'){ closeCmdk(); fbModal.hidden=true; }
+  });
+
+  // ---- Waveforms (retour visuel, décoratif) ----
+  document.querySelectorAll('.wave').forEach(w=>{
+    const n = 28;
+    for(let i=0;i<n;i++){
+      const bar = document.createElement('i');
+      const h = 6 + Math.abs(Math.sin(i*0.6))*18 + (Math.random()*4);
+      bar.style.height = h.toFixed(0)+'px';
+      if(w.dataset.wave==='game') bar.style.background='var(--cyan)';
+      w.appendChild(bar);
+    }
+  });
+</script>
+</body>
+</html>
