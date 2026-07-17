@@ -3,11 +3,11 @@
 > Le cockpit stream open-source. Une seule app à la place d'OBS + Streamer.bot + deck + Aitum.
 
 <!-- MNK-MANDATORY-FIRST-READ -->
-## MANDATORY FIRST READ (BLOCKING - load order critical)
+## MANDATORY FIRST READ (BLOCKING — load order critical)
 
-1. `.claude/rules/Interpretation-Protocol.md` - how to read every other rule (literal interpretation layer, required from Opus 4.7 onward)
-2. `.claude/rules/Confidentiality.md` - absolute blocking rule on user personal data (overrides every other rule)
-3. `.claude/rules/Monozukuri.md` - philosophie chapeau : qualite intrinseque, 6 comportements operationnels, source de la rigueur
+1. `.claude/rules/Interpretation-Protocol.md` — how to read every other rule (literal interpretation layer, required from Opus 4.7 onward)
+2. `.claude/rules/Confidentiality.md` — absolute blocking rule on user personal data (overrides every other rule)
+3. `.claude/rules/Monozukuri.md` — philosophie chapeau : qualite intrinseque, 6 comportements operationnels, source de la rigueur
 
 No exception. No shortcut.
 <!-- /MNK-MANDATORY-FIRST-READ -->
