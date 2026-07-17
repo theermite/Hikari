@@ -9,6 +9,11 @@
 /win-capture
 /text-freetype2
 
+# Serveur RTMP local (MediaMTX) — binaire téléchargé pour l'épreuve (a), jamais suivi.
+/mediamtx
+/mediamtx.zip
+mediamtx.log
+
 # Sorties lourdes du spike (enregistrements, captures) — jamais suivies.
 *.mp4
 *.mkv
