@@ -22,11 +22,12 @@ Promesse cardinale : **streamer l'esprit tranquille** — config simple, fiabili
 totale, expérience live alignée à l'identité du créateur, sur tout le **parcours**
 (création → édition → publication → viewer), jamais un fragment.
 
-## ⛔ Aucun code de production avant B0.0
+## ✅ Spike moteur B0.0 fait (2026-07-17) — verdict GO, branche A
 
-Le spike moteur (1 jour) **mesure**, il ne décide plus. Une app livrée depuis mars 2022
-(`league_record` — Rust + Tauri + moteur d'OBS) a fait tomber le pari technique. Seul
-inconnu restant : personne n'a croisé **Rust + moteur d'OBS + diffusion en direct**.
+Le seul inconnu du projet est levé. La diffusion en direct depuis Rust, avec le moteur
+d'OBS en **processus séparé**, fonctionne — codec **NVENC** confirmé — et le moteur peut
+mourir sans emporter l'app. Le développement de production peut commencer (B0.3 → B1).
+Preuves : branche `spike/b0.0-libobs`, dossier `mesures/` ; verdict détaillé en PET §7.
 
 ## Fichiers
 
@@ -78,12 +79,14 @@ dans le repo archivé** ; seule la documentation est ici.
 
 ## État (2026-07-17)
 
-- ✅ Conception **terminée et auditée** — CDC v1.3.0 + PET v1.4.0, 64/64 fonctions couvertes.
+- ✅ Conception **terminée et auditée** — CDC v1.3.0 + PET v1.5.0, 64/64 fonctions couvertes.
 - ✅ Maquette : 9 écrans. Analyse concurrence livrée.
 - ✅ 4 fiches de spike exécutables (prérequis · durée bornée · livrable · seuils · verdict).
 - ✅ Méthodologie `.claude/` synchronisée dans ce dépôt (2026-07-17).
-- ⛔ **B0.0 (1 j)** : diffusion en direct depuis Rust + **surcoût mesuré vs OBS nu**
-  (mesure de référence obligatoire — une machine est un point, jamais une courbe).
-- ⏳ Après B0.0 : raffiner le PET en version exhaustive (ADR-004).
+- ✅ **B0.0 FAIT (2026-07-17) — GO branche A** : diffusion RTMP NVENC prouvée + survie du
+  moteur en processus séparé + coût Hikari mesuré (faible). Comparaison vs OBS et épreuves
+  (d)/(e) différées en fin de développement (décision Jay).
+- ⏳ Prochain : B0.3 (scaffold app Tauri) puis B1 (moteur : scène + sources + preview).
+  Raffiner le PET en version exhaustive (ADR-004).
 
 > État détaillé, décisions actives et sessions : `Shinzo/02-Projets/Hikari-Stream.md`.

@@ -550,7 +550,7 @@ matière reste disponible si Jay change d'avis, mais ce n'est pas une charge.
 | 2 | Un interrupteur « débutant/expert » étiqueté | Juger l'utilisateur = violer la Dignité |
 | 3 | Réabsorber tout Kobo dans l'édition | Hikari fait l'essentiel ; l'avancé reste à Kobo |
 | 4 | Un pont externe comme seul chemin du deck | C'est la panne actuelle ; le local doit toujours marcher seul |
-| 5 | Coder avant le spike moteur | `libobs-rs` non éprouvé — bâtir dessus sans preuve = tout refaire |
+| 5 | Coder avant le spike moteur | `libobs-rs` non éprouvé — bâtir dessus sans preuve = tout refaire. ✅ **Levé le 2026-07-17** : B0.0 fait, pile prouvée (PET §7). |
 | 6 | Livrer « à fond » par défaut | La sur-configuration épuise le débutant |
 | 7 | Des kits de marque génériques | « Renvoyer l'âme » ne se fait pas avec des templates figés |
 | 8 | Dons / notifications envahissants | Dark pattern interdit — le bouton de don reste discret |
