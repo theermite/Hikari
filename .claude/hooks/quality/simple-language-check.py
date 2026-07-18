@@ -12,9 +12,14 @@ Jay just read) and flags violations:
   3. More than 1 acronym per paragraph (constraint 2)
   4. More than 1 acronym per sentence (constraint 6 — Jay 2026-05-31)
   5. Response > 3 prose paragraphs (constraint 8 — Jay 2026-06-07, short by default)
+  6. Accumulation of file names in chat (Jay 2026-07-18) — 3+ distinct file
+     names, even inside inline `code`. A lone file name passes; folder and repo
+     names are always allowed. Only fenced ``` blocks stay exempt.
 
 Code blocks (``` and `inline`) are stripped before analysis —
 jargon inside code is allowed (variable names, error messages).
+Exception: the file-name check (6) strips only fenced ``` blocks, so a file
+name hidden in inline `code` is still counted (that is the exact leak).
 Tables, lists, blockquotes are NOT counted as prose paragraphs.
 
 Output: WARNING on stderr if violations detected (Jay sees it).
@@ -57,6 +62,23 @@ MAX_PROSE_PARAGRAPHS_PER_RESPONSE = 3
 # Match fenced code blocks (```...```) and inline code (`...`)
 _CODE_BLOCK_RE = re.compile(r"```.*?```", re.DOTALL)
 _INLINE_CODE_RE = re.compile(r"`[^`]*`")
+
+# --- File-name accumulation detection (Jay 2026-07-18) -----------------------
+# The ACCUMULATION of file names in chat is what drains Jay — a lone file name
+# passes, a pile of them buries the sense. Folder and repo names are OK (Jay
+# needs them to open a file). So this check counts FILE NAMES only, and fires
+# only at 3+. Fenced ``` blocks stay exempt (on-demand code, marker templates);
+# inline `code` is scanned, because that is exactly where a leaked file name
+# hides (e.g. `SkillLastHitTrainer.tsx` in a reformulation).
+
+# The accumulation threshold — below this many file names, stay silent.
+_FILE_NAME_LEAK_THRESHOLD = 3
+
+# A filename carrying a dev extension (highest signal, lowest false positive).
+_FILE_EXT_RE = re.compile(
+    r"\b[\w-]+\.(?:py|pyc|ts|tsx|jsx|js|mjs|ex|exs|rs|go|rb|"
+    r"json|toml|yaml|yml|md|sh|bash|css|scss|sql|cfg|ini|env)\b"
+)
 
 # Acronym = 2+ uppercase letters in a row (jargon proxy)
 _ACRONYM_RE = re.compile(r"\b[A-Z]{2,}[A-Z0-9]*\b")
@@ -162,6 +184,42 @@ def _check_condescendance(text: str) -> list[str]:
     ]
 
 
+def _collect_file_names(text: str) -> list[str]:
+    """Return unique file names leaked in text (fenced blocks removed)."""
+    scanned = _CODE_BLOCK_RE.sub("", text)  # only fenced blocks exempt
+    found: list[str] = []
+    seen: set[str] = set()
+    for m in _FILE_EXT_RE.finditer(scanned):
+        tok = m.group(0)
+        if tok.lower() not in seen:
+            seen.add(tok.lower())
+            found.append(tok)
+    return found
+
+
+def _check_code_artifacts(text: str) -> list[str]:
+    """Constraint (Jay 2026-07-18) — flag ACCUMULATED file names leaked in chat.
+
+    Fires only at 3+ distinct file names: a lone file name passes, a pile of
+    them buries the sense (Jay 2026-07-18). Folder and repo names are allowed
+    (Jay needs them to open a file), so they are not counted. Fenced code blocks
+    are exempt (on-demand code + marker templates); inline `code` is scanned,
+    because a leaked file name hides there. WARN-level: the signal re-injects
+    next turn and Takumi judges.
+    """
+    found = _collect_file_names(text)
+    if len(found) < _FILE_NAME_LEAK_THRESHOLD:
+        return []
+    preview = ", ".join(found[:6])
+    extra = f" (+{len(found) - 6})" if len(found) > 6 else ""
+    return [
+        f"Accumulation de noms de fichiers dans la conversation: {preview}"
+        f"{extra} ({len(found)} au total, seuil {_FILE_NAME_LEAK_THRESHOLD} - "
+        f"Jay 2026-07-18). Une pile de noms de fichiers noie le sens. Dossiers "
+        f"et repos OK ; parler resultat, pas mecanique. Detail sur demande."
+    ]
+
+
 def _jargon_in(sentence: str) -> list[str]:
     """Return bare lowercase dev-jargon tokens present in the sentence."""
     tokens = set(re.findall(r"[a-zA-Z]+", sentence.lower()))
@@ -220,6 +278,7 @@ def _analyze(text: str) -> list[str]:
     violations: list[str] = []
     violations.extend(_check_bluf(clean))
     violations.extend(_check_condescendance(clean))
+    violations.extend(_check_code_artifacts(text))  # raw text: inline code kept
 
     prose_count = 0
     for i, para in enumerate(_split_paragraphs(clean), 1):

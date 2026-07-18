@@ -77,6 +77,34 @@ def test_jargon_inside_backticks_is_allowed():
     assert "jargon" not in _joined(text).lower()
 
 
+# --- File-name accumulation (Jay 2026-07-18 — pile of file names buries sense)
+
+
+def test_single_file_name_passes():
+    text = "Je corrige le composant `SkillLastHitTrainer.tsx` maintenant."
+    assert "accumulation de noms de fichiers" not in _joined(text).lower()
+
+
+def test_three_file_names_are_flagged():
+    text = "Je touche `a.ts`, puis `b.py`, et enfin `c.exs` pour finir."
+    assert "accumulation de noms de fichiers" in _joined(text).lower()
+
+
+def test_folder_name_is_allowed():
+    text = "La source vit dans le dossier 07-Methode/Regles, c'est prêt."
+    assert "accumulation de noms de fichiers" not in _joined(text).lower()
+
+
+def test_file_names_in_fenced_block_are_allowed():
+    text = "Voici la liste :\n```\na.py\nb.py\nc.py\nd.py\n```\nC'est prêt."
+    assert "accumulation de noms de fichiers" not in _joined(text).lower()
+
+
+def test_slashed_french_pair_is_not_flagged():
+    text = "On garde le thème clair et/ou sombre, dispo 24/7 partout."
+    assert "accumulation de noms de fichiers" not in _joined(text).lower()
+
+
 # --- Regression: existing length / paragraph constraints --------------------
 
 
