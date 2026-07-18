@@ -177,7 +177,7 @@ project: Hikari Stream
 |---|---|---|---|
 | B0.3 | Scaffold Tauri 2.x + Rust + React 19 + Tailwind 4 | Standard | ✅ FAIT (2026-07-18, fc1b278) |
 | B1a | Moteur intégré : scène + sources + protocole JSON-lignes | Critique | ✅ FAIT (2026-07-18, merge 40f45a3) |
-| B1b | Aperçu cross-process (moteur → webview) — mini-spike **humain** | Critique | ⬜ |
+| B1b | Aperçu cross-process (moteur → webview) | Critique | 🟧 spike GO (2026-07-18) → brique prod en cours |
 | B2 | Encodage + diffusion (single) + connexion comptes OAuth | Critique | ⬜ |
 
 ### Phase P2 — Live complet
@@ -591,7 +591,13 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 > crates de `src-tauri` (`hikari-protocol` + `engine` + `engine_bridge`), protocole JSON-lignes
 > figé (ADR-011), sources exposées. 10 tests verts (protocole proptest + supervision).
 > Revue Gate 2 GO-avec-réserves, 3 défauts corrigés. Détail : `docs/Sessions/run-2026-07-18-0127.md`.
-> **Reste B1b : l'aperçu cross-process** (ci-dessous, autonomie 🔴 — mini-spike humain).
+> ✅ **B1b — les 2 jalons du spike sont GO (2026-07-18)** : jalon 1 (aperçu vivant, un
+> processus) et jalon 2 (reparent HWND cross-process, `SetParent`) prouvés avec Jay —
+> `spikes/b1b-preview/` (branche `spike/b1b-preview`), verdicts dans son README. Le risque
+> documenté avant codage (Microsoft/Raymond Chen : files d'entrée attachées cross-process)
+> **ne s'est pas matérialisé** (redimensionnement + déplacement fluides, fermeture propre,
+> zéro processus orphelin). **Piste retenue : reparent HWND** (la texture GPU partagée
+> n'est plus nécessaire). Brique de production en cours ci-dessous.
 >
 > ⚠️ **Dette test héritée de B0.3** : jsdom + Testing Library sont retirés (incompat `act` React
 > 19.2). Recâbler le test interactif au moment des briques d'écran, veille fraîche. B1a est du
@@ -603,12 +609,18 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 
 - **Objectif** : l'app pilote le moteur (processus séparé) ; une scène avec ≥1 source s'affiche en **aperçu**.
 - **Approche décidée** : porter l'`engine` du spike en crate du workspace `src-tauri`. Le contrôleur (Rust) lance + supervise le moteur (survie/relance **prouvées** en B0.0). **Protocole du tuyau** = messages **JSON lignes** sur stdio (c'est l'interface de l'ADR-011, à figer ici). Sources via `libobs-simple` (capture écran/jeu/fenêtre, API **prouvée** au spike).
-- **⚠️ L'inconnu réel — l'APERÇU** : le spike a prouvé la diffusion, **jamais l'affichage d'un aperçu** depuis un processus séparé vers le webview Tauri. `libobs` expose un display (exemple `obs-preview` du dépôt), mais le rendre dans le webview à travers 2 processus **n'est pas prouvé**.
-- **Fichiers** : `src-tauri/crates/engine/*` (porté) · `src-tauri/src/{engine_bridge.rs, protocol.rs}` · `src/features/preview/*`.
-- **Tests TDG** : `should_parse_command_when_valid_json` (protocole, test par propriétés) · `should_relaunch_engine_when_it_dies` (repris B0.0) · `should_list_sources_when_scene_created`.
-- **Critère d'acceptation** : une scène + une capture s'affichent en aperçu · protocole JSON testé par propriétés · survie/relance verte.
-- **Vérité externe** : l'API `libobs-wrapper` (transcrite, **prouvée** au spike) pour tout SAUF l'aperçu. **L'aperçu n'a pas de vérité externe transférable** → risque.
-- **Pré-vol** : `cargo test` (engine) exit 0 · MAIS l'aperçu est ambigu.
+- **✅ L'inconnu de l'APERÇU est levé** : le spike B1b (2 jalons GO) a prouvé l'affichage
+  ET le reparent cross-process avec `windows` 0.62.2 (`SetParent`, style `WS_CHILD | WS_VISIBLE`
+  — composer les bits, jamais remplacer tout le style : bug vécu et corrigé au spike).
+  `WebviewWindow::hwnd()` existe côté Tauri (vérifié dans le code source du crate `tauri`
+  2.11.1, `src/webview/webview_window.rs:1835`), rend le même type `windows::Win32::Foundation::HWND`
+  que celui utilisé au spike — composable directement.
+- **Fichiers** : `src-tauri/crates/engine/src/main.rs` (ajout aperçu) · `src-tauri/crates/protocol/src/lib.rs` (message `PreviewReady`) · `src-tauri/src/preview_bridge.rs` (nouveau) · `src-tauri/src/lib.rs` (câblage commande Tauri).
+- **Tests TDG** : round-trip protocole étendu (`PreviewReady`, proptest) · `child_style_bits` (composition WS_CHILD|WS_VISIBLE, pur) · `fit_size` (rapport 16:9, pur, repris du spike) · ordre de destruction display-avant-contexte (corrige la dette fuite mémoire du spike).
+- **Critère d'acceptation** : une scène + une capture s'affichent en aperçu, greffées dans la vraie fenêtre Tauri · protocole JSON testé par propriétés · `cargo test`/`clippy` --workspace verts.
+- **Vérité externe** : l'API `libobs-wrapper` (transcrite, prouvée au spike B0.0) + le mécanisme de reparent (transcrit, **prouvé** au spike B1b, jalons 1 et 2) + `WebviewWindow::hwnd()` (vérifié dans le code source Tauri 2.11.1).
+- **Pré-vol** : `cargo test --workspace` exit 0 · spike B1b GO (2026-07-18) · brique non ambiguë.
+- **Dette héritée du spike à corriger dans la brique prod** : ordre de destruction `context`/`display` dans `ObsInner` (2 fuites mémoire au lieu d'1 attendue) — display retiré, PUIS contexte.
 - **Autonomie 🟡 — scindée** : **B1a** (moteur + sources + protocole = 🟢 autonome, tout transcrit/prouvé) → **✅ livré en run autonome 2026-07-18** · **B1b** (aperçu cross-process = **mini-spike humain**, inconnu réel) → **⬜ à faire, jamais un run à l'aveugle** tant que le mécanisme d'aperçu n'est pas prouvé.
 
 ### B2 — Encodage + diffusion (single) + connexion comptes OAuth · Critique · 🟢/🟡
