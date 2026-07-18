@@ -111,28 +111,49 @@ struct App {
     obs: Option<ObsInner>,
 }
 
-impl ApplicationHandler<StopRequested> for App {
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        env_logger::init();
+impl App {
+    /// The fallible half of initialization, isolated so `resumed()` (which winit's
+    /// `ApplicationHandler` does not let return `Result`) can report a failure on the wire
+    /// instead of panicking. A panic here would bypass `main()`'s `EngineMessage::Error`
+    /// path entirely (regression found in review: `resumed()` used to `.expect()` these
+    /// same calls, so any failure — e.g. "no monitor available", a real, documented,
+    /// plausible prod error — became a silent process death, exactly the "mute failure"
+    /// this file's own header warns against).
+    fn try_init(&mut self, event_loop: &ActiveEventLoop) -> Result<()> {
         let attrs = Window::default_attributes()
             .with_title("Hikari engine — aperçu")
             .with_inner_size(LogicalSize::new(PREVIEW_START_WIDTH, PREVIEW_START_HEIGHT));
-        let window = event_loop.create_window(attrs).expect("création fenêtre d'aperçu");
+        let window = event_loop.create_window(attrs).context("création fenêtre d'aperçu")?;
 
-        let mut context = ObsContext::new(StartupInfo::default()).expect("init libobs");
+        let mut context = ObsContext::new(StartupInfo::default()).context("init libobs")?;
         emit(&EngineMessage::Ready);
 
-        let (sources, scene_item) = build_scene_with_capture(&mut context).expect("construction scène");
+        let (sources, scene_item) =
+            build_scene_with_capture(&mut context).context("construction scène")?;
         emit(&EngineMessage::Sources { items: sources });
 
-        let display = create_preview(&mut context, &window).expect("création aperçu");
-        let RawWindowHandle::Win32(handle) = window.window_handle().unwrap().as_raw() else {
-            unreachable!("vérifié dans create_preview");
+        let display = create_preview(&mut context, &window).context("création aperçu")?;
+        let RawWindowHandle::Win32(handle) = window.window_handle()?.as_raw() else {
+            anyhow::bail!("moteur Windows uniquement : handle de fenêtre Win32 attendu");
         };
         emit(&EngineMessage::PreviewReady { hwnd: handle.hwnd.get() as i64 });
 
         self.obs = Some(ObsInner { display, context, _scene_item: scene_item });
         self.window = Some(Sendable(window));
+        Ok(())
+    }
+}
+
+impl ApplicationHandler<StopRequested> for App {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        // `try_init` never runs twice (winit calls `resumed` once per real app lifecycle
+        // on Windows) but `try_init` returning early is still preferable to a second panic
+        // if that assumption ever breaks — `env_logger::try_init` tolerates a repeat call.
+        let _ = env_logger::try_init();
+        if let Err(err) = self.try_init(event_loop) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            event_loop.exit();
+        }
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, _event: StopRequested) {

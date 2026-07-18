@@ -56,7 +56,7 @@ pub fn graft_preview_window(engine_hwnd: i64, host_hwnd: i64, host_w: u32, host_
     unsafe {
         SetWindowLongPtrW(engine, GWL_STYLE, child_style_bits() as isize);
         SetParent(engine, Some(host)).context("SetParent (reparent cross-process)")?;
-        let _ = SetWindowPos(
+        if SetWindowPos(
             engine,
             None,
             0,
@@ -64,18 +64,29 @@ pub fn graft_preview_window(engine_hwnd: i64, host_hwnd: i64, host_w: u32, host_
             w as i32,
             h as i32,
             SET_WINDOW_POS_FLAGS(SWP_NOZORDER.0 | SWP_NOACTIVATE.0),
-        );
+        )
+        .is_err()
+        {
+            eprintln!("[preview_bridge] SetWindowPos a échoué au greffage initial (HWND {engine_hwnd})");
+        }
     }
     Ok(())
 }
 
 /// Re-fits the already-grafted preview window when the host resizes. Called from the app's
 /// window-resize handler with the engine HWND kept in Tauri-managed state.
+///
+/// SAFETY: `engine_hwnd` must be a valid, live window at call time — it comes from the
+/// Tauri-managed state populated by a prior successful `graft_preview_window`, so it is
+/// always a real, still-grafted engine window while the app runs (same guarantee as
+/// `graft_preview_window`'s own SAFETY note above).
 pub fn resize_preview_window(engine_hwnd: i64, host_w: u32, host_h: u32) {
     let engine = HWND(engine_hwnd as *mut _);
     let (w, h) = fit_size(host_w, host_h);
     unsafe {
-        let _ = MoveWindow(engine, 0, 0, w as i32, h as i32, true);
+        if MoveWindow(engine, 0, 0, w as i32, h as i32, true).is_err() {
+            eprintln!("[preview_bridge] MoveWindow a échoué au redimensionnement (HWND {engine_hwnd})");
+        }
     }
 }
 
