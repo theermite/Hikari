@@ -29,6 +29,7 @@ fn engine_message_strategy() -> impl Strategy<Value = EngineMessage> {
         (any::<i32>(), any::<i32>())
             .prop_map(|(dropped, total)| EngineMessage::Frames { dropped, total }),
         any::<String>().prop_map(|message| EngineMessage::Error { message }),
+        any::<i64>().prop_map(|hwnd| EngineMessage::PreviewReady { hwnd }),
     ]
 }
 
