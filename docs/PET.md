@@ -178,7 +178,7 @@ project: Hikari Stream
 | B0.3 | Scaffold Tauri 2.x + Rust + React 19 + Tailwind 4 | Standard | ✅ FAIT (2026-07-18, fc1b278) |
 | B1a | Moteur intégré : scène + sources + protocole JSON-lignes | Critique | ✅ FAIT (2026-07-18, merge 40f45a3) |
 | B1b | Aperçu cross-process (moteur → webview) | Critique | ✅ FAIT (2026-07-18, merge 4e97b4c) |
-| B2a | Diffusion réelle (RTMP + NVENC), pilotable, sans OAuth | Critique | 🟧 en cours |
+| B2a | Diffusion réelle (RTMP + NVENC), pilotable, sans OAuth | Critique | ✅ FAIT (2026-07-18, merge 6909372) |
 | B2b | Comptes OAuth Twitch/YouTube + coffre | Critique | ⬜ (attend app développeur Jay) |
 
 ### Phase P2 — Live complet
@@ -639,7 +639,13 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 > Twitch/YouTube que seul Jay peut créer — client ID, URI de redirection — jamais inventable
 > ni committable). Séparer évite de bloquer la diffusion sur une ressource externe absente.
 
-#### B2a — Diffusion réelle (RTMP + NVENC) · Critique · 🟢 autonome
+#### B2a — Diffusion réelle (RTMP + NVENC) · Critique · ✅ FAIT (2026-07-18, merge `6909372`)
+
+> Moteur pilotable (`StartStream`/`StopStream`), transcription fidèle du spike B0.0 vérifiée
+> ligne à ligne par la revue Gate 2. 16 tests verts, clippy 0. Cible RTMP toujours par
+> variables d'environnement (B2b la remplace). **B2b prête à démarrer** : Jay a déjà l'app
+> développeur Twitch + les clés YouTube (2026-07-18) — identifiants transmis au moment voulu,
+> jamais en clair dans la conversation ni committés (Confidentialité).
 
 - **Objectif** : le moteur diffuse réellement un flux RTMP (cible manuelle, comme au spike —
   **pas encore via un compte connecté**, ça viendra en B2b), pilotable par commande
