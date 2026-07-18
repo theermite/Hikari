@@ -177,7 +177,7 @@ project: Hikari Stream
 |---|---|---|---|
 | B0.3 | Scaffold Tauri 2.x + Rust + React 19 + Tailwind 4 | Standard | ✅ FAIT (2026-07-18, fc1b278) |
 | B1a | Moteur intégré : scène + sources + protocole JSON-lignes | Critique | ✅ FAIT (2026-07-18, merge 40f45a3) |
-| B1b | Aperçu cross-process (moteur → webview) | Critique | 🟧 spike GO (2026-07-18) → brique prod en cours |
+| B1b | Aperçu cross-process (moteur → webview) | Critique | ✅ FAIT (2026-07-18, merge 4e97b4c) |
 | B2 | Encodage + diffusion (single) + connexion comptes OAuth | Critique | ⬜ |
 
 ### Phase P2 — Live complet
@@ -585,7 +585,7 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Vérité externe** : la doc **officielle** Tauri 2 (versions re-vérifiées au démarrage de la brique) + le build/run **mécanique**. Rien à inventer → le relecteur rejoue `build` + `dev`.
 - **Pré-vol** : `pnpm -v` + `cargo -V` sortent 0 · brique non ambiguë.
 
-### B1 — Moteur intégré : scène + sources + aperçu · Critique · 🟡 (scindée : B1a ✅ / B1b ⬜)
+### B1 — Moteur intégré : scène + sources + aperçu · Critique · ✅ FAIT (B1a + B1b livrées)
 
 > ✅ **B1a livré (2026-07-18, merge `40f45a3`)** : moteur + contrôleur portés du spike en
 > crates de `src-tauri` (`hikari-protocol` + `engine` + `engine_bridge`), protocole JSON-lignes
@@ -597,7 +597,16 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 > documenté avant codage (Microsoft/Raymond Chen : files d'entrée attachées cross-process)
 > **ne s'est pas matérialisé** (redimensionnement + déplacement fluides, fermeture propre,
 > zéro processus orphelin). **Piste retenue : reparent HWND** (la texture GPU partagée
-> n'est plus nécessaire). Brique de production en cours ci-dessous.
+> n'est plus nécessaire).
+>
+> ✅ **B1b — brique de production livrée et mergée (2026-07-18, `4e97b4c`)** : moteur
+> capable d'aperçu (obs_display + fenêtre native, reste en vie, sort proprement sur
+> `Stop`) · `preview_bridge.rs` (greffe HWND cross-process testée, régression du bug
+> spike gardée par un test dédié) · protocole `PreviewReady{hwnd}`. TDG a trouvé et
+> corrigé 2 vrais bugs (dimensions à 0 sur entrée dégénérée) avant tout run réel. Revue
+> Gate 2 GO-avec-réserves : 1 Majeur (reporting d'erreur cassé dans `resumed()`, une
+> callback winit sans `Result` — corrigé) + 2 Mineurs, tous corrigés. 16 tests verts,
+> clippy 0. **Dette fuite mémoire du spike corrigée** (ordre `display` avant `context`).
 >
 > ⚠️ **Dette test héritée de B0.3** : jsdom + Testing Library sont retirés (incompat `act` React
 > 19.2). Recâbler le test interactif au moment des briques d'écran, veille fraîche. B1a est du
@@ -617,11 +626,10 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
   que celui utilisé au spike — composable directement.
 - **Fichiers** : `src-tauri/crates/engine/src/main.rs` (ajout aperçu) · `src-tauri/crates/protocol/src/lib.rs` (message `PreviewReady`) · `src-tauri/src/preview_bridge.rs` (nouveau) · `src-tauri/src/lib.rs` (câblage commande Tauri).
 - **Tests TDG** : round-trip protocole étendu (`PreviewReady`, proptest) · `child_style_bits` (composition WS_CHILD|WS_VISIBLE, pur) · `fit_size` (rapport 16:9, pur, repris du spike) · ordre de destruction display-avant-contexte (corrige la dette fuite mémoire du spike).
-- **Critère d'acceptation** : une scène + une capture s'affichent en aperçu, greffées dans la vraie fenêtre Tauri · protocole JSON testé par propriétés · `cargo test`/`clippy` --workspace verts.
+- **Critère d'acceptation** : ✅ une scène + une capture s'affichent en aperçu, greffées dans une fenêtre hôte (mécanisme testé — câblage bout-en-bout dans une vraie fenêtre Tauri = B4/B-shell) · protocole JSON testé par propriétés · `cargo test`/`clippy --workspace` verts.
 - **Vérité externe** : l'API `libobs-wrapper` (transcrite, prouvée au spike B0.0) + le mécanisme de reparent (transcrit, **prouvé** au spike B1b, jalons 1 et 2) + `WebviewWindow::hwnd()` (vérifié dans le code source Tauri 2.11.1).
-- **Pré-vol** : `cargo test --workspace` exit 0 · spike B1b GO (2026-07-18) · brique non ambiguë.
-- **Dette héritée du spike à corriger dans la brique prod** : ordre de destruction `context`/`display` dans `ObsInner` (2 fuites mémoire au lieu d'1 attendue) — display retiré, PUIS contexte.
-- **Autonomie 🟡 — scindée** : **B1a** (moteur + sources + protocole = 🟢 autonome, tout transcrit/prouvé) → **✅ livré en run autonome 2026-07-18** · **B1b** (aperçu cross-process = **mini-spike humain**, inconnu réel) → **⬜ à faire, jamais un run à l'aveugle** tant que le mécanisme d'aperçu n'est pas prouvé.
+- **Dette restante (hors périmètre B1b, notée pour B-shell/B4)** : câblage UI bout-en-bout (lancement du moteur au démarrage de l'app, bouton frontend qui déclenche la greffe) · `engine_path()` non prouvé en bundle Tauri (héritée de B1a).
+- **Autonomie** : **B1a** (🟢 autonome, tout transcrit/prouvé) → ✅ livré en run autonome 2026-07-18 · **B1b** (mini-spike humain, inconnu réel) → ✅ spiké et livré avec Jay 2026-07-18, jamais en run aveugle.
 
 ### B2 — Encodage + diffusion (single) + connexion comptes OAuth · Critique · 🟢/🟡
 
