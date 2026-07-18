@@ -2,6 +2,7 @@
 //! Le moteur vidéo vit dans un PROCESSUS SÉPARÉ (ADR-013), supervisé via `engine_bridge`.
 
 pub mod engine_bridge;
+pub mod preview_bridge;
 pub mod protocol;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
