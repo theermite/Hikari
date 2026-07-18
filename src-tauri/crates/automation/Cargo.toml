@@ -1,0 +1,14 @@
+[package]
+name = "hikari-automation"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Hikari — automation engine (B-auto). Automations are DATA, never executed code (ADR-008). Pure evaluator, exposed as the interface B4/B5 consume (ADR-011)."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
