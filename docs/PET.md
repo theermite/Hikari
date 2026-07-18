@@ -179,7 +179,7 @@ project: Hikari Stream
 | B1a | Moteur intégré : scène + sources + protocole JSON-lignes | Critique | ✅ FAIT (2026-07-18, merge 40f45a3) |
 | B1b | Aperçu cross-process (moteur → webview) | Critique | ✅ FAIT (2026-07-18, merge 4e97b4c) |
 | B2a | Diffusion réelle (RTMP + NVENC), pilotable, sans OAuth | Critique | ✅ FAIT (2026-07-18, merge 6909372) |
-| B2b | Comptes OAuth Twitch (Device Code Flow) + coffre | Critique | ✅ FAIT (2026-07-18, merge 20dc5a4) — YouTube reste ⬜ |
+| B2b | Comptes OAuth Twitch (fait) + YouTube (code prêt, jamais lancé en vrai) + coffre | Critique | 🟧 Twitch ✅ · YouTube code vert (`fe5af55`), **essai réel manquant** |
 
 ### Phase P2 — Live complet
 | Brique | Scope | Niveau | Statut |
@@ -661,7 +661,7 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Vérité externe** : la diffusion (prouvée B0.0, transcrite).
 - **Pré-vol** : `cargo test --workspace` exit 0 · brique non ambiguë.
 
-#### B2b — Comptes OAuth + coffre · Critique · ✅ Twitch FAIT (2026-07-18, merge `20dc5a4`) — YouTube ⬜
+#### B2b — Comptes OAuth + coffre · Critique · Twitch ✅ FAIT · YouTube 🟧 code vert, essai réel manquant
 
 > **Pivot suite au challenge de Jay** : le flux prévu (Authorization Code + PKCE) exige un
 > secret client d'après la doc officielle Twitch — inadapté à une app desktop open-source
@@ -670,10 +670,23 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 > Twitch enregistrée en type **Public** (aucun secret émis). PKCE générique (`oauth.rs`)
 > conservé pour YouTube, qui le supporte pour les apps installées.
 >
-> Livré : `accounts/vault.rs` (coffre système, type `Secret` — fuite devient une erreur de
-> compilation) · `accounts/twitch.rs` (flux réel, `TWITCH_CLIENT_ID` câblé, erreurs typées
-> `TwitchAuthError::{Expired,Other}`). 27 tests verts, clippy 0, 2 revues Gate 2.
-> **Reste hors périmètre** : câblage UI (bouton de connexion → B4/B-shell), YouTube.
+> Livré (Twitch) : `accounts/vault.rs` (coffre système, type `Secret` — fuite devient une
+> erreur de compilation) · `accounts/twitch.rs` (flux réel, `TWITCH_CLIENT_ID` câblé, erreurs
+> typées `TwitchAuthError::{Expired,Other}`). 27 tests verts, clippy 0, 2 revues Gate 2.
+>
+> ⚠️ **YouTube — incident de process (2026-07-18)** : `accounts/youtube.rs` (Authorization
+> Code + PKCE, serveur local `tiny_http` port 8731) a été **committé directement sur `main`,
+> sans branche ni revue préalable** — rupture de la discipline suivie sur tout le reste du
+> projet. Rattrapé par une revue Gate 2 rétroactive (2 défauts Majeurs réels : chemin de
+> redirection non vérifié, absence de délai — corrigés `fe5af55`). 2 tests réseau ajoutés
+> puis retirés (faisaient pendre la suite 10+ min, cause probable WSL2 — commutateur virtuel
+> Hyper-V bloquant des connexions sur ports éphémères, confirmé via `netsh`) ; ce mécanisme
+> reste à valider par un run réel, jamais testé de bout en bout (Jay a l'app Google Cloud
+> dédiée mais le flux n'a jamais tourné en pratique). **33 tests verts, clippy 0 — mais
+> "vert" ≠ "prouvé en vrai" ici.**
+>
+> **Reste hors périmètre / à faire** : essai réel du flux YouTube (client_id/secret de Jay,
+> jamais committés) · câblage UI (bouton de connexion → B4/B-shell) pour les deux plateformes.
 
 - **Objectif** : connexion de compte (OAuth Twitch/YouTube), jetons au coffre système,
   URL/clé RTMP **depuis le compte** (remplace la variable d'environnement de B2a).
