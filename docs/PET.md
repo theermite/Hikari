@@ -179,7 +179,7 @@ project: Hikari Stream
 | B1a | Moteur intégré : scène + sources + protocole JSON-lignes | Critique | ✅ FAIT (2026-07-18, merge 40f45a3) |
 | B1b | Aperçu cross-process (moteur → webview) | Critique | ✅ FAIT (2026-07-18, merge 4e97b4c) |
 | B2a | Diffusion réelle (RTMP + NVENC), pilotable, sans OAuth | Critique | ✅ FAIT (2026-07-18, merge 6909372) |
-| B2b | Comptes OAuth Twitch (fait) + YouTube (code prêt, jamais lancé en vrai) + coffre | Critique | 🟧 Twitch ✅ · YouTube code vert (`fe5af55`), **essai réel manquant** |
+| B2b | Comptes OAuth Twitch + YouTube + coffre | Critique | ✅ FAIT (2026-07-18) — Twitch et YouTube prouvés en conditions réelles |
 
 ### Phase P2 — Live complet
 | Brique | Scope | Niveau | Statut |
@@ -661,7 +661,7 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Vérité externe** : la diffusion (prouvée B0.0, transcrite).
 - **Pré-vol** : `cargo test --workspace` exit 0 · brique non ambiguë.
 
-#### B2b — Comptes OAuth + coffre · Critique · Twitch ✅ FAIT · YouTube 🟧 code vert, essai réel manquant
+#### B2b — Comptes OAuth + coffre · Critique · ✅ FAIT (Twitch + YouTube, prouvés en conditions réelles)
 
 > **Pivot suite au challenge de Jay** : le flux prévu (Authorization Code + PKCE) exige un
 > secret client d'après la doc officielle Twitch — inadapté à une app desktop open-source
@@ -674,19 +674,26 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 > erreur de compilation) · `accounts/twitch.rs` (flux réel, `TWITCH_CLIENT_ID` câblé, erreurs
 > typées `TwitchAuthError::{Expired,Other}`). 27 tests verts, clippy 0, 2 revues Gate 2.
 >
-> ⚠️ **YouTube — incident de process (2026-07-18)** : `accounts/youtube.rs` (Authorization
-> Code + PKCE, serveur local `tiny_http` port 8731) a été **committé directement sur `main`,
-> sans branche ni revue préalable** — rupture de la discipline suivie sur tout le reste du
-> projet. Rattrapé par une revue Gate 2 rétroactive (2 défauts Majeurs réels : chemin de
-> redirection non vérifié, absence de délai — corrigés `fe5af55`). 2 tests réseau ajoutés
-> puis retirés (faisaient pendre la suite 10+ min, cause probable WSL2 — commutateur virtuel
-> Hyper-V bloquant des connexions sur ports éphémères, confirmé via `netsh`) ; ce mécanisme
-> reste à valider par un run réel, jamais testé de bout en bout (Jay a l'app Google Cloud
-> dédiée mais le flux n'a jamais tourné en pratique). **33 tests verts, clippy 0 — mais
-> "vert" ≠ "prouvé en vrai" ici.**
+> ⚠️ **YouTube — incident de process reconnu (2026-07-18)** : `accounts/youtube.rs`
+> (Authorization Code + PKCE, serveur local `tiny_http` port 8731) a été **committé
+> directement sur `main`, sans branche ni revue préalable** — rupture de la discipline
+> suivie sur tout le reste du projet. Rattrapé par une revue Gate 2 rétroactive (2 défauts
+> Majeurs réels : chemin de redirection non vérifié, absence de délai — corrigés `fe5af55`).
+> 2 tests réseau automatisés retirés (faisaient pendre la suite 10+ min, cause diagnostiquée
+> **avec Jay** — WSL2, commutateur virtuel Hyper-V bloquant des connexions sur ports
+> éphémères, confirmé via `netsh`) ; ce mécanisme est validé par exécution manuelle
+> uniquement, comme le moteur libobs.
 >
-> **Reste hors périmètre / à faire** : essai réel du flux YouTube (client_id/secret de Jay,
-> jamais committés) · câblage UI (bouton de connexion → B4/B-shell) pour les deux plateformes.
+> ✅ **Prouvé en conditions réelles (2026-07-18, `a6684e3`)** : `cargo run --example
+> youtube_manual_auth` — flux OAuth complet avec les identifiants réels de Jay, écriture ET
+> relecture depuis le vrai Windows Credential Manager, expiration cohérente (~1h, standard
+> Google). 2 bugs trouvés et corrigés en le lançant : `cmd /C start` tronquait l'URL au
+> premier `&` (remplacé par `explorer.exe`) · process de test resté vivant verrouillait la
+> recompilation (diagnostiqué, arrêté). Twitch déjà prouvé de la même façon (§ Device Code
+> Flow ci-dessus). **Les deux plateformes sont vertes ET prouvées, pas seulement testées.**
+>
+> **Reste hors périmètre** : câblage UI (bouton de connexion → B4/B-shell) pour les deux
+> plateformes.
 
 - **Objectif** : connexion de compte (OAuth Twitch/YouTube), jetons au coffre système,
   URL/clé RTMP **depuis le compte** (remplace la variable d'environnement de B2a).
