@@ -2,13 +2,14 @@
 //! Le moteur vidéo vit dans un PROCESSUS SÉPARÉ (ADR-013), supervisé via `engine_bridge`.
 
 pub mod accounts;
+pub mod commands;
 pub mod engine_bridge;
 pub mod preview_bridge;
 pub mod protocol;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    commands::register(tauri::Builder::default())
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application Tauri");
 }
