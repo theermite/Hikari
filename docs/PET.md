@@ -229,7 +229,7 @@ project: Hikari Stream
 ### Phase P9 — Coque cockpit & écrans transverses
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
-| B-shell | Coque cockpit **dockview** : panneaux dock/onglets/redimension + détachement 2ᵉ écran + modes Préparation/Live/**Focus** + presets de layout + **centre de santé stream** (F-027, F-100, F-101, F-106) | Sensible | ⬜ |
+| B-shell | Coque cockpit **dockview** : panneaux dock/onglets/redimension + détachement 2ᵉ écran + modes Préparation/Live/**Focus** + presets de layout + **centre de santé stream** (F-027, F-100, F-101, F-106) | Sensible | 🟧 **PROCHAINE BRIQUE (2026-07-18)** — le moteur est prouvé (B1/B2 faits), la note de la ligne suivante s'applique : B-shell passe devant l'ordre séquentiel des phases |
 | B-dash | Dashboard d'accueil (chiffres clés + derniers streams + à venir/à faire) (F-102) | Standard | ⬜ |
 | B-settings | Écran Paramètres unifié (comptes, périphériques, encodage, deck & appairage, kit de marque, stockage, à propos) (F-103) | Sensible | ⬜ |
 | B-cloud | Connexion espace cloud utilisateur + archivage auto ciblé (Drive/Dropbox/OneDrive/S3-WebDAV) (F-104) | Sensible | ⬜ |
