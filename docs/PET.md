@@ -179,7 +179,7 @@ project: Hikari Stream
 | B1a | Moteur intégré : scène + sources + protocole JSON-lignes | Critique | ✅ FAIT (2026-07-18, merge 40f45a3) |
 | B1b | Aperçu cross-process (moteur → webview) | Critique | ✅ FAIT (2026-07-18, merge 4e97b4c) |
 | B2a | Diffusion réelle (RTMP + NVENC), pilotable, sans OAuth | Critique | ✅ FAIT (2026-07-18, merge 6909372) |
-| B2b | Comptes OAuth Twitch/YouTube + coffre | Critique | ⬜ (attend app développeur Jay) |
+| B2b | Comptes OAuth Twitch (Device Code Flow) + coffre | Critique | ✅ FAIT (2026-07-18, merge 20dc5a4) — YouTube reste ⬜ |
 
 ### Phase P2 — Live complet
 | Brique | Scope | Niveau | Statut |
@@ -661,16 +661,28 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Vérité externe** : la diffusion (prouvée B0.0, transcrite).
 - **Pré-vol** : `cargo test --workspace` exit 0 · brique non ambiguë.
 
-#### B2b — Comptes OAuth + coffre · Critique · 🟡 la 1ʳᵉ plateforme a besoin de Jay
+#### B2b — Comptes OAuth + coffre · Critique · ✅ Twitch FAIT (2026-07-18, merge `20dc5a4`) — YouTube ⬜
+
+> **Pivot suite au challenge de Jay** : le flux prévu (Authorization Code + PKCE) exige un
+> secret client d'après la doc officielle Twitch — inadapté à une app desktop open-source
+> (code public, secret extractible). Basculé sur le **Device Code Flow** (crate
+> `twitch_oauth2`, vérifié dans son code source) : `client_id` public uniquement, app
+> Twitch enregistrée en type **Public** (aucun secret émis). PKCE générique (`oauth.rs`)
+> conservé pour YouTube, qui le supporte pour les apps installées.
+>
+> Livré : `accounts/vault.rs` (coffre système, type `Secret` — fuite devient une erreur de
+> compilation) · `accounts/twitch.rs` (flux réel, `TWITCH_CLIENT_ID` câblé, erreurs typées
+> `TwitchAuthError::{Expired,Other}`). 27 tests verts, clippy 0, 2 revues Gate 2.
+> **Reste hors périmètre** : câblage UI (bouton de connexion → B4/B-shell), YouTube.
 
 - **Objectif** : connexion de compte (OAuth Twitch/YouTube), jetons au coffre système,
   URL/clé RTMP **depuis le compte** (remplace la variable d'environnement de B2a).
-- **Fichiers** : `src-tauri/src/accounts/{oauth.rs, vault.rs}` · `src/features/accounts/*`.
-- **Tests TDG** : `should_refuse_stream_when_token_expired` · `should_store_token_in_system_vault_never_plaintext` · `should_target_only_whitelisted_platforms` · OAuth = test d'intégration (flux réel en bac à sable).
-- **Critère d'acceptation** : jeton rafraîchi frais · coffre vérifié (aucun jeton en clair sur disque) · diffusion B2a alimentée par le compte, plus par variable d'environnement.
-- **Vérité externe** : les specs **officielles** OAuth des plateformes (re-vérifiées le jour J) + le coffre système (API de l'OS). Transcription, pas invention.
-- **Pré-vol** : B2a livrée · **app développeur créée par Jay** (Twitch ou YouTube — client ID, URI de redirection) · clé de test fournie au moment voulu, **jamais committée**.
-- **Autonomie** : 🟡 la **1ʳᵉ** intégration OAuth d'une plateforme (redirect URI, scopes) mérite une validation humaine — les suivantes deviennent autonomes.
+- **Fichiers** : `src-tauri/src/accounts/{oauth.rs, vault.rs, twitch.rs}` · `src/features/accounts/*` (câblage UI, à venir).
+- **Tests TDG** : `should_refuse_stream_when_token_expired` · `should_never_leak_tokens_in_debug_output`/`should_never_leak_secret_in_display_output` · `should_only_address_whitelisted_platforms` · `should_request_only_the_stream_key_scope`. Le flux réseau lui-même (démarrage + poll Twitch) reste validé par exécution réelle (régime intégration) — pas de test automatisé contre le vrai serveur Twitch.
+- **Critère d'acceptation Twitch** : ✅ jeton obtenu via Device Code Flow, coffre vérifié (`Secret`, jamais en clair) · **YouTube reste à faire**.
+- **Vérité externe** : doc officielle Twitch (Authorization Code — vérifiée verbatim, exige un secret) + code source du crate `twitch_oauth2` 0.17.1 (`DeviceUserTokenBuilder`, `Scope::ChannelReadStreamKey`) + Twitch Developer Forums (client Public confirmé).
+- **Pré-vol YouTube** : app développeur Google/YouTube créée par Jay (déjà annoncée disponible) · scope + flux à revérifier à la source avant de coder (Google a son propre modèle, jamais supposer qu'il copie Twitch).
+- **Autonomie** : 🟡 la 1ʳᵉ intégration (Twitch) a nécessité une validation humaine — confirmé nécessaire : le choix du flux Device Code vs Authorization Code venait d'un challenge de Jay, pas d'une évidence technique. YouTube peut réutiliser le motif PKCE déjà posé, mais sa propre vérité externe reste à établir.
 
 ### B3 — Multistream + vertical simultané · Critique · 🟢 (dépend de B2)
 
