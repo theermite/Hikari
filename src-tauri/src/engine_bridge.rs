@@ -60,17 +60,34 @@ fn spawn_engine(engine: &PathBuf, args: &[String]) -> Result<Child> {
         .with_context(|| format!("launching engine at {}", engine.display()))
 }
 
-/// Relay the engine's stdout line by line, parsing each as a protocol message. Unparsable
-/// lines are reported as warnings — never swallowed.
-fn relay_output(child: &mut Child) -> Result<()> {
-    let stdout = child.stdout.take().context("engine stdout was not piped")?;
-    for line in BufReader::new(stdout).lines() {
-        let line = line.context("reading engine stdout")?;
-        match parse_engine_message(&line) {
-            Ok(msg) => eprintln!("[engine] {msg:?}"),
-            Err(err) => eprintln!("[engine] WARN unparsable line {line:?} ({err})"),
+/// Relay engine stdout line by line; return how many well-formed protocol messages were
+/// relayed. A read error on a single line (e.g. non-UTF8 output from the native libobs) is
+/// logged and SKIPPED, never propagated: an I/O hiccup must not bypass the relaunch policy
+/// (the engine's exit status from `child.wait()` is what drives supervision). Unparsable
+/// lines are likewise reported, never swallowed.
+fn relay_reader<R: BufRead>(reader: R) -> usize {
+    let mut relayed = 0usize;
+    for line in reader.lines() {
+        match line {
+            Ok(line) => match parse_engine_message(&line) {
+                Ok(msg) => {
+                    eprintln!("[engine] {msg:?}");
+                    relayed += 1;
+                }
+                Err(err) => eprintln!("[engine] WARN unparsable line {line:?} ({err})"),
+            },
+            Err(err) => eprintln!("[engine] WARN dropped unreadable stdout line ({err})"),
         }
     }
+    relayed
+}
+
+/// Take the child's piped stdout and relay it. Fails only on a missing pipe (a setup error
+/// the caller must know about), never on stdout content — so supervision always reaches
+/// `child.wait()` and the relaunch decision.
+fn relay_output(child: &mut Child) -> Result<()> {
+    let stdout = child.stdout.take().context("engine stdout was not piped")?;
+    relay_reader(BufReader::new(stdout));
     Ok(())
 }
 
@@ -109,6 +126,25 @@ pub fn supervise(args: &[String]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn should_keep_relaying_when_a_stdout_line_is_not_utf8() {
+        // A non-UTF8 byte on the engine's stdout must NOT abort supervision — otherwise a
+        // native libobs log line would bypass the relaunch policy (ADR-013). The bad line
+        // is skipped; the valid protocol messages still relay.
+        let data: &[u8] = b"{\"type\":\"ready\"}\n\xff\xfe\n{\"type\":\"stopped\"}\n";
+        let relayed = relay_reader(Cursor::new(data));
+        assert_eq!(relayed, 2, "non-UTF8 line skipped, both valid messages still relayed");
+    }
+
+    #[test]
+    fn should_report_unparsable_line_without_counting_it() {
+        // A well-formed-but-unknown line is reported, not relayed, and never panics.
+        let data: &[u8] = b"{\"type\":\"ready\"}\nnot json at all\n{\"type\":\"nope\"}\n";
+        let relayed = relay_reader(Cursor::new(data));
+        assert_eq!(relayed, 1, "only the valid `ready` message is relayed");
+    }
 
     #[test]
     fn should_finish_when_engine_exits_successfully() {

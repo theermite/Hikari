@@ -18,8 +18,6 @@ use libobs_wrapper::utils::StartupInfo;
 
 use libobs_simple::sources::windows::{MonitorCaptureSourceBuilder, ObsDisplayCaptureMethod};
 
-/// The libobs source-kind identifier reported to decks for a screen capture.
-const MONITOR_CAPTURE_KIND: &str = "monitor_capture";
 /// The display name given to the scene's screen-capture source.
 const MONITOR_CAPTURE_NAME: &str = "Monitor Capture";
 
@@ -30,11 +28,6 @@ fn emit(msg: &EngineMessage) {
         Ok(line) => println!("{line}"),
         Err(err) => eprintln!("[engine] failed to serialize {msg:?}: {err}"),
     }
-}
-
-/// Describe a monitor (screen) capture source for the wire protocol. Pure: no libobs.
-fn monitor_capture_source(name: &str) -> SourceInfo {
-    SourceInfo { name: name.to_string(), kind: MONITOR_CAPTURE_KIND.to_string() }
 }
 
 /// Build the "main" scene with a screen capture and return its sources. Requires the real
@@ -49,7 +42,7 @@ fn build_scene_with_capture(context: &mut ObsContext) -> Result<Vec<SourceInfo>>
         .set_capture_method(ObsDisplayCaptureMethod::MethodDXGI)
         .add_to_scene(&mut scene)?;
     item.fit_source_to_screen()?;
-    Ok(vec![monitor_capture_source(MONITOR_CAPTURE_NAME)])
+    Ok(vec![SourceInfo::monitor_capture(MONITOR_CAPTURE_NAME)])
 }
 
 /// The engine's one-shot run: init libobs, build the scene, report its sources, exit.
@@ -73,32 +66,8 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn should_list_sources_when_scene_created() {
-        // The runnable half: a scene with one screen capture yields exactly that source,
-        // and it serializes to a single protocol line. The real libobs scene build needs
-        // a GPU + monitor runtime -> proven by the #[ignore]d integration test below.
-        let sources = vec![monitor_capture_source(MONITOR_CAPTURE_NAME)];
-        let msg = EngineMessage::Sources { items: sources.clone() };
-        assert_eq!(sources.len(), 1, "exactly one source added");
-        assert_eq!(sources[0].kind, MONITOR_CAPTURE_KIND);
-        let line = hikari_protocol::to_line(&msg).expect("sources message serializes");
-        assert!(line.contains(MONITOR_CAPTURE_KIND), "kind is on the wire");
-        assert!(!line.contains('\n'), "one JSON object per line");
-    }
-
-    #[test]
-    #[ignore = "needs the real libobs runtime (GPU + a monitor): integration regime like the B0.0 spike, not headless CI. Run with `cargo test -p engine -- --ignored`."]
-    fn should_build_real_scene_when_libobs_available() {
-        let mut context = ObsContext::new(StartupInfo::default())
-            .expect("libobs initializes when the runtime is present");
-        let sources = build_scene_with_capture(&mut context)
-            .expect("a scene with a screen capture builds on real hardware");
-        assert_eq!(sources.len(), 1, "the built scene exposes exactly one source");
-        assert_eq!(sources[0].kind, MONITOR_CAPTURE_KIND);
-    }
-}
+// No `cargo test` target here: `test = false` in Cargo.toml disables the harness because
+// linking libobs (obs.dll) prevents a test binary from even loading headless. The pure,
+// headless-testable protocol logic is covered in the `hikari-protocol` crate; the real
+// libobs scene build is validated by RUNNING `hikari-engine` with the OBS runtime
+// (integration regime, like the B0.0 spike).
