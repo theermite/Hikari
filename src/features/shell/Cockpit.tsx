@@ -12,6 +12,7 @@ import type {
 import { DockviewReact } from "dockview-react";
 import { useCallback, useRef, useState } from "react";
 import "dockview-react/dist/styles/dockview.css";
+import { DeckPanel } from "../deck/DeckPanel";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
 import { TwitchConnectPanel } from "./panels/TwitchConnectPanel";
@@ -23,12 +24,14 @@ const PANEL_COMPONENTS: Record<
   React.FunctionComponent<IDockviewPanelProps>
 > = {
   "twitch-connect": TwitchConnectPanel,
+  deck: DeckPanel,
   placeholder: PlaceholderPanel,
 };
 
-/** Builds the default layout — the ONE panel that does something real today (connexion
- * Twitch) plus two labeled placeholders standing in for panels not built yet (Deck,
- * Aperçu), so the dock/tab/resize behavior has more than one panel to demonstrate. */
+/** Builds the default layout — the two panels wired to real backends today (connexion
+ * Twitch, B2b ; deck local, B4) plus a labeled placeholder standing in for the panel
+ * not built yet (Aperçu), so the dock/tab/resize behavior has more than two panels to
+ * demonstrate. */
 function buildDefaultLayout(api: DockviewApi): void {
   const twitch = api.addPanel({
     id: "twitch-connect",
@@ -36,10 +39,9 @@ function buildDefaultLayout(api: DockviewApi): void {
     title: "Comptes",
   });
   const deck = api.addPanel({
-    id: "deck-placeholder",
-    component: "placeholder",
-    title: "Deck (à venir)",
-    params: { label: "Arrive avec B-auto puis B4." },
+    id: "deck",
+    component: "deck",
+    title: "Deck",
     position: { referencePanel: twitch.id, direction: "right" },
   });
   api.addPanel({

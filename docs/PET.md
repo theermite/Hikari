@@ -193,7 +193,7 @@ project: Hikari Stream
 ### Phase P3 — Deck
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
-| B4 | Deck local (local-first, < 100 ms) — **client de l'interface du moteur** (ADR-011) ; une touche peut lancer une action simple **ou une automation entière** | Critique | ⬜ |
+| B4 | Deck local (local-first, < 100 ms) — **client de l'interface du moteur** (ADR-011) ; une touche peut lancer une action simple **ou une automation entière** | Critique | ✅ |
 | B5 | Pont VPS (Phoenix) + deck distant + permissions rôle (F-047, F-048) — **2ᵉ client de la même interface**, jamais un passage obligé | Critique | ⬜ |
 | **B-auto** | **Moteur d'automations** : condition · délai · variables · séquence + déclencheurs (bouton, chat, événement, minuteur) — sans script externe (F-023, §3bis famille Logique). **Expose l'interface consommée par B4/B5** | **Critique** | ⬜ |
 
