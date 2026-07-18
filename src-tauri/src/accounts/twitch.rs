@@ -16,11 +16,40 @@
 //! ingest key — verified via the crate's own `Scope::ChannelReadStreamKey` constant,
 //! matching Twitch's documented scope string `channel:read:stream_key`).
 
+use std::fmt;
+
 use anyhow::{Context, Result};
 use twitch_oauth2::tokens::DeviceUserTokenBuilder;
 use twitch_oauth2::Scope;
 
 use crate::accounts::vault::{now_unix, Secret, StoredToken};
+
+/// Why authorization didn't produce a token — distinguished from a generic error so the
+/// eventual UI (B4/B-shell) can react differently: `Expired` means "generate a new code",
+/// anything else means "something went wrong, try again". The crate's own error enum
+/// doesn't expose a clean "user declined" variant (Twitch surfaces that as a parse error
+/// on a Twitch-specific message, same mechanism the crate's own `is_pending()` uses) — this
+/// keeps only the distinction the crate actually supports, rather than inventing precision
+/// it can't back up.
+#[derive(Debug)]
+pub enum TwitchAuthError {
+    /// The user never finished authorizing before the device code's `expires_in` elapsed.
+    Expired,
+    /// Any other failure (network, Twitch-side error, missing refresh token) — the real
+    /// cause is preserved in the message, just not distinguished as its own variant.
+    Other(String),
+}
+
+impl fmt::Display for TwitchAuthError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TwitchAuthError::Expired => write!(f, "le code a expiré avant l'autorisation"),
+            TwitchAuthError::Other(message) => write!(f, "{message}"),
+        }
+    }
+}
+
+impl std::error::Error for TwitchAuthError {}
 
 /// The one scope Hikari asks for — reading the stream key. Nothing broader (chat, channel
 /// management, etc.) until a feature actually needs it (F-030+ chat integration, later).
@@ -60,15 +89,17 @@ pub async fn start_device_flow(
 pub async fn wait_for_authorization(
     builder: &mut DeviceUserTokenBuilder,
     http: &reqwest::Client,
-) -> Result<StoredToken> {
-    let token = builder
-        .wait_for_code(http, tokio::time::sleep)
-        .await
-        .map_err(|err| anyhow::anyhow!("autorisation Twitch échouée ou expirée: {err}"))?;
+) -> Result<StoredToken, TwitchAuthError> {
+    use twitch_oauth2::tokens::errors::DeviceUserTokenExchangeError;
+
+    let token = builder.wait_for_code(http, tokio::time::sleep).await.map_err(|err| match err {
+        DeviceUserTokenExchangeError::Expired => TwitchAuthError::Expired,
+        other => TwitchAuthError::Other(other.to_string()),
+    })?;
     let refresh_token = token
         .refresh_token
         .as_ref()
-        .context("Twitch n'a pas rendu de jeton de rafraîchissement")?;
+        .ok_or_else(|| TwitchAuthError::Other("Twitch n'a pas rendu de jeton de rafraîchissement".into()))?;
     Ok(StoredToken {
         access_token: Secret::new(token.access_token.secret()),
         refresh_token: Secret::new(refresh_token.secret()),
