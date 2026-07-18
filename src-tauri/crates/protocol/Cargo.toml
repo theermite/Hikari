@@ -1,0 +1,13 @@
+[package]
+name = "hikari-protocol"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Hikari — wire protocol (JSON lines) shared between the controller and the engine process (ADR-011)."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
