@@ -1,3 +1,21 @@
+[workspace]
+members = ["crates/protocol", "crates/engine"]
+resolver = "2"
+
+# The engine is a SEPARATE binary (`hikari-engine`), launched by path as a child
+# process (ADR-013 — fault isolation). It is NEVER linked into the Tauri app.
+# `hikari-protocol` holds the JSON-line wire types shared by both sides (ADR-011),
+# with zero libobs/tauri dependency so it stays pure and headless-testable.
+[workspace.dependencies]
+hikari-protocol = { path = "crates/protocol" }
+libobs-wrapper = "9.0.4"
+libobs-simple = "8.0.1"
+anyhow = "1"
+env_logger = "0.11"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+proptest = "1"
+
 [package]
 name = "hikari"
 version = "0.1.0"
@@ -18,4 +36,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-
+hikari-protocol = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

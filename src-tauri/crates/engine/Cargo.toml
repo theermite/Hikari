@@ -1,0 +1,22 @@
+[package]
+name = "engine"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Hikari — video engine process (loads libobs, ADR-013). Launched by path as a child process, never linked into the app."
+
+[[bin]]
+name = "hikari-engine"
+path = "src/main.rs"
+# The engine links libobs (obs.dll): a test harness for this binary cannot even LOAD
+# without the OBS runtime present, so `cargo test` never runs one here. The engine is
+# validated by RUNNING the binary with the OBS runtime (integration regime, B0.0 spike).
+# Its headless-testable logic lives in the pure `hikari-protocol` crate.
+test = false
+
+[dependencies]
+hikari-protocol = { workspace = true }
+libobs-wrapper = { workspace = true }
+libobs-simple = { workspace = true }
+anyhow = { workspace = true }
+env_logger = { workspace = true }
