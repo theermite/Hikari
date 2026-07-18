@@ -10,6 +10,7 @@ pub mod protocol;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     commands::register(tauri::Builder::default())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application Tauri");
 }
