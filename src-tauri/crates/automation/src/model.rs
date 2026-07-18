@@ -181,6 +181,25 @@ mod tests {
     }
 
     #[test]
+    fn should_evaluate_true_when_variable_equals_matching_value() {
+        // Exercises the `==` comparison itself (not just the unevaluable path above)
+        // and `Context::with_variable` actually depositing the value — a mutant
+        // swapping either would flip this to false/Unevaluable instead of true.
+        let context = Context::new().with_variable("sub_tier", "3");
+        let condition =
+            Condition::VariableEquals { variable: "sub_tier".to_string(), value: "3".to_string() };
+        assert_eq!(condition.evaluate(&context), Ok(true));
+    }
+
+    #[test]
+    fn should_evaluate_false_when_variable_equals_different_value() {
+        let context = Context::new().with_variable("sub_tier", "1");
+        let condition =
+            Condition::VariableEquals { variable: "sub_tier".to_string(), value: "3".to_string() };
+        assert_eq!(condition.evaluate(&context), Ok(false));
+    }
+
+    #[test]
     fn should_evaluate_false_when_variable_exists_but_missing() {
         let context = Context::new();
         let condition = Condition::VariableExists { variable: "raid_from".to_string() };

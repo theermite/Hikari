@@ -98,20 +98,35 @@ fn should_reject_duplicate_id_at_save() {
     assert_eq!(result, Err(EngineError::DuplicateId("dup".to_string())));
 }
 
-#[test]
-fn should_reject_sequence_beyond_max_depth() {
-    let mut engine = AutomationEngine::default();
-    // Straight chain of MAX_SEQUENCE_DEPTH + 2 automations, each calling the next —
-    // acyclic, so registration succeeds every time, but the decision must still
-    // refuse once the anti-loop ceiling is crossed (CDC §8).
-    let chain_len = MAX_SEQUENCE_DEPTH + 2;
-    for i in (0..chain_len).rev() {
+/// Builds a straight `RunAutomation` chain of `len` steps (`step-0` calls `step-1`
+/// calls ... `step-{len-1}`, which is a leaf) and registers it.
+fn register_chain(engine: &mut AutomationEngine, len: usize) {
+    for i in (0..len).rev() {
         let mut step = button_automation(&format!("step-{i}"), true);
-        if i + 1 < chain_len {
+        if i + 1 < len {
             step.actions = vec![Action::RunAutomation { automation_id: format!("step-{}", i + 1) }];
         }
         engine.register(step).expect("acyclic chain registers");
     }
+}
+
+#[test]
+fn should_allow_sequence_exactly_at_max_depth() {
+    // Boundary case for `depth > MAX_SEQUENCE_DEPTH`: a chain that reaches EXACTLY the
+    // ceiling must still run — this is what distinguishes `>` from `==`/`>=` (a mutant
+    // on either would refuse here where the real code must not).
+    let mut engine = AutomationEngine::default();
+    register_chain(&mut engine, MAX_SEQUENCE_DEPTH + 1);
+    let decision = engine.decide(&"step-0".to_string(), &Context::new()).expect("known id");
+    assert!(matches!(decision, Decision::Run(_)), "expected Run at exactly the depth ceiling, got {decision:?}");
+}
+
+#[test]
+fn should_reject_sequence_one_past_max_depth() {
+    // One step past the boundary above — the refusal must trigger here, not one step
+    // earlier or later (kills the `==` and `>=` mutants on the same comparison).
+    let mut engine = AutomationEngine::default();
+    register_chain(&mut engine, MAX_SEQUENCE_DEPTH + 2);
     let decision = engine.decide(&"step-0".to_string(), &Context::new()).expect("known id");
     assert_eq!(decision, Decision::Refused(RefusalReason::SequenceDepthExceeded));
 }
@@ -132,4 +147,21 @@ fn should_refuse_when_unknown_automation_id() {
     let engine = AutomationEngine::default();
     let result = engine.decide(&"ghost".to_string(), &Context::new());
     assert_eq!(result, Err(EngineError::UnknownAutomation("ghost".to_string())));
+}
+
+#[test]
+fn should_refuse_when_referenced_automation_missing_at_decide_time() {
+    // A forward reference (pointing at an id not yet registered) passes registration —
+    // `assert_no_cycle` only walks automations already stored — so the refusal must
+    // happen here, at `decide()`, never silently drop the step (Quality.md "errors are
+    // data", `RefusalReason::ReferencedAutomationMissing`).
+    let mut engine = AutomationEngine::default();
+    let mut a = button_automation("a", true);
+    a.actions = vec![Action::RunAutomation { automation_id: "ghost".to_string() }];
+    engine.register(a).expect("a forward reference to an unregistered id still registers");
+    let decision = engine.decide(&"a".to_string(), &Context::new()).expect("known id");
+    assert_eq!(
+        decision,
+        Decision::Refused(RefusalReason::ReferencedAutomationMissing("ghost".to_string()))
+    );
 }
