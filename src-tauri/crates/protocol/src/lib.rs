@@ -49,11 +49,18 @@ pub enum EngineMessage {
     VideoEncoder { kind: String, hardware: bool },
     /// The RTMP service target was attached (server only; a key is never wired here).
     Service { server: String },
-    /// Streaming started for the given duration in seconds.
-    Started { secs: u64 },
-    /// Network frame counters — `dropped` is the real health indicator.
+    /// Streaming started. No fixed duration — a real stream runs until `StopStream`
+    /// (B0.0's spike used a fixed `secs` for its own bounded measurement; production
+    /// streams don't know their length in advance).
+    Started,
+    /// Network frame counters, reported periodically while streaming — `dropped` is the
+    /// real health indicator (B2a: continuous, not the spike's single end-of-run sample).
     Frames { dropped: i32, total: i32 },
-    /// Streaming stopped cleanly.
+    /// The stream was stopped cleanly (`StopStream`) — the engine process itself, and its
+    /// preview, stay alive. Distinct from `Stopped`, which means the whole engine process
+    /// is exiting.
+    StreamStopped,
+    /// The whole engine process is exiting cleanly (`Stop`).
     Stopped,
     /// A recoverable engine error, reported instead of dying silently.
     Error { message: String },
@@ -72,6 +79,15 @@ pub enum ControllerCommand {
     CreateScene { name: String },
     /// Ask the engine to emit the current scene's sources.
     ListSources,
+    /// Start streaming to the RTMP target the engine reads from its OWN environment
+    /// (`HIKARI_RTMP_SERVER`/`HIKARI_RTMP_KEY`, B2a scope). The wire NEVER carries a key —
+    /// account-sourced targets (B2b, OAuth + vault) will replace the env-var mechanism,
+    /// not add a secret-over-IPC path this brick would have to un-build later.
+    StartStream,
+    /// Stop the current stream. The engine process and its preview stay alive. If no
+    /// stream is running, this is a silent no-op — no `StreamStopped` is emitted, since
+    /// nothing was actually stopped (revisit before B4/B5 if a deck needs an ack either way).
+    StopStream,
     /// Ask the engine to stop and exit cleanly.
     Stop,
 }

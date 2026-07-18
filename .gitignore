@@ -18,6 +18,10 @@ Cargo.lock.bak
 *.dll
 *.so
 *.dylib
+# Données de plugins écrites par le runtime OBS à l'exécution (rtmp-services, win-capture,
+# etc.) quand le moteur tourne depuis la racine du dépôt — régénérables, jamais du code.
+/rtmp-services/
+/win-capture/
 
 # --- Node / front ---
 node_modules/
