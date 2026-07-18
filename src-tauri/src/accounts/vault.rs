@@ -31,24 +31,48 @@ impl Platform {
     }
 }
 
-/// A stored OAuth token. `Debug` is hand-implemented to redact both tokens — the derived
-/// `Debug` would print them verbatim into any log line that formats this struct, exactly
-/// the kind of leak `Security.md` forbids.
-pub struct StoredToken {
-    pub access_token: String,
-    pub refresh_token: String,
-    /// Unix timestamp (seconds) the access token expires at.
-    pub expires_at: u64,
+/// A secret string that CANNOT be printed by accident: `Debug` and `Display` are both
+/// redacted at the TYPE level, not by convention on the struct that happens to embed it
+/// (review finding: a `pub String` field is one careless `format!`/frontend echo away from
+/// leaking — this makes that mistake a type error's worth of harder, not just a style rule).
+/// `expose()` is the one, explicit escape hatch — every read site names itself as reading
+/// a secret.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Secret(String);
+
+impl Secret {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    /// The only way to read the secret value — deliberately named so every call site is
+    /// grep-able and self-documents that it is handling a secret.
+    pub fn expose(&self) -> &str {
+        &self.0
+    }
 }
 
-impl fmt::Debug for StoredToken {
+impl fmt::Debug for Secret {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("StoredToken")
-            .field("access_token", &"«redacted»")
-            .field("refresh_token", &"«redacted»")
-            .field("expires_at", &self.expires_at)
-            .finish()
+        write!(f, "«redacted»")
     }
+}
+
+impl fmt::Display for Secret {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "«redacted»")
+    }
+}
+
+/// A stored OAuth token. Both secrets are `Secret`, not `String` — redaction holds even if
+/// a future caller derives `Debug`/logs this struct through a wrapper that doesn't know
+/// about the hand-written impl below.
+#[derive(Debug)]
+pub struct StoredToken {
+    pub access_token: Secret,
+    pub refresh_token: Secret,
+    /// Unix timestamp (seconds) the access token expires at.
+    pub expires_at: u64,
 }
 
 /// Whether the given token is expired at `now` (seconds since epoch). A stream must never
@@ -65,17 +89,22 @@ pub fn now_unix() -> u64 {
 
 /// Serializes a token to the flat `access_token\trefresh_token\texpires_at` line the vault
 /// stores. Pure, so the encode/decode round-trip is unit-tested without touching the OS
-/// credential store.
+/// credential store. A `\t`/`\n` inside a token field shifts the delimiters, but the last
+/// field (`expires_at`) then fails to parse as a number — a clean `Err`, never a silent
+/// corruption (verified by `should_fail_loudly_when_a_token_field_contains_the_delimiter`).
+/// OAuth access/refresh tokens are restricted to the `VSCHAR` charset by RFC 6749 §1.4/
+/// Appendix A (0x20-0x7E), which excludes tab and newline — a legitimate token never hits
+/// this path in practice.
 fn encode(token: &StoredToken) -> String {
-    format!("{}\t{}\t{}", token.access_token, token.refresh_token, token.expires_at)
+    format!("{}\t{}\t{}", token.access_token.expose(), token.refresh_token.expose(), token.expires_at)
 }
 
 /// Parses a vault-stored line back into a token. Hostile input (corrupted entry, wrong
 /// field count) yields a clean `Err`, never a panic.
 fn decode(raw: &str) -> Result<StoredToken> {
     let mut parts = raw.splitn(3, '\t');
-    let access_token = parts.next().context("jeton d'accès manquant")?.to_string();
-    let refresh_token = parts.next().context("jeton de rafraîchissement manquant")?.to_string();
+    let access_token = Secret::new(parts.next().context("jeton d'accès manquant")?);
+    let refresh_token = Secret::new(parts.next().context("jeton de rafraîchissement manquant")?);
     let expires_at: u64 = parts
         .next()
         .context("expiration manquante")?
@@ -117,29 +146,25 @@ pub fn remove(platform: Platform) -> Result<()> {
 mod tests {
     use super::*;
 
+    fn token(access: &str, refresh: &str, expires_at: u64) -> StoredToken {
+        StoredToken { access_token: Secret::new(access), refresh_token: Secret::new(refresh), expires_at }
+    }
+
     #[test]
     fn should_refuse_stream_when_token_expired() {
-        let token = StoredToken {
-            access_token: "a".into(),
-            refresh_token: "r".into(),
-            expires_at: 1_000,
-        };
-        assert!(is_expired(&token, 1_000), "expires_at reached exactly -> expired");
-        assert!(is_expired(&token, 1_001), "past expiry -> expired");
-        assert!(!is_expired(&token, 999), "before expiry -> still valid");
+        let t = token("a", "r", 1_000);
+        assert!(is_expired(&t, 1_000), "expires_at reached exactly -> expired");
+        assert!(is_expired(&t, 1_001), "past expiry -> expired");
+        assert!(!is_expired(&t, 999), "before expiry -> still valid");
     }
 
     #[test]
     fn should_roundtrip_token_encoding() {
-        let token = StoredToken {
-            access_token: "access-xyz".into(),
-            refresh_token: "refresh-abc".into(),
-            expires_at: 1_753_000_000,
-        };
-        let decoded = decode(&encode(&token)).expect("well-formed encoding must decode");
-        assert_eq!(decoded.access_token, token.access_token);
-        assert_eq!(decoded.refresh_token, token.refresh_token);
-        assert_eq!(decoded.expires_at, token.expires_at);
+        let t = token("access-xyz", "refresh-abc", 1_753_000_000);
+        let decoded = decode(&encode(&t)).expect("well-formed encoding must decode");
+        assert_eq!(decoded.access_token.expose(), t.access_token.expose());
+        assert_eq!(decoded.refresh_token.expose(), t.refresh_token.expose());
+        assert_eq!(decoded.expires_at, t.expires_at);
     }
 
     #[test]
@@ -150,15 +175,30 @@ mod tests {
     }
 
     #[test]
+    fn should_fail_loudly_when_a_token_field_contains_the_delimiter() {
+        // A `\t` inside access_token shifts every field right by one. The shifted last
+        // field ("real-expiry", non-numeric) must fail to parse — never a silent, wrong
+        // round-trip. Adversarial input from the review, verified rather than assumed.
+        let raw = format!("evil\taccess\trefresh\t{}", "not-real-expiry");
+        assert!(decode(&raw).is_err(), "shifted fields must fail to parse, never corrupt silently");
+    }
+
+    #[test]
     fn should_never_leak_tokens_in_debug_output() {
-        let token = StoredToken {
-            access_token: "super-secret-access".into(),
-            refresh_token: "super-secret-refresh".into(),
-            expires_at: 1,
-        };
-        let debug = format!("{token:?}");
+        let t = token("super-secret-access", "super-secret-refresh", 1);
+        let debug = format!("{t:?}");
         assert!(!debug.contains("super-secret-access"), "access token must be redacted");
         assert!(!debug.contains("super-secret-refresh"), "refresh token must be redacted");
+    }
+
+    #[test]
+    fn should_never_leak_secret_in_display_output() {
+        // The type-level guard the review asked for: Display is redacted too, not just
+        // Debug — a future `println!("{}", token.access_token)` still can't leak.
+        let secret = Secret::new("super-secret-value");
+        let displayed = format!("{secret}");
+        assert!(!displayed.contains("super-secret-value"));
+        assert_eq!(secret.expose(), "super-secret-value", "expose() is still the true value");
     }
 
     #[test]
@@ -169,5 +209,10 @@ mod tests {
             let key = platform.vault_key();
             assert!(!key.is_empty());
         }
+    }
+
+    #[test]
+    fn should_use_distinct_vault_keys_per_platform() {
+        assert_ne!(Platform::Twitch.vault_key(), Platform::YouTube.vault_key());
     }
 }
