@@ -178,7 +178,8 @@ project: Hikari Stream
 | B0.3 | Scaffold Tauri 2.x + Rust + React 19 + Tailwind 4 | Standard | ✅ FAIT (2026-07-18, fc1b278) |
 | B1a | Moteur intégré : scène + sources + protocole JSON-lignes | Critique | ✅ FAIT (2026-07-18, merge 40f45a3) |
 | B1b | Aperçu cross-process (moteur → webview) | Critique | ✅ FAIT (2026-07-18, merge 4e97b4c) |
-| B2 | Encodage + diffusion (single) + connexion comptes OAuth | Critique | ⬜ |
+| B2a | Diffusion réelle (RTMP + NVENC), pilotable, sans OAuth | Critique | 🟧 en cours |
+| B2b | Comptes OAuth Twitch/YouTube + coffre | Critique | ⬜ (attend app développeur Jay) |
 
 ### Phase P2 — Live complet
 | Brique | Scope | Niveau | Statut |
@@ -631,16 +632,39 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Dette restante (hors périmètre B1b, notée pour B-shell/B4)** : câblage UI bout-en-bout (lancement du moteur au démarrage de l'app, bouton frontend qui déclenche la greffe) · `engine_path()` non prouvé en bundle Tauri (héritée de B1a).
 - **Autonomie** : **B1a** (🟢 autonome, tout transcrit/prouvé) → ✅ livré en run autonome 2026-07-18 · **B1b** (mini-spike humain, inconnu réel) → ✅ spiké et livré avec Jay 2026-07-18, jamais en run aveugle.
 
-### B2 — Encodage + diffusion (single) + connexion comptes OAuth · Critique · 🟢/🟡
+### B2 — Encodage + diffusion (single) + connexion comptes OAuth · Critique · scindée (B2a ⬜ / B2b ⬜) *(scindée 2026-07-18, précédent B1)*
 
-- **Objectif** : diffuser une scène vers UNE plateforme réelle, avec compte connecté (OAuth) et jetons au coffre.
-- **Approche décidée** : la diffusion est **prouvée au spike** (`rtmp_output` + NVENC + service, FFI `run_with_obs!`). Ici : la porter dans l'`engine` intégré + **connexion de comptes** (OAuth Twitch/YouTube). Jetons au **coffre système** (jamais loggés/en clair — assertion §5). URL/clé du service RTMP **depuis le compte** (jamais en dur).
-- **Fichiers** : `src-tauri/crates/engine/src/stream.rs` (porté) · `src-tauri/src/accounts/{oauth.rs, vault.rs}` · `src/features/accounts/*`.
+> **Pourquoi scinder** : B2 mélangeait 2 natures distinctes — la diffusion (transcription
+> pure, prouvée au spike B0.0) et l'intégration OAuth (a besoin d'une vraie app développeur
+> Twitch/YouTube que seul Jay peut créer — client ID, URI de redirection — jamais inventable
+> ni committable). Séparer évite de bloquer la diffusion sur une ressource externe absente.
+
+#### B2a — Diffusion réelle (RTMP + NVENC) · Critique · 🟢 autonome
+
+- **Objectif** : le moteur diffuse réellement un flux RTMP (cible manuelle, comme au spike —
+  **pas encore via un compte connecté**, ça viendra en B2b), pilotable par commande
+  (`StartStream`/`StopStream`) au lieu d'une durée fixe codée en dur.
+- **Approche décidée** : porte le code du spike B0.0 (`rtmp_output` + NVENC/x264 + service
+  RTMP via FFI `run_with_obs!`) dans `crates/engine`. **Cible RTMP toujours par variables
+  d'environnement** (`HIKARI_RTMP_SERVER`/`HIKARI_RTMP_KEY`, défaut MediaMTX local, zéro
+  secret) — le protocole ne transporte JAMAIS de clé ; construire un transport de secret
+  IPC maintenant serait prématuré, B2b le remplace par le coffre + OAuth.
+- **Fichiers** : `src-tauri/crates/engine/src/main.rs` (étendu) · `src-tauri/crates/protocol/src/lib.rs` (`StartStream`/`StopStream`, `Started` sans durée fixe, `StreamStopped`).
+- **Tests TDG** : round-trip protocole étendu (proptest) · reste (choix encodeur, FFI service) validé par exécution réelle (régime intégration, comme B0.0/B1a/B1b — `libobs` empêche un test headless).
+- **Critère d'acceptation** : diffusion réelle vers MediaMTX local (ou Twitch avec clé de test fournie par Jay, jamais committée) · codec matériel confirmé ou repli **dit** · statistiques d'images perdues rapportées en continu (pas une seule mesure finale comme au spike) · arrêt propre sur `StopStream`.
+- **Vérité externe** : la diffusion (prouvée B0.0, transcrite).
+- **Pré-vol** : `cargo test --workspace` exit 0 · brique non ambiguë.
+
+#### B2b — Comptes OAuth + coffre · Critique · 🟡 la 1ʳᵉ plateforme a besoin de Jay
+
+- **Objectif** : connexion de compte (OAuth Twitch/YouTube), jetons au coffre système,
+  URL/clé RTMP **depuis le compte** (remplace la variable d'environnement de B2a).
+- **Fichiers** : `src-tauri/src/accounts/{oauth.rs, vault.rs}` · `src/features/accounts/*`.
 - **Tests TDG** : `should_refuse_stream_when_token_expired` · `should_store_token_in_system_vault_never_plaintext` · `should_target_only_whitelisted_platforms` · OAuth = test d'intégration (flux réel en bac à sable).
-- **Critère d'acceptation** : diffusion réelle vers 1 plateforme (clé de test) · jeton rafraîchi frais · coffre vérifié (aucun jeton en clair sur disque).
-- **Vérité externe** : la diffusion (prouvée) + les specs **officielles** OAuth des plateformes (re-vérifiées le jour J) + le coffre système (API de l'OS). Transcription, pas invention.
-- **Pré-vol** : `cargo test` (engine) exit 0 · une clé de test disponible (fournie par Jay au moment voulu, **jamais committée**).
-- **Autonomie** : 🟢 la partie **diffusion + coffre** · 🟡 la **1ʳᵉ** intégration OAuth d'une plateforme (redirect URI, scopes) mérite une validation humaine — les suivantes deviennent autonomes.
+- **Critère d'acceptation** : jeton rafraîchi frais · coffre vérifié (aucun jeton en clair sur disque) · diffusion B2a alimentée par le compte, plus par variable d'environnement.
+- **Vérité externe** : les specs **officielles** OAuth des plateformes (re-vérifiées le jour J) + le coffre système (API de l'OS). Transcription, pas invention.
+- **Pré-vol** : B2a livrée · **app développeur créée par Jay** (Twitch ou YouTube — client ID, URI de redirection) · clé de test fournie au moment voulu, **jamais committée**.
+- **Autonomie** : 🟡 la **1ʳᵉ** intégration OAuth d'une plateforme (redirect URI, scopes) mérite une validation humaine — les suivantes deviennent autonomes.
 
 ### B3 — Multistream + vertical simultané · Critique · 🟢 (dépend de B2)
 
