@@ -193,7 +193,15 @@ mod tests {
     #[tokio::test]
     async fn should_trigger_action_under_100ms_when_pressed() {
         // Real wall-clock measurement (Quality.md "proof, never assertion") of decide +
-        // dispatch — never the action's own duration, see `trigger_key` doc.
+        // dispatch — never the action's own duration, see `trigger_key` doc. Scope,
+        // honestly (Gate 2 finding): this covers the internal decision path only, NOT
+        // the `#[tauri::command]` wrapper (State extraction/lock) NOR the full
+        // click-to-response round trip through the webview's IPC serialization that the
+        // user actually feels. Routing through the real command wrapper was attempted
+        // via `tauri::test::mock_builder`/`mock_app`, but that mock runtime is broken on
+        // Windows (`STATUS_ENTRYPOINT_NOT_FOUND`, open upstream bug
+        // github.com/tauri-apps/tauri/issues/13419, no fix/workaround as of 2026-07-19)
+        // — untestable on this platform today, not a gap left uninvestigated.
         let mut engine = AutomationEngine::new(ChatCommandWhitelist::default());
         engine.register(button_automation("marker")).expect("valid button automation registers");
 

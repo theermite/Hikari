@@ -38,9 +38,11 @@ export function DeckPanel(_props: IDockviewPanelProps) {
       .then((fetched) => {
         if (!cancelled) setKeys(sortDeckKeysById(fetched));
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         // Engine unreachable at boot — an empty deck is the honest fallback, never a
-        // silent retry loop or a fake key (Dignity.md).
+        // silent retry loop or a fake key (Dignity.md). Logged (not swallowed) so an
+        // unexpected failure stays visible instead of looking like "no keys assigned".
+        console.error("deck: listDeckKeys failed", error);
         if (!cancelled) setKeys([]);
       });
     return () => {
