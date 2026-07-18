@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/protocol", "crates/engine"]
+members = ["crates/protocol", "crates/engine", "crates/automation"]
 resolver = "2"
 
 # The engine is a SEPARATE binary (`hikari-engine`), launched by path as a child

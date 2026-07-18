@@ -2273,6 +2273,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "hikari-automation"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "hikari-protocol"
 version = "0.1.0"
 dependencies = [
