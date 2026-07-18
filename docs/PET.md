@@ -176,7 +176,8 @@ project: Hikari Stream
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
 | B0.3 | Scaffold Tauri 2.x + Rust + React 19 + Tailwind 4 | Standard | ✅ FAIT (2026-07-18, fc1b278) |
-| B1 | Moteur : scène simple + sources + preview | Critique | ⬜ |
+| B1a | Moteur intégré : scène + sources + protocole JSON-lignes | Critique | ✅ FAIT (2026-07-18, merge 40f45a3) |
+| B1b | Aperçu cross-process (moteur → webview) — mini-spike **humain** | Critique | ⬜ |
 | B2 | Encodage + diffusion (single) + connexion comptes OAuth | Critique | ⬜ |
 
 ### Phase P2 — Live complet
@@ -584,10 +585,21 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Vérité externe** : la doc **officielle** Tauri 2 (versions re-vérifiées au démarrage de la brique) + le build/run **mécanique**. Rien à inventer → le relecteur rejoue `build` + `dev`.
 - **Pré-vol** : `pnpm -v` + `cargo -V` sortent 0 · brique non ambiguë.
 
-### B1 — Moteur intégré : scène + sources + aperçu · Critique · 🟡 (à scinder)
+### B1 — Moteur intégré : scène + sources + aperçu · Critique · 🟡 (scindée : B1a ✅ / B1b ⬜)
 
+> ✅ **B1a livré (2026-07-18, merge `40f45a3`)** : moteur + contrôleur portés du spike en
+> crates de `src-tauri` (`hikari-protocol` + `engine` + `engine_bridge`), protocole JSON-lignes
+> figé (ADR-011), sources exposées. 10 tests verts (protocole proptest + supervision).
+> Revue Gate 2 GO-avec-réserves, 3 défauts corrigés. Détail : `docs/Sessions/run-2026-07-18-0127.md`.
+> **Reste B1b : l'aperçu cross-process** (ci-dessous, autonomie 🔴 — mini-spike humain).
+>
 > ⚠️ **Dette test héritée de B0.3** : jsdom + Testing Library sont retirés (incompat `act` React
-> 19.2). Recâbler le test interactif ici, veille fraîche — sinon les tests de rendu de B1 n'ont pas d'outil.
+> 19.2). Recâbler le test interactif au moment des briques d'écran, veille fraîche. B1a est du
+> Rust pur → non concerné.
+>
+> ⚠️ **Dette B1a (hors périmètre, notée par la revue)** : `engine_path()` suppose le binaire
+> moteur voisin du contrôleur — vrai en dev (`target/<profil>/`), à prouver dans le layout d'un
+> bundle Tauri (sidecars/`externalBin`) avant packaging (B-shell).
 
 - **Objectif** : l'app pilote le moteur (processus séparé) ; une scène avec ≥1 source s'affiche en **aperçu**.
 - **Approche décidée** : porter l'`engine` du spike en crate du workspace `src-tauri`. Le contrôleur (Rust) lance + supervise le moteur (survie/relance **prouvées** en B0.0). **Protocole du tuyau** = messages **JSON lignes** sur stdio (c'est l'interface de l'ADR-011, à figer ici). Sources via `libobs-simple` (capture écran/jeu/fenêtre, API **prouvée** au spike).
@@ -597,7 +609,7 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Critère d'acceptation** : une scène + une capture s'affichent en aperçu · protocole JSON testé par propriétés · survie/relance verte.
 - **Vérité externe** : l'API `libobs-wrapper` (transcrite, **prouvée** au spike) pour tout SAUF l'aperçu. **L'aperçu n'a pas de vérité externe transférable** → risque.
 - **Pré-vol** : `cargo test` (engine) exit 0 · MAIS l'aperçu est ambigu.
-- **Autonomie 🟡 — scinder** : **B1a** (moteur + sources + protocole = 🟢 autonome, tout est transcrit/prouvé) · **B1b** (aperçu cross-process = **mini-spike humain**, inconnu réel). Ne pas confier B1b à un run tant que le mécanisme d'aperçu n'est pas prouvé.
+- **Autonomie 🟡 — scindée** : **B1a** (moteur + sources + protocole = 🟢 autonome, tout transcrit/prouvé) → **✅ livré en run autonome 2026-07-18** · **B1b** (aperçu cross-process = **mini-spike humain**, inconnu réel) → **⬜ à faire, jamais un run à l'aveugle** tant que le mécanisme d'aperçu n'est pas prouvé.
 
 ### B2 — Encodage + diffusion (single) + connexion comptes OAuth · Critique · 🟢/🟡
 
