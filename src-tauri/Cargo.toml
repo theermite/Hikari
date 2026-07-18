@@ -26,7 +26,9 @@ sha2 = "0.11.0"
 base64 = "0.22.1"
 twitch_oauth2 = { version = "0.17.1", features = ["client", "reqwest"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-reqwest = "0.13.4"
+reqwest = { version = "0.13.4", features = ["json", "form"] }
+tiny_http = "0.12.0"
+urlencoding = "2.1.3"
 
 [package]
 name = "hikari"
@@ -60,3 +62,5 @@ base64 = { workspace = true }
 twitch_oauth2 = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
+tiny_http = { workspace = true }
+urlencoding = { workspace = true }
