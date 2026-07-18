@@ -57,6 +57,11 @@ pub enum EngineMessage {
     Stopped,
     /// A recoverable engine error, reported instead of dying silently.
     Error { message: String },
+    /// The engine created its native preview window (`obs_display`, B1b) and it is ready
+    /// to be grafted into the app's window. `hwnd` is the raw Win32 window handle, cast to
+    /// `i64` for the wire (JSON has no 64-bit unsigned integer type, and a HWND is always
+    /// representable in `i64` on the platforms Hikari targets).
+    PreviewReady { hwnd: i64 },
 }
 
 /// Commands the controller sends to the engine (controller -> engine), one per line.
