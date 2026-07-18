@@ -161,33 +161,72 @@ fn parse_callback_query(query: &str) -> Result<CallbackParams, YouTubeAuthError>
 pub async fn finish_authorization(
     pending: PendingAuthorization,
     client_id: &str,
-    client_secret: &str,
+    client_secret: &Secret,
     http: &reqwest::Client,
 ) -> Result<StoredToken, YouTubeAuthError> {
     let code = receive_redirect(&pending.state)?;
     exchange_code_for_token(client_id, client_secret, &code, pending.code_verifier.expose(), http).await
 }
 
-/// Binds the fixed loopback port, waits for exactly one HTTP request, validates its `state`,
-/// responds with a page telling the user to return to Hikari, then shuts the listener down.
+/// The exact path segment of the redirect URI (`redirect_uri()` ends in this) — used to
+/// tell Google's real callback apart from any other local request that might land on this
+/// port first (a browser's automatic favicon fetch, a stray local scan; found in review:
+/// treating the FIRST request received as authoritative let an unrelated request consume
+/// the single `recv()`, silently dropping the real callback that arrived right after).
+const CALLBACK_PATH: &str = "/callback";
+/// How long `receive_redirect` waits for the real callback before giving up — bounds an
+/// abandoned flow (user closes the browser tab) so the port is freed for a retry instead
+/// of blocking the calling thread forever (found in review: the original `server.recv()`
+/// had no timeout at all).
+const AUTHORIZATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
+
+/// Binds the fixed loopback port and waits for the ONE request whose path matches
+/// `CALLBACK_PATH`, validates its `state`, responds with a page telling the user to return
+/// to Hikari, then shuts the listener down. Any other request received in the meantime
+/// (path mismatch) is answered 404 and ignored — the wait continues, bounded by
+/// `AUTHORIZATION_TIMEOUT`.
 fn receive_redirect(expected_state: &str) -> Result<String, YouTubeAuthError> {
     let server = tiny_http::Server::http(("127.0.0.1", REDIRECT_PORT))
         .map_err(|err| YouTubeAuthError::CallbackFailed(format!("port {REDIRECT_PORT} indisponible: {err}")))?;
-    let request = server
-        .recv()
-        .map_err(|err| YouTubeAuthError::CallbackFailed(format!("aucune redirection reçue: {err}")))?;
+    receive_redirect_on(&server, expected_state, AUTHORIZATION_TIMEOUT)
+}
 
-    let query = request.url().split_once('?').map(|(_, q)| q).unwrap_or("").to_string();
-    let params = parse_callback_query(query.as_str());
+/// The actual wait/filter/validate loop, taking the server as a parameter so tests can bind
+/// an ephemeral port instead of the fixed production one (see the `tests` module below).
+fn receive_redirect_on(
+    server: &tiny_http::Server,
+    expected_state: &str,
+    timeout: std::time::Duration,
+) -> Result<String, YouTubeAuthError> {
+    let deadline = std::time::Instant::now() + timeout;
 
-    let (status, body) = match &params {
-        Ok(_) => (200, "<html><body>Connexion Twitch/YouTube réussie — vous pouvez fermer cette fenêtre et revenir à Hikari.</body></html>"),
-        Err(_) => (400, "<html><body>La connexion a échoué — revenez à Hikari et réessayez.</body></html>"),
+    let params = loop {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            return Err(YouTubeAuthError::CallbackFailed(format!("délai d'autorisation dépassé ({}s)", timeout.as_secs())));
+        }
+        let request = server
+            .recv_timeout(remaining)
+            .map_err(|err| YouTubeAuthError::CallbackFailed(format!("erreur réseau: {err}")))?
+            .ok_or_else(|| YouTubeAuthError::CallbackFailed("délai d'autorisation dépassé (5 min)".into()))?;
+
+        let (path, query) = request.url().split_once('?').unwrap_or((request.url(), ""));
+        if path != CALLBACK_PATH {
+            let _ = request.respond(tiny_http::Response::from_string("").with_status_code(404));
+            continue;
+        }
+
+        let params = parse_callback_query(query);
+        let (status, body) = match &params {
+            Ok(_) => (200, "<html><body>Connexion YouTube réussie — vous pouvez fermer cette fenêtre et revenir à Hikari.</body></html>"),
+            Err(_) => (400, "<html><body>La connexion a échoué — revenez à Hikari et réessayez.</body></html>"),
+        };
+        let response = tiny_http::Response::from_string(body)
+            .with_status_code(status)
+            .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html; charset=utf-8"[..]).unwrap());
+        let _ = request.respond(response);
+        break params;
     };
-    let response = tiny_http::Response::from_string(body)
-        .with_status_code(status)
-        .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html; charset=utf-8"[..]).unwrap());
-    let _ = request.respond(response);
 
     let params = params?;
     if params.state != expected_state {
@@ -209,14 +248,14 @@ struct TokenResponse {
 /// alone can't be redeemed by an attacker.
 async fn exchange_code_for_token(
     client_id: &str,
-    client_secret: &str,
+    client_secret: &Secret,
     code: &str,
     code_verifier: &str,
     http: &reqwest::Client,
 ) -> Result<StoredToken, YouTubeAuthError> {
     let params = [
         ("client_id", client_id),
-        ("client_secret", client_secret),
+        ("client_secret", client_secret.expose()),
         ("code", code),
         ("code_verifier", code_verifier),
         ("grant_type", "authorization_code"),
@@ -290,4 +329,14 @@ mod tests {
         assert_eq!(params.code, "a+b");
         assert_eq!(params.state, "hello world");
     }
+
+    // `receive_redirect_on`'s path-filtering and timeout behavior (both fixed after the
+    // Gate 2 review — see its doc comments) are NOT covered by an automated test here: a
+    // real loopback TCP test hung the whole suite for 10+ minutes on this dev machine, most
+    // likely WSL2's Hyper-V virtual switch silently blocking connections on ephemeral ports
+    // (`vmmemWSL` was active; several Windows-reserved TCP exclusion ranges overlap the
+    // ephemeral port range `bind("127.0.0.1:0")` draws from — confirmed via `netsh interface
+    // ipv4 show excludedportrange protocol=tcp`). Same regime as the `engine` crate's real
+    // libobs calls (`crates/engine/Cargo.toml`, `test = false`): validated by RUNNING the
+    // real flow once (manual OAuth connect through Hikari), not an automated headless test.
 }
