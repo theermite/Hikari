@@ -16,6 +16,7 @@ import { loadLayout, restoreLayout, saveLayout } from "./layout";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
 import { TwitchConnectPanel } from "./panels/TwitchConnectPanel";
 import { PRESETS, type PresetId, resolvePreset } from "./presets";
+import { Sidebar } from "./Sidebar";
 
 const PANEL_COMPONENTS: Record<
   string,
@@ -87,26 +88,33 @@ export function Cockpit() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
-      <header className="flex items-center gap-2 border-b border-neutral-800 px-4 py-2">
-        <h1 className="mr-4 text-lg font-semibold tracking-tight">Hikari 光</h1>
-        {PRESETS.map((preset) => (
-          <button
-            key={preset.id}
-            type="button"
-            onClick={() => switchPreset(preset.id)}
-            className={`rounded px-3 py-1 text-sm transition ${
-              activePreset === preset.id
-                ? "bg-purple-600 text-white"
-                : "text-neutral-400 hover:bg-neutral-800"
-            }`}
-          >
-            {preset.label}
-          </button>
-        ))}
-      </header>
-      <div className="dockview-theme-dark flex-1">
-        <DockviewReact components={PANEL_COMPONENTS} onReady={onReady} />
+    <div className="flex h-screen font-hikari bg-hikari-bg text-hikari-txt">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-14 flex-shrink-0 items-center gap-4 border-b border-hikari-line bg-hikari-bg-2 px-4">
+          <h1 className="text-[14px] font-semibold tracking-tight">
+            Cockpit Live
+          </h1>
+          <div className="flex gap-0.5 rounded-full border border-hikari-line bg-hikari-bg-3 p-0.5">
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => switchPreset(preset.id)}
+                className={`rounded-full px-3 py-1 text-[12.5px] font-medium transition ${
+                  activePreset === preset.id
+                    ? "bg-hikari-accent text-[#1a1206]"
+                    : "text-hikari-txt-dim hover:text-hikari-txt"
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </header>
+        <div className="dockview-theme-dark flex-1 bg-hikari-bg">
+          <DockviewReact components={PANEL_COMPONENTS} onReady={onReady} />
+        </div>
       </div>
     </div>
   );

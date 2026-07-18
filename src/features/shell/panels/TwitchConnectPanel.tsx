@@ -50,32 +50,34 @@ export function TwitchConnectPanel(_props: IDockviewPanelProps) {
   };
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 bg-neutral-900 p-6 text-neutral-100">
+    <div className="flex h-full flex-col items-center justify-center gap-4 bg-hikari-bg-3 p-6 text-hikari-txt">
       <button
         type="button"
         onClick={connectTwitch}
         disabled={state.status === "waiting"}
-        className="rounded-lg bg-purple-600 px-5 py-2.5 font-medium text-white transition hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-[10px] bg-hikari-accent px-5 py-2.5 font-medium text-[#1a1206] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
       >
         Connecter Twitch
       </button>
 
       {state.status === "waiting" && (
-        <div className="max-w-md text-center text-sm text-neutral-300">
+        <div className="max-w-md text-center text-sm text-hikari-txt-dim">
           <p>Un navigateur s'est ouvert — entre ce code si besoin :</p>
-          <p className="mt-2 font-mono text-2xl tracking-widest text-purple-400">
+          <p className="mt-2 font-mono text-2xl tracking-widest text-hikari-accent">
             {state.userCode}
           </p>
-          <p className="mt-2 break-all text-neutral-500">
+          <p className="mt-2 break-all text-hikari-txt-faint">
             {state.verificationUri}
           </p>
         </div>
       )}
       {state.status === "connected" && (
-        <p className="text-emerald-400">✅ Compte Twitch connecté.</p>
+        <p className="text-hikari-green">✅ Compte Twitch connecté.</p>
       )}
       {state.status === "error" && (
-        <p className="max-w-md text-center text-red-400">❌ {state.message}</p>
+        <p className="max-w-md text-center text-hikari-red">
+          ❌ {state.message}
+        </p>
       )}
     </div>
   );
