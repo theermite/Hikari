@@ -24,6 +24,9 @@ export default defineConfig(async () => ({
 
   // Vitest — garde-fous d'hygiène (Quality.md : forks bornés, isolation, timeouts).
   test: {
+    // Ne jamais exécuter les tests des worktrees d'agents (branches en cours de revue) :
+    // ils embarquent leur propre copie du code et feraient échouer le suite de `main`.
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/worktrees/**"],
     environment: "node",
     globals: true,
     pool: "forks",
