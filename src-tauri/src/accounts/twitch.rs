@@ -24,6 +24,14 @@ use twitch_oauth2::Scope;
 
 use crate::accounts::vault::{now_unix, Secret, StoredToken};
 
+/// Hikari's own Twitch application identity — a "Public" client type (dev.twitch.tv
+/// console), registered 2026-07-18 by Jay. A `client_id` identifies the APP, not a user
+/// or a secret: Twitch issues no client secret at all for a Public client (verified in
+/// the console), so this is safe to commit in a public repo — the same way any published
+/// open-source app's OAuth client_id is public (only a client SECRET would need hiding,
+/// and this flow has none — see this file's header).
+pub const TWITCH_CLIENT_ID: &str = "5ez59v2hqqihv3z13rkyg6m9eoqt41";
+
 /// Why authorization didn't produce a token — distinguished from a generic error so the
 /// eventual UI (B4/B-shell) can react differently: `Expired` means "generate a new code",
 /// anything else means "something went wrong, try again". The crate's own error enum
