@@ -2255,6 +2255,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "hikari-automation",
  "hikari-protocol",
  "keyring",
  "rand 0.9.5",

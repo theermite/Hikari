@@ -1,8 +1,7 @@
 //! Tauri commands — the bridge between the frontend and the backend modules already
-//! proven (B2b). Minimal, honest slice: ONE real thing wired end-to-end (Twitch connect),
-//! not the full cockpit shell (B-shell) or deck (B4, blocked on B-auto per the PET's own
-//! dependency order). Reuses the exact flow validated manually (`examples/*_manual_auth.rs`,
-//! B2b) — no new backend logic, only the Tauri glue.
+//! proven (B2b). Reuses the exact flow validated manually (`examples/*_manual_auth.rs`,
+//! B2b) — no new backend logic, only the Tauri glue. Registered from `lib.rs` alongside
+//! the deck commands (`deck_bridge`) — Tauri allows only one `invoke_handler`.
 
 use tauri::{AppHandle, Emitter};
 
@@ -30,7 +29,7 @@ fn open_in_browser(url: &str) -> std::io::Result<()> {
 /// verification URL/code are known (so the UI can show them immediately, not just at the
 /// end), then `twitch-connected` or `twitch-error` when the flow concludes.
 #[tauri::command]
-async fn connect_twitch(app: AppHandle) -> Result<(), String> {
+pub(crate) async fn connect_twitch(app: AppHandle) -> Result<(), String> {
     let http = reqwest::Client::new();
     let (mut builder, prompt) = twitch::start_device_flow(twitch::TWITCH_CLIENT_ID, &http)
         .await
@@ -54,9 +53,4 @@ async fn connect_twitch(app: AppHandle) -> Result<(), String> {
             Err(message)
         }
     }
-}
-
-/// Registers every command in this module on the Tauri builder.
-pub fn register(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
-    builder.invoke_handler(tauri::generate_handler![connect_twitch])
 }

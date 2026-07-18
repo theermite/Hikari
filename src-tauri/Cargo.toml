@@ -8,6 +8,7 @@ resolver = "2"
 # with zero libobs/tauri dependency so it stays pure and headless-testable.
 [workspace.dependencies]
 hikari-protocol = { path = "crates/protocol" }
+hikari-automation = { path = "crates/automation" }
 libobs-wrapper = "9.0.4"
 libobs-simple = "8.0.1"
 anyhow = "1"
@@ -52,6 +53,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 hikari-protocol = { workspace = true }
+hikari-automation = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
