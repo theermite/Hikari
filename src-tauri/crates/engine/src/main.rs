@@ -116,10 +116,17 @@ enum EngineEvent {
     StopStream,
 }
 
+/// `stream` MUST be declared before `obs`: `stream.output` depends on `obs.context` (same
+/// libobs context), and Rust drops struct fields in declaration order (see `ObsInner`'s own
+/// comment for the exact class of bug this prevents — an `ObsOutputRef` dropped after its
+/// parent context would either leak or touch an already-destroyed context). The normal exit
+/// path (`exiting()`) already stops the stream and clears `obs` in the right order; this
+/// field order is the belt-and-braces guard for an abnormal drop (e.g. a future winit
+/// callback panic) that would skip `exiting()` and drop `App` directly.
 struct App {
     window: Option<Sendable<Window>>,
-    obs: Option<ObsInner>,
     stream: Option<StreamState>,
+    obs: Option<ObsInner>,
 }
 
 impl App {

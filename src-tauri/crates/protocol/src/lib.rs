@@ -84,7 +84,9 @@ pub enum ControllerCommand {
     /// account-sourced targets (B2b, OAuth + vault) will replace the env-var mechanism,
     /// not add a secret-over-IPC path this brick would have to un-build later.
     StartStream,
-    /// Stop the current stream. The engine process and its preview stay alive.
+    /// Stop the current stream. The engine process and its preview stay alive. If no
+    /// stream is running, this is a silent no-op — no `StreamStopped` is emitted, since
+    /// nothing was actually stopped (revisit before B4/B5 if a deck needs an ack either way).
     StopStream,
     /// Ask the engine to stop and exit cleanly.
     Stop,
