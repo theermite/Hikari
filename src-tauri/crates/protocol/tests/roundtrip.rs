@@ -18,6 +18,8 @@ fn engine_message_strategy() -> impl Strategy<Value = EngineMessage> {
     prop_oneof![
         Just(EngineMessage::Ready),
         Just(EngineMessage::Stopped),
+        Just(EngineMessage::Started),
+        Just(EngineMessage::StreamStopped),
         prop::collection::vec(source_info_strategy(), 0..4)
             .prop_map(|items| EngineMessage::Sources { items }),
         prop::collection::vec(any::<String>(), 0..4)
@@ -25,7 +27,6 @@ fn engine_message_strategy() -> impl Strategy<Value = EngineMessage> {
         (any::<String>(), any::<bool>())
             .prop_map(|(kind, hardware)| EngineMessage::VideoEncoder { kind, hardware }),
         any::<String>().prop_map(|server| EngineMessage::Service { server }),
-        any::<u64>().prop_map(|secs| EngineMessage::Started { secs }),
         (any::<i32>(), any::<i32>())
             .prop_map(|(dropped, total)| EngineMessage::Frames { dropped, total }),
         any::<String>().prop_map(|message| EngineMessage::Error { message }),
@@ -38,6 +39,8 @@ fn controller_command_strategy() -> impl Strategy<Value = ControllerCommand> {
     prop_oneof![
         any::<String>().prop_map(|name| ControllerCommand::CreateScene { name }),
         Just(ControllerCommand::ListSources),
+        Just(ControllerCommand::StartStream),
+        Just(ControllerCommand::StopStream),
         Just(ControllerCommand::Stop),
     ]
 }
