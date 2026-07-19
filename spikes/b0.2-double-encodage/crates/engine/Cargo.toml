@@ -1,0 +1,15 @@
+[package]
+name = "engine"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "hikari-spike-b02"
+path = "src/main.rs"
+
+[dependencies]
+libobs-wrapper = { workspace = true }
+libobs-simple = { workspace = true }
+anyhow = { workspace = true }
+env_logger = { workspace = true }

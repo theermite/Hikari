@@ -1,0 +1,13 @@
+[workspace]
+resolver = "3"
+members = ["crates/engine"]
+
+# Spike B0.2 — code jetable (régime §9bis du PET). Jamais fusionné dans `main`.
+# Question unique : la RTX 3060 encaisse-t-elle l'horizontal 1080p ET un 2e flux
+# vertical simultané, PENDANT qu'un jeu tourne ? Voir docs/PET.md "B0.2".
+
+[workspace.dependencies]
+libobs-wrapper = "9.0.4"
+libobs-simple = "8.0.1"
+anyhow = "1"
+env_logger = "0.11"
