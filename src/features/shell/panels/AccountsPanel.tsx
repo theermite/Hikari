@@ -51,9 +51,11 @@ function useTwitchConnection() {
 
   const connect = () => {
     setState({ status: "idle" });
-    invoke("connect_twitch").catch(() => {
-      // L'erreur arrive aussi via l'événement "twitch-error" — pas besoin de la
-      // dupliquer ici, l'invocation rejetée est juste le signal que ça s'est arrêté.
+    invoke("connect_twitch").catch((error: unknown) => {
+      // Le backend émet désormais toujours "twitch-error" avant de rejeter (voir
+      // commands.rs) ; ce log couvre le cas résiduel où l'appel Tauri lui-même échoue
+      // avant même d'atteindre le Rust — sinon l'écran resterait muet sans rien logguer.
+      console.error("accounts: connect_twitch failed", error);
     });
   };
 
@@ -79,8 +81,10 @@ function useYouTubeConnection() {
 
   const connect = () => {
     setState({ status: "waiting" });
-    invoke("connect_youtube").catch(() => {
-      // Même logique que Twitch : l'échec arrive aussi via "youtube-error".
+    invoke("connect_youtube").catch((error: unknown) => {
+      // Même logique que Twitch : le backend émet toujours "youtube-error" avant de
+      // rejeter ; ce log couvre l'échec de l'appel Tauri lui-même.
+      console.error("accounts: connect_youtube failed", error);
     });
   };
 

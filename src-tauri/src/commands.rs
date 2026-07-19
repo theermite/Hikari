@@ -28,8 +28,25 @@ fn open_in_browser(url: &str) -> std::io::Result<()> {
 /// resulting token in the OS credential store. Emits `twitch-code` as soon as the
 /// verification URL/code are known (so the UI can show them immediately, not just at the
 /// end), then `twitch-connected` or `twitch-error` when the flow concludes.
+///
+/// The single `Err` exit at the bottom (rather than each fallible step emitting its own
+/// `twitch-error`) is deliberate: found in the field (2026-07-19, YouTube's twin bug, same
+/// shape) that an early failure — e.g. `start_device_flow` erroring before ANY event is
+/// emitted — leaves the UI stuck on "waiting" forever with zero feedback, because the
+/// frontend's `invoke().catch()` swallows the rejection silently. Routing every fallible
+/// step through `try_connect_twitch` and emitting exactly once here, on the one path all
+/// errors funnel through, makes "no visible error" structurally impossible instead of
+/// relying on each call site to remember to emit.
 #[tauri::command]
 pub(crate) async fn connect_twitch(app: AppHandle) -> Result<(), String> {
+    let result = try_connect_twitch(&app).await;
+    if let Err(message) = &result {
+        let _ = app.emit("twitch-error", message.clone());
+    }
+    result
+}
+
+async fn try_connect_twitch(app: &AppHandle) -> Result<(), String> {
     let http = reqwest::Client::new();
     let (mut builder, prompt) = twitch::start_device_flow(twitch::TWITCH_CLIENT_ID, &http)
         .await
@@ -41,18 +58,10 @@ pub(crate) async fn connect_twitch(app: AppHandle) -> Result<(), String> {
     );
     let _ = open_in_browser(&prompt.verification_uri);
 
-    match twitch::wait_for_authorization(&mut builder, &http).await {
-        Ok(token) => {
-            vault::store(Platform::Twitch, &token).map_err(|err| err.to_string())?;
-            let _ = app.emit("twitch-connected", ());
-            Ok(())
-        }
-        Err(err) => {
-            let message = err.to_string();
-            let _ = app.emit("twitch-error", message.clone());
-            Err(message)
-        }
-    }
+    let token = twitch::wait_for_authorization(&mut builder, &http).await.map_err(|err| err.to_string())?;
+    vault::store(Platform::Twitch, &token).map_err(|err| err.to_string())?;
+    let _ = app.emit("twitch-connected", ());
+    Ok(())
 }
 
 /// Runs the real YouTube Authorization Code + PKCE flow (B2b, already proven manually via
@@ -64,8 +73,20 @@ pub(crate) async fn connect_twitch(app: AppHandle) -> Result<(), String> {
 /// app without setting env vars). Unlike Twitch's Device Code Flow, there is no code to
 /// show the user — only "browser opened, waiting for the redirect" — so this only emits
 /// `youtube-connected`/`youtube-error`, no `youtube-code` counterpart to `twitch-code`.
+/// Same single-exit shape as `connect_twitch` (see its doc comment) — here it is the fix
+/// site: the env vars missing (the first thing to fail in practice, before any browser
+/// opens) used to return early with zero event emitted, leaving the UI on "waiting"
+/// forever (found live 2026-07-19, Jay's first real run).
 #[tauri::command]
 pub(crate) async fn connect_youtube(app: AppHandle) -> Result<(), String> {
+    let result = try_connect_youtube(&app).await;
+    if let Err(message) = &result {
+        let _ = app.emit("youtube-error", message.clone());
+    }
+    result
+}
+
+async fn try_connect_youtube(app: &AppHandle) -> Result<(), String> {
     let client_id = std::env::var("YOUTUBE_CLIENT_ID")
         .map_err(|_| "variable d'environnement YOUTUBE_CLIENT_ID absente".to_string())?;
     let client_secret = std::env::var("YOUTUBE_CLIENT_SECRET")
@@ -76,16 +97,10 @@ pub(crate) async fn connect_youtube(app: AppHandle) -> Result<(), String> {
     let _ = open_in_browser(&pending.authorization_url);
 
     let http = reqwest::Client::new();
-    match youtube::finish_authorization(pending, &client_id, &client_secret, &http).await {
-        Ok(token) => {
-            vault::store(Platform::YouTube, &token).map_err(|err| err.to_string())?;
-            let _ = app.emit("youtube-connected", ());
-            Ok(())
-        }
-        Err(err) => {
-            let message = err.to_string();
-            let _ = app.emit("youtube-error", message.clone());
-            Err(message)
-        }
-    }
+    let token = youtube::finish_authorization(pending, &client_id, &client_secret, &http)
+        .await
+        .map_err(|err| err.to_string())?;
+    vault::store(Platform::YouTube, &token).map_err(|err| err.to_string())?;
+    let _ = app.emit("youtube-connected", ());
+    Ok(())
 }
