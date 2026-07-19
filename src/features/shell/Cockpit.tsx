@@ -14,8 +14,8 @@ import { useCallback, useRef, useState } from "react";
 import "dockview-react/dist/styles/dockview.css";
 import { DeckPanel } from "../deck/DeckPanel";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
+import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
-import { TwitchConnectPanel } from "./panels/TwitchConnectPanel";
 import { PRESETS, type PresetId, resolvePreset } from "./presets";
 import { Sidebar } from "./Sidebar";
 
@@ -23,7 +23,7 @@ const PANEL_COMPONENTS: Record<
   string,
   React.FunctionComponent<IDockviewPanelProps>
 > = {
-  "twitch-connect": TwitchConnectPanel,
+  "twitch-connect": AccountsPanel,
   deck: DeckPanel,
   placeholder: PlaceholderPanel,
 };

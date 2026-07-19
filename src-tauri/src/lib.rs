@@ -17,6 +17,7 @@ pub fn run() {
         .manage(deck_bridge::DeckState::default())
         .invoke_handler(tauri::generate_handler![
             commands::connect_twitch,
+            commands::connect_youtube,
             deck_bridge::deck_list_keys,
             deck_bridge::deck_trigger_key,
         ])
