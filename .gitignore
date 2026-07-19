@@ -63,3 +63,6 @@ coverage/
 # Python bytecode — jamais committe (2026-07-17)
 __pycache__/
 *.pyc
+
+# Hook state (machine-local) — never propagate, never stash
+.claude/state/
