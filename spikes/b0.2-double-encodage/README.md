@@ -27,8 +27,10 @@ implémentation B3 plus tard.
 ## Lancer le spike
 
 ```powershell
-# 1. Démarrer MediaMTX (dans un terminal séparé)
-& "spikes\b0.0-libobs\mediamtx\mediamtx.exe" "spikes\b0.0-libobs\mediamtx\mediamtx.yml"
+# 1. Démarrer MediaMTX (dans un terminal séparé — reste ouvert, trouve mediamtx.yml
+#    automatiquement car il est à côté de l'exécutable)
+cd spikes\b0.0-libobs\mediamtx
+.\mediamtx.exe
 
 # 2. Lancer ton jeu, noter ses images/seconde SANS le spike (référence)
 
