@@ -12,6 +12,7 @@
 //! API transcribed from the proven spikes (B0.0 for the scene/sources/streaming, B1b for
 //! the preview window + wire announcement). This is the integrated port, not throwaway code.
 
+mod multistream;
 mod stream;
 
 use std::io::{BufRead, Write};
@@ -28,6 +29,7 @@ use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemTrait};
 use libobs_wrapper::sources::ObsSourceBuilder;
 use libobs_wrapper::unsafe_send::Sendable;
 use libobs_wrapper::utils::StartupInfo;
+use multistream::{PlatformStream, report_platform_frame_stats, start_multistream, stop_one};
 use stream::{FRAME_STATS_INTERVAL, StreamState, report_frame_stats, start_stream};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
@@ -114,18 +116,26 @@ enum EngineEvent {
     Exit,
     StartStream,
     StopStream,
+    StartMultistream { targets: Vec<hikari_protocol::StreamTarget> },
+    StopMultistream,
 }
 
-/// `stream` MUST be declared before `obs`: `stream.output` depends on `obs.context` (same
-/// libobs context), and Rust drops struct fields in declaration order (see `ObsInner`'s own
-/// comment for the exact class of bug this prevents — an `ObsOutputRef` dropped after its
-/// parent context would either leak or touch an already-destroyed context). The normal exit
-/// path (`exiting()`) already stops the stream and clears `obs` in the right order; this
-/// field order is the belt-and-braces guard for an abnormal drop (e.g. a future winit
+/// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
+/// `obs.context` (same libobs context), and Rust drops struct fields in declaration order
+/// (see `ObsInner`'s own comment for the exact class of bug this prevents — an
+/// `ObsOutputRef` dropped after its parent context would either leak or touch an
+/// already-destroyed context). The normal exit path (`exiting()`) already stops both and
+/// clears `obs` in the right order; this field order is the belt-and-braces guard for an
+/// abnormal drop (e.g. a future winit
 /// callback panic) that would skip `exiting()` and drop `App` directly.
 struct App {
     window: Option<Sendable<Window>>,
     stream: Option<StreamState>,
+    multistream: Vec<PlatformStream>,
+    /// When multistream frame stats were last reported — a single shared tick for the
+    /// whole batch (unlike `StreamState`, `PlatformStream` doesn't carry its own timer,
+    /// since every target reports on the same cadence).
+    multistream_last_stats_at: Instant,
     obs: Option<ObsInner>,
 }
 
@@ -185,6 +195,29 @@ impl App {
         }
         emit(&EngineMessage::StreamStopped);
     }
+
+    /// Starts multistream to every target (B3): each target starts independently, a
+    /// failure on one is reported (`PlatformError`) and skipped, never aborting the
+    /// others. A second `StartMultistream` while one is already running is a no-op —
+    /// same "never double-attach" rule as `handle_start_stream`.
+    fn handle_start_multistream(&mut self, targets: Vec<hikari_protocol::StreamTarget>) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "StartMultistream avant l'initialisation".into() });
+            return;
+        };
+        if !self.multistream.is_empty() {
+            return;
+        }
+        self.multistream = start_multistream(&mut obs.context, &targets);
+    }
+
+    /// Stops every running multistream target. A target already stopped is a no-op for
+    /// that target (see `multistream::stop_one`).
+    fn handle_stop_multistream(&mut self) {
+        for mut stream in self.multistream.drain(..) {
+            stop_one(&mut stream);
+        }
+    }
 }
 
 impl ApplicationHandler<EngineEvent> for App {
@@ -204,26 +237,38 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::Exit => event_loop.exit(),
             EngineEvent::StartStream => self.handle_start_stream(),
             EngineEvent::StopStream => self.handle_stop_stream(),
+            EngineEvent::StartMultistream { targets } => self.handle_start_multistream(targets),
+            EngineEvent::StopMultistream => self.handle_stop_multistream(),
         }
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         // Periodic frame-drop reporting while streaming (B2a: continuous health, not the
-        // spike's single end-of-run sample). Idle (no stream) never wakes the loop early.
-        let Some(stream) = &mut self.stream else {
+        // spike's single end-of-run sample). Idle (no stream, no multistream) never wakes
+        // the loop early.
+        if self.stream.is_none() && self.multistream.is_empty() {
             event_loop.set_control_flow(ControlFlow::Wait);
             return;
-        };
+        }
         let Some(obs) = &self.obs else { return };
-        if stream.last_stats_at.elapsed() >= FRAME_STATS_INTERVAL {
-            report_frame_stats(&obs.context, &stream.output);
-            stream.last_stats_at = Instant::now();
+        if let Some(stream) = &mut self.stream {
+            if stream.last_stats_at.elapsed() >= FRAME_STATS_INTERVAL {
+                report_frame_stats(&obs.context, &stream.output);
+                stream.last_stats_at = Instant::now();
+            }
+        }
+        if !self.multistream.is_empty() && self.multistream_last_stats_at.elapsed() >= FRAME_STATS_INTERVAL {
+            for platform_stream in &self.multistream {
+                report_platform_frame_stats(&obs.context, platform_stream);
+            }
+            self.multistream_last_stats_at = Instant::now();
         }
         event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + FRAME_STATS_INTERVAL));
     }
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
         self.handle_stop_stream();
+        self.handle_stop_multistream();
         // Explicit removal BEFORE the struct drops (belt-and-braces: field order already
         // fixed above, this also detaches the display from libobs's registry cleanly).
         if let Some(inner) = &mut self.obs {
@@ -271,6 +316,12 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::StopStream) => {
                     let _ = proxy.send_event(EngineEvent::StopStream);
                 }
+                Ok(ControllerCommand::StartMultistream { targets }) => {
+                    let _ = proxy.send_event(EngineEvent::StartMultistream { targets });
+                }
+                Ok(ControllerCommand::StopMultistream) => {
+                    let _ = proxy.send_event(EngineEvent::StopMultistream);
+                }
                 Ok(_) => (), // CreateScene/ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),
             }
@@ -281,7 +332,13 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
 fn run() -> Result<()> {
     let event_loop = EventLoop::<EngineEvent>::with_user_event().build()?;
     spawn_stdin_command_reader(event_loop.create_proxy());
-    let mut app = App { window: None, obs: None, stream: None };
+    let mut app = App {
+        window: None,
+        obs: None,
+        stream: None,
+        multistream: Vec::new(),
+        multistream_last_stats_at: Instant::now(),
+    };
     event_loop.run_app(&mut app)?;
     Ok(())
 }

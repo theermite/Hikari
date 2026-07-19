@@ -69,6 +69,18 @@ pub enum EngineMessage {
     /// `i64` for the wire (JSON has no 64-bit unsigned integer type, and a HWND is always
     /// representable in `i64` on the platforms Hikari targets).
     PreviewReady { hwnd: i64 },
+    /// One multistream target (B3) started successfully — reported per platform so a
+    /// failure on one target never hides the others' success (`should_report_per_platform_status`).
+    PlatformStarted { id: String, hardware: bool },
+    /// Network frame counters for one multistream target, reported periodically (mirrors
+    /// `Frames`, but tagged by `id` since B3 runs several outputs at once).
+    PlatformFrames { id: String, dropped: i32, total: i32 },
+    /// One multistream target was stopped cleanly.
+    PlatformStopped { id: String },
+    /// One multistream target failed — recoverable, reported instead of silently dropping
+    /// that platform (B3 acceptance: "aucun échec silencieux"). The other targets are
+    /// unaffected and keep streaming.
+    PlatformError { id: String, message: String },
 }
 
 /// Commands the controller sends to the engine (controller -> engine), one per line.
@@ -88,8 +100,56 @@ pub enum ControllerCommand {
     /// stream is running, this is a silent no-op — no `StreamStopped` is emitted, since
     /// nothing was actually stopped (revisit before B4/B5 if a deck needs an ack either way).
     StopStream,
+    /// Start streaming to N platforms at once (B3, horizontal only — vertical is its own
+    /// spike, see PET B3/B0.2). Each target's key is resolved by the engine from its OWN
+    /// environment (`HIKARI_RTMP_KEY_<ID>`, uppercased), never carried on the wire — same
+    /// rule as `StartStream`. `targets` must pass [`validate_targets`] before being sent;
+    /// the engine re-validates and reports a `PlatformError` per rejected target rather
+    /// than refusing the whole batch silently.
+    StartMultistream { targets: Vec<StreamTarget> },
+    /// Stop every multistream target currently running. A target already stopped is a
+    /// no-op for that target (mirrors `StopStream`).
+    StopMultistream,
     /// Ask the engine to stop and exit cleanly.
     Stop,
+}
+
+/// One destination for `StartMultistream` (B3): a platform id (`"twitch"`, `"youtube"`) and
+/// its RTMP server, both non-secret. The stream key never travels here — the engine reads
+/// it from `HIKARI_RTMP_KEY_<ID>` (uppercased `id`), exactly the pattern `StartStream`
+/// already uses for its single target.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StreamTarget {
+    pub id: String,
+    pub server: String,
+}
+
+/// Why a target list was rejected before ever reaching the engine — checked on the
+/// controller side so a malformed batch never even gets sent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MultistreamError {
+    /// `targets` was empty: multistream with 0 destinations is not a valid request.
+    NoTargets,
+    /// Two (or more) targets shared the same `id` — the engine could not tell their
+    /// `PlatformStarted`/`PlatformError` reports apart.
+    DuplicateId { id: String },
+}
+
+/// Validates a target list before it is sent as `StartMultistream` (B3). Pure and total —
+/// no I/O, no libobs — so the business rule ("at least 1 target, ids unique") is proven by
+/// unit tests without a real engine process. Duplicate-id detection happens in a single
+/// pass with a `HashSet`, which the roundtrip `Vec` order does not affect.
+pub fn validate_targets(targets: &[StreamTarget]) -> Result<(), MultistreamError> {
+    if targets.is_empty() {
+        return Err(MultistreamError::NoTargets);
+    }
+    let mut seen = std::collections::HashSet::new();
+    for target in targets {
+        if !seen.insert(&target.id) {
+            return Err(MultistreamError::DuplicateId { id: target.id.clone() });
+        }
+    }
+    Ok(())
 }
 
 /// Serialize any protocol value to a single JSON line (no trailing newline).

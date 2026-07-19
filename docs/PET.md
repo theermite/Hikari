@@ -185,7 +185,7 @@ project: Hikari Stream
 ### Phase P2 — Live complet
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
-| B3 | Multistream + vertical simultané | Critique | ⬜ |
+| B3 | Multistream + vertical simultané | Critique | 🟧 horizontal fait (2026-07-19) · vertical différé (dépend B0.2) |
 | B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | ⬜ |
 | B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | ⬜ |
 | B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | ⬜ |
@@ -705,16 +705,30 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Pré-vol YouTube** : app développeur Google/YouTube créée par Jay (déjà annoncée disponible) · scope + flux à revérifier à la source avant de coder (Google a son propre modèle, jamais supposer qu'il copie Twitch).
 - **Autonomie** : 🟡 la 1ʳᵉ intégration (Twitch) a nécessité une validation humaine — confirmé nécessaire : le choix du flux Device Code vs Authorization Code venait d'un challenge de Jay, pas d'une évidence technique. YouTube peut réutiliser le motif PKCE déjà posé, mais sa propre vérité externe reste à établir.
 
-### B3 — Multistream + vertical simultané · Critique · 🟢 (dépend de B2)
+### B3 — Multistream + vertical simultané · Critique · 🟧 horizontal fait, vertical différé
 
-- **Objectif** : diffuser vers N plateformes **et** une sortie verticale, en même temps (F-025, F-026). **Absorbe l'ex-spike B0.2** (double encodage en jouant).
-- **Approche décidée** : plusieurs `rtmp_output` + services (motif **prouvé** en B2) · un 2ᵉ encodeur/sortie pour le vertical. NVENC gère ≥ 3 sessions (peur périmée levée). **Mesurer en jouant** (un jeu qui tourne) = l'ex-épreuve (d).
-- **Fichiers** : `src-tauri/crates/engine/src/multistream.rs` · `src/features/multistream/*` · `src/features/health/*` (centre de santé F-106).
-- **Tests TDG** : `should_open_n_outputs_when_multistream` · `should_report_per_platform_status` · `should_not_drop_frames_when_dual_encode` (banc, jeu qui tourne) · `should_confirm_hardware_codec_on_each_output`.
-- **Critère d'acceptation** : N/N plateformes atteintes (aucun échec silencieux) · 0 image perdue par sortie · chute du jeu < 10 % (seuil CDC §6).
+> ⚠️ **Découpée en 2 temps le 2026-07-19** (technical challenge avant code, décision Jay
+> "veille d'abord" → option A). **Veille faite** sur le code source réel de
+> `libobs-wrapper` 9.0.4+32.0.2 et `libobs` 5.0.1+32.0.4 (`~/.cargo/registry/src`, pas le
+> web) : ce moteur n'a **qu'un seul canevas vidéo** par `ObsContext`
+> (`ObsVideoInfo::base_width/height` + `output_width/height`, un seul jeu de valeurs pour
+> tout le contexte — confirmé en lisant `context.rs`/`data/video.rs`). Un vrai vertical
+> simultané exige un **2ᵉ canevas** — l'API existe côté libobs brut
+> (`obs_view_create`/`obs_view_add2`/`obs_canvas_create`, le mécanisme multi-canevas
+> officiel d'OBS 31+) mais **`libobs-wrapper` ne l'enveloppe pas du tout** (zéro trace
+> dans son code) : il faudrait l'appeler en FFI brute, jamais éprouvé ici. **B0.2 reste
+> son propre spike** (double encodage + mesure, toujours ⬜) avant que le vertical soit
+> codé en production.
+
+- **Objectif (temps 1, fait)** : diffuser vers N plateformes **horizontales** en même temps (F-025). Chaque cible démarre indépendamment — un échec sur l'une ne bloque jamais les autres (`PlatformError`, jamais un blocage silencieux).
+- **Objectif (temps 2, différé)** : sortie verticale simultanée (F-026) — attend le spike B0.2 (canevas/vue libobs bruts).
+- **Approche décidée** : plusieurs `rtmp_output` + services (motif **prouvé** en B2, répliqué tel quel par cible dans `multistream.rs`). Clé RTMP par cible lue de `HIKARI_RTMP_KEY_<ID>` (jamais sur le fil, même règle que B2a) — le rattachement compte réel → cible reste un travail futur (déjà noté en attente côté B2b, aucun compte ne stocke encore de clé de flux).
+- **Fichiers** : `src-tauri/crates/protocol/src/lib.rs` (+`tests/multistream.rs`) · `src-tauri/crates/engine/src/multistream.rs` · `crates/engine/src/main.rs` (câblage état + événements). UI (`src/features/multistream/*`, centre de santé F-106) : différée — aucun câblage stdin app→moteur n'existe encore pour déclencher un flux depuis l'interface (vrai aussi pour B2a single-stream), hors scope de ce temps.
+- **Tests TDG (temps 1, faits)** : `should_open_n_outputs_when_multistream` · `should_reject_empty_targets` · `should_reject_duplicate_target_ids` · `should_roundtrip_stream_target` · `should_report_per_platform_status` · `should_stop_multistream_as_no_op_shaped_command` (6 tests, `hikari-protocol`, tous verts). L'ouverture réelle de N sorties libobs + `should_not_drop_frames_when_dual_encode`/`should_confirm_hardware_codec_on_each_output` restent **régime intégration** (validées en lançant le moteur, comme `stream.rs` — ce crate lie libobs, `test = false`, non automatisable).
+- **Critère d'acceptation (temps 1)** : N/N plateformes horizontales atteintes, aucun échec silencieux (prouvé côté protocole ; la mesure réelle multi-plateforme reste à faire en lançant le moteur).
 - **Vérité externe** : le motif de diffusion (prouvé B2) **répliqué** · le compteur d'images perdues (`obs_output_get_frames_dropped`, **prouvé** au spike) · réception vérifiée **côté serveur** (MediaMTX / plateforme).
-- **Pré-vol** : B2 livrée et verte · un jeu disponible pour la mesure.
-- **Autonomie** : 🟢 réplication d'un motif prouvé — dépend de B2 livrée.
+- **Pré-vol (temps 2)** : B0.2 fait (canevas/vue libobs bruts prouvés) avant de coder le vertical.
+- **Autonomie** : 🟢 temps 1 (réplication d'un motif prouvé) · 🟡 temps 2 (terrain FFI jamais éprouvé, nécessite un spike humain avant tout run autonome).
 
 ## 7ter. Fiches exhaustives — VAGUE 2 (le cockpit interactif) *(ajouté 2026-07-17)*
 
