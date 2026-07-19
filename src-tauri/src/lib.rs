@@ -5,6 +5,7 @@ pub mod accounts;
 pub mod commands;
 pub mod deck_bridge;
 pub mod engine_bridge;
+pub mod preflight;
 pub mod preview_bridge;
 pub mod protocol;
 

@@ -200,7 +200,7 @@ project: Hikari Stream
 ### Phase P4 — Pré-vol, socle utilisateur, interaction
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
-| B9 | Détection matériel + réglage sûr + wizard + **presets de scènes** + pré-vol + feu vert (F-002, F-003, F-005, F-010→F-012) | Sensible | ⬜ |
+| B9 | Détection matériel + réglage sûr + wizard + **presets de scènes** + pré-vol + feu vert (F-002, F-003, F-005, F-010→F-012) | Sensible | 🟧 cœur pré-vol fait (2026-07-19) · wizard/presets restent |
 | B10 | Interaction : chat multi-plateforme + **modération auto + inline** + alertes + pop-up + bandeaux + objectifs (F-030→F-035) | Sensible | ⬜ |
 
 ### Phase P5 — Édition (chemin critique visibilité)
@@ -810,12 +810,14 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Vérité externe** : API dshow + filtres `libobs-wrapper` — **à confirmer**. 🟡.
 - **Autonomie** : 🟡.
 
-### B9 — Pré-vol + wizard + presets de scènes · Sensible · 🟢
-- **Objectif** : détection matériel + réglage sûr + wizard + presets + feu vert pré-vol (F-002, F-003, F-005, F-010→F-012).
-- **Approche décidée** : détecter la capacité (`available_video_encoders`, **API prouvée** au spike) → réglage sûr par défaut. Pré-vol = checks auto → Go Live.
-- **Fichiers** : `src-tauri/src/preflight.rs` · `src/features/onboarding/*`.
-- **Tests TDG** : `should_detect_available_encoders` · `should_pick_safe_default_when_detected` · `should_block_golive_when_precheck_fails`.
-- **Critère d'acceptation** : matériel détecté (jamais présumé, F-003) · réglage sûr · feu vert fonctionnel.
+### B9 — Pré-vol + wizard + presets de scènes · Sensible · 🟧 cœur fait, wizard/presets restent
+
+- **Objectif (fait)** : détection matériel + réglage sûr + feu vert pré-vol (F-002, F-003).
+- **Objectif (reste)** : assistant de démarrage (wizard) + presets de scènes (F-005, F-010→F-012) — périmètre plus large, différé après ce cœur (décision Jay 2026-07-19).
+- **Approche décidée** : logique pure sur la liste d'encodeurs déjà rapportée par le moteur (`EngineMessage::Encoders`, **API prouvée** au spike) — `preflight.rs` n'appelle jamais libobs lui-même, il interprète ce qui a été détecté. NVENC préféré si présent, X264 logiciel sinon, **aucun** par défaut deviné si rien n'est reconnu (F-003).
+- **Fichiers** : `src-tauri/src/preflight.rs` (fait) · `src/features/onboarding/*` (reste, wizard UI).
+- **Tests TDG (faits)** : `should_detect_available_encoders` · `should_pick_safe_default_when_detected` · `should_prefer_hardware_encoder_when_both_available` · `should_block_golive_when_precheck_fails` · `should_block_golive_when_encoders_are_unrecognized` (5 tests verts).
+- **Critère d'acceptation (fait)** : matériel détecté (jamais présumé, F-003) · réglage sûr · feu vert refuse si rien de reconnu.
 - **Vérité externe** : l'API de détection d'encodeurs (**prouvée** au spike : `ENGINE:ENCODERS`) + les checks. 🟢.
 - **Autonomie** : 🟢.
 
