@@ -17,7 +17,7 @@ type TwitchState =
 
 type YouTubeState =
   | { status: "idle" }
-  | { status: "waiting" }
+  | { status: "waiting"; authorizationUrl?: string }
   | { status: "connected" }
   | { status: "error"; message: string };
 
@@ -66,6 +66,9 @@ function useYouTubeConnection() {
   const [state, setState] = useState<YouTubeState>({ status: "idle" });
 
   useEffect(() => {
+    const unlistenUrl = listen<string>("youtube-url", (event) => {
+      setState({ status: "waiting", authorizationUrl: event.payload });
+    });
     const unlistenConnected = listen("youtube-connected", () => {
       setState({ status: "connected" });
     });
@@ -74,6 +77,7 @@ function useYouTubeConnection() {
     });
 
     return () => {
+      unlistenUrl.then((f) => f());
       unlistenConnected.then((f) => f());
       unlistenError.then((f) => f());
     };
@@ -139,9 +143,17 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
         </button>
 
         {youtube.state.status === "waiting" && (
-          <p className="max-w-md text-center text-sm text-hikari-txt-dim">
-            Un navigateur s'est ouvert — autorise Hikari puis reviens ici.
-          </p>
+          <div className="max-w-md text-center text-sm text-hikari-txt-dim">
+            <p>
+              Un navigateur s'est ouvert — s'il ne s'affiche pas, ouvre ce lien
+              :
+            </p>
+            {youtube.state.authorizationUrl && (
+              <p className="mt-2 break-all text-hikari-txt-faint">
+                {youtube.state.authorizationUrl}
+              </p>
+            )}
+          </div>
         )}
         {youtube.state.status === "connected" && (
           <p className="text-hikari-green">✅ Compte YouTube connecté.</p>

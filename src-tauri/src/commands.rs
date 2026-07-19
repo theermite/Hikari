@@ -71,8 +71,13 @@ async fn try_connect_twitch(app: &AppHandle) -> Result<(), String> {
 /// (decision 2026-07-19: the repo is public with no other user yet, so there is no reason
 /// to commit Jay's specific client credential; revisit if/when other users need to run the
 /// app without setting env vars). Unlike Twitch's Device Code Flow, there is no code to
-/// show the user — only "browser opened, waiting for the redirect" — so this only emits
-/// `youtube-connected`/`youtube-error`, no `youtube-code` counterpart to `twitch-code`.
+/// show the user, but the authorization URL IS emitted (`youtube-url`, mirroring
+/// `twitch-code`'s timing — right after it's built, before `open_in_browser` is even
+/// attempted) so the UI always has a clickable/copyable fallback: `open_in_browser`
+/// spawning `explorer.exe` successfully does not guarantee the resulting window reaches
+/// the foreground (Windows can block a background process from stealing focus — found
+/// live 2026-07-19, Jay's browser opened but stayed unfocused behind the app, both
+/// Twitch and YouTube).
 /// Same single-exit shape as `connect_twitch` (see its doc comment) — here it is the fix
 /// site: the env vars missing (the first thing to fail in practice, before any browser
 /// opens) used to return early with zero event emitted, leaving the UI on "waiting"
@@ -94,6 +99,7 @@ async fn try_connect_youtube(app: &AppHandle) -> Result<(), String> {
     let client_secret = Secret::new(client_secret);
 
     let pending = youtube::start_authorization(&client_id);
+    let _ = app.emit("youtube-url", pending.authorization_url.clone());
     let _ = open_in_browser(&pending.authorization_url);
 
     let http = reqwest::Client::new();
