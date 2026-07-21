@@ -185,7 +185,7 @@ project: Hikari Stream
 ### Phase P2 — Live complet
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
-| B3 | Multistream + vertical simultané | Critique | 🟧 horizontal fait (2026-07-19) · vertical différé (dépend B0.2) |
+| B3 | Multistream + vertical simultané | Critique | 🟧 horizontal fait (2026-07-19) · vertical prêt à coder (B0.2 GO 2026-07-21) |
 | B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | ⬜ |
 | B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | ⬜ |
 | B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | ⬜ |
@@ -195,7 +195,7 @@ project: Hikari Stream
 |---|---|---|---|
 | B4 | Deck local (local-first, < 100 ms) — **client de l'interface du moteur** (ADR-011) ; une touche peut lancer une action simple **ou une automation entière** | Critique | ✅ |
 | B5 | Pont VPS (Phoenix) + deck distant + permissions rôle (F-047, F-048) — **2ᵉ client de la même interface**, jamais un passage obligé | Critique | ⬜ |
-| **B-auto** | **Moteur d'automations** : condition · délai · variables · séquence + déclencheurs (bouton, chat, événement, minuteur) — sans script externe (F-023, §3bis famille Logique). **Expose l'interface consommée par B4/B5** | **Critique** | ⬜ |
+| **B-auto** | **Moteur d'automations** : condition · délai · variables · séquence + déclencheurs (bouton, chat, événement, minuteur) — sans script externe (F-023, §3bis famille Logique). **Expose l'interface consommée par B4/B5** | **Critique** | ✅ FAIT (2026-07-18/19, mutation testing 0 survivant) |
 
 ### Phase P4 — Pré-vol, socle utilisateur, interaction
 | Brique | Scope | Niveau | Statut |
@@ -229,7 +229,7 @@ project: Hikari Stream
 ### Phase P9 — Coque cockpit & écrans transverses
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
-| B-shell | Coque cockpit **dockview** : panneaux dock/onglets/redimension + détachement 2ᵉ écran + modes Préparation/Live/**Focus** + presets de layout + **centre de santé stream** (F-027, F-100, F-101, F-106) | Sensible | 🟧 **PROCHAINE BRIQUE (2026-07-18)** — le moteur est prouvé (B1/B2 faits), la note de la ligne suivante s'applique : B-shell passe devant l'ordre séquentiel des phases |
+| B-shell | Coque cockpit **dockview** : panneaux dock/onglets/redimension + détachement 2ᵉ écran + modes Préparation/Live/**Focus** + presets de layout + **centre de santé stream** (F-027, F-100, F-101, F-106) | Sensible | ✅ FAIT (2026-07-18/19, charte `hikari-*` de la maquette) |
 | B-dash | Dashboard d'accueil (chiffres clés + derniers streams + à venir/à faire) (F-102) | Standard | ⬜ |
 | B-settings | Écran Paramètres unifié (comptes, périphériques, encodage, deck & appairage, kit de marque, stockage, à propos) (F-103) | Sensible | ⬜ |
 | B-cloud | Connexion espace cloud utilisateur + archivage auto ciblé (Drive/Dropbox/OneDrive/S3-WebDAV) (F-104) | Sensible | ⬜ |
