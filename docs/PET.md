@@ -169,7 +169,7 @@ project: Hikari Stream
 |---|---|---|---|
 | B0.0 | **Spike moteur** : diffusion RTMP depuis Rust + moteur en processus séparé + coût mesuré | Critique | ✅ GO branche A (2026-07-17) |
 | B0.1 | Spike sous-titres live locaux (modèle type whisper.cpp) | Sensible | ⬜ |
-| B0.2 | Validation double encodage RTX 3060 (H + vertical) | Critique | ⬜ |
+| B0.2 | Validation double encodage RTX 3060 (H + vertical) | Critique | ✅ GO (2026-07-21) |
 | B0.4 | Spike détachement panneau dockview sur Tauri (`WebviewWindow` + sync `emit`/`listen`) | Sensible | ⬜ |
 
 ### Phase P1 — Socle & moteur
@@ -505,8 +505,20 @@ Jamais mesuré à vide : un modèle seul sur une machine au repos ne prouve rien
 | **A — go** | (a) + (b) + (c) passent | F-026 (vertical simultané) confirmé sans réserve |
 | **B — plafonner** | (b) ou (c) échoue | **Plafonner** : vertical à cadence réduite, ou résolution moindre. **Documenter le seuil matériel** → il nourrit F-003 (réglage sûr par défaut) et l'alerte avant Go Live (FMEA CDC §8). Le vertical n'est pas abandonné, il est **borné et honnête**. |
 
-- **Statut** : ⬜ non commencé.
-- **Verdict** : *(go/plafonnement + les 3 mesures + le seuil trouvé + date)*
+- **Statut** : ✅ **fait — 2026-07-21** (branche `spike/b0.2-double-encodage`, jamais fusionnée dans `main`).
+- **Verdict** : **GO sans réserve** (décision Jay, 2026-07-21). Machine réelle (RTX 3060),
+  ~16,5 min avec un jeu réel joué pendant la mesure.
+  - **(a)** ✅ 2 sessions NVENC ouvertes, matériel confirmé sur les deux sorties (jamais
+    un repli logiciel muet).
+  - **(b)** ✅ 0 image perdue sur les deux sorties, toute la durée (29 764/29 765 images).
+  - **(c)** ✅ aucune chute perçue par Jay pendant le jeu réel — mesure **qualitative**
+    (pas de chiffre exact relevé, limite honnête notée dans le verdict).
+  - **F-026 (vertical simultané) confirmé.** Détail + preuves :
+    `spikes/b0.2-double-encodage/mesures/verdict.md`.
+  - **Reste hors scope** : le vrai recadrage portrait (crop 9:16 propre) — ce spike a
+    mesuré la capacité GPU/CPU brute d'un 2ᵉ encodeur à résolution forcée
+    (`obs_encoder_set_scaled_size`, FFI brute), pas la qualité visuelle du cadrage
+    (question UX séparée pour la vraie implémentation B3 vertical, voir sa fiche §7).
 
 ### B0.4 — Spike détachement de panneau (dockview sur Tauri) *(fiche ajoutée 2026-07-16)*
 
@@ -705,30 +717,31 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Pré-vol YouTube** : app développeur Google/YouTube créée par Jay (déjà annoncée disponible) · scope + flux à revérifier à la source avant de coder (Google a son propre modèle, jamais supposer qu'il copie Twitch).
 - **Autonomie** : 🟡 la 1ʳᵉ intégration (Twitch) a nécessité une validation humaine — confirmé nécessaire : le choix du flux Device Code vs Authorization Code venait d'un challenge de Jay, pas d'une évidence technique. YouTube peut réutiliser le motif PKCE déjà posé, mais sa propre vérité externe reste à établir.
 
-### B3 — Multistream + vertical simultané · Critique · 🟧 horizontal fait, vertical différé
+### B3 — Multistream + vertical simultané · Critique · 🟧 horizontal fait, vertical prêt à coder
 
 > ⚠️ **Découpée en 2 temps le 2026-07-19** (technical challenge avant code, décision Jay
 > "veille d'abord" → option A). **Veille faite** sur le code source réel de
 > `libobs-wrapper` 9.0.4+32.0.2 et `libobs` 5.0.1+32.0.4 (`~/.cargo/registry/src`, pas le
 > web) : ce moteur n'a **qu'un seul canevas vidéo** par `ObsContext`
 > (`ObsVideoInfo::base_width/height` + `output_width/height`, un seul jeu de valeurs pour
-> tout le contexte — confirmé en lisant `context.rs`/`data/video.rs`). Un vrai vertical
-> simultané exige un **2ᵉ canevas** — l'API existe côté libobs brut
-> (`obs_view_create`/`obs_view_add2`/`obs_canvas_create`, le mécanisme multi-canevas
-> officiel d'OBS 31+) mais **`libobs-wrapper` ne l'enveloppe pas du tout** (zéro trace
-> dans son code) : il faudrait l'appeler en FFI brute, jamais éprouvé ici. **B0.2 reste
-> son propre spike** (double encodage + mesure, toujours ⬜) avant que le vertical soit
-> codé en production.
+> tout le contexte — confirmé en lisant `context.rs`/`data/video.rs`).
+>
+> ✅ **B0.2 FAIT (2026-07-21) — verdict GO.** Le spike a prouvé qu'un 2ᵉ encodeur NVENC à
+> résolution forcée (`obs_encoder_set_scaled_size`, FFI brute — même famille que le
+> service RTMP déjà prouvé, PAS besoin d'un 2ᵉ canevas complet) tient sans image perdue ni
+> chute perçue, jeu réel joué pendant ~16,5 min. Détail : `spikes/b0.2-double-encodage/mesures/verdict.md`.
+> **Reste hors périmètre** (question UX, pas technique) : le vrai recadrage portrait
+> (crop 9:16 propre) — ce spike a mesuré la capacité brute, pas la composition visuelle.
 
 - **Objectif (temps 1, fait)** : diffuser vers N plateformes **horizontales** en même temps (F-025). Chaque cible démarre indépendamment — un échec sur l'une ne bloque jamais les autres (`PlatformError`, jamais un blocage silencieux).
-- **Objectif (temps 2, différé)** : sortie verticale simultanée (F-026) — attend le spike B0.2 (canevas/vue libobs bruts).
+- **Objectif (temps 2, prêt à coder)** : sortie verticale simultanée (F-026) — motif prouvé par B0.2 (`obs_encoder_set_scaled_size` sur un 2ᵉ encodeur, même canevas). Reste à décider le recadrage portrait réel (crop, pas juste une résolution forcée) avant de livrer en production — question UX, pas technique.
 - **Approche décidée** : plusieurs `rtmp_output` + services (motif **prouvé** en B2, répliqué tel quel par cible dans `multistream.rs`). Clé RTMP par cible lue de `HIKARI_RTMP_KEY_<ID>` (jamais sur le fil, même règle que B2a) — le rattachement compte réel → cible reste un travail futur (déjà noté en attente côté B2b, aucun compte ne stocke encore de clé de flux).
 - **Fichiers** : `src-tauri/crates/protocol/src/lib.rs` (+`tests/multistream.rs`) · `src-tauri/crates/engine/src/multistream.rs` · `crates/engine/src/main.rs` (câblage état + événements). UI (`src/features/multistream/*`, centre de santé F-106) : différée — aucun câblage stdin app→moteur n'existe encore pour déclencher un flux depuis l'interface (vrai aussi pour B2a single-stream), hors scope de ce temps.
 - **Tests TDG (temps 1, faits)** : `should_open_n_outputs_when_multistream` · `should_reject_empty_targets` · `should_reject_duplicate_target_ids` · `should_roundtrip_stream_target` · `should_report_per_platform_status` · `should_stop_multistream_as_no_op_shaped_command` (6 tests, `hikari-protocol`, tous verts). L'ouverture réelle de N sorties libobs + `should_not_drop_frames_when_dual_encode`/`should_confirm_hardware_codec_on_each_output` restent **régime intégration** (validées en lançant le moteur, comme `stream.rs` — ce crate lie libobs, `test = false`, non automatisable).
 - **Critère d'acceptation (temps 1)** : N/N plateformes horizontales atteintes, aucun échec silencieux (prouvé côté protocole ; la mesure réelle multi-plateforme reste à faire en lançant le moteur).
 - **Vérité externe** : le motif de diffusion (prouvé B2) **répliqué** · le compteur d'images perdues (`obs_output_get_frames_dropped`, **prouvé** au spike) · réception vérifiée **côté serveur** (MediaMTX / plateforme).
-- **Pré-vol (temps 2)** : B0.2 fait (canevas/vue libobs bruts prouvés) avant de coder le vertical.
-- **Autonomie** : 🟢 temps 1 (réplication d'un motif prouvé) · 🟡 temps 2 (terrain FFI jamais éprouvé, nécessite un spike humain avant tout run autonome).
+- **Pré-vol (temps 2)** : ✅ B0.2 fait, motif prouvé — décision UX sur le recadrage portrait à prendre avant de coder.
+- **Autonomie** : 🟢 temps 1 (réplication d'un motif prouvé) · 🟢 temps 2 (motif désormais prouvé par B0.2, `obs_encoder_set_scaled_size` déjà exercé dans le spike — reste la décision UX du recadrage, à trancher avec Jay avant le code).
 
 ## 7ter. Fiches exhaustives — VAGUE 2 (le cockpit interactif) *(ajouté 2026-07-17)*
 
