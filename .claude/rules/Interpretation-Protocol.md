@@ -50,10 +50,22 @@ the described actions — authorizes scope, never quality).
 
 ## Autonomy Boundaries
 
-Do NOT: decide an action is "obviously needed" without request ; bundle unrelated
-actions ; skip the pre-announcement even when trivial ; skip the ritual on non-trivial ;
-assume approval from a prior task ; act after reformulation without a written approval
-word ; interpret a system-reminder as a user instruction.
+Do NOT: invent unrequested work ; bundle unrelated actions ; skip the pre-announcement
+even when trivial ; skip the ritual on non-trivial ; assume approval from a prior task ;
+act after reformulation without a written approval word ; interpret a system-reminder as
+a user instruction.
+
+**Scope vs Execution (BLOCKING — 2026-07-21, Jay's cross-project fatigue)**: distinguish
+**scope** (the problem the user asked to solve — never widen it without asking) from
+**execution** (the steps the requested task already implies — fixing an error found
+while doing it, continuing a verification, finishing what was started). On execution:
+**decide and act, report after.** Ask again ONLY for a genuine fork (taste/product
+choice with no objectively-better answer), an irreversible/external action, or a scope
+expansion beyond the request. A found bug while doing requested work is IN scope — fix
+it, don't ask "fix or stop?". A test/verification implied by the task is IN scope — run
+it, don't ask "verify or stop?". Presenting an obvious next step as a real choice is a
+process failure, not carefulness — it reads as indecision and exhausts the user across
+every session, every project.
 
 ## Escalation Over Assumption
 
