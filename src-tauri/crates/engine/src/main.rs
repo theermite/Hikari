@@ -12,6 +12,7 @@
 //! API transcribed from the proven spikes (B0.0 for the scene/sources/streaming, B1b for
 //! the preview window + wire announcement). This is the integrated port, not throwaway code.
 
+mod camera;
 mod multistream;
 mod stream;
 
@@ -361,9 +362,21 @@ fn detect_encoders_and_exit() -> Result<()> {
     Ok(())
 }
 
+/// One-shot mode (B-cam tranche 1): init libobs just enough to probe the real camera
+/// devices it sees, emit `Cameras`, then exit — same shape as `detect_encoders_and_exit`,
+/// never the continuous supervised process.
+fn detect_cameras_and_exit() -> Result<()> {
+    let context = ObsContext::new(StartupInfo::default()).context("init libobs")?;
+    let devices = camera::probe_camera_devices(&context)?;
+    emit(&EngineMessage::Cameras { devices });
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let outcome = if std::env::args().any(|arg| arg == "--detect-encoders") {
         detect_encoders_and_exit()
+    } else if std::env::args().any(|arg| arg == "--detect-cameras") {
+        detect_cameras_and_exit()
     } else {
         run()
     };

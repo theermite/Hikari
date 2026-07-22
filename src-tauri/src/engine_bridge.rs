@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
 
 use anyhow::{Context, Result, bail};
-use hikari_protocol::{EngineMessage, parse_engine_message};
+use hikari_protocol::{CameraDevice, EngineMessage, parse_engine_message};
 
 /// Maximum number of automatic relaunches before the controller gives up (B0.0 policy).
 pub const MAX_RELAUNCH: usize = 1;
@@ -74,6 +74,28 @@ pub fn run_detect_encoders() -> Result<Vec<String>> {
         .with_context(|| format!("launching engine at {}", engine.display()))?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     extract_encoders(&stdout).context("engine did not report any encoders")
+}
+
+/// Scans one-shot engine stdout for the `Cameras` message (B-cam tranche 1, same option-A
+/// shape as `extract_encoders`). Pure: no process, no libobs — testable headless.
+fn extract_cameras(stdout: &str) -> Option<Vec<CameraDevice>> {
+    stdout.lines().find_map(|line| match parse_engine_message(line) {
+        Ok(EngineMessage::Cameras { devices }) => Some(devices),
+        _ => None,
+    })
+}
+
+/// Runs the engine once in one-shot detection mode (`--detect-cameras`) and returns the
+/// camera devices it reported. Real libobs process — integration-only, same regime as
+/// `run_detect_encoders`.
+pub fn run_detect_cameras() -> Result<Vec<CameraDevice>> {
+    let engine = engine_path()?;
+    let output = Command::new(&engine)
+        .arg("--detect-cameras")
+        .output()
+        .with_context(|| format!("launching engine at {}", engine.display()))?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    extract_cameras(&stdout).context("engine did not report any cameras")
 }
 
 /// Spawn the engine as a child process with piped stdout, or fail with context.
@@ -212,6 +234,25 @@ mod tests {
     fn should_return_none_when_no_encoders_message_present() {
         let stdout = "{\"type\":\"ready\"}\n{\"type\":\"stopped\"}\n";
         assert_eq!(extract_encoders(stdout), None);
+    }
+
+    #[test]
+    fn should_extract_cameras_from_one_shot_stdout() {
+        let stdout = "{\"type\":\"cameras\",\"devices\":[{\"name\":\"Webcam HD\",\"device_id\":\"Webcam HD:usb#vid_0000\"}]}\n";
+        let devices = extract_cameras(stdout).expect("cameras line present");
+        assert_eq!(
+            devices,
+            vec![CameraDevice {
+                name: "Webcam HD".to_string(),
+                device_id: "Webcam HD:usb#vid_0000".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn should_return_none_when_no_cameras_message_present() {
+        let stdout = "{\"type\":\"ready\"}\n{\"type\":\"stopped\"}\n";
+        assert_eq!(extract_cameras(stdout), None);
     }
 
     #[test]

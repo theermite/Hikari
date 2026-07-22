@@ -2,6 +2,7 @@
 //! Le moteur vidéo vit dans un PROCESSUS SÉPARÉ (ADR-013), supervisé via `engine_bridge`.
 
 pub mod accounts;
+pub mod camera_bridge;
 pub mod commands;
 pub mod deck_bridge;
 pub mod engine_bridge;
@@ -23,6 +24,7 @@ pub fn run() {
             deck_bridge::deck_list_keys,
             deck_bridge::deck_trigger_key,
             preflight_bridge::run_preflight,
+            camera_bridge::list_cameras,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .run(tauri::generate_context!())

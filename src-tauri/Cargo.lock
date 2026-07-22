@@ -1487,7 +1487,10 @@ dependencies = [
  "env_logger",
  "hikari-protocol",
  "libobs-simple",
+ "libobs-simple-macro",
  "libobs-wrapper",
+ "log",
+ "paste",
  "winit",
 ]
 

@@ -34,6 +34,15 @@ impl SourceInfo {
     }
 }
 
+/// One camera (DirectShow) device libobs reports as available on this machine — `device_id`
+/// is the exact encoded value (`"name:path"`) the `dshow_input` source's `video_device_id`
+/// property expects, never hand-built (B-cam, real win-dshow plugin behavior).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CameraDevice {
+    pub name: String,
+    pub device_id: String,
+}
+
 /// Messages the engine emits toward the controller (engine -> controller), one per line.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -44,6 +53,9 @@ pub enum EngineMessage {
     Sources { items: Vec<SourceInfo> },
     /// The video encoders libobs reports as available on this machine.
     Encoders { available: Vec<String> },
+    /// The camera (DirectShow) devices libobs reports as available on this machine
+    /// (B-cam tranche 1) — never a hardcoded/presumed list.
+    Cameras { devices: Vec<CameraDevice> },
     /// The chosen video encoder and whether it is hardware-accelerated (never a silent
     /// software fallback — the controller is told).
     VideoEncoder { kind: String, hardware: bool },

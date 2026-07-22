@@ -3,14 +3,19 @@
 //! message serialized then parsed must equal the original, on a single line.
 
 use hikari_protocol::{
-    ControllerCommand, EngineMessage, MONITOR_CAPTURE_KIND, SourceInfo, parse_controller_command,
-    parse_engine_message, to_line,
+    CameraDevice, ControllerCommand, EngineMessage, MONITOR_CAPTURE_KIND, SourceInfo,
+    parse_controller_command, parse_engine_message, to_line,
 };
 use proptest::prelude::*;
 
 /// Strategy building an arbitrary `SourceInfo`.
 fn source_info_strategy() -> impl Strategy<Value = SourceInfo> {
     (any::<String>(), any::<String>()).prop_map(|(name, kind)| SourceInfo { name, kind })
+}
+
+/// Strategy building an arbitrary `CameraDevice`.
+fn camera_device_strategy() -> impl Strategy<Value = CameraDevice> {
+    (any::<String>(), any::<String>()).prop_map(|(name, device_id)| CameraDevice { name, device_id })
 }
 
 /// Strategy building an arbitrary `EngineMessage` across every variant.
@@ -24,6 +29,8 @@ fn engine_message_strategy() -> impl Strategy<Value = EngineMessage> {
             .prop_map(|items| EngineMessage::Sources { items }),
         prop::collection::vec(any::<String>(), 0..4)
             .prop_map(|available| EngineMessage::Encoders { available }),
+        prop::collection::vec(camera_device_strategy(), 0..4)
+            .prop_map(|devices| EngineMessage::Cameras { devices }),
         (any::<String>(), any::<bool>())
             .prop_map(|(kind, hardware)| EngineMessage::VideoEncoder { kind, hardware }),
         any::<String>().prop_map(|server| EngineMessage::Service { server }),

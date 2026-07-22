@@ -11,6 +11,9 @@ hikari-protocol = { path = "crates/protocol" }
 hikari-automation = { path = "crates/automation" }
 libobs-wrapper = "9.0.4"
 libobs-simple = "8.0.1"
+libobs-simple-macro = "7.0.0"
+paste = "1.0.15"
+log = "0.4.33"
 anyhow = "1"
 env_logger = "0.11"
 serde = { version = "1", features = ["derive"] }

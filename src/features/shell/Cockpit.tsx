@@ -12,6 +12,7 @@ import type {
 import { DockviewReact } from "dockview-react";
 import { useCallback, useRef, useState } from "react";
 import "dockview-react/dist/styles/dockview.css";
+import { CameraPanel } from "../camera/CameraPanel";
 import { DeckPanel } from "../deck/DeckPanel";
 import { PreflightPanel } from "../preflight/PreflightPanel";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
@@ -28,7 +29,21 @@ const PANEL_COMPONENTS: Record<
   deck: DeckPanel,
   placeholder: PlaceholderPanel,
   preflight: PreflightPanel,
+  camera: CameraPanel,
 };
+
+/** Adds panel `id` if a (fresh or restored) layout doesn't already have it — a saved
+ * layout predates every panel added after it was first written to disk, so this is how a
+ * new default panel (e.g. Caméra) reaches an existing install without a manual reset. */
+function ensurePanel(
+  api: DockviewApi,
+  id: string,
+  title: string,
+  position?: Parameters<DockviewApi["addPanel"]>[0]["position"],
+): void {
+  if (api.getPanel(id)) return;
+  api.addPanel({ id, component: id, title, position });
+}
 
 /** Builds the default layout — the two panels wired to real backends today (connexion
  * Twitch, B2b ; deck local, B4) plus a labeled placeholder standing in for the panel
@@ -59,6 +74,12 @@ function buildDefaultLayout(api: DockviewApi): void {
     title: "Pré-vol",
     position: { referencePanel: twitch.id, direction: "below" },
   });
+  api.addPanel({
+    id: "camera",
+    component: "camera",
+    title: "Caméra",
+    position: { referencePanel: twitch.id, direction: "below" },
+  });
 }
 
 export function Cockpit() {
@@ -74,6 +95,9 @@ export function Cockpit() {
       .then((saved) => {
         if (saved) {
           restoreLayout(event.api, saved);
+          // Un layout sauvegardé avant l'ajout de ce panneau ne l'a jamais vu — rattrapage
+          // pour qu'il apparaisse sans que Jay doive réinitialiser sa disposition.
+          ensurePanel(event.api, "camera", "Caméra");
         } else {
           buildDefaultLayout(event.api);
         }
