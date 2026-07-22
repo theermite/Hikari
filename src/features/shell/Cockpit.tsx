@@ -15,6 +15,7 @@ import "dockview-react/dist/styles/dockview.css";
 import { CameraPanel } from "../camera/CameraPanel";
 import { DeckPanel } from "../deck/DeckPanel";
 import { PreflightPanel } from "../preflight/PreflightPanel";
+import { PreviewPanel } from "../preview/PreviewPanel";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
 import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
@@ -30,6 +31,7 @@ const PANEL_COMPONENTS: Record<
   placeholder: PlaceholderPanel,
   preflight: PreflightPanel,
   camera: CameraPanel,
+  preview: PreviewPanel,
 };
 
 /** Adds panel `id` if a (fresh or restored) layout doesn't already have it — a saved
@@ -62,10 +64,9 @@ function buildDefaultLayout(api: DockviewApi): void {
     position: { referencePanel: twitch.id, direction: "right" },
   });
   api.addPanel({
-    id: "preview-placeholder",
-    component: "placeholder",
-    title: "Aperçu (à venir)",
-    params: { label: "Câblage complet du moteur, brique à part." },
+    id: "preview",
+    component: "preview",
+    title: "Aperçu",
     position: { referencePanel: deck.id, direction: "below" },
   });
   api.addPanel({
@@ -98,6 +99,13 @@ export function Cockpit() {
           // Un layout sauvegardé avant l'ajout de ce panneau ne l'a jamais vu — rattrapage
           // pour qu'il apparaisse sans que Jay doive réinitialiser sa disposition.
           ensurePanel(event.api, "camera", "Caméra");
+          // Le placeholder "Aperçu (à venir)" est remplacé par le vrai panneau — retiré
+          // s'il vient d'une disposition sauvegardée avant cette brique.
+          const oldPlaceholder = event.api.getPanel("preview-placeholder");
+          if (oldPlaceholder) {
+            event.api.removePanel(oldPlaceholder);
+          }
+          ensurePanel(event.api, "preview", "Aperçu");
         } else {
           buildDefaultLayout(event.api);
         }
