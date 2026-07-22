@@ -6,6 +6,7 @@ pub mod commands;
 pub mod deck_bridge;
 pub mod engine_bridge;
 pub mod preflight;
+pub mod preflight_bridge;
 pub mod preview_bridge;
 pub mod protocol;
 
@@ -21,6 +22,7 @@ pub fn run() {
             commands::connect_youtube,
             deck_bridge::deck_list_keys,
             deck_bridge::deck_trigger_key,
+            preflight_bridge::run_preflight,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .run(tauri::generate_context!())

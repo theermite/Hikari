@@ -13,6 +13,7 @@ import { DockviewReact } from "dockview-react";
 import { useCallback, useRef, useState } from "react";
 import "dockview-react/dist/styles/dockview.css";
 import { DeckPanel } from "../deck/DeckPanel";
+import { PreflightPanel } from "../preflight/PreflightPanel";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
 import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
@@ -26,6 +27,7 @@ const PANEL_COMPONENTS: Record<
   "twitch-connect": AccountsPanel,
   deck: DeckPanel,
   placeholder: PlaceholderPanel,
+  preflight: PreflightPanel,
 };
 
 /** Builds the default layout — the two panels wired to real backends today (connexion
@@ -50,6 +52,12 @@ function buildDefaultLayout(api: DockviewApi): void {
     title: "Aperçu (à venir)",
     params: { label: "Câblage complet du moteur, brique à part." },
     position: { referencePanel: deck.id, direction: "below" },
+  });
+  api.addPanel({
+    id: "preflight",
+    component: "preflight",
+    title: "Pré-vol",
+    position: { referencePanel: twitch.id, direction: "below" },
   });
 }
 
@@ -89,9 +97,23 @@ export function Cockpit() {
     // disposition réelle par preset arrive avec les écrans qu'elle doit organiser.
   };
 
+  // Ouvre (ou remet au premier plan) un panneau par son id — utilisé par la sidebar pour
+  // les entrées "built". Un layout déjà sauvegardé avant l'ajout d'un panneau (ex. Pré-vol)
+  // ne l'aurait jamais vu ; cette fonction le crée à la demande au lieu de rester invisible.
+  const openPanel = useCallback((panelId: string, title: string) => {
+    const api = apiRef.current;
+    if (!api) return;
+    const existing = api.getPanel(panelId);
+    if (existing) {
+      existing.api.setActive();
+      return;
+    }
+    api.addPanel({ id: panelId, component: panelId, title });
+  }, []);
+
   return (
     <div className="flex h-screen font-hikari bg-hikari-bg text-hikari-txt">
-      <Sidebar />
+      <Sidebar onOpenPanel={openPanel} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 flex-shrink-0 items-center gap-4 border-b border-hikari-line bg-hikari-bg-2 px-4">
           <h1 className="text-[14px] font-semibold tracking-tight">

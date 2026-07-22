@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
 
 use anyhow::{Context, Result, bail};
-use hikari_protocol::parse_engine_message;
+use hikari_protocol::{EngineMessage, parse_engine_message};
 
 /// Maximum number of automatic relaunches before the controller gives up (B0.0 policy).
 pub const MAX_RELAUNCH: usize = 1;
@@ -49,6 +49,31 @@ pub fn engine_path() -> Result<PathBuf> {
     let dir = exe.parent().context("resolving executable directory")?;
     let name = if cfg!(windows) { "hikari-engine.exe" } else { "hikari-engine" };
     Ok(dir.join(name))
+}
+
+/// Scans one-shot engine stdout for the `Encoders` message (B9 pré-vol, option A: a
+/// standalone detection pass, never the continuous supervised process — that wiring stays
+/// separate debt, see PET B1 "Dette restante"). Pure: no process, no libobs — testable
+/// headless like `relay_reader`'s parsing.
+fn extract_encoders(stdout: &str) -> Option<Vec<String>> {
+    stdout.lines().find_map(|line| match parse_engine_message(line) {
+        Ok(EngineMessage::Encoders { available }) => Some(available),
+        _ => None,
+    })
+}
+
+/// Runs the engine once in one-shot detection mode (`--detect-encoders`, never the
+/// continuous supervised loop) and returns the encoder list it reported. Real libobs
+/// process — integration-only, same regime as `supervise` (`extract_encoders` above
+/// carries the part unit-testable without it).
+pub fn run_detect_encoders() -> Result<Vec<String>> {
+    let engine = engine_path()?;
+    let output = Command::new(&engine)
+        .arg("--detect-encoders")
+        .output()
+        .with_context(|| format!("launching engine at {}", engine.display()))?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    extract_encoders(&stdout).context("engine did not report any encoders")
 }
 
 /// Spawn the engine as a child process with piped stdout, or fail with context.
@@ -166,6 +191,27 @@ mod tests {
         // Second death after one relaunch -> give up (never loop forever).
         assert_eq!(decide_next(false, 1, MAX_RELAUNCH), SupervisorAction::GiveUp);
         assert_eq!(decide_next(false, 2, MAX_RELAUNCH), SupervisorAction::GiveUp);
+    }
+
+    #[test]
+    fn should_extract_encoders_from_one_shot_stdout() {
+        let stdout = "{\"type\":\"encoders\",\"available\":[\"OBS_NVENC_H264_TEX\",\"OBS_X264\"]}\n";
+        let encoders = extract_encoders(stdout).expect("encoders line present");
+        assert_eq!(encoders, vec!["OBS_NVENC_H264_TEX".to_string(), "OBS_X264".to_string()]);
+    }
+
+    #[test]
+    fn should_find_encoders_among_other_lines() {
+        // A one-shot run may emit an error or unrelated line before/after `Encoders` —
+        // the scan must not assume it's the first or only line.
+        let stdout = "{\"type\":\"ready\"}\n{\"type\":\"encoders\",\"available\":[\"OBS_X264\"]}\n";
+        assert_eq!(extract_encoders(stdout), Some(vec!["OBS_X264".to_string()]));
+    }
+
+    #[test]
+    fn should_return_none_when_no_encoders_message_present() {
+        let stdout = "{\"type\":\"ready\"}\n{\"type\":\"stopped\"}\n";
+        assert_eq!(extract_encoders(stdout), None);
     }
 
     #[test]
