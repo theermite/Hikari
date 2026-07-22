@@ -5,7 +5,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 import { invoke } from "@tauri-apps/api/core";
-import { startEngine, stopEngine } from "./api";
+import { hidePreview, positionPreview, startEngine, stopEngine } from "./api";
 
 describe("preview api", () => {
   beforeEach(() => {
@@ -26,5 +26,26 @@ describe("preview api", () => {
     await stopEngine();
 
     expect(invoke).toHaveBeenCalledExactlyOnceWith("stop_engine");
+  });
+
+  it("should_call_position_preview_command_with_rect_when_positioning", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await positionPreview(10, 20, 300, 150);
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("position_preview", {
+      x: 10,
+      y: 20,
+      width: 300,
+      height: 150,
+    });
+  });
+
+  it("should_call_hide_preview_command_when_hiding", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await hidePreview();
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("hide_preview");
   });
 });

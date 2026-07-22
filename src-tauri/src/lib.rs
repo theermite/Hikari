@@ -12,8 +12,6 @@ pub mod preflight_bridge;
 pub mod preview_bridge;
 pub mod protocol;
 
-use tauri::Manager;
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Single `invoke_handler` call: Tauri's builder REPLACES the handler on each call
@@ -31,23 +29,10 @@ pub fn run() {
             camera_bridge::list_cameras,
             engine_lifecycle::start_engine,
             engine_lifecycle::stop_engine,
+            engine_lifecycle::position_preview,
+            engine_lifecycle::hide_preview,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
-        .setup(|app| {
-            // Keeps the grafted preview (option A: whole window) fitted as the app
-            // window resizes — a no-op before the engine has announced its preview
-            // (`on_host_resized` checks state itself).
-            if let Some(window) = app.get_webview_window("main") {
-                let handle = app.handle().clone();
-                window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::Resized(size) = event {
-                        let state = handle.state::<engine_lifecycle::EngineState>();
-                        engine_lifecycle::on_host_resized(&state, size.width, size.height);
-                    }
-                });
-            }
-            Ok(())
-        })
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application Tauri");
 }

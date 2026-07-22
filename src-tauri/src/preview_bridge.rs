@@ -11,28 +11,39 @@
 use anyhow::{Context, Result};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_STYLE, MoveWindow, SET_WINDOW_POS_FLAGS, SWP_NOACTIVATE, SWP_NOZORDER, SetParent,
-    SetWindowLongPtrW, SetWindowPos, WS_CHILD, WS_VISIBLE,
+    GWL_STYLE, SET_WINDOW_POS_FLAGS, SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOZORDER,
+    SWP_SHOWWINDOW, SetParent, SetWindowLongPtrW, SetWindowPos, WS_CHILD, WS_VISIBLE,
 };
 
 const TARGET_ASPECT: f32 = 16.0 / 9.0;
 
-/// Aspect-fit math for the grafted preview: keeps 16:9 inside the given host client area.
-/// Transcribed unchanged from the B1b spike (`fit_display`), proven GO — same formula
-/// duplicated (not shared) in the engine crate, which handles its OWN local resize events
-/// on the same window; see `engine/src/main.rs` for why the two sides can't share a crate.
-pub fn fit_size(host_w: u32, host_h: u32) -> (u32, u32) {
+/// Aspect-fit math for the grafted preview: keeps 16:9 inside the given area. Transcribed
+/// unchanged from the B1b spike (`fit_display`), proven GO — same formula duplicated (not
+/// shared) in the engine crate, which handles its OWN local resize events on the same
+/// window; see `engine/src/main.rs` for why the two sides can't share a crate.
+pub fn fit_size(area_w: u32, area_h: u32) -> (u32, u32) {
     // Clamp BOTH dimensions before any arithmetic — a transient 0 during a resize must
     // never reach a multiplication/division (would return a degenerate 0×0 display size).
-    let host_w = host_w.max(1);
-    let host_h = host_h.max(1);
+    let area_w = area_w.max(1);
+    let area_h = area_h.max(1);
     // The truncating f32->u32 cast can itself round a tiny computed dimension down to 0
     // (e.g. width=1 -> height 0.56 -> 0) — clamp the COMPUTED side too, not just the input.
-    if host_w as f32 / host_h as f32 > TARGET_ASPECT {
-        ((((host_h as f32) * TARGET_ASPECT) as u32).max(1), host_h)
+    if area_w as f32 / area_h as f32 > TARGET_ASPECT {
+        ((((area_h as f32) * TARGET_ASPECT) as u32).max(1), area_h)
     } else {
-        (host_w, (((host_w as f32) / TARGET_ASPECT) as u32).max(1))
+        (area_w, (((area_w as f32) / TARGET_ASPECT) as u32).max(1))
     }
+}
+
+/// Where and at what size the preview should actually be drawn inside a target area
+/// (the Aperçu panel's real screen rect, option B): 16:9-fit, then CENTERED in the area
+/// rather than anchored at its top-left — an aspect-fit smaller than the area would
+/// otherwise hug one corner instead of sitting centered like a normal video letterbox.
+fn fit_and_center(x: i32, y: i32, area_w: u32, area_h: u32) -> (i32, i32, u32, u32) {
+    let (w, h) = fit_size(area_w, area_h);
+    let off_x = x + ((area_w.max(1) - w) / 2) as i32;
+    let off_y = y + ((area_h.max(1) - h) / 2) as i32;
+    (off_x, off_y, w, h)
 }
 
 /// The exact style bits a grafted window must carry: `WS_CHILD` (it becomes a child of the
@@ -43,49 +54,81 @@ pub fn child_style_bits() -> u32 {
     WS_CHILD.0 | WS_VISIBLE.0
 }
 
-/// Grafts the engine's preview window into the host (app) window: sets the child+visible
-/// style, reparents cross-process, and sizes it to fit `host_w`×`host_h` (16:9 inside).
+/// Grafts the engine's preview window into the host (app) window ONCE: sets the
+/// child+visible style, reparents cross-process, and positions it inside `(x, y,
+/// area_w, area_h)` — the Aperçu panel's real screen rect (option B, never the whole
+/// window, superseded 2026-07-23). Reparenting is a one-time operation; subsequent moves
+/// go through `position_preview_window`.
 ///
 /// SAFETY: both HWNDs must be valid, live windows at call time — `engine_hwnd` comes
 /// straight off `EngineMessage::PreviewReady` (the engine just created it) and `host_hwnd`
 /// off `WebviewWindow::hwnd()` (the app's own window, always valid while the app runs).
-pub fn graft_preview_window(engine_hwnd: i64, host_hwnd: i64, host_w: u32, host_h: u32) -> Result<()> {
+pub fn graft_preview_window(
+    engine_hwnd: i64,
+    host_hwnd: i64,
+    x: i32,
+    y: i32,
+    area_w: u32,
+    area_h: u32,
+) -> Result<()> {
     let engine = HWND(engine_hwnd as *mut _);
     let host = HWND(host_hwnd as *mut _);
-    let (w, h) = fit_size(host_w, host_h);
     unsafe {
         SetWindowLongPtrW(engine, GWL_STYLE, child_style_bits() as isize);
         SetParent(engine, Some(host)).context("SetParent (reparent cross-process)")?;
+    }
+    position_preview_window(engine_hwnd, x, y, area_w, area_h);
+    Ok(())
+}
+
+/// Repositions/resizes an already-grafted preview to fit (centered, 16:9) inside `(x, y,
+/// area_w, area_h)` — called whenever the Aperçu panel's own screen rect changes (moved,
+/// resized, sibling panel pushed it). Also ensures the window is shown (a prior
+/// `hide_preview_window` call may have hidden it while the panel's tab was inactive).
+///
+/// SAFETY: `engine_hwnd` must be a valid, live window at call time — it comes from the
+/// Tauri-managed state populated by a prior successful `graft_preview_window`, so it is
+/// always a real, still-grafted engine window while the app runs.
+pub fn position_preview_window(engine_hwnd: i64, x: i32, y: i32, area_w: u32, area_h: u32) {
+    let engine = HWND(engine_hwnd as *mut _);
+    let (off_x, off_y, w, h) = fit_and_center(x, y, area_w, area_h);
+    unsafe {
+        if SetWindowPos(
+            engine,
+            None,
+            off_x,
+            off_y,
+            w as i32,
+            h as i32,
+            SET_WINDOW_POS_FLAGS(SWP_NOZORDER.0 | SWP_NOACTIVATE.0 | SWP_SHOWWINDOW.0),
+        )
+        .is_err()
+        {
+            eprintln!("[preview_bridge] SetWindowPos a échoué au repositionnement (HWND {engine_hwnd})");
+        }
+    }
+}
+
+/// Hides the grafted preview without destroying it — called when the Aperçu panel's tab
+/// becomes inactive (dockview only shows one tab per group; a native child window would
+/// otherwise keep rendering ON TOP of whichever other tab is now showing).
+///
+/// SAFETY: same as `position_preview_window`.
+pub fn hide_preview_window(engine_hwnd: i64) {
+    let engine = HWND(engine_hwnd as *mut _);
+    unsafe {
         if SetWindowPos(
             engine,
             None,
             0,
             0,
-            w as i32,
-            h as i32,
-            SET_WINDOW_POS_FLAGS(SWP_NOZORDER.0 | SWP_NOACTIVATE.0),
+            0,
+            0,
+            SET_WINDOW_POS_FLAGS(SWP_NOZORDER.0 | SWP_NOACTIVATE.0 | SWP_HIDEWINDOW.0),
         )
         .is_err()
         {
-            eprintln!("[preview_bridge] SetWindowPos a échoué au greffage initial (HWND {engine_hwnd})");
-        }
-    }
-    Ok(())
-}
-
-/// Re-fits the already-grafted preview window when the host resizes. Called from the app's
-/// window-resize handler with the engine HWND kept in Tauri-managed state.
-///
-/// SAFETY: `engine_hwnd` must be a valid, live window at call time — it comes from the
-/// Tauri-managed state populated by a prior successful `graft_preview_window`, so it is
-/// always a real, still-grafted engine window while the app runs (same guarantee as
-/// `graft_preview_window`'s own SAFETY note above).
-pub fn resize_preview_window(engine_hwnd: i64, host_w: u32, host_h: u32) {
-    let engine = HWND(engine_hwnd as *mut _);
-    let (w, h) = fit_size(host_w, host_h);
-    unsafe {
-        if MoveWindow(engine, 0, 0, w as i32, h as i32, true).is_err() {
-            eprintln!("[preview_bridge] MoveWindow a échoué au redimensionnement (HWND {engine_hwnd})");
+            eprintln!("[preview_bridge] SetWindowPos a échoué au masquage (HWND {engine_hwnd})");
         }
     }
 }
@@ -141,5 +184,25 @@ mod tests {
         let style = child_style_bits();
         assert_eq!(style & WS_CHILD.0, WS_CHILD.0, "WS_CHILD bit is set");
         assert_eq!(style & WS_VISIBLE.0, WS_VISIBLE.0, "WS_VISIBLE bit is set — spike regression");
+    }
+
+    #[test]
+    fn should_center_fitted_size_inside_squarer_area() {
+        // A square area (1:1, narrower than 16:9): the fit shrinks HEIGHT, not width — the
+        // fitted rect must be offset DOWN to sit vertically centered, never hugging the
+        // area's top edge.
+        let (off_x, off_y, w, h) = fit_and_center(100, 50, 1000, 1000);
+        assert_eq!(off_x, 100, "width fills the area exactly — no horizontal letterbox");
+        assert!(off_y > 50, "fitted height shorter than the area — must be re-centered down");
+        assert_eq!(off_y + h as i32, 50 + 1000 - (off_y - 50), "centered: equal margin top/bottom");
+        let _ = w;
+    }
+
+    #[test]
+    fn should_offset_by_area_origin_when_area_is_exact_16_9() {
+        // Exact 16:9 area: no letterboxing needed, the fitted rect exactly matches the
+        // area — offset must equal the area's own origin, not (0, 0).
+        let (off_x, off_y, w, h) = fit_and_center(200, 80, 1920, 1080);
+        assert_eq!((off_x, off_y, w, h), (200, 80, 1920, 1080));
     }
 }
