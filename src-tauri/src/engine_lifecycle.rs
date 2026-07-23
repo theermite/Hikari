@@ -141,6 +141,59 @@ pub(crate) fn hide_preview(state: State<EngineState>) -> Result<(), String> {
     Ok(())
 }
 
+/// Adds a webcam source to the live scene (B-cam) by sending `AddCamera` to the already-
+/// running engine. Requires the engine to be running (Aperçu panel open) — a clear error
+/// beats a silent no-op if it isn't, since there's no queue to "add it once started".
+#[tauri::command]
+pub(crate) fn add_camera_source(state: State<EngineState>, device_id: String) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let Some(handle) = guard.handle.as_mut() else {
+        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
+    };
+    let line = to_line(&ControllerCommand::AddCamera { device_id }).map_err(|err| err.to_string())?;
+    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi AddCamera au moteur: {err}"))
+}
+
+/// Removes the webcam from the live scene entirely (its filters go with it) — the real
+/// way to "turn the camera off" today, since individual filters can't be detached (see
+/// `enable_background_removal`'s doc). A no-op if no camera is present.
+#[tauri::command]
+pub(crate) fn remove_camera_source(state: State<EngineState>) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let Some(handle) = guard.handle.as_mut() else {
+        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
+    };
+    let line = to_line(&ControllerCommand::RemoveCamera).map_err(|err| err.to_string())?;
+    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi RemoveCamera au moteur: {err}"))
+}
+
+/// Sets whether the real NVIDIA background-removal filter is applied to the webcam
+/// (B-cam, F-036). Toggling REBUILDS the camera source (see
+/// `ControllerCommand::SetBackgroundRemoval`'s own doc for why — no public filter-removal
+/// API exists) — a brief camera reinit blip, disclosed to Jay. Requires the engine
+/// running AND a camera already added.
+#[tauri::command]
+pub(crate) fn set_background_removal(state: State<EngineState>, enabled: bool) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let Some(handle) = guard.handle.as_mut() else {
+        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
+    };
+    let line = to_line(&ControllerCommand::SetBackgroundRemoval { enabled }).map_err(|err| err.to_string())?;
+    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi au moteur: {err}"))
+}
+
+/// Sets whether a circular alpha mask is applied to the webcam (B-cam, F-036). Same
+/// rebuild-based toggle and requirements as `set_background_removal`.
+#[tauri::command]
+pub(crate) fn set_circle_mask(state: State<EngineState>, enabled: bool) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let Some(handle) = guard.handle.as_mut() else {
+        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
+    };
+    let line = to_line(&ControllerCommand::SetCircleMask { enabled }).map_err(|err| err.to_string())?;
+    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi au moteur: {err}"))
+}
+
 /// Grafts the engine's preview window (`engine_hwnd`, just announced via `PreviewReady`)
 /// into the Aperçu panel's last-known rect (option B).
 fn graft_into_panel_rect(app: &AppHandle, engine_hwnd: i64) {

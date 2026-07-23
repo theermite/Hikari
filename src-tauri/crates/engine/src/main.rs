@@ -28,7 +28,7 @@ use libobs_wrapper::data::output::ObsOutputTrait;
 use libobs_wrapper::encoders::ObsContextEncoders;
 use libobs_wrapper::display::{ObsDisplayCreationData, ObsDisplayRef, ObsWindowHandle, WindowPositionTrait};
 use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemTrait};
-use libobs_wrapper::sources::ObsSourceBuilder;
+use libobs_wrapper::sources::{ObsSourceBuilder, ObsSourceRef};
 use libobs_wrapper::unsafe_send::Sendable;
 use libobs_wrapper::utils::StartupInfo;
 use multistream::{PlatformStream, report_platform_frame_stats, start_multistream, stop_one};
@@ -109,6 +109,21 @@ struct ObsInner {
     display: ObsDisplayRef,
     context: ObsContext,
     _scene_item: ObsSceneItemRef<MonitorCaptureSource>,
+    /// The real, currently-composed scene sources — grown by `handle_add_camera`. Kept
+    /// here (never re-derived from libobs) so every `Sources` emission reflects the whole
+    /// scene, never just the last-added delta.
+    sources: Vec<SourceInfo>,
+    /// The webcam scene item, once `AddCamera` has run. `None` until a camera has
+    /// actually been added (never presumed).
+    camera_item: Option<ObsSceneItemRef<ObsSourceRef>>,
+    /// The device id the current `camera_item` was built from — kept so
+    /// `rebuild_camera` (the only verified-safe way to toggle a filter off, see
+    /// `ControllerCommand::SetBackgroundRemoval`'s doc) can recreate the same camera.
+    camera_device_id: Option<String>,
+    /// Which one-way filters the composed camera should carry — the DESIRED state,
+    /// reapplied in full every time `rebuild_camera` tears down and recreates the source.
+    background_removal_on: bool,
+    circle_mask_on: bool,
 }
 
 /// Commands forwarded from the stdin-reader thread to the event loop (winit's
@@ -120,6 +135,10 @@ enum EngineEvent {
     StopStream,
     StartMultistream { targets: Vec<hikari_protocol::StreamTarget> },
     StopMultistream,
+    AddCamera { device_id: String },
+    SetBackgroundRemoval { enabled: bool },
+    SetCircleMask { enabled: bool },
+    RemoveCamera,
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -160,7 +179,7 @@ impl App {
 
         let (sources, scene_item) =
             build_scene_with_capture(&mut context).context("construction scène")?;
-        emit(&EngineMessage::Sources { items: sources });
+        emit(&EngineMessage::Sources { items: sources.clone() });
 
         let display = create_preview(&mut context, &window).context("création aperçu")?;
         let RawWindowHandle::Win32(handle) = window.window_handle()?.as_raw() else {
@@ -168,7 +187,16 @@ impl App {
         };
         emit(&EngineMessage::PreviewReady { hwnd: handle.hwnd.get() as i64 });
 
-        self.obs = Some(ObsInner { display, context, _scene_item: scene_item });
+        self.obs = Some(ObsInner {
+            display,
+            context,
+            _scene_item: scene_item,
+            sources,
+            camera_item: None,
+            camera_device_id: None,
+            background_removal_on: false,
+            circle_mask_on: false,
+        });
         self.window = Some(Sendable(window));
         Ok(())
     }
@@ -220,6 +248,116 @@ impl App {
             stop_one(&mut stream);
         }
     }
+
+    /// Adds a webcam (DirectShow) source to the "main" scene (B-cam) using the exact
+    /// `device_id` the controller sent — never guessed. Re-emits the FULL scene source
+    /// list (never just the added source) so a late listener sees the real composition.
+    fn handle_add_camera(&mut self, device_id: String) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "AddCamera avant l'initialisation".into() });
+            return;
+        };
+        let item = match camera::add_camera_to_scene(&mut obs.context, &device_id) {
+            Ok(item) => item,
+            Err(err) => {
+                emit(&EngineMessage::Error { message: err.to_string() });
+                return;
+            }
+        };
+        obs.camera_item = Some(item);
+        obs.camera_device_id = Some(device_id);
+        obs.sources.push(SourceInfo::camera(camera::CAMERA_SOURCE_NAME));
+        emit(&EngineMessage::Sources { items: obs.sources.clone() });
+    }
+
+    /// Sets whether the real NVIDIA background-removal filter is applied (B-cam, F-036).
+    /// A no-op if no camera has been added yet. Rebuilds the camera to apply the change
+    /// (see `rebuild_camera`'s doc for why — no public filter-removal API exists).
+    fn handle_set_background_removal(&mut self, enabled: bool) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "réglage caméra avant l'initialisation".into() });
+            return;
+        };
+        if obs.camera_device_id.is_none() {
+            emit(&EngineMessage::Error { message: "aucune caméra dans la scène — ajoute-en une d'abord".into() });
+            return;
+        }
+        obs.background_removal_on = enabled;
+        self.rebuild_camera();
+    }
+
+    /// Sets whether a circular alpha mask is applied (B-cam, F-036). Same guard and
+    /// rebuild mechanism as `handle_set_background_removal`.
+    fn handle_set_circle_mask(&mut self, enabled: bool) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "réglage caméra avant l'initialisation".into() });
+            return;
+        };
+        if obs.camera_device_id.is_none() {
+            emit(&EngineMessage::Error { message: "aucune caméra dans la scène — ajoute-en une d'abord".into() });
+            return;
+        }
+        obs.circle_mask_on = enabled;
+        self.rebuild_camera();
+    }
+
+    /// Removes the webcam from the "main" scene entirely (B-cam) — its filters go with it
+    /// (libobs owns them on the source, dropped along with `camera_item`), and the desired
+    /// filter state resets so a later `AddCamera` starts clean. A no-op if no camera is
+    /// present.
+    fn handle_remove_camera(&mut self) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "réglage caméra avant l'initialisation".into() });
+            return;
+        };
+        if obs.camera_item.take().is_none() {
+            return;
+        }
+        obs.camera_device_id = None;
+        obs.background_removal_on = false;
+        obs.circle_mask_on = false;
+        obs.sources.retain(|source| source.kind != hikari_protocol::CAMERA_KIND);
+        emit(&EngineMessage::Sources { items: obs.sources.clone() });
+    }
+
+    /// Tears down and recreates the webcam source, reapplying whichever filters are
+    /// currently desired (`background_removal_on`/`circle_mask_on`) — the only
+    /// verified-safe way to simulate turning a filter off, since `libobs-wrapper` 9.0.4
+    /// exposes no public API to detach an applied filter from a live source (confirmed in
+    /// its own source: the removal guard lives on the SOURCE's internal list, not on the
+    /// filter handle itself). Causes a brief camera reinit blip — disclosed to Jay,
+    /// 2026-07-23. A no-op if no camera has ever been added.
+    fn rebuild_camera(&mut self) {
+        let Some(obs) = &mut self.obs else { return };
+        let Some(device_id) = obs.camera_device_id.clone() else { return };
+
+        // Drop the old item FIRST (removes it from the scene) before creating the new
+        // one — libobs would otherwise carry two same-named sources briefly.
+        obs.camera_item = None;
+
+        let item = match camera::add_camera_to_scene(&mut obs.context, &device_id) {
+            Ok(item) => item,
+            Err(err) => {
+                emit(&EngineMessage::Error { message: err.to_string() });
+                return;
+            }
+        };
+        if obs.background_removal_on {
+            if let Err(err) = camera::apply_background_removal(item.inner_source()) {
+                emit(&EngineMessage::Error { message: err.to_string() });
+            }
+        }
+        if obs.circle_mask_on {
+            if let Err(err) = camera::apply_circle_mask(item.inner_source()) {
+                emit(&EngineMessage::Error { message: err.to_string() });
+            }
+        }
+        obs.camera_item = Some(item);
+        if !obs.sources.iter().any(|source| source.kind == hikari_protocol::CAMERA_KIND) {
+            obs.sources.push(SourceInfo::camera(camera::CAMERA_SOURCE_NAME));
+        }
+        emit(&EngineMessage::Sources { items: obs.sources.clone() });
+    }
 }
 
 impl ApplicationHandler<EngineEvent> for App {
@@ -241,6 +379,10 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::StopStream => self.handle_stop_stream(),
             EngineEvent::StartMultistream { targets } => self.handle_start_multistream(targets),
             EngineEvent::StopMultistream => self.handle_stop_multistream(),
+            EngineEvent::AddCamera { device_id } => self.handle_add_camera(device_id),
+            EngineEvent::SetBackgroundRemoval { enabled } => self.handle_set_background_removal(enabled),
+            EngineEvent::SetCircleMask { enabled } => self.handle_set_circle_mask(enabled),
+            EngineEvent::RemoveCamera => self.handle_remove_camera(),
         }
     }
 
@@ -323,6 +465,18 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 }
                 Ok(ControllerCommand::StopMultistream) => {
                     let _ = proxy.send_event(EngineEvent::StopMultistream);
+                }
+                Ok(ControllerCommand::AddCamera { device_id }) => {
+                    let _ = proxy.send_event(EngineEvent::AddCamera { device_id });
+                }
+                Ok(ControllerCommand::SetBackgroundRemoval { enabled }) => {
+                    let _ = proxy.send_event(EngineEvent::SetBackgroundRemoval { enabled });
+                }
+                Ok(ControllerCommand::SetCircleMask { enabled }) => {
+                    let _ = proxy.send_event(EngineEvent::SetCircleMask { enabled });
+                }
+                Ok(ControllerCommand::RemoveCamera) => {
+                    let _ = proxy.send_event(EngineEvent::RemoveCamera);
                 }
                 Ok(_) => (), // CreateScene/ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),

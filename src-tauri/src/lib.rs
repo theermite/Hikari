@@ -31,6 +31,10 @@ pub fn run() {
             engine_lifecycle::stop_engine,
             engine_lifecycle::position_preview,
             engine_lifecycle::hide_preview,
+            engine_lifecycle::add_camera_source,
+            engine_lifecycle::set_background_removal,
+            engine_lifecycle::set_circle_mask,
+            engine_lifecycle::remove_camera_source,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .run(tauri::generate_context!())

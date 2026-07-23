@@ -7,7 +7,13 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 import { invoke } from "@tauri-apps/api/core";
-import { listCameras } from "./api";
+import {
+  addCameraSource,
+  listCameras,
+  removeCameraSource,
+  setBackgroundRemoval,
+  setCircleMask,
+} from "./api";
 
 describe("camera api", () => {
   beforeEach(() => {
@@ -33,5 +39,43 @@ describe("camera api", () => {
     const devices = await listCameras();
 
     expect(devices).toEqual([]);
+  });
+
+  it("should_call_add_camera_source_command_with_device_id_when_adding", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await addCameraSource("Webcam HD:usb#vid_0000");
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("add_camera_source", {
+      deviceId: "Webcam HD:usb#vid_0000",
+    });
+  });
+
+  it("should_call_set_background_removal_command_with_enabled_when_toggling", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await setBackgroundRemoval(true);
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("set_background_removal", {
+      enabled: true,
+    });
+  });
+
+  it("should_call_set_circle_mask_command_with_enabled_when_toggling", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await setCircleMask(false);
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("set_circle_mask", {
+      enabled: false,
+    });
+  });
+
+  it("should_call_remove_camera_source_command_when_removing", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await removeCameraSource();
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("remove_camera_source");
   });
 });

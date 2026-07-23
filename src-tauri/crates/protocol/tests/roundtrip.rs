@@ -46,6 +46,10 @@ fn controller_command_strategy() -> impl Strategy<Value = ControllerCommand> {
     prop_oneof![
         any::<String>().prop_map(|name| ControllerCommand::CreateScene { name }),
         Just(ControllerCommand::ListSources),
+        any::<String>().prop_map(|device_id| ControllerCommand::AddCamera { device_id }),
+        any::<bool>().prop_map(|enabled| ControllerCommand::SetBackgroundRemoval { enabled }),
+        any::<bool>().prop_map(|enabled| ControllerCommand::SetCircleMask { enabled }),
+        Just(ControllerCommand::RemoveCamera),
         Just(ControllerCommand::StartStream),
         Just(ControllerCommand::StopStream),
         Just(ControllerCommand::Stop),

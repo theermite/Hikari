@@ -18,6 +18,10 @@ use serde::de::DeserializeOwned;
 /// so a deck can render the right icon without guessing.
 pub const MONITOR_CAPTURE_KIND: &str = "monitor_capture";
 
+/// The libobs source-kind identifier for a webcam (DirectShow) source — same id the real
+/// win-dshow OBS plugin registers, never invented (B-cam).
+pub const CAMERA_KIND: &str = "dshow_input";
+
 /// One source inside a scene (e.g. a monitor capture). `kind` names the libobs source
 /// family so a deck can render an icon without guessing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -31,6 +35,11 @@ impl SourceInfo {
     /// source-listing logic is unit-testable without the OBS runtime.
     pub fn monitor_capture(name: impl Into<String>) -> Self {
         Self { name: name.into(), kind: MONITOR_CAPTURE_KIND.to_string() }
+    }
+
+    /// Describe a webcam (DirectShow) source. Pure, same reason as `monitor_capture`.
+    pub fn camera(name: impl Into<String>) -> Self {
+        Self { name: name.into(), kind: CAMERA_KIND.to_string() }
     }
 }
 
@@ -103,6 +112,24 @@ pub enum ControllerCommand {
     CreateScene { name: String },
     /// Ask the engine to emit the current scene's sources.
     ListSources,
+    /// Adds a webcam (DirectShow) source to the "main" scene. `device_id` must be the
+    /// exact value `EngineMessage::Cameras` reported — never guessed (B-cam).
+    AddCamera { device_id: String },
+    /// Sets whether the real NVIDIA background-removal filter (`nv_greenscreen_filter`) is
+    /// applied to the camera (B-cam, F-036). `libobs-wrapper` 9.0.4 has no public API to
+    /// detach an applied filter (verified in its own source) — so toggling this REBUILDS
+    /// the whole camera source (remove + re-add + reapply whichever effects are still on),
+    /// the only verified-safe way to simulate on/off. Causes a brief camera reinit blip,
+    /// disclosed to Jay (2026-07-23).
+    SetBackgroundRemoval { enabled: bool },
+    /// Sets whether a circular alpha mask (`mask_filter`) is applied to the camera
+    /// (B-cam, F-036). Same rebuild-based toggle as `SetBackgroundRemoval`.
+    SetCircleMask { enabled: bool },
+    /// Removes the webcam source from the "main" scene entirely (B-cam) — its filters
+    /// (background removal, mask) go with it, since libobs owns them on the source. The
+    /// real way to "turn the camera off" today, given filters themselves have no public
+    /// removal API (see `EnableBackgroundRemoval`'s doc). A no-op if no camera is present.
+    RemoveCamera,
     /// Start streaming to the RTMP target the engine reads from its OWN environment
     /// (`HIKARI_RTMP_SERVER`/`HIKARI_RTMP_KEY`, B2a scope). The wire NEVER carries a key —
     /// account-sourced targets (B2b, OAuth + vault) will replace the env-var mechanism,
