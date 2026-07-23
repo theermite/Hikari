@@ -310,8 +310,9 @@ impl App {
             emit(&EngineMessage::Error { message: "réglage caméra avant l'initialisation".into() });
             return;
         };
-        if obs.camera_item.take().is_none() {
-            return;
+        let Some(item) = obs.camera_item.take() else { return };
+        if let Err(err) = camera::remove_camera_from_scene(&mut obs.context, item) {
+            emit(&EngineMessage::Error { message: err.to_string() });
         }
         obs.camera_device_id = None;
         obs.background_removal_on = false;
@@ -331,9 +332,15 @@ impl App {
         let Some(obs) = &mut self.obs else { return };
         let Some(device_id) = obs.camera_device_id.clone() else { return };
 
-        // Drop the old item FIRST (removes it from the scene) before creating the new
-        // one — libobs would otherwise carry two same-named sources briefly.
-        obs.camera_item = None;
+        // Detach the old item from the SCENE first (not just our local field — the scene
+        // keeps its own internal clone, see `camera::remove_camera_from_scene`'s doc). This
+        // used to only be `obs.camera_item = None`, which never actually released the old
+        // source: it kept compositing, unfiltered, underneath the new one.
+        if let Some(old_item) = obs.camera_item.take() {
+            if let Err(err) = camera::remove_camera_from_scene(&mut obs.context, old_item) {
+                emit(&EngineMessage::Error { message: err.to_string() });
+            }
+        }
 
         let item = match camera::add_camera_to_scene(&mut obs.context, &device_id) {
             Ok(item) => item,

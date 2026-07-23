@@ -12,7 +12,7 @@ use libobs_wrapper::data::object::ObsObjectTrait;
 use libobs_wrapper::data::properties::types::ObsListItemValue;
 use libobs_wrapper::data::properties::{ObsProperty, ObsPropertyObject};
 use libobs_wrapper::data::{ObsData, ObsDataSetters};
-use libobs_wrapper::scenes::ObsSceneItemRef;
+use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemExtSceneTrait};
 use libobs_wrapper::sources::{ObsFilterRef, ObsSourceBuilder, ObsSourceRef, ObsSourceTrait};
 // `libobs-wrapper` re-exports the raw sys crate as `sys`; the macro below expands a
 // literal `libobs::obs_source` path, so it needs a local alias named `libobs` rather than
@@ -94,6 +94,23 @@ pub fn add_camera_to_scene(
         .set_video_device_id(device_id)
         .add_to_scene(&mut scene)
         .context("ajout caméra à la scène")
+}
+
+/// Detaches `item` from the "main" scene — the real removal, not merely dropping our own
+/// `ObsSceneItemRef` handle. `add_to_scene`'s own doc says it plainly: "you can safely drop
+/// these items, they are stored within the scene if you don't need them" — the scene keeps
+/// its OWN clone in `attached_scene_items` (`libobs-wrapper` 9.0.4 source,
+/// `scenes/scene_item/traits.rs`), so our field going out of scope never lowered the
+/// refcount to zero. Root cause of the "duplicate name Webcam N" warnings and of filters
+/// looking broken: `rebuild_camera` used to just drop `camera_item`, leaving the old,
+/// unfiltered source composited underneath the new one. Fixed 2026-07-24, verified real
+/// (libobs source, engine logs).
+pub fn remove_camera_from_scene(context: &mut ObsContext, item: ObsSceneItemRef<ObsSourceRef>) -> Result<()> {
+    let mut scene = context
+        .get_scene("main")
+        .context("recherche scène 'main'")?
+        .context("scène 'main' introuvable")?;
+    scene.remove_scene_item(item).context("retrait caméra de la scène")
 }
 
 /// Applies the real NVIDIA background-removal filter (`nv_greenscreen_filter`) to
