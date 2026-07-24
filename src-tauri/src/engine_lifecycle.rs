@@ -218,6 +218,29 @@ pub(crate) fn scale_camera(state: State<EngineState>, grow: bool) -> Result<(), 
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi ScaleCamera au moteur: {err}"))
 }
 
+/// Creates a new, empty scene (multi-scene, tranche 1). Requires the engine running.
+#[tauri::command]
+pub(crate) fn create_scene(state: State<EngineState>, name: String) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let Some(handle) = guard.handle.as_mut() else {
+        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
+    };
+    let line = to_line(&ControllerCommand::CreateScene { name }).map_err(|err| err.to_string())?;
+    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi CreateScene au moteur: {err}"))
+}
+
+/// Switches the live scene (multi-scene, tranche 1) — an instant cut. Requires the engine
+/// running.
+#[tauri::command]
+pub(crate) fn switch_scene(state: State<EngineState>, name: String) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let Some(handle) = guard.handle.as_mut() else {
+        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
+    };
+    let line = to_line(&ControllerCommand::SwitchScene { name }).map_err(|err| err.to_string())?;
+    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi SwitchScene au moteur: {err}"))
+}
+
 /// Grafts the engine's preview window (`engine_hwnd`, just announced via `PreviewReady`)
 /// into the Aperçu panel's last-known rect (option B).
 fn graft_into_panel_rect(app: &AppHandle, engine_hwnd: i64) {

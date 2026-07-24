@@ -37,6 +37,8 @@ pub fn run() {
             engine_lifecycle::remove_camera_source,
             engine_lifecycle::nudge_camera,
             engine_lifecycle::scale_camera,
+            engine_lifecycle::create_scene,
+            engine_lifecycle::switch_scene,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .run(tauri::generate_context!())

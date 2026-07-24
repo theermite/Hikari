@@ -16,6 +16,7 @@ import { CameraPanel } from "../camera/CameraPanel";
 import { DeckPanel } from "../deck/DeckPanel";
 import { PreflightPanel } from "../preflight/PreflightPanel";
 import { PreviewPanel } from "../preview/PreviewPanel";
+import { ScenesPanel } from "../scenes/ScenesPanel";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
 import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
@@ -37,6 +38,7 @@ const PANEL_COMPONENTS: Record<
   preflight: PreflightPanel,
   camera: CameraPanel,
   preview: PreviewPanel,
+  scenes: ScenesPanel,
 };
 
 /** Adds panel `id` if a (fresh or restored) layout doesn't already have it — a saved
@@ -79,6 +81,12 @@ function buildDefaultLayout(api: DockviewApi): void {
     title: "Pré-vol",
     position: { referencePanel: camera.id, direction: "below" },
   });
+  api.addPanel({
+    id: "scenes",
+    component: "scenes",
+    title: "Scènes",
+    position: { referencePanel: camera.id, direction: "below" },
+  });
 }
 
 export function Cockpit() {
@@ -104,6 +112,12 @@ export function Cockpit() {
             event.api.removePanel(oldPlaceholder);
           }
           ensurePanel(event.api, "preview", "Aperçu");
+          // Un layout sauvegardé avant cette brique (multi-scène) ne l'a jamais vu — même
+          // rattrapage que les autres panneaux ajoutés après coup.
+          ensurePanel(event.api, "scenes", "Scènes", {
+            referencePanel: "camera",
+            direction: "below",
+          });
           // Migration Comptes → Paramètres (Jay, 2026-07-24) : une disposition sauvegardée
           // avant ce jour a "Comptes" à gauche — la Caméra prend sa place exacte (même
           // groupe d'onglets), et le panneau Comptes du cockpit live disparaît (il reste

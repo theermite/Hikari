@@ -14,6 +14,7 @@
 
 mod camera;
 mod multistream;
+mod scenes;
 mod stream;
 
 use std::io::{BufRead, Write};
@@ -124,6 +125,10 @@ struct ObsInner {
     /// reapplied in full every time `rebuild_camera` tears down and recreates the source.
     background_removal_on: bool,
     circle_mask_on: bool,
+    /// The scene currently live on the output channel (multi-scene, tranche 1) — libobs
+    /// exposes no "which scene is on this channel" getter, so this is the one piece of
+    /// state the engine must track itself rather than read back.
+    active_scene: String,
 }
 
 /// Commands forwarded from the stdin-reader thread to the event loop (winit's
@@ -141,6 +146,8 @@ enum EngineEvent {
     RemoveCamera,
     NudgeCamera { dx: i32, dy: i32 },
     ScaleCamera { grow: bool },
+    CreateScene { name: String },
+    SwitchScene { name: String },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -198,8 +205,10 @@ impl App {
             camera_device_id: None,
             background_removal_on: false,
             circle_mask_on: false,
+            active_scene: "main".to_string(),
         });
         self.window = Some(Sendable(window));
+        emit(&EngineMessage::SceneList { names: vec!["main".to_string()], active: "main".to_string() });
         Ok(())
     }
 
@@ -248,6 +257,58 @@ impl App {
     fn handle_stop_multistream(&mut self) {
         for mut stream in self.multistream.drain(..) {
             stop_one(&mut stream);
+        }
+    }
+
+    /// Creates a new, empty scene (multi-scene, tranche 1). Rejects a blank or already-used
+    /// name (`hikari_protocol::validate_scene_name`) — checked against the engine's OWN live
+    /// scene list, never a name the caller merely claims doesn't exist yet.
+    fn handle_create_scene(&mut self, name: String) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "CreateScene avant l'initialisation".into() });
+            return;
+        };
+        let existing = match scenes::list_scene_names(&mut obs.context) {
+            Ok(names) => names,
+            Err(err) => {
+                emit(&EngineMessage::Error { message: err.to_string() });
+                return;
+            }
+        };
+        if let Err(err) = hikari_protocol::validate_scene_name(&name, &existing) {
+            emit(&EngineMessage::Error { message: format!("nom de scène invalide : {err:?}") });
+            return;
+        }
+        if let Err(err) = scenes::create_scene(&mut obs.context, &name) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        self.emit_scene_list();
+    }
+
+    /// Switches the live scene (multi-scene, tranche 1) — an instant cut, never a
+    /// transition (B7's remaining scope). Errors clearly on an unknown name rather than a
+    /// silent no-op.
+    fn handle_switch_scene(&mut self, name: String) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "SwitchScene avant l'initialisation".into() });
+            return;
+        };
+        if let Err(err) = scenes::switch_scene(&mut obs.context, &name) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        obs.active_scene = name;
+        self.emit_scene_list();
+    }
+
+    /// Emits the real scene list + active scene straight from libobs (never a shadowed
+    /// count) — shared tail of `handle_create_scene`/`handle_switch_scene`.
+    fn emit_scene_list(&mut self) {
+        let Some(obs) = &mut self.obs else { return };
+        match scenes::list_scene_names(&mut obs.context) {
+            Ok(names) => emit(&EngineMessage::SceneList { names, active: obs.active_scene.clone() }),
+            Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
         }
     }
 
@@ -427,6 +488,8 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::RemoveCamera => self.handle_remove_camera(),
             EngineEvent::NudgeCamera { dx, dy } => self.handle_nudge_camera(dx, dy),
             EngineEvent::ScaleCamera { grow } => self.handle_scale_camera(grow),
+            EngineEvent::CreateScene { name } => self.handle_create_scene(name),
+            EngineEvent::SwitchScene { name } => self.handle_switch_scene(name),
         }
     }
 
@@ -528,7 +591,13 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::ScaleCamera { grow }) => {
                     let _ = proxy.send_event(EngineEvent::ScaleCamera { grow });
                 }
-                Ok(_) => (), // CreateScene/ListSources : hors périmètre de ce lecteur pour l'instant
+                Ok(ControllerCommand::CreateScene { name }) => {
+                    let _ = proxy.send_event(EngineEvent::CreateScene { name });
+                }
+                Ok(ControllerCommand::SwitchScene { name }) => {
+                    let _ = proxy.send_event(EngineEvent::SwitchScene { name });
+                }
+                Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),
             }
         }

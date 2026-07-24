@@ -106,6 +106,10 @@ pub enum EngineMessage {
     /// that platform (B3 acceptance: "aucun échec silencieux"). The other targets are
     /// unaffected and keep streaming.
     PlatformError { id: String, message: String },
+    /// Every scene the engine currently knows about, and which one is live on the output
+    /// channel (multi-scene, tranche 1) — emitted after `CreateScene`/`SwitchScene` and once
+    /// at startup, so a late-opening panel sees the real state, never an assumed one.
+    SceneList { names: Vec<String>, active: String },
 }
 
 /// Commands the controller sends to the engine (controller -> engine), one per line.
@@ -163,6 +167,31 @@ pub enum ControllerCommand {
     /// Grows (`true`) or shrinks (`false`) the webcam by one fixed step (B7). A no-op if
     /// no camera is present.
     ScaleCamera { grow: bool },
+    /// Switches the live scene (multi-scene, tranche 1) — an instant cut on the output
+    /// channel (`obs_set_output_source`), never a transition (that's B7's remaining scope).
+    SwitchScene { name: String },
+}
+
+/// Why a candidate scene name was rejected before ever reaching the engine.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SceneNameError {
+    /// An empty (or whitespace-only) name — not a name a person can recognize in a list.
+    Empty,
+    /// A scene with this exact name already exists.
+    Duplicate,
+}
+
+/// Validates a candidate scene name against the scenes that already exist — pure and
+/// total, so "no duplicate, no blank name" is proven by unit tests without a real engine
+/// process (same split as `validate_targets`, B3).
+pub fn validate_scene_name(name: &str, existing: &[String]) -> Result<(), SceneNameError> {
+    if name.trim().is_empty() {
+        return Err(SceneNameError::Empty);
+    }
+    if existing.iter().any(|s| s == name) {
+        return Err(SceneNameError::Duplicate);
+    }
+    Ok(())
 }
 
 /// Clamp bounds for `NudgeCamera` (B7) — a generous sanity range, not exact canvas
