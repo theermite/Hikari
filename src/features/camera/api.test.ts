@@ -10,7 +10,9 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   addCameraSource,
   listCameras,
+  nudgeCamera,
   removeCameraSource,
+  scaleCamera,
   setBackgroundRemoval,
   setCircleMask,
 } from "./api";
@@ -77,5 +79,26 @@ describe("camera api", () => {
     await removeCameraSource();
 
     expect(invoke).toHaveBeenCalledExactlyOnceWith("remove_camera_source");
+  });
+
+  it("should_call_nudge_camera_command_with_delta_when_moving", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await nudgeCamera(40, -40);
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("nudge_camera", {
+      dx: 40,
+      dy: -40,
+    });
+  });
+
+  it("should_call_scale_camera_command_with_grow_when_resizing", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await scaleCamera(true);
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("scale_camera", {
+      grow: true,
+    });
   });
 });

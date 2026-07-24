@@ -98,6 +98,10 @@ pub enum EngineMessage {
     PlatformFrames { id: String, dropped: i32, total: i32 },
     /// One multistream target was stopped cleanly.
     PlatformStopped { id: String },
+    /// The camera's current position/scale after `NudgeCamera` or `ScaleCamera` (B7) —
+    /// emitted with the real, clamped values (never presumed), so the panel reflects what
+    /// actually happened rather than optimistically applying the requested delta.
+    CameraTransform { x: i32, y: i32, scale_percent: i32 },
     /// One multistream target failed — recoverable, reported instead of silently dropping
     /// that platform (B3 acceptance: "aucun échec silencieux"). The other targets are
     /// unaffected and keep streaming.
@@ -151,6 +155,41 @@ pub enum ControllerCommand {
     StopMultistream,
     /// Ask the engine to stop and exit cleanly.
     Stop,
+    /// Moves the webcam by `(dx, dy)` scene pixels (B7) — a fixed step decided by the
+    /// panel's arrow buttons, never a raw drag delta (dockview's own drag broke silently
+    /// in this WebView2 build, see session 2026-07-23; buttons are the provably-safe path).
+    /// A no-op if no camera is present.
+    NudgeCamera { dx: i32, dy: i32 },
+    /// Grows (`true`) or shrinks (`false`) the webcam by one fixed step (B7). A no-op if
+    /// no camera is present.
+    ScaleCamera { grow: bool },
+}
+
+/// Clamp bounds for `NudgeCamera` (B7) — a generous sanity range, not exact canvas
+/// containment: the wrapper exposes no safe way to read the live canvas size outside
+/// libobs's own render thread (`obs_get_video_info` needs the crate's private
+/// `run_with_obs!` dispatch), so this only stops the camera drifting to absurd
+/// coordinates after many clicks, never a "stays inside the frame" guarantee.
+pub const CAMERA_POSITION_BOUND: i32 = 4000;
+
+/// Multiplicative step applied per `ScaleCamera` click (B7) — ±10%, small enough that a
+/// misclick is easy to undo with the opposite button.
+pub const CAMERA_SCALE_STEP: f32 = 0.1;
+/// Scale floor for `ScaleCamera` (B7) — below this the camera would be too small to see.
+pub const CAMERA_SCALE_MIN: f32 = 0.2;
+/// Scale ceiling for `ScaleCamera` (B7) — above this a single webcam would dwarf the canvas.
+pub const CAMERA_SCALE_MAX: f32 = 3.0;
+
+/// Clamps a candidate camera position to `CAMERA_POSITION_BOUND` on both axes. Pure, so
+/// the sanity bound is proven by unit tests without a real engine process.
+pub fn clamp_camera_position(x: i32, y: i32) -> (i32, i32) {
+    (x.clamp(-CAMERA_POSITION_BOUND, CAMERA_POSITION_BOUND), y.clamp(-CAMERA_POSITION_BOUND, CAMERA_POSITION_BOUND))
+}
+
+/// Clamps a candidate camera scale factor to `[CAMERA_SCALE_MIN, CAMERA_SCALE_MAX]`. Pure,
+/// same reason as `clamp_camera_position`.
+pub fn clamp_camera_scale(scale: f32) -> f32 {
+    scale.clamp(CAMERA_SCALE_MIN, CAMERA_SCALE_MAX)
 }
 
 /// One destination for `StartMultistream` (B3): a platform id (`"twitch"`, `"youtube"`) and

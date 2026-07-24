@@ -194,6 +194,30 @@ pub(crate) fn set_circle_mask(state: State<EngineState>, enabled: bool) -> Resul
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi au moteur: {err}"))
 }
 
+/// Moves the webcam by `(dx, dy)` scene pixels (B7 — arrow buttons, never a raw drag: the
+/// dockview drag already broke silently in this WebView2 build, session 2026-07-23).
+/// Requires the engine running AND a camera already added.
+#[tauri::command]
+pub(crate) fn nudge_camera(state: State<EngineState>, dx: i32, dy: i32) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let Some(handle) = guard.handle.as_mut() else {
+        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
+    };
+    let line = to_line(&ControllerCommand::NudgeCamera { dx, dy }).map_err(|err| err.to_string())?;
+    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi NudgeCamera au moteur: {err}"))
+}
+
+/// Grows or shrinks the webcam by one fixed step (B7). Same requirements as `nudge_camera`.
+#[tauri::command]
+pub(crate) fn scale_camera(state: State<EngineState>, grow: bool) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let Some(handle) = guard.handle.as_mut() else {
+        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
+    };
+    let line = to_line(&ControllerCommand::ScaleCamera { grow }).map_err(|err| err.to_string())?;
+    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi ScaleCamera au moteur: {err}"))
+}
+
 /// Grafts the engine's preview window (`engine_hwnd`, just announced via `PreviewReady`)
 /// into the Aperçu panel's last-known rect (option B).
 fn graft_into_panel_rect(app: &AppHandle, engine_hwnd: i64) {
