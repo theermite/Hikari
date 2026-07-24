@@ -1,13 +1,17 @@
 // Panneau Caméra (B-cam) — détection réelle des webcams disponibles, jamais une liste
-// présumée. Chaque caméra détectée peut être ajoutée comme vraie source dans la scène en
-// direct (visible dans le panneau Aperçu) — nécessite que le moteur tourne déjà (Aperçu
-// ouvert) ; l'erreur du pont Tauri s'affiche telle quelle sinon, jamais un échec muet.
-// Les effets (fond IA, masque cercle) sont de vrais interrupteurs marche/arrêt — chaque
-// bascule reconstruit brièvement la caméra côté moteur (bibliothèque sans API de retrait
-// de filtre), un clignotement bref assumé et disclosé à Jay (2026-07-23).
+// présumée. Agit sur la scène actuellement en direct (multi-scène tranche 2, Jay
+// 2026-07-24) : la caméra est UNE source physique unique, réutilisée dans chaque scène où
+// elle apparaît ; ses filtres (fond IA, masque) sont de vrais interrupteurs marche/arrêt
+// (`obs_source_set_enabled`, instantané, jamais un rebuild) et gardent un état INDÉPENDANT
+// par scène — changer de scène applique automatiquement les filtres de cette scène.
+//
+// Simplification connue de cette tranche : l'état affiché ici (ajoutée/filtres) repart à
+// zéro visuellement à chaque changement de scène (aucune commande de lecture d'état
+// n'existe encore côté moteur) — le moteur, lui, garde le vrai état par scène.
 
+import { listen } from "@tauri-apps/api/event";
 import type { IDockviewPanelProps } from "dockview-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   addCameraSource,
   listCameras,
@@ -22,6 +26,12 @@ import type { CameraDevice } from "./types";
 /** Fixed pixel step per arrow-button click (B7) — a raw drag was ruled out (dockview's
  * own drag already broke silently in this WebView2 build, session 2026-07-23). */
 const NUDGE_STEP = 40;
+
+interface EngineMessage {
+  type: string;
+  names?: string[];
+  active?: string;
+}
 
 type State =
   | { status: "idle" }
@@ -53,6 +63,7 @@ const INITIAL_EFFECT: EffectState = {
 };
 
 export function CameraPanel(_props: IDockviewPanelProps) {
+  const [activeScene, setActiveScene] = useState("main");
   const [state, setState] = useState<State>({ status: "idle" });
   const [addState, setAddState] = useState<AddState>({ status: "idle" });
   const [backgroundState, setBackgroundState] =
@@ -62,6 +73,28 @@ export function CameraPanel(_props: IDockviewPanelProps) {
     status: "idle",
   });
   const [transformError, setTransformError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unlisten = listen<EngineMessage>("engine-message", (event) => {
+      const msg = event.payload;
+      if (msg.type === "scene_list" && msg.active) {
+        setActiveScene((current) => {
+          if (current !== msg.active) {
+            // A different scene became live — its camera/filter state is independent and
+            // unknown to this panel yet (no state-read command exists), so the UI resets
+            // rather than show stale info from the previous scene.
+            setAddState({ status: "idle" });
+            setBackgroundState(INITIAL_EFFECT);
+            setMaskState(INITIAL_EFFECT);
+          }
+          return msg.active as string;
+        });
+      }
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
 
   const detect = () => {
     setState({ status: "checking" });
@@ -74,7 +107,7 @@ export function CameraPanel(_props: IDockviewPanelProps) {
 
   const addToScene = (deviceId: string) => {
     setAddState({ status: "adding", deviceId });
-    addCameraSource(deviceId)
+    addCameraSource(deviceId, activeScene)
       .then(() => setAddState({ status: "added", deviceId }))
       .catch((error: unknown) => {
         setAddState({ status: "error", deviceId, message: String(error) });
@@ -84,7 +117,7 @@ export function CameraPanel(_props: IDockviewPanelProps) {
   const toggleBackground = () => {
     const next = !backgroundState.enabled;
     setBackgroundState((s) => ({ ...s, pending: true, error: null }));
-    setBackgroundRemoval(next)
+    setBackgroundRemoval(activeScene, next)
       .then(() =>
         setBackgroundState({ enabled: next, pending: false, error: null }),
       )
@@ -100,7 +133,7 @@ export function CameraPanel(_props: IDockviewPanelProps) {
   const toggleMask = () => {
     const next = !maskState.enabled;
     setMaskState((s) => ({ ...s, pending: true, error: null }));
-    setCircleMask(next)
+    setCircleMask(activeScene, next)
       .then(() => setMaskState({ enabled: next, pending: false, error: null }))
       .catch((error: unknown) => {
         setMaskState((s) => ({ ...s, pending: false, error: String(error) }));
@@ -109,23 +142,24 @@ export function CameraPanel(_props: IDockviewPanelProps) {
 
   const move = (dx: number, dy: number) => {
     setTransformError(null);
-    nudgeCamera(dx, dy).catch((error: unknown) =>
+    nudgeCamera(activeScene, dx, dy).catch((error: unknown) =>
       setTransformError(String(error)),
     );
   };
 
   const zoom = (grow: boolean) => {
     setTransformError(null);
-    scaleCamera(grow).catch((error: unknown) =>
+    scaleCamera(activeScene, grow).catch((error: unknown) =>
       setTransformError(String(error)),
     );
   };
 
   const removeCamera = () => {
     setRemoveState({ status: "removing" });
-    removeCameraSource()
+    removeCameraSource(activeScene)
       .then(() => {
-        // The camera and every filter on it are gone — reset so Jay can add a fresh one.
+        // The camera and every filter on it are gone FOR THIS SCENE — reset so Jay can add
+        // a fresh one.
         setAddState({ status: "idle" });
         setBackgroundState(INITIAL_EFFECT);
         setMaskState(INITIAL_EFFECT);
@@ -138,6 +172,9 @@ export function CameraPanel(_props: IDockviewPanelProps) {
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 bg-hikari-bg-3 p-6 text-hikari-txt">
+      <p className="text-[12px] text-hikari-txt-faint">
+        Scène : <span className="text-hikari-accent">{activeScene}</span>
+      </p>
       <button
         type="button"
         onClick={detect}
@@ -179,7 +216,7 @@ export function CameraPanel(_props: IDockviewPanelProps) {
       {addState.status === "added" && (
         <div className="flex max-w-md flex-col items-center gap-2">
           <p className="text-[12px] text-hikari-txt-faint">
-            Effets caméra — chaque bascule reconstruit brièvement la caméra
+            Effets caméra — propres à cette scène
           </p>
           <div className="flex gap-2">
             <button
@@ -224,7 +261,7 @@ export function CameraPanel(_props: IDockviewPanelProps) {
             <p className="text-center text-hikari-red">❌ {maskState.error}</p>
           )}
           <p className="text-[12px] text-hikari-txt-faint">
-            Position et taille dans la scène
+            Position et taille dans cette scène
           </p>
           <div className="grid grid-cols-3 gap-1">
             <span />

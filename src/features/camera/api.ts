@@ -9,43 +9,51 @@ export function listCameras(): Promise<CameraDevice[]> {
   return invoke("list_cameras");
 }
 
-/** Adds `deviceId` (exact value from `listCameras`) as a real source in the live scene
- * (`add_camera_source`, `engine_lifecycle.rs`). Requires the engine to be running (the
- * Aperçu panel open) — rejects clearly otherwise, never a silent no-op. */
-export function addCameraSource(deviceId: string): Promise<void> {
-  return invoke("add_camera_source", { deviceId });
+/** Puts `deviceId` (exact value from `listCameras`) into `scene` (`add_camera_source`,
+ * `engine_lifecycle.rs`, multi-scene tranche 2) — the ONE physical camera, reused if
+ * another scene already shows it. Requires the engine running (the Aperçu panel open). */
+export function addCameraSource(
+  deviceId: string,
+  scene: string,
+): Promise<void> {
+  return invoke("add_camera_source", { deviceId, scene });
 }
 
-/** Sets whether the real NVIDIA background-removal filter is applied to the webcam
- * (`set_background_removal`). Toggling briefly rebuilds the camera source (a short
- * reinit blip) — no public API exists to detach a filter without it. Requires a camera
- * already added. */
-export function setBackgroundRemoval(enabled: boolean): Promise<void> {
-  return invoke("set_background_removal", { enabled });
+/** Sets whether the real NVIDIA background-removal filter is enabled for `scene`
+ * (`set_background_removal`) — instant toggle (`obs_source_set_enabled`), independent per
+ * scene: each scene remembers its own on/off state. Requires a camera already in `scene`. */
+export function setBackgroundRemoval(
+  scene: string,
+  enabled: boolean,
+): Promise<void> {
+  return invoke("set_background_removal", { scene, enabled });
 }
 
-/** Sets whether a circular alpha mask is applied to the webcam
- * (`set_circle_mask`). Same rebuild-based toggle as `setBackgroundRemoval`. */
-export function setCircleMask(enabled: boolean): Promise<void> {
-  return invoke("set_circle_mask", { enabled });
+/** Sets whether the circular alpha mask filter is enabled for `scene`
+ * (`set_circle_mask`). Same per-scene, instant-toggle contract as `setBackgroundRemoval`. */
+export function setCircleMask(scene: string, enabled: boolean): Promise<void> {
+  return invoke("set_circle_mask", { scene, enabled });
 }
 
-/** Removes the webcam from the scene entirely, its filters going with it
- * (`remove_camera_source`) — the real way to "turn the camera off" today, since
- * individual filters can't be detached. */
-export function removeCameraSource(): Promise<void> {
-  return invoke("remove_camera_source");
+/** Removes the webcam from `scene` only — other scenes keep showing it with their own
+ * filter state untouched (`remove_camera_source`). */
+export function removeCameraSource(scene: string): Promise<void> {
+  return invoke("remove_camera_source", { scene });
 }
 
-/** Moves the webcam by `(dx, dy)` scene pixels (`nudge_camera`, B7) — a fixed step per
- * click, never a raw drag delta (dockview's own drag broke silently in this WebView2
- * build, session 2026-07-23). Requires a camera already added. */
-export function nudgeCamera(dx: number, dy: number): Promise<void> {
-  return invoke("nudge_camera", { dx, dy });
+/** Moves the webcam's placement within `scene` by `(dx, dy)` pixels (`nudge_camera`, B7) —
+ * a fixed step per click, never a raw drag delta (dockview's own drag broke silently in
+ * this WebView2 build, session 2026-07-23). Requires a camera already in `scene`. */
+export function nudgeCamera(
+  scene: string,
+  dx: number,
+  dy: number,
+): Promise<void> {
+  return invoke("nudge_camera", { scene, dx, dy });
 }
 
-/** Grows or shrinks the webcam by one fixed step (`scale_camera`, B7). Same requirement
- * as `nudgeCamera`. */
-export function scaleCamera(grow: boolean): Promise<void> {
-  return invoke("scale_camera", { grow });
+/** Grows or shrinks the webcam's placement within `scene` by one fixed step
+ * (`scale_camera`, B7). Same requirement as `nudgeCamera`. */
+export function scaleCamera(scene: string, grow: boolean): Promise<void> {
+  return invoke("scale_camera", { scene, grow });
 }

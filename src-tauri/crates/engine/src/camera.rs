@@ -73,28 +73,37 @@ pub fn probe_camera_devices(context: &ObsContext) -> Result<Vec<CameraDevice>> {
         .collect())
 }
 
-/// The fixed name given to the webcam source added to the "main" scene — one camera at a
-/// time by convention (see `main.rs`'s `camera_device_id` doc for what this simplifies).
+/// The fixed name given to the physical webcam source — ONE camera source total (Jay,
+/// 2026-07-24: "la caméra est unique"), reused across every scene it appears in, exactly
+/// like OBS itself (a source added to several scenes is the same source, not a clone).
 pub const CAMERA_SOURCE_NAME: &str = "Webcam";
 
-/// Builds the `dshow_input` source for `device_id` and adds it to `scene` under
-/// `CAMERA_SOURCE_NAME`. Shared by the first `AddCamera` and by `rebuild_camera`'s
-/// toggle-via-rebuild sequence (see `main.rs`) — one place that knows how a camera scene
-/// item gets created.
-pub fn add_camera_to_scene(
-    context: &mut ObsContext,
-    device_id: &str,
-) -> Result<ObsSceneItemRef<ObsSourceRef>> {
-    let mut scene = context
-        .get_scene("main")
-        .context("recherche scène 'main'")?
-        .context("scène 'main' introuvable")?;
+/// Builds the `dshow_input` source for `device_id` — called ONCE, the first time a camera
+/// is added to any scene. Does not add it to a scene itself (see `add_existing_camera_to_scene`,
+/// used both for this first placement and every later scene that reuses the same source).
+pub fn build_camera_source(context: &mut ObsContext, device_id: &str) -> Result<ObsSourceRef> {
     context
         .source_builder::<DshowInputSourceBuilder, _>(CAMERA_SOURCE_NAME)
         .context("préparation source caméra")?
         .set_video_device_id(device_id)
-        .add_to_scene(&mut scene)
-        .context("ajout caméra à la scène")
+        .build()
+        .context("construction source caméra")
+}
+
+/// Adds the ALREADY-BUILT camera `source` to `scene_name` as a new scene item — reuses the
+/// one physical source (never builds a second `dshow_input`, which would reopen the device
+/// and risk the driver rejecting a 2nd concurrent capture). Multiple scenes can hold their
+/// own scene item pointing at this same source, each with its own position/scale.
+pub fn add_existing_camera_to_scene(
+    context: &mut ObsContext,
+    source: ObsSourceRef,
+    scene_name: &str,
+) -> Result<ObsSceneItemRef<ObsSourceRef>> {
+    let mut scene = context
+        .get_scene(scene_name)
+        .context("recherche scène")?
+        .context("scène introuvable")?;
+    scene.add_source(source).context("ajout caméra à la scène")
 }
 
 /// Moves the camera by `(dx, dy)` scene pixels from its current position (B7), clamped by
@@ -120,48 +129,48 @@ pub fn scale_camera(item: &ObsSceneItemRef<ObsSourceRef>, grow: bool) -> Result<
     Ok((*position.x() as i32, *position.y() as i32, (new_scale * 100.0).round() as i32))
 }
 
-/// Detaches `item` from the "main" scene — the real removal, not merely dropping our own
-/// `ObsSceneItemRef` handle. `add_to_scene`'s own doc says it plainly: "you can safely drop
+/// Detaches `item` from `scene_name` — the real removal, not merely dropping our own
+/// `ObsSceneItemRef` handle. `add_source`'s own doc says it plainly: "you can safely drop
 /// these items, they are stored within the scene if you don't need them" — the scene keeps
 /// its OWN clone in `attached_scene_items` (`libobs-wrapper` 9.0.4 source,
 /// `scenes/scene_item/traits.rs`), so our field going out of scope never lowered the
-/// refcount to zero. Root cause of the "duplicate name Webcam N" warnings and of filters
-/// looking broken: `rebuild_camera` used to just drop `camera_item`, leaving the old,
-/// unfiltered source composited underneath the new one. Fixed 2026-07-24, verified real
-/// (libobs source, engine logs).
-pub fn remove_camera_from_scene(context: &mut ObsContext, item: ObsSceneItemRef<ObsSourceRef>) -> Result<()> {
+/// refcount to zero. Root cause of the "duplicate name Webcam N" warnings found 2026-07-24.
+pub fn remove_camera_from_scene(
+    context: &mut ObsContext,
+    scene_name: &str,
+    item: ObsSceneItemRef<ObsSourceRef>,
+) -> Result<()> {
     let mut scene = context
-        .get_scene("main")
-        .context("recherche scène 'main'")?
-        .context("scène 'main' introuvable")?;
+        .get_scene(scene_name)
+        .context("recherche scène")?
+        .context("scène introuvable")?;
     scene.remove_scene_item(item).context("retrait caméra de la scène")
 }
 
-/// Applies the real NVIDIA background-removal filter (`nv_greenscreen_filter`) to
-/// `source` — id and its `"mode"` property confirmed from the real obs-studio nv-filters
-/// plugin source (github.com/obsproject/obs-studio, `plugins/nv-filters/nvidia-videofx-filter.c`,
-/// verified 2026-07-23), never guessed. `nv-filters.dll` is confirmed loaded on this
-/// machine (startup log: "[NVIDIA VIDEO FX]: enabled, redistributable found").
-///
-/// One-way: `libobs-wrapper` 9.0.4 tracks an applied filter's removal guard on the
-/// SOURCE's own internal list, with no public API to detach it before the source itself
-/// is dropped (verified in `ObsSourceRef::apply_filter`'s source) — there is no
-/// `remove_background_removal` counterpart yet.
-pub fn apply_background_removal(source: &ObsSourceRef) -> Result<()> {
+/// Creates the real NVIDIA background-removal filter (`nv_greenscreen_filter`) on `source`
+/// and attaches it DISABLED — id and its `"mode"` property confirmed from the real
+/// obs-studio nv-filters plugin source (github.com/obsproject/obs-studio,
+/// `plugins/nv-filters/nvidia-videofx-filter.c`, verified 2026-07-23), never guessed.
+/// `nv-filters.dll` is confirmed loaded on this machine (startup log: "[NVIDIA VIDEO FX]:
+/// enabled, redistributable found"). Created ONCE per camera source, then toggled with
+/// `set_filter_enabled` (Jay, 2026-07-24 : "un filtre est activé ou non", the real OBS
+/// per-filter enable switch — `obs_source_set_enabled` — never a rebuild).
+pub fn create_background_removal_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> {
     let runtime = source.runtime().clone();
     let mut settings = ObsData::new(runtime.clone()).context("réglages fond IA")?;
     settings.set_int("mode", 0).context("réglage mode fond IA")?; // S_MODE_QUALITY
     let filter = ObsFilterRef::new("nv_greenscreen_filter", "Fond IA", Some(settings.into()), None, runtime)
         .context("création filtre fond IA")?;
-    source.apply_filter(&filter).context("application filtre fond IA")?;
-    Ok(())
+    source.apply_filter(&filter).context("attache filtre fond IA")?;
+    set_filter_enabled(&filter, false).context("désactivation initiale filtre fond IA")?;
+    Ok(filter)
 }
 
-/// Applies a circular alpha mask (`mask_filter`, image-based — OBS has no built-in
-/// geometric circle shape, verified via the real `mask-filter.c` source) to `source`,
-/// using the circle PNG shipped next to the engine binary. Same one-way limitation as
-/// `apply_background_removal`.
-pub fn apply_circle_mask(source: &ObsSourceRef) -> Result<()> {
+/// Creates a circular alpha mask filter (`mask_filter`, image-based — OBS has no built-in
+/// geometric circle shape, verified via the real `mask-filter.c` source) on `source`,
+/// using the circle PNG shipped next to the engine binary, attached DISABLED. Same
+/// create-once-then-toggle contract as `create_background_removal_filter`.
+pub fn create_circle_mask_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> {
     let runtime = source.runtime().clone();
     let mask_path = circle_mask_path().context("chemin masque cercle")?;
     let mut settings = ObsData::new(runtime.clone()).context("réglages masque cercle")?;
@@ -178,8 +187,30 @@ pub fn apply_circle_mask(source: &ObsSourceRef) -> Result<()> {
         .context("réglage étirement masque")?;
     let filter = ObsFilterRef::new("mask_filter", "Masque cercle", Some(settings.into()), None, runtime)
         .context("création filtre masque")?;
-    source.apply_filter(&filter).context("application filtre masque")?;
-    Ok(())
+    source.apply_filter(&filter).context("attache filtre masque")?;
+    set_filter_enabled(&filter, false).context("désactivation initiale filtre masque")?;
+    Ok(filter)
+}
+
+/// Toggles `filter` on/off in place — the real per-filter switch OBS itself exposes (the
+/// "eye" icon), `obs_source_set_enabled` on the filter's own source handle (a libobs filter
+/// IS an `obs_source_t` internally). Confirmed present in the raw C bindings 2026-07-24
+/// (`libobs-sys` 5.0.1, `obs_source_set_enabled`) — `libobs-wrapper` doesn't wrap it yet, so
+/// this dispatches the raw call on the OBS thread via the source's own runtime, the same
+/// thread-safety contract every safe wrapper method uses internally (`run_with_obs!`).
+/// Replaces the rebuild-the-whole-camera approach from 2026-07-23 (visible reinit blip) —
+/// no rebuild, no blip, instant.
+pub fn set_filter_enabled(filter: &ObsFilterRef, enabled: bool) -> Result<()> {
+    let runtime = filter.runtime().clone();
+    let ptr = filter.as_ptr();
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // Safety: `ptr` is valid because it comes from a live `SmartPointerSendable`
+            // (the filter is still attached, we hold a reference to it) — same safety
+            // argument the wrapper's own `apply_filter`/`obs_source_filter_add` calls make.
+            libobs::obs_source_set_enabled(ptr.get_ptr(), enabled);
+        })
+        .context("activation/désactivation filtre")
 }
 
 /// Absolute path to the circle mask asset, resolved next to the engine's own binary —

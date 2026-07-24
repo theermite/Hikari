@@ -43,61 +43,68 @@ describe("camera api", () => {
     expect(devices).toEqual([]);
   });
 
-  it("should_call_add_camera_source_command_with_device_id_when_adding", async () => {
+  it("should_call_add_camera_source_command_with_device_id_and_scene_when_adding", async () => {
     vi.mocked(invoke).mockResolvedValueOnce(undefined);
 
-    await addCameraSource("Webcam HD:usb#vid_0000");
+    await addCameraSource("Webcam HD:usb#vid_0000", "Jeu");
 
     expect(invoke).toHaveBeenCalledExactlyOnceWith("add_camera_source", {
       deviceId: "Webcam HD:usb#vid_0000",
+      scene: "Jeu",
     });
   });
 
-  it("should_call_set_background_removal_command_with_enabled_when_toggling", async () => {
+  it("should_call_set_background_removal_command_with_scene_and_enabled_when_toggling", async () => {
     vi.mocked(invoke).mockResolvedValueOnce(undefined);
 
-    await setBackgroundRemoval(true);
+    await setBackgroundRemoval("Jeu", true);
 
     expect(invoke).toHaveBeenCalledExactlyOnceWith("set_background_removal", {
+      scene: "Jeu",
       enabled: true,
     });
   });
 
-  it("should_call_set_circle_mask_command_with_enabled_when_toggling", async () => {
+  it("should_call_set_circle_mask_command_with_scene_and_enabled_when_toggling", async () => {
     vi.mocked(invoke).mockResolvedValueOnce(undefined);
 
-    await setCircleMask(false);
+    await setCircleMask("Jeu", false);
 
     expect(invoke).toHaveBeenCalledExactlyOnceWith("set_circle_mask", {
+      scene: "Jeu",
       enabled: false,
     });
   });
 
-  it("should_call_remove_camera_source_command_when_removing", async () => {
+  it("should_call_remove_camera_source_command_with_scene_when_removing", async () => {
     vi.mocked(invoke).mockResolvedValueOnce(undefined);
 
-    await removeCameraSource();
+    await removeCameraSource("Jeu");
 
-    expect(invoke).toHaveBeenCalledExactlyOnceWith("remove_camera_source");
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("remove_camera_source", {
+      scene: "Jeu",
+    });
   });
 
-  it("should_call_nudge_camera_command_with_delta_when_moving", async () => {
+  it("should_call_nudge_camera_command_with_scene_and_delta_when_moving", async () => {
     vi.mocked(invoke).mockResolvedValueOnce(undefined);
 
-    await nudgeCamera(40, -40);
+    await nudgeCamera("Jeu", 40, -40);
 
     expect(invoke).toHaveBeenCalledExactlyOnceWith("nudge_camera", {
+      scene: "Jeu",
       dx: 40,
       dy: -40,
     });
   });
 
-  it("should_call_scale_camera_command_with_grow_when_resizing", async () => {
+  it("should_call_scale_camera_command_with_scene_and_grow_when_resizing", async () => {
     vi.mocked(invoke).mockResolvedValueOnce(undefined);
 
-    await scaleCamera(true);
+    await scaleCamera("Jeu", true);
 
     expect(invoke).toHaveBeenCalledExactlyOnceWith("scale_camera", {
+      scene: "Jeu",
       grow: true,
     });
   });

@@ -48,7 +48,7 @@ fn should_pass_through_scale_within_range() {
 
 #[test]
 fn should_roundtrip_nudge_camera_command() {
-    let cmd = ControllerCommand::NudgeCamera { dx: 40, dy: -40 };
+    let cmd = ControllerCommand::NudgeCamera { scene: "Jeu".to_string(), dx: 40, dy: -40 };
     let line = to_line(&cmd).expect("serializes");
     assert!(!line.contains('\n'));
     assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
@@ -56,14 +56,19 @@ fn should_roundtrip_nudge_camera_command() {
 
 #[test]
 fn should_roundtrip_scale_camera_command() {
-    let cmd = ControllerCommand::ScaleCamera { grow: true };
+    let cmd = ControllerCommand::ScaleCamera { scene: "Jeu".to_string(), grow: true };
     let line = to_line(&cmd).expect("serializes");
     assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
 }
 
 #[test]
 fn should_roundtrip_camera_transform_message() {
-    let msg = EngineMessage::CameraTransform { x: 100, y: -50, scale_percent: 120 };
+    let msg = EngineMessage::CameraTransform {
+        scene: "Jeu".to_string(),
+        x: 100,
+        y: -50,
+        scale_percent: 120,
+    };
     let line = to_line(&msg).expect("serializes");
     assert_eq!(parse_engine_message(&line).expect("parses"), msg);
 }
@@ -83,8 +88,8 @@ proptest! {
     }
 
     #[test]
-    fn should_roundtrip_camera_transform_for_any_value(x in any::<i32>(), y in any::<i32>(), scale_percent in any::<i32>()) {
-        let msg = EngineMessage::CameraTransform { x, y, scale_percent };
+    fn should_roundtrip_camera_transform_for_any_value(scene in any::<String>(), x in any::<i32>(), y in any::<i32>(), scale_percent in any::<i32>()) {
+        let msg = EngineMessage::CameraTransform { scene, x, y, scale_percent };
         let line = to_line(&msg).expect("serializes");
         prop_assert!(!line.contains('\n'));
         prop_assert_eq!(parse_engine_message(&line).expect("parses"), msg);

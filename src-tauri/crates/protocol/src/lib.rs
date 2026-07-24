@@ -98,10 +98,10 @@ pub enum EngineMessage {
     PlatformFrames { id: String, dropped: i32, total: i32 },
     /// One multistream target was stopped cleanly.
     PlatformStopped { id: String },
-    /// The camera's current position/scale after `NudgeCamera` or `ScaleCamera` (B7) —
-    /// emitted with the real, clamped values (never presumed), so the panel reflects what
-    /// actually happened rather than optimistically applying the requested delta.
-    CameraTransform { x: i32, y: i32, scale_percent: i32 },
+    /// The camera's current position/scale in `scene` after `NudgeCamera` or `ScaleCamera`
+    /// (B7) — emitted with the real, clamped values (never presumed), so the panel reflects
+    /// what actually happened rather than optimistically applying the requested delta.
+    CameraTransform { scene: String, x: i32, y: i32, scale_percent: i32 },
     /// One multistream target failed — recoverable, reported instead of silently dropping
     /// that platform (B3 acceptance: "aucun échec silencieux"). The other targets are
     /// unaffected and keep streaming.
@@ -120,24 +120,26 @@ pub enum ControllerCommand {
     CreateScene { name: String },
     /// Ask the engine to emit the current scene's sources.
     ListSources,
-    /// Adds a webcam (DirectShow) source to the "main" scene. `device_id` must be the
-    /// exact value `EngineMessage::Cameras` reported — never guessed (B-cam).
-    AddCamera { device_id: String },
-    /// Sets whether the real NVIDIA background-removal filter (`nv_greenscreen_filter`) is
-    /// applied to the camera (B-cam, F-036). `libobs-wrapper` 9.0.4 has no public API to
-    /// detach an applied filter (verified in its own source) — so toggling this REBUILDS
-    /// the whole camera source (remove + re-add + reapply whichever effects are still on),
-    /// the only verified-safe way to simulate on/off. Causes a brief camera reinit blip,
-    /// disclosed to Jay (2026-07-23).
-    SetBackgroundRemoval { enabled: bool },
-    /// Sets whether a circular alpha mask (`mask_filter`) is applied to the camera
-    /// (B-cam, F-036). Same rebuild-based toggle as `SetBackgroundRemoval`.
-    SetCircleMask { enabled: bool },
-    /// Removes the webcam source from the "main" scene entirely (B-cam) — its filters
-    /// (background removal, mask) go with it, since libobs owns them on the source. The
-    /// real way to "turn the camera off" today, given filters themselves have no public
-    /// removal API (see `EnableBackgroundRemoval`'s doc). A no-op if no camera is present.
-    RemoveCamera,
+    /// Puts the ONE physical webcam into `scene` (B-cam, multi-scene tranche 2). The same
+    /// source is reused if it already exists elsewhere — never a 2nd device capture (Jay,
+    /// 2026-07-24: "la caméra est unique"). `device_id` (from `EngineMessage::Cameras`,
+    /// never guessed) matters only the very first time; later calls for a new scene reuse
+    /// whatever device is already open.
+    AddCamera { device_id: String, scene: String },
+    /// Sets whether the real NVIDIA background-removal filter is enabled for `scene`
+    /// (B-cam, F-036, multi-scene tranche 2). The filter itself is created once per camera
+    /// and toggled in place (`obs_source_set_enabled`, real OBS per-filter switch — never a
+    /// rebuild) — each scene keeps its OWN desired on/off state, applied whenever THAT scene
+    /// becomes live (`SwitchScene`), exactly the "scene automation toggles my filters" flow
+    /// Jay already uses in OBS today.
+    SetBackgroundRemoval { scene: String, enabled: bool },
+    /// Sets whether the circular alpha mask filter is enabled for `scene`. Same per-scene,
+    /// per-filter toggle contract as `SetBackgroundRemoval`.
+    SetCircleMask { scene: String, enabled: bool },
+    /// Removes the webcam from `scene` only — other scenes keep showing it with their own
+    /// filter state untouched. The physical source (and its filters) is only fully released
+    /// once no scene shows it anymore. A no-op if `scene` doesn't show the camera.
+    RemoveCamera { scene: String },
     /// Start streaming to the RTMP target the engine reads from its OWN environment
     /// (`HIKARI_RTMP_SERVER`/`HIKARI_RTMP_KEY`, B2a scope). The wire NEVER carries a key —
     /// account-sourced targets (B2b, OAuth + vault) will replace the env-var mechanism,
@@ -159,14 +161,15 @@ pub enum ControllerCommand {
     StopMultistream,
     /// Ask the engine to stop and exit cleanly.
     Stop,
-    /// Moves the webcam by `(dx, dy)` scene pixels (B7) — a fixed step decided by the
-    /// panel's arrow buttons, never a raw drag delta (dockview's own drag broke silently
-    /// in this WebView2 build, see session 2026-07-23; buttons are the provably-safe path).
-    /// A no-op if no camera is present.
-    NudgeCamera { dx: i32, dy: i32 },
-    /// Grows (`true`) or shrinks (`false`) the webcam by one fixed step (B7). A no-op if
-    /// no camera is present.
-    ScaleCamera { grow: bool },
+    /// Moves the webcam's placement WITHIN `scene` by `(dx, dy)` pixels (B7) — a fixed step
+    /// decided by the panel's arrow buttons, never a raw drag delta (dockview's own drag
+    /// broke silently in this WebView2 build, session 2026-07-23). Position is per scene
+    /// (the same physical source can sit differently in each scene it appears in). A no-op
+    /// if `scene` doesn't show the camera.
+    NudgeCamera { scene: String, dx: i32, dy: i32 },
+    /// Grows (`true`) or shrinks (`false`) the webcam's placement within `scene` by one
+    /// fixed step (B7). Same per-scene scope as `NudgeCamera`.
+    ScaleCamera { scene: String, grow: bool },
     /// Switches the live scene (multi-scene, tranche 1) — an instant cut on the output
     /// channel (`obs_set_output_source`), never a transition (that's B7's remaining scope).
     SwitchScene { name: String },
