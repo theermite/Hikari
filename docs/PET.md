@@ -187,8 +187,8 @@ project: Hikari Stream
 |---|---|---|---|
 | B3 | Multistream + vertical simultané | Critique | 🟧 horizontal fait (2026-07-19) · vertical prêt à coder (B0.2 GO 2026-07-21) |
 | B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | ⬜ |
-| B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | ⬜ |
-| B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | ⬜ |
+| B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | 🟧 déplacer/redimensionner par boutons fait (2026-07-24) · souris + transitions/auto-move restent |
+| B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | 🟧 détection + ajout scène + masque cercle + fond IA + retrait/rajout fait (2026-07-23/24) · cam mobile reste |
 
 ### Phase P3 — Deck
 | Brique | Scope | Niveau | Statut |
