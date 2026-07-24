@@ -813,6 +813,15 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Critère d'acceptation** : transition appliquée au switch · source déplacée.
 - **Vérité externe** : API transitions `libobs-wrapper` — **à confirmer par veille**. 🟡.
 - **Autonomie** : 🟡.
+- **Fait (2026-07-24)** : déplacer/redimensionner une source par BOUTONS (flèches + zoom,
+  `nudge_camera`/`scale_camera`) — livré pour la caméra, `SceneItemTrait::set_source_position/
+  set_source_scale` (déjà prouvé, `fit_source_to_screen`). Clamp de sécurité générique
+  (pas de lecture sûre de la taille canvas hors thread OBS interne), testé en pur.
+- **Dette (2026-07-24, décision Jay)** : glisser-déposer réel à la souris dans l'aperçu
+  (comme OBS), en plus des boutons — pas encore commencé. Demande une capture souris dans
+  la fenêtre native du moteur (le webview ne voit jamais ces clics) + un calcul de zone
+  cliquable (position/échelle de la source ↔ pixels fenêtre). Prochaine tranche B7 quand
+  Jay le priorise.
 
 ### B-cam — Caméra · Standard · 🟡 (API à confirmer)
 - **Objectif** : caméra perso, masques (cercle), fond sans écran vert, cam mobile (F-024, F-036).
