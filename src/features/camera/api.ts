@@ -36,3 +36,16 @@ export function setCircleMask(enabled: boolean): Promise<void> {
 export function removeCameraSource(): Promise<void> {
   return invoke("remove_camera_source");
 }
+
+/** Moves the webcam by `(dx, dy)` scene pixels (`nudge_camera`, B7) — a fixed step per
+ * click, never a raw drag delta (dockview's own drag broke silently in this WebView2
+ * build, session 2026-07-23). Requires a camera already added. */
+export function nudgeCamera(dx: number, dy: number): Promise<void> {
+  return invoke("nudge_camera", { dx, dy });
+}
+
+/** Grows or shrinks the webcam by one fixed step (`scale_camera`, B7). Same requirement
+ * as `nudgeCamera`. */
+export function scaleCamera(grow: boolean): Promise<void> {
+  return invoke("scale_camera", { grow });
+}

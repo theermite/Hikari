@@ -11,11 +11,17 @@ import { useState } from "react";
 import {
   addCameraSource,
   listCameras,
+  nudgeCamera,
   removeCameraSource,
+  scaleCamera,
   setBackgroundRemoval,
   setCircleMask,
 } from "./api";
 import type { CameraDevice } from "./types";
+
+/** Fixed pixel step per arrow-button click (B7) — a raw drag was ruled out (dockview's
+ * own drag already broke silently in this WebView2 build, session 2026-07-23). */
+const NUDGE_STEP = 40;
 
 type State =
   | { status: "idle" }
@@ -55,6 +61,7 @@ export function CameraPanel(_props: IDockviewPanelProps) {
   const [removeState, setRemoveState] = useState<RemoveState>({
     status: "idle",
   });
+  const [transformError, setTransformError] = useState<string | null>(null);
 
   const detect = () => {
     setState({ status: "checking" });
@@ -98,6 +105,20 @@ export function CameraPanel(_props: IDockviewPanelProps) {
       .catch((error: unknown) => {
         setMaskState((s) => ({ ...s, pending: false, error: String(error) }));
       });
+  };
+
+  const move = (dx: number, dy: number) => {
+    setTransformError(null);
+    nudgeCamera(dx, dy).catch((error: unknown) =>
+      setTransformError(String(error)),
+    );
+  };
+
+  const zoom = (grow: boolean) => {
+    setTransformError(null);
+    scaleCamera(grow).catch((error: unknown) =>
+      setTransformError(String(error)),
+    );
   };
 
   const removeCamera = () => {
@@ -201,6 +222,60 @@ export function CameraPanel(_props: IDockviewPanelProps) {
           )}
           {maskState.error && (
             <p className="text-center text-hikari-red">❌ {maskState.error}</p>
+          )}
+          <p className="text-[12px] text-hikari-txt-faint">
+            Position et taille dans la scène
+          </p>
+          <div className="grid grid-cols-3 gap-1">
+            <span />
+            <button
+              type="button"
+              onClick={() => move(0, -NUDGE_STEP)}
+              className="rounded-[8px] border border-hikari-line px-3 py-1 text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+            >
+              ↑
+            </button>
+            <span />
+            <button
+              type="button"
+              onClick={() => move(-NUDGE_STEP, 0)}
+              className="rounded-[8px] border border-hikari-line px-3 py-1 text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={() => move(0, NUDGE_STEP)}
+              className="rounded-[8px] border border-hikari-line px-3 py-1 text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              onClick={() => move(NUDGE_STEP, 0)}
+              className="rounded-[8px] border border-hikari-line px-3 py-1 text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+            >
+              →
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => zoom(false)}
+              className="rounded-[8px] border border-hikari-line px-3 py-1 text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+            >
+              Réduire −
+            </button>
+            <button
+              type="button"
+              onClick={() => zoom(true)}
+              className="rounded-[8px] border border-hikari-line px-3 py-1 text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+            >
+              Agrandir +
+            </button>
+          </div>
+          {transformError && (
+            <p className="text-center text-hikari-red">❌ {transformError}</p>
           )}
           <button
             type="button"

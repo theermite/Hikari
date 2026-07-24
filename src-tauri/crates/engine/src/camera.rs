@@ -12,7 +12,8 @@ use libobs_wrapper::data::object::ObsObjectTrait;
 use libobs_wrapper::data::properties::types::ObsListItemValue;
 use libobs_wrapper::data::properties::{ObsProperty, ObsPropertyObject};
 use libobs_wrapper::data::{ObsData, ObsDataSetters};
-use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemExtSceneTrait};
+use libobs_wrapper::graphics::Vec2;
+use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemExtSceneTrait, SceneItemTrait};
 use libobs_wrapper::sources::{ObsFilterRef, ObsSourceBuilder, ObsSourceRef, ObsSourceTrait};
 // `libobs-wrapper` re-exports the raw sys crate as `sys`; the macro below expands a
 // literal `libobs::obs_source` path, so it needs a local alias named `libobs` rather than
@@ -94,6 +95,29 @@ pub fn add_camera_to_scene(
         .set_video_device_id(device_id)
         .add_to_scene(&mut scene)
         .context("ajout caméra à la scène")
+}
+
+/// Moves the camera by `(dx, dy)` scene pixels from its current position (B7), clamped by
+/// `hikari_protocol::clamp_camera_position`. Returns the real, post-clamp transform (never
+/// the requested delta) so the caller reports what actually happened.
+pub fn nudge_camera(item: &ObsSceneItemRef<ObsSourceRef>, dx: i32, dy: i32) -> Result<(i32, i32, i32)> {
+    let current = item.get_source_position().context("lecture position caméra")?;
+    let (x, y) = hikari_protocol::clamp_camera_position(*current.x() as i32 + dx, *current.y() as i32 + dy);
+    item.set_source_position(Vec2::new(x as f32, y as f32)).context("déplacement caméra")?;
+    let scale = item.get_source_scale().context("lecture échelle caméra")?;
+    Ok((x, y, (scale.x() * 100.0).round() as i32))
+}
+
+/// Grows (`grow = true`) or shrinks the camera by one fixed step (B7), clamped by
+/// `hikari_protocol::clamp_camera_scale`. Same "return the real result" contract as
+/// `nudge_camera`.
+pub fn scale_camera(item: &ObsSceneItemRef<ObsSourceRef>, grow: bool) -> Result<(i32, i32, i32)> {
+    let position = item.get_source_position().context("lecture position caméra")?;
+    let current_scale = item.get_source_scale().context("lecture échelle caméra")?;
+    let factor = if grow { 1.0 + hikari_protocol::CAMERA_SCALE_STEP } else { 1.0 / (1.0 + hikari_protocol::CAMERA_SCALE_STEP) };
+    let new_scale = hikari_protocol::clamp_camera_scale(current_scale.x() * factor);
+    item.set_source_scale(Vec2::new(new_scale, new_scale)).context("mise à l'échelle caméra")?;
+    Ok((*position.x() as i32, *position.y() as i32, (new_scale * 100.0).round() as i32))
 }
 
 /// Detaches `item` from the "main" scene — the real removal, not merely dropping our own

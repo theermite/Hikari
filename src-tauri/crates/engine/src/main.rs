@@ -139,6 +139,8 @@ enum EngineEvent {
     SetBackgroundRemoval { enabled: bool },
     SetCircleMask { enabled: bool },
     RemoveCamera,
+    NudgeCamera { dx: i32, dy: i32 },
+    ScaleCamera { grow: bool },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -321,6 +323,39 @@ impl App {
         emit(&EngineMessage::Sources { items: obs.sources.clone() });
     }
 
+    /// Moves the webcam by `(dx, dy)` scene pixels (B7). A no-op (with an explicit error,
+    /// never a silent drop) if no camera is present.
+    fn handle_nudge_camera(&mut self, dx: i32, dy: i32) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "réglage caméra avant l'initialisation".into() });
+            return;
+        };
+        let Some(item) = &obs.camera_item else {
+            emit(&EngineMessage::Error { message: "aucune caméra dans la scène — ajoute-en une d'abord".into() });
+            return;
+        };
+        match camera::nudge_camera(item, dx, dy) {
+            Ok((x, y, scale_percent)) => emit(&EngineMessage::CameraTransform { x, y, scale_percent }),
+            Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
+        }
+    }
+
+    /// Grows or shrinks the webcam by one fixed step (B7). Same guard as `handle_nudge_camera`.
+    fn handle_scale_camera(&mut self, grow: bool) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "réglage caméra avant l'initialisation".into() });
+            return;
+        };
+        let Some(item) = &obs.camera_item else {
+            emit(&EngineMessage::Error { message: "aucune caméra dans la scène — ajoute-en une d'abord".into() });
+            return;
+        };
+        match camera::scale_camera(item, grow) {
+            Ok((x, y, scale_percent)) => emit(&EngineMessage::CameraTransform { x, y, scale_percent }),
+            Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
+        }
+    }
+
     /// Tears down and recreates the webcam source, reapplying whichever filters are
     /// currently desired (`background_removal_on`/`circle_mask_on`) — the only
     /// verified-safe way to simulate turning a filter off, since `libobs-wrapper` 9.0.4
@@ -390,6 +425,8 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetBackgroundRemoval { enabled } => self.handle_set_background_removal(enabled),
             EngineEvent::SetCircleMask { enabled } => self.handle_set_circle_mask(enabled),
             EngineEvent::RemoveCamera => self.handle_remove_camera(),
+            EngineEvent::NudgeCamera { dx, dy } => self.handle_nudge_camera(dx, dy),
+            EngineEvent::ScaleCamera { grow } => self.handle_scale_camera(grow),
         }
     }
 
@@ -484,6 +521,12 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 }
                 Ok(ControllerCommand::RemoveCamera) => {
                     let _ = proxy.send_event(EngineEvent::RemoveCamera);
+                }
+                Ok(ControllerCommand::NudgeCamera { dx, dy }) => {
+                    let _ = proxy.send_event(EngineEvent::NudgeCamera { dx, dy });
+                }
+                Ok(ControllerCommand::ScaleCamera { grow }) => {
+                    let _ = proxy.send_event(EngineEvent::ScaleCamera { grow });
                 }
                 Ok(_) => (), // CreateScene/ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),

@@ -35,6 +35,8 @@ pub fn run() {
             engine_lifecycle::set_background_removal,
             engine_lifecycle::set_circle_mask,
             engine_lifecycle::remove_camera_source,
+            engine_lifecycle::nudge_camera,
+            engine_lifecycle::scale_camera,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .run(tauri::generate_context!())
