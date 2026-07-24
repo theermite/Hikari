@@ -19,6 +19,7 @@ import { PreviewPanel } from "../preview/PreviewPanel";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
 import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
+import { SettingsPanel } from "./panels/SettingsPanel";
 import { PRESETS, type PresetId, resolvePreset } from "./presets";
 import { Sidebar } from "./Sidebar";
 
@@ -26,7 +27,11 @@ const PANEL_COMPONENTS: Record<
   string,
   React.FunctionComponent<IDockviewPanelProps>
 > = {
+  // Gardé pour désérialiser une disposition sauvegardée avant la migration Comptes →
+  // Paramètres (2026-07-24) ; le panneau "twitch-connect" lui-même n'est plus ajouté (voir
+  // la migration dans `onReady`, qui le retire au premier chargement).
   "twitch-connect": AccountsPanel,
+  settings: SettingsPanel,
   deck: DeckPanel,
   placeholder: PlaceholderPanel,
   preflight: PreflightPanel,
@@ -47,21 +52,20 @@ function ensurePanel(
   api.addPanel({ id, component: id, title, position });
 }
 
-/** Builds the default layout — the two panels wired to real backends today (connexion
- * Twitch, B2b ; deck local, B4) plus a labeled placeholder standing in for the panel
- * not built yet (Aperçu), so the dock/tab/resize behavior has more than two panels to
- * demonstrate. */
+/** Builds the default layout — Caméra occupe la place de gauche (Jay, 2026-07-24 : les
+ * comptes ne sont plus dans le cockpit live, seulement dans Paramètres, ouvert depuis la
+ * barre latérale). */
 function buildDefaultLayout(api: DockviewApi): void {
-  const twitch = api.addPanel({
-    id: "twitch-connect",
-    component: "twitch-connect",
-    title: "Comptes",
+  const camera = api.addPanel({
+    id: "camera",
+    component: "camera",
+    title: "Caméra",
   });
   const deck = api.addPanel({
     id: "deck",
     component: "deck",
     title: "Deck",
-    position: { referencePanel: twitch.id, direction: "right" },
+    position: { referencePanel: camera.id, direction: "right" },
   });
   api.addPanel({
     id: "preview",
@@ -73,13 +77,7 @@ function buildDefaultLayout(api: DockviewApi): void {
     id: "preflight",
     component: "preflight",
     title: "Pré-vol",
-    position: { referencePanel: twitch.id, direction: "below" },
-  });
-  api.addPanel({
-    id: "camera",
-    component: "camera",
-    title: "Caméra",
-    position: { referencePanel: twitch.id, direction: "below" },
+    position: { referencePanel: camera.id, direction: "below" },
   });
 }
 
@@ -106,6 +104,18 @@ export function Cockpit() {
             event.api.removePanel(oldPlaceholder);
           }
           ensurePanel(event.api, "preview", "Aperçu");
+          // Migration Comptes → Paramètres (Jay, 2026-07-24) : une disposition sauvegardée
+          // avant ce jour a "Comptes" à gauche — la Caméra prend sa place exacte (même
+          // groupe d'onglets), et le panneau Comptes du cockpit live disparaît (il reste
+          // accessible depuis Paramètres, barre latérale).
+          const twitchPanel = event.api.getPanel("twitch-connect");
+          if (twitchPanel) {
+            const cameraPanel = event.api.getPanel("camera");
+            if (cameraPanel && cameraPanel.group !== twitchPanel.group) {
+              cameraPanel.api.moveTo({ group: twitchPanel.group });
+            }
+            event.api.removePanel(twitchPanel);
+          }
         } else {
           buildDefaultLayout(event.api);
         }

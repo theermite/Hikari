@@ -34,7 +34,10 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   { label: "Suivre", items: [{ label: "Suivi", built: false }] },
-  { label: "Système", items: [{ label: "Paramètres", built: false }] },
+  {
+    label: "Système",
+    items: [{ label: "Paramètres", built: true, panelId: "settings" }],
+  },
 ];
 
 interface SidebarProps {
