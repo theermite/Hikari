@@ -81,7 +81,19 @@ REFORMULATION_PATTERNS = (
     ),
     # Explicit plan announcement
     re.compile(r"(plan|s[ée]quence|steps?)[^\n]{0,100}(fichiers?|files?|hooks?|commits?)", re.IGNORECASE),
+    # Markdown table naming files/actions. Honesty.md constraint 3 REQUIRES a
+    # table for 3+ items, so a table reformulation is the mandated format — the
+    # keyword-only patterns above blocked it (cross-model review 2026-07-29).
+    re.compile(
+        r"^\s*\|[^\n]*\b(fichier|file|action|ampleur|touche|impact)[^\n]*\|",
+        re.IGNORECASE | re.MULTILINE,
+    ),
 )
+
+# Harness-supplied identifiers used to build file paths. Kept to a tight
+# allow-list so a malformed value can never traverse out of its directory
+# (cross-model review 2026-07-29 reproduced a real write outside .claude/state/).
+SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
 
 def _is_real_user_message(msg: dict) -> bool:
@@ -292,9 +304,15 @@ def resolve_transcript(data: dict) -> tuple[str, bool]:
     See the module docstring for the measured facts behind this.
     """
     parent = data.get("transcript_path") or os.environ.get("CLAUDE_TRANSCRIPT_PATH", "")
+    if not isinstance(parent, str):
+        parent = ""
     agent_id = data.get("agent_id")
-    if not agent_id:
+    if not agent_id or not isinstance(agent_id, str):
         return parent, True  # parent session — behaviour unchanged
+    # A malformed agent_id falls back to the PARENT journal (gate stays armed),
+    # never to a path built from the untrusted value.
+    if not SAFE_ID.match(agent_id):
+        return parent, True
     if not parent:
         return "", False
     own = Path(parent).with_suffix("") / "subagents" / f"agent-{agent_id}.jsonl"
@@ -332,4 +350,13 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    # Fail open on any unexpected error (malformed payload, Windows file lock):
+    # a crashing gate must never break Jay's session with a raw traceback.
+    # block()/pass_through() exit via SystemExit, which must stay unswallowed.
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as exc:  # noqa: BLE001 — deliberate fail-open boundary
+        print(f"[reformulate-gate] passing through on unexpected error: {exc}", file=sys.stderr)
+        sys.exit(0)

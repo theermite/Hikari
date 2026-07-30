@@ -12,6 +12,7 @@ The directory is created on demand. Files are LF-encoded UTF-8. Stdlib only.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,22 @@ from common import find_repo_root  # type: ignore  # lib/ added to sys.path by h
 
 
 STATE_DIRNAME = ".claude/state"
+
+# session_id arrives from hook stdin and becomes part of a FILE NAME. Kept to a
+# tight allow-list so a value like "../../../x" can never write outside the
+# state directory (cross-model review 2026-07-29 reproduced that write).
+SAFE_SESSION_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+
+
+def safe_session_id(session_id: str | None) -> str | None:
+    """Return session_id when it is a safe filename fragment, else None.
+
+    None means "no per-session suffix" — the same shared-file behaviour hooks
+    already use when the harness sends no session_id at all.
+    """
+    if not session_id or not isinstance(session_id, str):
+        return None
+    return session_id if SAFE_SESSION_ID.match(session_id) else None
 
 
 def state_dir(repo_root: Path | None = None) -> Path:
@@ -30,10 +47,19 @@ def state_dir(repo_root: Path | None = None) -> Path:
 
 
 def state_path(name: str, session_id: str | None = None, repo_root: Path | None = None) -> Path:
-    """Return the state file path for `name` (per-session if session_id given)."""
+    """Return the state file path for `name` (per-session if session_id given).
+
+    `name` is hook-authored (never user input) ; `session_id` comes from stdin
+    and is therefore validated before it can shape a filename.
+    """
     d = state_dir(repo_root)
-    suffix = f"-{session_id}" if session_id else ""
-    return d / f"{name}{suffix}.json"
+    sid = safe_session_id(session_id)
+    suffix = f"-{sid}" if sid else ""
+    p = (d / f"{name}{suffix}.json").resolve()
+    # Defense in depth: whatever `name` and `sid` contain, the result stays in d.
+    if d.resolve() not in p.parents:
+        raise ValueError(f"state path escapes {STATE_DIRNAME}: {p}")
+    return p
 
 
 def read_state(name: str, session_id: str | None = None, repo_root: Path | None = None) -> dict[str, Any]:

@@ -13,7 +13,7 @@ The quality protocol applies automatically to every code write. Jay never has to
 | # | Gate | When |
 |---|------|------|
 | 1 | Context | Blueprint/CDC if they exist ; else propose a plan. Version veille BEFORE coding (marker mandatory). |
-| 2 | Reformulate | Understood / will do / won't touch / files. Wait for validation on non-trivial. |
+| 2 | Reformulate | Understood / will do / won't touch / files. Wait for validation on non-trivial. **Size scales with the change** (Honesty: 1 sentence for 1 file, 3 bullets for 2-4, full format only on architecture). |
 | 3 | TDG | Tests first (all stacks), red before the code. |
 | 4 | Code | Implement. Atomic commits. Backup tag every 3-4 commits. |
 | 5 | Lint | Zero error. |
@@ -42,7 +42,9 @@ never from internal knowledge.
 ## Behavioral Rules
 
 - **Reformulate before coding (BLOCKING)** on non-trivial (>1 file, externally visible,
-  irreversible). Trivial: one-line pre-announcement, no wait.
+  irreversible). Trivial: one-line pre-announcement, no wait. **Keep it short — the
+  format scales with the work, the heavy version is a ceiling** (see Honesty "Size scales
+  with the change"). An unread reformulation validates nothing.
 - **Deduce before asking**: git, logs, code first. Ask Jay only for what can't be found.
 - **LOGS FIRST** on any bug. Then recent commits → error → location.
 - **Verify before claiming**: stale dataset, check SKB + web. Proof, never assertion.

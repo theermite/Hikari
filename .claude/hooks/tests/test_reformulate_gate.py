@@ -323,3 +323,78 @@ def test_empty_stdin_passes():
         timeout=10,
     )
     assert r.returncode == 0
+
+
+# --- Cross-model review 2026-07-29: hardening ---------------------------------
+# Findings from an independent Sonnet review of this hook (Kata session
+# 2026-07-29). Jay no longer hand-reviews hook Python he only half-reads, so a
+# different model plays the anti-circular reviewer (Quality.md Layer 3).
+
+
+def test_table_formatted_reformulation_unlocks_the_gate(tmp_path):
+    """A reformulation given as a markdown table must satisfy the gate.
+
+    Honesty.md constraint 3 REQUIRES a table when listing 3+ items, so the
+    keyword-only patterns blocked the very format the rules mandate — a false
+    block on legitimate work, worse than a missed check.
+    """
+    transcript = _write_transcript(
+        tmp_path,
+        *_one_prior_write(),
+        _assistant_text(
+            "Voici ce que je fais :\n\n"
+            "| Fichier | Action |\n"
+            "|---|---|\n"
+            "| a.py | ajout du garde |\n"
+            "| b.py | test rouge |\n"
+        ),
+    )
+    r = _run(transcript)
+    assert r.returncode == 0, f"table reformulation must pass: {r.stderr!r}"
+
+
+def test_agent_id_with_path_traversal_is_rejected(tmp_path):
+    """A traversing agent_id must not be used to build a journal path.
+
+    The gate reads the sub-agent journal at a path built from agent_id. An
+    unvalidated value makes it read an arbitrary local file as a fake
+    transcript. Malformed id -> fall back to the parent journal (fail closed
+    on the identity, not on the gate).
+    """
+    parent = _write_transcript(tmp_path, *_one_prior_write())
+    r = _run(parent, agent_id="../../../../etc/passwd")
+    assert r.returncode == 2, (
+        "a traversing agent_id must fall back to the parent journal (which has "
+        f"no reformulation) instead of reading elsewhere: {r.stderr!r}"
+    )
+
+
+def test_wellformed_agent_id_still_reads_its_own_journal(tmp_path):
+    """Guard-rail: the traversal fix must not break the real sub-agent case."""
+    parent = _write_transcript(tmp_path, *_one_prior_write())
+    _write_subagent_transcript(
+        parent,
+        "a57c9581dd38b0f5b",
+        _user("va"),
+        _assistant_text("REFORMULATION: compris, fichiers touches: e.ts"),
+    )
+    r = _run(parent, agent_id="a57c9581dd38b0f5b")
+    assert r.returncode == 0, f"well-formed agent_id must still resolve: {r.stderr!r}"
+
+
+def test_malformed_types_in_payload_pass_through():
+    """Wrong-typed fields must fail open, never crash with a traceback."""
+    payload = {
+        "tool_name": "Write",
+        "tool_input": ["not", "a", "dict"],
+        "transcript_path": 12345,
+        "agent_id": {"nope": 1},
+    }
+    r = subprocess.run(
+        [sys.executable, str(HOOK)],
+        input=json.dumps(payload).encode("utf-8"),
+        capture_output=True,
+        timeout=10,
+    )
+    assert r.returncode == 0, f"malformed payload must fail open: {r.stderr!r}"
+    assert b"Traceback" not in r.stderr
