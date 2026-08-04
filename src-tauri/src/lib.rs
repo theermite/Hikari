@@ -40,6 +40,11 @@ pub fn run() {
             engine_lifecycle::create_scene,
             engine_lifecycle::switch_scene,
             engine_lifecycle::delete_scene,
+            engine_lifecycle::list_audio_devices,
+            engine_lifecycle::add_audio_source,
+            engine_lifecycle::remove_audio_source,
+            engine_lifecycle::set_audio_volume,
+            engine_lifecycle::set_audio_muted,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .run(tauri::generate_context!())

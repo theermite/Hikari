@@ -254,6 +254,61 @@ pub(crate) fn delete_scene(state: State<EngineState>, name: String) -> Result<()
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi DeleteScene au moteur: {err}"))
 }
 
+/// Sends one mixer command to the engine (B6). Shared body of the five audio commands
+/// below: they differ only by the payload, and repeating the lock/guard/serialize dance five
+/// times is where a divergence would eventually creep in.
+fn send_audio(state: &State<EngineState>, command: ControllerCommand) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let Some(handle) = guard.handle.as_mut() else {
+        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
+    };
+    let line = to_line(&command).map_err(|err| err.to_string())?;
+    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi audio au moteur: {err}"))
+}
+
+/// Asks the engine for the machine's real audio devices (B6).
+#[tauri::command]
+pub(crate) fn list_audio_devices(state: State<EngineState>) -> Result<(), String> {
+    send_audio(&state, ControllerCommand::ListAudioDevices)
+}
+
+/// Adds a microphone or desktop-audio capture to the mixer (B6).
+#[tauri::command]
+pub(crate) fn add_audio_source(
+    state: State<EngineState>,
+    device_id: String,
+    kind: hikari_protocol::AudioSourceKind,
+    name: String,
+) -> Result<(), String> {
+    send_audio(&state, ControllerCommand::AddAudioSource { device_id, kind, name })
+}
+
+/// Removes an audio source from the mixer (B6).
+#[tauri::command]
+pub(crate) fn remove_audio_source(state: State<EngineState>, name: String) -> Result<(), String> {
+    send_audio(&state, ControllerCommand::RemoveAudioSource { name })
+}
+
+/// Sets a mixer source's volume from a 0–100 slider position (B6).
+#[tauri::command]
+pub(crate) fn set_audio_volume(
+    state: State<EngineState>,
+    name: String,
+    percent: i32,
+) -> Result<(), String> {
+    send_audio(&state, ControllerCommand::SetAudioVolume { name, percent })
+}
+
+/// Mutes or unmutes a mixer source (B6).
+#[tauri::command]
+pub(crate) fn set_audio_muted(
+    state: State<EngineState>,
+    name: String,
+    muted: bool,
+) -> Result<(), String> {
+    send_audio(&state, ControllerCommand::SetAudioMuted { name, muted })
+}
+
 /// Grafts the engine's preview window (`engine_hwnd`, just announced via `PreviewReady`)
 /// into the Aperçu panel's last-known rect (option B).
 fn graft_into_panel_rect(app: &AppHandle, engine_hwnd: i64) {

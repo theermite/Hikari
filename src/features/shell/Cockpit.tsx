@@ -12,6 +12,7 @@ import type {
 import { DockviewReact } from "dockview-react";
 import { useCallback, useRef, useState } from "react";
 import "dockview-react/dist/styles/dockview.css";
+import { AudioPanel } from "../audio/AudioPanel";
 import { CameraPanel } from "../camera/CameraPanel";
 import { DeckPanel } from "../deck/DeckPanel";
 import { PreflightPanel } from "../preflight/PreflightPanel";
@@ -39,6 +40,7 @@ const PANEL_COMPONENTS: Record<
   camera: CameraPanel,
   preview: PreviewPanel,
   scenes: ScenesPanel,
+  audio: AudioPanel,
 };
 
 /** Adds panel `id` if a (fresh or restored) layout doesn't already have it — a saved
@@ -87,6 +89,12 @@ function buildDefaultLayout(api: DockviewApi): void {
     title: "Scènes",
     position: { referencePanel: camera.id, direction: "below" },
   });
+  api.addPanel({
+    id: "audio",
+    component: "audio",
+    title: "Audio",
+    position: { referencePanel: camera.id, direction: "below" },
+  });
 }
 
 export function Cockpit() {
@@ -115,6 +123,12 @@ export function Cockpit() {
           // Un layout sauvegardé avant cette brique (multi-scène) ne l'a jamais vu — même
           // rattrapage que les autres panneaux ajoutés après coup.
           ensurePanel(event.api, "scenes", "Scènes", {
+            referencePanel: "camera",
+            direction: "below",
+          });
+          // Idem pour le mixeur (B6) : ajouté après coup, absent des dispositions déjà
+          // écrites sur le disque.
+          ensurePanel(event.api, "audio", "Audio", {
             referencePanel: "camera",
             direction: "below",
           });

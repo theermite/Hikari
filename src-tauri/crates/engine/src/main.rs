@@ -12,13 +12,14 @@
 //! API transcribed from the proven spikes (B0.0 for the scene/sources/streaming, B1b for
 //! the preview window + wire announcement). This is the integrated port, not throwaway code.
 
+mod audio;
 mod camera;
 mod multistream;
 mod scenes;
 mod stream;
 
 use std::io::{BufRead, Write};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use hikari_protocol::{ControllerCommand, EngineMessage, SceneInfo, SourceInfo};
@@ -48,6 +49,10 @@ const MONITOR_CAPTURE_NAME: &str = "Monitor Capture";
 const PREVIEW_START_WIDTH: u32 = 960;
 const PREVIEW_START_HEIGHT: u32 = 540;
 const TARGET_ASPECT: f32 = 16.0 / 9.0;
+/// How often the mixer's level bars are refreshed (B6). Fast enough that a bar tracks the
+/// voice rather than lagging behind it, slow enough not to flood the pipe — the frame
+/// counters' two-second beat would make the bars lurch, hence a separate cadence.
+const AUDIO_LEVEL_INTERVAL: Duration = Duration::from_millis(50);
 
 /// Emit one protocol message as a single JSON line on stdout. A serialization failure is
 /// reported on stderr rather than swallowed (it must never crash the engine). `pub(crate)`
@@ -142,6 +147,26 @@ struct ObsInner {
     /// The camera's native pixel size, measured once. A webcam does not change resolution
     /// mid-session; re-asking libobs on every mouse move would be pure cost.
     camera_base_size: Option<(u32, u32)>,
+    /// The mixer (B6) — audio sources in insertion order, so a source keeps its channel and
+    /// its place in the panel for its whole life.
+    audio: Vec<MixerSource>,
+}
+
+/// One audio source in the mixer, with everything the engine must remember about it.
+struct MixerSource {
+    name: String,
+    kind: hikari_protocol::AudioSourceKind,
+    source: ObsSourceRef,
+    /// The libobs output channel it occupies. Kept explicitly so removing a source frees the
+    /// right channel — recomputing it from the list order would free the wrong one once any
+    /// earlier source has been removed.
+    channel: u32,
+    /// Its live level meter. `None` when libobs refused to create one — a missing bar costs
+    /// a display, never the sound, so it is not a fatal error.
+    meter: Option<audio::LevelMeter>,
+    /// The slider position, remembered so unmuting restores exactly what the user chose.
+    volume_percent: i32,
+    muted: bool,
 }
 
 /// An in-progress camera gesture (B7, souris) — a move or a resize, decided at press time
@@ -183,6 +208,11 @@ enum EngineEvent {
     CreateScene { name: String },
     SwitchScene { name: String },
     DeleteScene { name: String },
+    ListAudioDevices,
+    AddAudioSource { device_id: String, kind: hikari_protocol::AudioSourceKind, name: String },
+    RemoveAudioSource { name: String },
+    SetAudioVolume { name: String, percent: i32 },
+    SetAudioMuted { name: String, muted: bool },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -201,6 +231,9 @@ struct App {
     /// whole batch (unlike `StreamState`, `PlatformStream` doesn't carry its own timer,
     /// since every target reports on the same cadence).
     multistream_last_stats_at: Instant,
+    /// When the mixer's levels were last reported (B6) — its own beat, much faster than the
+    /// frame counters'.
+    audio_last_levels_at: Instant,
     /// Last known cursor position in the preview window, in physical pixels. winit reports
     /// press/release WITHOUT coordinates, so the position has to be remembered from the
     /// preceding move event.
@@ -252,6 +285,7 @@ impl App {
             active_scene: "main".to_string(),
             camera_rect: None,
             camera_base_size: None,
+            audio: Vec::new(),
         });
         self.window = Some(Sendable(window));
         emit(&EngineMessage::SceneList {
@@ -620,6 +654,177 @@ impl App {
         }
     }
 
+    /// Emits the machine's real audio devices, both sides (B6). A failure on one side is
+    /// reported and yields an empty list for that side rather than hiding the other.
+    fn handle_list_audio_devices(&mut self) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "ListAudioDevices avant l'initialisation".into() });
+            return;
+        };
+        let probe = |kind| match audio::probe_audio_devices(&obs.context, kind) {
+            Ok(devices) => devices,
+            Err(err) => {
+                emit(&EngineMessage::Error { message: err.to_string() });
+                Vec::new()
+            }
+        };
+        let inputs = probe(hikari_protocol::AudioSourceKind::Input);
+        let outputs = probe(hikari_protocol::AudioSourceKind::Output);
+        emit(&EngineMessage::AudioDevices { inputs, outputs });
+    }
+
+    /// Adds a microphone or desktop-audio capture to the mixer (B6).
+    fn handle_add_audio_source(
+        &mut self,
+        device_id: String,
+        kind: hikari_protocol::AudioSourceKind,
+        name: String,
+    ) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "AddAudioSource avant l'initialisation".into() });
+            return;
+        };
+        if obs.audio.iter().any(|existing| existing.name == name) {
+            emit(&EngineMessage::Error { message: format!("« {name} » est déjà dans le mixeur") });
+            return;
+        }
+        let Some(channel) = Self::free_audio_channel(&obs.audio) else {
+            emit(&EngineMessage::Error {
+                message: format!("mixeur plein ({} sources maximum)", audio::MAX_AUDIO_SOURCES),
+            });
+            return;
+        };
+        let source = match audio::build_audio_source(&mut obs.context, kind, &device_id, &name) {
+            Ok(source) => source,
+            Err(err) => {
+                emit(&EngineMessage::Error { message: err.to_string() });
+                return;
+            }
+        };
+        if let Err(err) = audio::attach_to_channel(&source, channel) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        // A missing meter costs a bar, never the sound — reported, then carried on without.
+        let meter = match audio::LevelMeter::attach(&source) {
+            Ok(meter) => Some(meter),
+            Err(err) => {
+                emit(&EngineMessage::Error { message: err.to_string() });
+                None
+            }
+        };
+        obs.audio.push(MixerSource {
+            name,
+            kind,
+            source,
+            channel,
+            meter,
+            // libobs starts a source at unity gain; the slider must say the same thing the
+            // ear hears, so it starts at 100 rather than at some remembered default.
+            volume_percent: 100,
+            muted: false,
+        });
+        self.emit_audio_sources();
+    }
+
+    /// The lowest channel no mixer source occupies. `None` when the mixer is full.
+    fn free_audio_channel(sources: &[MixerSource]) -> Option<u32> {
+        (audio::FIRST_AUDIO_CHANNEL..audio::FIRST_AUDIO_CHANNEL + audio::MAX_AUDIO_SOURCES)
+            .find(|channel| !sources.iter().any(|source| source.channel == *channel))
+    }
+
+    /// Removes a source from the mixer: frees its channel, destroys its meter, drops it.
+    fn handle_remove_audio_source(&mut self, name: String) {
+        let Some(obs) = &mut self.obs else { return };
+        let Some(index) = obs.audio.iter().position(|source| source.name == name) else {
+            emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
+            return;
+        };
+        let removed = obs.audio.remove(index);
+        let runtime = obs.context.runtime().clone();
+        // The meter goes first: it must stop pointing at a source that is about to be freed.
+        if let Some(meter) = removed.meter {
+            if let Err(err) = meter.destroy(&runtime) {
+                emit(&EngineMessage::Error { message: err.to_string() });
+            }
+        }
+        if let Err(err) = audio::clear_channel(&runtime, removed.channel) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+        }
+        self.emit_audio_sources();
+    }
+
+    /// Sets a source's volume from the 0–100 slider. A muted source keeps the new value: it
+    /// takes effect the moment it is unmuted, never silently discarded.
+    fn handle_set_audio_volume(&mut self, name: String, percent: i32) {
+        let Some(obs) = &mut self.obs else { return };
+        let Some(source) = obs.audio.iter_mut().find(|source| source.name == name) else {
+            emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
+            return;
+        };
+        let volume = hikari_protocol::percent_to_volume(percent);
+        if let Err(err) = audio::set_volume(&source.source, volume) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        source.volume_percent = hikari_protocol::volume_to_percent(volume);
+        self.emit_audio_sources();
+    }
+
+    /// Mutes or unmutes a source, leaving its slider untouched.
+    fn handle_set_audio_muted(&mut self, name: String, muted: bool) {
+        let Some(obs) = &mut self.obs else { return };
+        let Some(source) = obs.audio.iter_mut().find(|source| source.name == name) else {
+            emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
+            return;
+        };
+        if let Err(err) = audio::set_muted(&source.source, muted) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        source.muted = muted;
+        self.emit_audio_sources();
+    }
+
+    /// Emits the mixer's real state — shared tail of every command that changes it.
+    fn emit_audio_sources(&mut self) {
+        let Some(obs) = &mut self.obs else { return };
+        let items = obs
+            .audio
+            .iter()
+            .map(|source| hikari_protocol::AudioSourceInfo {
+                name: source.name.clone(),
+                kind: source.kind,
+                volume_percent: source.volume_percent,
+                muted: source.muted,
+            })
+            .collect();
+        emit(&EngineMessage::AudioSources { items });
+    }
+
+    /// Emits every source's current loudness. Called on the engine's periodic tick, never
+    /// from the audio callback itself — that one only stores a number, so it never blocks.
+    fn emit_audio_levels(&mut self) {
+        let Some(obs) = &mut self.obs else { return };
+        if obs.audio.is_empty() {
+            return;
+        }
+        let levels = obs
+            .audio
+            .iter()
+            .map(|source| hikari_protocol::AudioLevel {
+                name: source.name.clone(),
+                // A muted source is silent to the listener; showing its bar still moving
+                // would say the opposite of what is being heard.
+                magnitude_db: match (&source.meter, source.muted) {
+                    (_, true) | (None, _) => f32::NEG_INFINITY,
+                    (Some(meter), false) => meter.magnitude_db(),
+                },
+            })
+            .collect();
+        emit(&EngineMessage::AudioLevels { levels });
+    }
+
     /// Forgets the cached camera rectangle. Called by every path that moves, resizes, adds
     /// or removes the camera, and by every scene switch — the cache is only exact as long
     /// as no writer forgets this.
@@ -831,31 +1036,52 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::CreateScene { name } => self.handle_create_scene(name),
             EngineEvent::SwitchScene { name } => self.handle_switch_scene(name),
             EngineEvent::DeleteScene { name } => self.handle_delete_scene(name),
+            EngineEvent::ListAudioDevices => self.handle_list_audio_devices(),
+            EngineEvent::AddAudioSource { device_id, kind, name } => {
+                self.handle_add_audio_source(device_id, kind, name)
+            }
+            EngineEvent::RemoveAudioSource { name } => self.handle_remove_audio_source(name),
+            EngineEvent::SetAudioVolume { name, percent } => {
+                self.handle_set_audio_volume(name, percent)
+            }
+            EngineEvent::SetAudioMuted { name, muted } => self.handle_set_audio_muted(name, muted),
         }
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        // Periodic frame-drop reporting while streaming (B2a: continuous health, not the
-        // spike's single end-of-run sample). Idle (no stream, no multistream) never wakes
-        // the loop early.
-        if self.stream.is_none() && self.multistream.is_empty() {
+        // Periodic reporting: frame drops while streaming (B2a: continuous health, not the
+        // spike's single end-of-run sample) and audio levels while the mixer holds sources
+        // (B6). Fully idle — no stream, no multistream, no audio — never wakes the loop.
+        let has_audio = self.obs.as_ref().is_some_and(|obs| !obs.audio.is_empty());
+        if self.stream.is_none() && self.multistream.is_empty() && !has_audio {
             event_loop.set_control_flow(ControlFlow::Wait);
             return;
         }
-        let Some(obs) = &self.obs else { return };
+        if self.obs.is_none() {
+            return;
+        }
         if let Some(stream) = &mut self.stream {
             if stream.last_stats_at.elapsed() >= FRAME_STATS_INTERVAL {
+                let obs = self.obs.as_ref().expect("obs checked just above");
                 report_frame_stats(&obs.context, &stream.output);
                 stream.last_stats_at = Instant::now();
             }
         }
         if !self.multistream.is_empty() && self.multistream_last_stats_at.elapsed() >= FRAME_STATS_INTERVAL {
+            let obs = self.obs.as_ref().expect("obs checked just above");
             for platform_stream in &self.multistream {
                 report_platform_frame_stats(&obs.context, platform_stream);
             }
             self.multistream_last_stats_at = Instant::now();
         }
-        event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + FRAME_STATS_INTERVAL));
+        if has_audio && self.audio_last_levels_at.elapsed() >= AUDIO_LEVEL_INTERVAL {
+            self.emit_audio_levels();
+            self.audio_last_levels_at = Instant::now();
+        }
+        // Wake on the SHORTEST pending deadline: the audio meter is far more frequent than
+        // the frame counters, and sleeping for the longer one would make the bars lurch.
+        let next = if has_audio { AUDIO_LEVEL_INTERVAL } else { FRAME_STATS_INTERVAL };
+        event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + next));
     }
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
@@ -963,6 +1189,21 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::DeleteScene { name }) => {
                     let _ = proxy.send_event(EngineEvent::DeleteScene { name });
                 }
+                Ok(ControllerCommand::ListAudioDevices) => {
+                    let _ = proxy.send_event(EngineEvent::ListAudioDevices);
+                }
+                Ok(ControllerCommand::AddAudioSource { device_id, kind, name }) => {
+                    let _ = proxy.send_event(EngineEvent::AddAudioSource { device_id, kind, name });
+                }
+                Ok(ControllerCommand::RemoveAudioSource { name }) => {
+                    let _ = proxy.send_event(EngineEvent::RemoveAudioSource { name });
+                }
+                Ok(ControllerCommand::SetAudioVolume { name, percent }) => {
+                    let _ = proxy.send_event(EngineEvent::SetAudioVolume { name, percent });
+                }
+                Ok(ControllerCommand::SetAudioMuted { name, muted }) => {
+                    let _ = proxy.send_event(EngineEvent::SetAudioMuted { name, muted });
+                }
                 Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),
             }
@@ -979,6 +1220,7 @@ fn run() -> Result<()> {
         stream: None,
         multistream: Vec::new(),
         multistream_last_stats_at: Instant::now(),
+        audio_last_levels_at: Instant::now(),
         cursor: None,
         fitted: (PREVIEW_START_WIDTH, PREVIEW_START_HEIGHT),
         drag: None,

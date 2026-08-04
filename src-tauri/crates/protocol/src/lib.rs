@@ -84,8 +84,98 @@ impl SceneInfo {
     }
 }
 
-/// Messages the engine emits toward the controller (engine -> controller), one per line.
+/// The libobs source-kind identifier for a Windows microphone / line-in capture — the id
+/// the real win-wasapi plugin registers (verified 2026-08-04 against obs-studio source).
+pub const AUDIO_INPUT_KIND: &str = "wasapi_input_capture";
+
+/// The libobs source-kind identifier for a Windows speaker / desktop-audio capture. Same
+/// source, same verification.
+pub const AUDIO_OUTPUT_KIND: &str = "wasapi_output_capture";
+
+/// Which side of the sound card an audio source listens to (B6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AudioSourceKind {
+    /// A microphone or line-in — what the streamer says.
+    Input,
+    /// Desktop audio — what the machine plays (game, music, calls).
+    Output,
+}
+
+impl AudioSourceKind {
+    /// The libobs source id to build for this side.
+    pub fn libobs_id(self) -> &'static str {
+        match self {
+            AudioSourceKind::Input => AUDIO_INPUT_KIND,
+            AudioSourceKind::Output => AUDIO_OUTPUT_KIND,
+        }
+    }
+}
+
+/// One audio device libobs reports on this machine. `device_id` is the exact value the
+/// wasapi source's `device_id` property expects, never hand-built.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AudioDevice {
+    pub name: String,
+    pub device_id: String,
+}
+
+/// One audio source currently in the mixer, and its live settings.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AudioSourceInfo {
+    pub name: String,
+    pub kind: AudioSourceKind,
+    /// 0–100, the slider position — never the raw libobs multiplier, so the panel never has
+    /// to know the audio scale.
+    pub volume_percent: i32,
+    pub muted: bool,
+}
+
+/// One source's current loudness, as libobs measures it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AudioLevel {
+    pub name: String,
+    /// Magnitude in decibels. `0` is the loudest undistorted signal; silence is very
+    /// negative (libobs reports `-inf`).
+    pub magnitude_db: f32,
+}
+
+/// The quietest level the meter shows. Below this the bar is simply empty — a meter that
+/// stretched to `-inf` would spend its whole length on silence nobody can hear.
+pub const METER_FLOOR_DB: f32 = -60.0;
+
+/// Turns a decibel reading into a `0.0..=1.0` bar length. Linear in decibels, which is how
+/// loudness is actually perceived — a linear-in-amplitude bar would sit near zero for every
+/// normal speaking level.
+pub fn db_to_meter_fraction(db: f32) -> f32 {
+    if !db.is_finite() {
+        // libobs reports silence as -inf; NaN would come from a broken reading. Both mean
+        // "show nothing" rather than "crash the bar".
+        return if db == f32::INFINITY { 1.0 } else { 0.0 };
+    }
+    (1.0 - db / METER_FLOOR_DB).clamp(0.0, 1.0)
+}
+
+/// Turns a 0–100 slider into the multiplier libobs applies to the signal. Clamped, so a
+/// malformed command can never boost the sound past unity or invert it.
+pub fn percent_to_volume(percent: i32) -> f32 {
+    percent.clamp(0, 100) as f32 / 100.0
+}
+
+/// Turns a libobs multiplier back into a 0–100 slider position.
+pub fn volume_to_percent(volume: f32) -> i32 {
+    if !volume.is_finite() {
+        return 0;
+    }
+    (volume * 100.0).round().clamp(0.0, 100.0) as i32
+}
+
+/// Messages the engine emits toward the controller (engine -> controller), one per line.
+///
+/// `PartialEq` but not `Eq`: `AudioLevel` carries a decibel reading, and a float has no
+/// total equality. Comparisons (tests, dedup) still work; only a `HashSet`-style use would
+/// need `Eq`, and nothing compares engine messages that way.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum EngineMessage {
     /// libobs is initialized; the engine is ready to receive commands.
@@ -143,6 +233,16 @@ pub enum EngineMessage {
     /// `SwitchScene`, `DeleteScene`, any camera/filter change, and once at startup, so a
     /// late-opening panel sees the real state, never an assumed one.
     SceneList { scenes: Vec<SceneInfo>, active: String },
+    /// The audio devices libobs reports on this machine (B6) — answering `ListAudioDevices`.
+    /// Never a presumed list, same rule as `Cameras`.
+    AudioDevices { inputs: Vec<AudioDevice>, outputs: Vec<AudioDevice> },
+    /// Every audio source in the mixer with its live settings — emitted after any mixer
+    /// change, so a late-opening panel sees the real state.
+    AudioSources { items: Vec<AudioSourceInfo> },
+    /// Live loudness per source, emitted on a periodic tick while sources exist. Sent as a
+    /// batch rather than one message per source: they are read on the same tick, and one
+    /// line per source per tick would flood the pipe.
+    AudioLevels { levels: Vec<AudioLevel> },
 }
 
 /// Commands the controller sends to the engine (controller -> engine), one per line.
@@ -214,6 +314,20 @@ pub enum ControllerCommand {
     /// obeying blindly: deleting the last scene, or the live one with nowhere to fall back
     /// to, would leave the output channel with nothing to render.
     DeleteScene { name: String },
+    /// Ask the engine to emit the machine's real audio devices (B6).
+    ListAudioDevices,
+    /// Adds a microphone or a desktop-audio capture to the mixer under `name`. `device_id`
+    /// comes from `AudioDevices`, never guessed. Audio sources live on their own libobs
+    /// channels, independent of scenes: sound keeps playing across a scene switch, exactly
+    /// like OBS's own global audio mixer.
+    AddAudioSource { device_id: String, kind: AudioSourceKind, name: String },
+    /// Removes an audio source from the mixer and frees its channel.
+    RemoveAudioSource { name: String },
+    /// Sets a source's volume from a 0–100 slider position.
+    SetAudioVolume { name: String, percent: i32 },
+    /// Mutes or unmutes a source. Distinct from a zero volume: unmuting restores the slider
+    /// where the user left it, so muting is never a destructive act.
+    SetAudioMuted { name: String, muted: bool },
 }
 
 /// Why a scene could not be deleted (multi-scene, tranche 3).
