@@ -189,7 +189,7 @@ project: Hikari Stream
 | B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | ⬜ |
 | B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | 🟧 déplacer/redimensionner par boutons fait (2026-07-24) · souris + transitions/auto-move restent |
 | B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | 🟧 détection + ajout scène + masque cercle + fond IA + retrait/rajout fait (2026-07-23/24) · multi-scène (caméra unique, filtres indépendants par scène) **prouvée à l'écran 2026-08-04** · cam mobile reste |
-| **Multi-scènes** *(hors numérotation PET — apparu en session)* | Créer/lister/basculer entre scènes (F-005/F-006, sol pour B7 transitions) | Standard | 🟧 étape 1 (créer/lister/basculer) **prouvée à l'écran** 2026-07-24 · étape 2 (caméra unique, filtres par scène) **prouvée à l'écran** 2026-08-04 · étape 3 (interface dédiée) restante |
+| **Multi-scènes** *(hors numérotation PET — apparu en session)* | Créer/lister/basculer entre scènes (F-005/F-006, sol pour B7 transitions) | Standard | 🟧 étape 1 (créer/lister/basculer) **prouvée à l'écran** 2026-07-24 · étape 2 (caméra unique, filtres par scène) **prouvée à l'écran** 2026-08-04 · étape 3 (panneau dédié) livrée 2026-08-04, **partiellement prouvée** : suppression + renommage vus à l'écran ; ordre persisté et bascule-avant-suppression **restent à vérifier** |
 
 ### Phase P3 — Deck
 | Brique | Scope | Niveau | Statut |
@@ -847,6 +847,27 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
   2026-08-04** : 2 scènes composées avec la même caméra et des réglages de filtres
   différents ; la bascule change bien les filtres actifs, et l'état persiste d'une bascule
   à l'autre. La preuve avait été reportée du 24/07 (plantage sans lien, charge GPU externe).
+- **Multi-scène, étape 3 — PANNEAU DÉDIÉ, PARTIELLEMENT PROUVÉ (2026-08-04)** : quatre
+  gestes ajoutés au panneau qui ne savait que créer et basculer.
+  - **Supprimer** (`DeleteScene`, `validate_scene_deletion`) — deux règles tenues côté
+    moteur, jamais côté écran seul : la scène existe, et ce n'est pas la dernière (sinon le
+    canal de sortie n'aurait plus rien à rendre). `handle_delete_scene` quitte la scène
+    AVANT de la lâcher, puis relâche son élément caméra et sa préférence de filtres — un
+    `ObsSceneItemRef` vivant garderait la scène en vie et la suppression ne ferait rien.
+  - **Renommer** et **réordonner** — côté application, jamais côté moteur.
+    `libobs-wrapper` 9.0.4 met le nom de scène en cache dans son propre handle et retrouve
+    les scènes PAR ce nom (`get_scene`) : renommer la source libobs désynchroniserait sa
+    propre recherche (scène existante mais introuvable). Constat tiré de la lecture de la
+    source du crate, jamais supposé. Le moteur garde donc un identifiant fixe à vie ;
+    l'étiquette lisible et l'ordre vivent dans `sceneLayout.ts`, persistés via
+    `plugin-store` comme la disposition du cockpit.
+  - **Contenu par scène** — `SceneList` porte désormais un `SceneInfo` par scène (caméra
+    présente, état propre de chaque filtre) : la liste dit ce que chaque scène contient
+    sans forcer une bascule en direct juste pour aller voir.
+  - Tests : 15 Rust sur la gestion de scènes (dont 4 proptest), 51 JS.
+  - **État de preuve** : suppression et renommage **vus à l'écran par Jay** (2026-08-04).
+    **Restent à vérifier à l'écran** : la persistance de l'ordre après redémarrage, et la
+    bascule automatique quand on supprime la scène en direct (le chemin le plus délicat).
 
 ### B9 — Pré-vol + wizard + presets de scènes · Sensible · 🟧 cœur fait, wizard/presets restent
 
