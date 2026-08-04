@@ -188,8 +188,8 @@ project: Hikari Stream
 | B3 | Multistream + vertical simultané | Critique | 🟧 horizontal fait (2026-07-19) · vertical prêt à coder (B0.2 GO 2026-07-21) |
 | B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | ⬜ |
 | B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | 🟧 déplacer/redimensionner par boutons fait (2026-07-24) · souris + transitions/auto-move restent |
-| B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | 🟧 détection + ajout scène + masque cercle + fond IA + retrait/rajout fait (2026-07-23/24) · multi-scène (caméra unique, filtres indépendants par scène) codée 2026-07-24, **pas encore prouvée à l'écran** · cam mobile reste |
-| **Multi-scènes** *(hors numérotation PET — apparu en session)* | Créer/lister/basculer entre scènes (F-005/F-006, sol pour B7 transitions) | Standard | 🟧 étape 1 (créer/lister/basculer) **prouvée à l'écran** 2026-07-24 · étape 2 (caméra par scène) codée, **pas encore prouvée** · étape 3 (interface dédiée) restante |
+| B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | 🟧 détection + ajout scène + masque cercle + fond IA + retrait/rajout fait (2026-07-23/24) · multi-scène (caméra unique, filtres indépendants par scène) **prouvée à l'écran 2026-08-04** · cam mobile reste |
+| **Multi-scènes** *(hors numérotation PET — apparu en session)* | Créer/lister/basculer entre scènes (F-005/F-006, sol pour B7 transitions) | Standard | 🟧 étape 1 (créer/lister/basculer) **prouvée à l'écran** 2026-07-24 · étape 2 (caméra unique, filtres par scène) **prouvée à l'écran** 2026-08-04 · étape 3 (interface dédiée) restante |
 
 ### Phase P3 — Deck
 | Brique | Scope | Niveau | Statut |
@@ -836,16 +836,17 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
   scènes (`scenes.rs`, `SwitchScene`/`CreateScene`/`SceneList`). Bascule = coupe instantanée
   sur le canal de sortie (`obs_set_output_source`), jamais une transition (reste de B7).
   Confirmé à l'écran par Jay (création + bascule réelles, 2 scènes).
-- **Multi-scène, étape 2 — CODÉE, PAS ENCORE PROUVÉE (2026-07-24)** : décision Jay — la
+- **Multi-scène, étape 2 — FAIT ET PROUVÉ (codée 2026-07-24, prouvée à l'écran 2026-08-04)** : décision Jay — la
   caméra reste UNE source physique unique, réutilisée dans chaque scène où elle apparaît
   (jamais dupliquée) ; ses filtres (fond IA, masque) restent attachés en permanence et sont
   basculés par `obs_source_set_enabled` (vraie API trouvée en veille ce jour-là, jamais
   utilisée avant — remplace le rebuild-avec-clignotement du 2026-07-23). Chaque scène garde
   son propre état de filtres désiré, appliqué automatiquement au changement de scène (le
   flux d'automation que Jay utilise déjà dans OBS). 7 commandes protocole scene-aware.
-  Compile + tests verts (protocole, Rust complet, front), **jamais lancé à l'écran** — la
-  session s'est arrêtée sur un plantage sans lien (charge GPU externe, LoL en cours chez
-  Jay) avant qu'il ait pu cliquer dessus. **Premier point à la reprise.**
+  Compile + tests verts (protocole, Rust complet, front). **Prouvé à l'écran par Jay le
+  2026-08-04** : 2 scènes composées avec la même caméra et des réglages de filtres
+  différents ; la bascule change bien les filtres actifs, et l'état persiste d'une bascule
+  à l'autre. La preuve avait été reportée du 24/07 (plantage sans lien, charge GPU externe).
 
 ### B9 — Pré-vol + wizard + presets de scènes · Sensible · 🟧 cœur fait, wizard/presets restent
 
