@@ -272,26 +272,11 @@ pub fn create_circle_mask_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> 
     Ok(filter)
 }
 
-/// Toggles `filter` on/off in place — the real per-filter switch OBS itself exposes (the
-/// "eye" icon), `obs_source_set_enabled` on the filter's own source handle (a libobs filter
-/// IS an `obs_source_t` internally). Confirmed present in the raw C bindings 2026-07-24
-/// (`libobs-sys` 5.0.1, `obs_source_set_enabled`) — `libobs-wrapper` doesn't wrap it yet, so
-/// this dispatches the raw call on the OBS thread via the source's own runtime, the same
-/// thread-safety contract every safe wrapper method uses internally (`run_with_obs!`).
-/// Replaces the rebuild-the-whole-camera approach from 2026-07-23 (visible reinit blip) —
-/// no rebuild, no blip, instant.
-pub fn set_filter_enabled(filter: &ObsFilterRef, enabled: bool) -> Result<()> {
-    let runtime = filter.runtime().clone();
-    let ptr = filter.as_ptr();
-    runtime
-        .run_with_obs_result(move || unsafe {
-            // Safety: `ptr` is valid because it comes from a live `SmartPointerSendable`
-            // (the filter is still attached, we hold a reference to it) — same safety
-            // argument the wrapper's own `apply_filter`/`obs_source_filter_add` calls make.
-            libobs::obs_source_set_enabled(ptr.get_ptr(), enabled);
-        })
-        .context("activation/désactivation filtre")
-}
+/// Toggles a camera filter on/off in place. The implementation moved to
+/// `filters::set_enabled` on 2026-08-04, when the audio mixer needed the exact same
+/// operation — nothing about it was ever camera-specific. Re-exported under its old name so
+/// the camera code keeps reading in its own vocabulary.
+pub use crate::filters::set_enabled as set_filter_enabled;
 
 /// Absolute path to the circle mask asset, resolved next to the engine's own binary —
 /// same colocation pattern as the OBS runtime files it already needs alongside it

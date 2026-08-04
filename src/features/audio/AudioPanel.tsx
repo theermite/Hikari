@@ -14,6 +14,7 @@ import {
   setAudioMonitoring,
   setAudioMuted,
   setAudioVolume,
+  setNoiseSuppression,
 } from "./api";
 import { formatLevel, meterFraction, meterZone } from "./meter";
 import type {
@@ -218,6 +219,29 @@ export function AudioPanel(_props: IDockviewPanelProps) {
                   <span className="shrink-0 text-[11px] text-hikari-txt-faint">
                     Qui l'entend
                   </span>
+                  {source.kind === "input" && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        run(
+                          setNoiseSuppression(
+                            source.name,
+                            !source.noise_suppression,
+                          ),
+                        )
+                      }
+                      disabled={busy}
+                      title="Retire le bruit de fond de la pièce (ventilateur, clavier, rue)."
+                      aria-pressed={source.noise_suppression}
+                      className={`mr-1 rounded-[6px] border px-1.5 py-0.5 text-[11px] transition disabled:opacity-50 ${
+                        source.noise_suppression
+                          ? "border-hikari-accent text-hikari-accent"
+                          : "border-hikari-line text-hikari-txt-dim hover:border-hikari-accent hover:text-hikari-txt"
+                      }`}
+                    >
+                      Anti-bruit
+                    </button>
+                  )}
                   {MONITORING_CHOICES.map((choice) => (
                     <button
                       key={choice.value}

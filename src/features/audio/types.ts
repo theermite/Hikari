@@ -19,6 +19,8 @@ export interface AudioSourceInfo {
   volume_percent: number;
   muted: boolean;
   monitoring: AudioMonitoring;
+  /** Always false on a source that cannot carry room noise (desktop sound). */
+  noise_suppression: boolean;
 }
 
 export interface AudioLevel {

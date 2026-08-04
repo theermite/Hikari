@@ -12,6 +12,7 @@ import {
   setAudioMonitoring,
   setAudioMuted,
   setAudioVolume,
+  setNoiseSuppression,
 } from "./api";
 
 describe("audio api", () => {
@@ -68,6 +69,15 @@ describe("audio api", () => {
     expect(invoke).toHaveBeenCalledExactlyOnceWith("set_audio_monitoring", {
       name: "Micro",
       monitoring: "monitor_only",
+    });
+  });
+
+  it("should_pass_the_enabled_flag_when_switching_noise_suppression", async () => {
+    await setNoiseSuppression("Micro", true);
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("set_noise_suppression", {
+      name: "Micro",
+      enabled: true,
     });
   });
 });

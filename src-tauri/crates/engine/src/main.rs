@@ -14,6 +14,7 @@
 
 mod audio;
 mod camera;
+mod filters;
 mod multistream;
 mod scenes;
 mod stream;
@@ -168,6 +169,10 @@ struct MixerSource {
     volume_percent: i32,
     muted: bool,
     monitoring: hikari_protocol::AudioMonitoring,
+    /// The room-noise suppression filter, created once alongside the source when its kind
+    /// supports it, then toggled in place. `None` on desktop sound, which has no room noise.
+    noise_filter: Option<libobs_wrapper::sources::ObsFilterRef>,
+    noise_suppression: bool,
 }
 
 /// An in-progress camera gesture (B7, souris) — a move or a resize, decided at press time
@@ -215,6 +220,7 @@ enum EngineEvent {
     SetAudioVolume { name: String, percent: i32 },
     SetAudioMuted { name: String, muted: bool },
     SetAudioMonitoring { name: String, monitoring: hikari_protocol::AudioMonitoring },
+    SetNoiseSuppression { name: String, enabled: bool },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -721,6 +727,19 @@ impl App {
                 None
             }
         };
+        // Attached disabled, only where it means something. A failure costs the feature on
+        // this source, never the source itself — the microphone still works without it.
+        let noise_filter = if kind.supports_noise_suppression() {
+            match audio::create_noise_suppression_filter(&source) {
+                Ok(filter) => Some(filter),
+                Err(err) => {
+                    emit(&EngineMessage::Error { message: err.to_string() });
+                    None
+                }
+            }
+        } else {
+            None
+        };
         obs.audio.push(MixerSource {
             name,
             kind,
@@ -734,6 +753,8 @@ impl App {
             // libobs's own default, and the safe one: monitoring a microphone through
             // speakers is how a feedback howl starts.
             monitoring: hikari_protocol::AudioMonitoring::None,
+            noise_filter,
+            noise_suppression: false,
         });
         self.emit_audio_sources();
     }
@@ -816,6 +837,27 @@ impl App {
         self.emit_audio_sources();
     }
 
+    /// Turns room-noise suppression on or off for a microphone.
+    fn handle_set_noise_suppression(&mut self, name: String, enabled: bool) {
+        let Some(obs) = &mut self.obs else { return };
+        let Some(source) = obs.audio.iter_mut().find(|source| source.name == name) else {
+            emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
+            return;
+        };
+        let Some(filter) = &source.noise_filter else {
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'a pas de suppression de bruit"),
+            });
+            return;
+        };
+        if let Err(err) = filters::set_enabled(filter, enabled) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        source.noise_suppression = enabled;
+        self.emit_audio_sources();
+    }
+
     /// Emits the mixer's real state — shared tail of every command that changes it.
     fn emit_audio_sources(&mut self) {
         let Some(obs) = &mut self.obs else { return };
@@ -828,6 +870,7 @@ impl App {
                 volume_percent: source.volume_percent,
                 muted: source.muted,
                 monitoring: source.monitoring,
+                noise_suppression: source.noise_suppression,
             })
             .collect();
         emit(&EngineMessage::AudioSources { items });
@@ -1081,6 +1124,9 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetAudioMonitoring { name, monitoring } => {
                 self.handle_set_audio_monitoring(name, monitoring)
             }
+            EngineEvent::SetNoiseSuppression { name, enabled } => {
+                self.handle_set_noise_suppression(name, enabled)
+            }
         }
     }
 
@@ -1242,6 +1288,9 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 }
                 Ok(ControllerCommand::SetAudioMonitoring { name, monitoring }) => {
                     let _ = proxy.send_event(EngineEvent::SetAudioMonitoring { name, monitoring });
+                }
+                Ok(ControllerCommand::SetNoiseSuppression { name, enabled }) => {
+                    let _ = proxy.send_event(EngineEvent::SetNoiseSuppression { name, enabled });
                 }
                 Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),

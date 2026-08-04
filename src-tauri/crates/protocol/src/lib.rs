@@ -110,7 +110,25 @@ impl AudioSourceKind {
             AudioSourceKind::Output => AUDIO_OUTPUT_KIND,
         }
     }
+
+    /// Whether offering noise suppression on this side makes sense.
+    ///
+    /// Only a microphone carries room noise — fan, keyboard, street. Desktop sound is an
+    /// already-digital signal: the filter has nothing to remove there, and would damage
+    /// music while trying to clean up a voice it cannot find.
+    pub fn supports_noise_suppression(self) -> bool {
+        matches!(self, AudioSourceKind::Input)
+    }
 }
+
+/// The libobs filter id for noise suppression — the real obs-filters plugin id, verified
+/// 2026-08-04 against obs-studio source.
+pub const NOISE_SUPPRESS_FILTER_KIND: &str = "noise_suppress_filter";
+
+/// The suppression method Hikari uses. RNNoise is the machine-learning one: no level to
+/// tune, which is the whole point — one switch, not a dial nobody knows how to set.
+/// (`speex`, the alternative, needs a `suppress_level` the user would have to guess.)
+pub const NOISE_SUPPRESS_METHOD: &str = "rnnoise";
 
 /// One audio device libobs reports on this machine. `device_id` is the exact value the
 /// wasapi source's `device_id` property expects, never hand-built.
@@ -131,6 +149,9 @@ pub struct AudioSourceInfo {
     pub muted: bool,
     /// Whether the streamer hears this source, and whether the audience does.
     pub monitoring: AudioMonitoring,
+    /// Whether room-noise suppression is on. Always `false` on a source whose kind does not
+    /// support it (see [`AudioSourceKind::supports_noise_suppression`]).
+    pub noise_suppression: bool,
 }
 
 /// One source's current loudness, as libobs measures it.
@@ -371,6 +392,10 @@ pub enum ControllerCommand {
     SetAudioMuted { name: String, muted: bool },
     /// Sets whether the streamer hears this source, and whether the audience does.
     SetAudioMonitoring { name: String, monitoring: AudioMonitoring },
+    /// Turns room-noise suppression on or off for a microphone. The filter is attached once
+    /// and toggled in place (`obs_source_set_enabled`), never rebuilt — a rebuild would
+    /// interrupt the sound, exactly the blip the camera filters used to have.
+    SetNoiseSuppression { name: String, enabled: bool },
 }
 
 /// Why a scene could not be deleted (multi-scene, tranche 3).

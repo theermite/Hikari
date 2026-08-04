@@ -87,6 +87,7 @@ fn should_roundtrip_the_audio_source_list() {
             volume_percent: 80,
             muted: false,
             monitoring: AudioMonitoring::None,
+            noise_suppression: false,
         }],
     };
     let line = to_line(&msg).expect("serializes");
@@ -130,6 +131,29 @@ fn should_send_a_broken_reading_as_the_floor_rather_than_breaking_the_whole_mess
 }
 
 #[test]
+fn should_roundtrip_the_noise_suppression_command() {
+    let cmd = ControllerCommand::SetNoiseSuppression {
+        name: "Micro".to_string(),
+        enabled: true,
+    };
+    let line = to_line(&cmd).expect("serializes");
+    assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
+}
+
+#[test]
+fn should_offer_noise_suppression_on_a_microphone() {
+    // Le bruit qu'on veut retirer est celui de la PIÈCE, capté par un micro.
+    assert!(AudioSourceKind::Input.supports_noise_suppression());
+}
+
+#[test]
+fn should_not_offer_noise_suppression_on_desktop_sound() {
+    // Le son du bureau est un signal numérique : il n'a pas de bruit de pièce à retirer,
+    // et le filtre y abîmerait la musique en croyant nettoyer une voix.
+    assert!(!AudioSourceKind::Output.supports_noise_suppression());
+}
+
+#[test]
 fn should_roundtrip_the_monitoring_command_and_state() {
     let cmd = ControllerCommand::SetAudioMonitoring {
         name: "Micro".to_string(),
@@ -145,6 +169,7 @@ fn should_roundtrip_the_monitoring_command_and_state() {
             volume_percent: 80,
             muted: false,
             monitoring: AudioMonitoring::MonitorAndOutput,
+            noise_suppression: true,
         }],
     };
     let line = to_line(&msg).expect("serializes");

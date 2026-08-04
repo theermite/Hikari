@@ -319,6 +319,16 @@ pub(crate) fn set_audio_monitoring(
     send_audio(&state, ControllerCommand::SetAudioMonitoring { name, monitoring })
 }
 
+/// Turns room-noise suppression on or off for a microphone (B6).
+#[tauri::command]
+pub(crate) fn set_noise_suppression(
+    state: State<EngineState>,
+    name: String,
+    enabled: bool,
+) -> Result<(), String> {
+    send_audio(&state, ControllerCommand::SetNoiseSuppression { name, enabled })
+}
+
 /// Grafts the engine's preview window (`engine_hwnd`, just announced via `PreviewReady`)
 /// into the Aperçu panel's last-known rect (option B).
 fn graft_into_panel_rect(app: &AppHandle, engine_hwnd: i64) {

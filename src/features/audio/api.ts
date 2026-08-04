@@ -41,3 +41,11 @@ export function setAudioMonitoring(
 ): Promise<void> {
   return invoke("set_audio_monitoring", { name, monitoring });
 }
+
+/** Turns room-noise suppression on or off for a microphone. */
+export function setNoiseSuppression(
+  name: string,
+  enabled: boolean,
+): Promise<void> {
+  return invoke("set_noise_suppression", { name, enabled });
+}

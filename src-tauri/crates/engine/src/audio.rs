@@ -16,7 +16,7 @@ use libobs_wrapper::data::object::ObsObjectTrait;
 use libobs_wrapper::data::properties::types::ObsListItemValue;
 use libobs_wrapper::data::properties::{ObsProperty, ObsPropertyObject};
 use libobs_wrapper::data::{ObsData, ObsDataSetters};
-use libobs_wrapper::sources::{ObsSourceBuilder, ObsSourceRef};
+use libobs_wrapper::sources::{ObsFilterRef, ObsSourceBuilder, ObsSourceRef, ObsSourceTrait};
 use libobs_wrapper::sys as libobs;
 use libobs_simple::define_object_manager;
 use std::sync::Arc;
@@ -146,6 +146,32 @@ pub fn set_muted(source: &ObsSourceRef, muted: bool) -> Result<()> {
             libobs::obs_source_set_muted(ptr.get_ptr(), muted);
         })
         .context("sourdine")
+}
+
+/// Creates the room-noise suppression filter on `source` and attaches it DISABLED.
+///
+/// Same create-once-then-toggle contract as the camera filters: rebuilding a filter to turn
+/// it on would interrupt the sound. Id and method come from the real obs-filters plugin
+/// source (verified 2026-08-04), never guessed. RNNoise deliberately: it has no level to
+/// tune, so the feature is one switch rather than a dial nobody knows how to set.
+pub fn create_noise_suppression_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> {
+    let runtime = source.runtime().clone();
+    let mut settings = ObsData::new(runtime.clone()).context("réglages suppression de bruit")?;
+    settings
+        .set_string("method", hikari_protocol::NOISE_SUPPRESS_METHOD)
+        .context("réglage méthode de suppression")?;
+    let filter = ObsFilterRef::new(
+        hikari_protocol::NOISE_SUPPRESS_FILTER_KIND,
+        "Suppression de bruit",
+        Some(settings.into()),
+        None,
+        runtime,
+    )
+    .context("création filtre suppression de bruit")?;
+    source.apply_filter(&filter).context("attache filtre suppression de bruit")?;
+    crate::filters::set_enabled(&filter, false)
+        .context("désactivation initiale du filtre de bruit")?;
+    Ok(filter)
 }
 
 /// Sets whether the streamer hears this source, and whether the audience does.

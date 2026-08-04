@@ -46,6 +46,7 @@ pub fn run() {
             engine_lifecycle::set_audio_volume,
             engine_lifecycle::set_audio_muted,
             engine_lifecycle::set_audio_monitoring,
+            engine_lifecycle::set_noise_suppression,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .run(tauri::generate_context!())
