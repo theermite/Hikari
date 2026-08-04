@@ -39,7 +39,7 @@ use winit::dpi::LogicalSize;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use winit::window::{Window, WindowId};
+use winit::window::{CursorIcon, Window, WindowId};
 
 /// The display name given to the scene's screen-capture source.
 const MONITOR_CAPTURE_NAME: &str = "Monitor Capture";
@@ -131,6 +131,17 @@ struct ObsInner {
     /// exposes no "which scene is on this channel" getter, so this is the one piece of
     /// state the engine must track itself rather than read back.
     active_scene: String,
+    /// The active scene's camera rectangle in canvas pixels, cached (B7, curseur au survol).
+    ///
+    /// WHY a cache: the cursor shape is decided on EVERY mouse move, and measuring the
+    /// camera costs three round-trips to the OBS thread (position, scale, source size).
+    /// Doing that per move made the preview stutter. The cache is exact rather than
+    /// approximate because nothing but this engine ever moves the camera — every writer
+    /// clears it through `invalidate_camera_rect`.
+    camera_rect: Option<(f32, f32, f32, f32)>,
+    /// The camera's native pixel size, measured once. A webcam does not change resolution
+    /// mid-session; re-asking libobs on every mouse move would be pure cost.
+    camera_base_size: Option<(u32, u32)>,
 }
 
 /// An in-progress camera gesture (B7, souris) — a move or a resize, decided at press time
@@ -239,6 +250,8 @@ impl App {
             camera_items: std::collections::HashMap::new(),
             scene_filter_state: std::collections::HashMap::new(),
             active_scene: "main".to_string(),
+            camera_rect: None,
+            camera_base_size: None,
         });
         self.window = Some(Sendable(window));
         emit(&EngineMessage::SceneList {
@@ -335,6 +348,9 @@ impl App {
             return;
         }
         obs.active_scene = name.clone();
+        // The camera sits differently in each scene (its own position and scale), so the
+        // cached rectangle belongs to the scene we just left.
+        obs.camera_rect = None;
         // Applies THIS scene's own filter state (Jay, 2026-07-24) — the "scene automation
         // toggles my filters" flow: switching scenes turns the right filters on/off.
         self.apply_scene_filter_state(&name);
@@ -438,6 +454,7 @@ impl App {
         let Some(obs) = &mut self.obs else { return };
         obs.camera_items.remove(&name);
         obs.scene_filter_state.remove(&name);
+        obs.camera_rect = None;
         if let Err(err) = scenes::delete_scene(&mut obs.context, &name) {
             emit(&EngineMessage::Error { message: err.to_string() });
             return;
@@ -489,6 +506,8 @@ impl App {
         };
         obs.camera_items.insert(scene.clone(), item);
         obs.scene_filter_state.entry(scene.clone()).or_insert((false, false));
+        // A camera appeared in this scene: any cached rectangle is stale (there was none).
+        obs.camera_rect = None;
         if scene == obs.active_scene {
             self.apply_scene_filter_state(&scene);
         }
@@ -548,9 +567,12 @@ impl App {
             emit(&EngineMessage::Error { message: err.to_string() });
         }
         obs.scene_filter_state.remove(&scene);
+        obs.camera_rect = None;
         if obs.camera_items.is_empty() {
             obs.camera_source = None;
             obs.camera_filters = None;
+            // The next camera may be a different device with its own resolution.
+            obs.camera_base_size = None;
             obs.sources.retain(|source| source.kind != hikari_protocol::CAMERA_KIND);
             emit(&EngineMessage::Sources { items: obs.sources.clone() });
         }
@@ -568,7 +590,11 @@ impl App {
             return;
         };
         match camera::nudge_camera(item, dx, dy) {
-            Ok((x, y, scale_percent)) => emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent }),
+            Ok((x, y, scale_percent)) => {
+                self.camera_rect_changed();
+                self.camera_rect_changed();
+                emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
+            }
             Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
         }
     }
@@ -585,30 +611,92 @@ impl App {
             return;
         };
         match camera::scale_camera(item, grow) {
-            Ok((x, y, scale_percent)) => emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent }),
+            Ok((x, y, scale_percent)) => {
+                self.camera_rect_changed();
+                self.camera_rect_changed();
+                emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
+            }
             Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
         }
     }
 
-    /// Where the camera sits in the ACTIVE scene, in canvas pixels: `(x, y, width, height)`.
-    /// `None` when no camera is in this scene, or while the device is still opening (a
-    /// zero-sized source has nothing to grab).
-    fn active_camera_rect(&mut self) -> Option<(f32, f32, f32, f32)> {
+    /// Forgets the cached camera rectangle. Called by every path that moves, resizes, adds
+    /// or removes the camera, and by every scene switch — the cache is only exact as long
+    /// as no writer forgets this.
+    fn camera_rect_changed(&mut self) {
+        if let Some(obs) = &mut self.obs {
+            obs.camera_rect = None;
+        }
+    }
+
+    /// The camera's native size, measured once then remembered. `None` while the device is
+    /// still opening (libobs reports 0×0 until the first frame).
+    fn camera_base_size(&mut self) -> Option<(u32, u32)> {
         let obs = self.obs.as_mut()?;
-        let item = obs.camera_items.get(&obs.active_scene)?;
+        if let Some(size) = obs.camera_base_size {
+            return Some(size);
+        }
         let source = obs.camera_source.as_ref()?;
-        let position = item.get_source_position().ok()?;
-        let scale = item.get_source_scale().ok()?;
-        let (base_w, base_h) = camera::source_base_size(source).ok()?;
-        if base_w == 0 || base_h == 0 {
+        let size = camera::source_base_size(source).ok()?;
+        if size.0 == 0 || size.1 == 0 {
             return None;
         }
-        Some((
+        obs.camera_base_size = Some(size);
+        Some(size)
+    }
+
+    /// Where the camera sits in the ACTIVE scene, in canvas pixels: `(x, y, width, height)`.
+    /// `None` when no camera is in this scene, or while the device is still opening (a
+    /// zero-sized source has nothing to grab). Served from the cache when it is warm.
+    fn active_camera_rect(&mut self) -> Option<(f32, f32, f32, f32)> {
+        if let Some(rect) = self.obs.as_ref()?.camera_rect {
+            return Some(rect);
+        }
+        let (base_w, base_h) = self.camera_base_size()?;
+        let obs = self.obs.as_mut()?;
+        let item = obs.camera_items.get(&obs.active_scene)?;
+        let position = item.get_source_position().ok()?;
+        let scale = item.get_source_scale().ok()?;
+        let rect = (
             *position.x(),
             *position.y(),
             base_w as f32 * scale.x(),
             base_h as f32 * scale.y(),
-        ))
+        );
+        obs.camera_rect = Some(rect);
+        Some(rect)
+    }
+
+    /// Sets the mouse pointer to match what a click would do right here (B7) — the only
+    /// visual clue that a corner is grabbable, since the handles themselves are not drawn.
+    /// Left untouched during a gesture: the shape must not flicker while dragging.
+    fn update_cursor_icon(&mut self) {
+        if self.drag.is_some() {
+            return;
+        }
+        let icon = self.hover_icon();
+        if let Some(window) = &self.window {
+            window.0.set_cursor(icon);
+        }
+    }
+
+    /// Which pointer shape the current cursor position calls for.
+    fn hover_icon(&mut self) -> CursorIcon {
+        let Some(cursor) = self.cursor else { return CursorIcon::Default };
+        let Some((cx, cy)) = self.cursor_in_canvas(cursor) else { return CursorIcon::Default };
+        let Some((x, y, w, h)) = self.active_camera_rect() else { return CursorIcon::Default };
+        match hikari_protocol::corner_at(cx, cy, x, y, w, h, hikari_protocol::CORNER_GRAB_MARGIN) {
+            // The double-headed diagonal arrows Windows itself uses for a corner resize:
+            // "↘↖" on the two corners of one diagonal, "↙↗" on the other.
+            Some(hikari_protocol::Corner::TopLeft | hikari_protocol::Corner::BottomRight) => {
+                CursorIcon::NwseResize
+            }
+            Some(hikari_protocol::Corner::TopRight | hikari_protocol::Corner::BottomLeft) => {
+                CursorIcon::NeswResize
+            }
+            None if hikari_protocol::is_inside(cx, cy, x, y, w, h) => CursorIcon::Move,
+            None => CursorIcon::Default,
+        }
     }
 
     /// Turns a cursor position in the preview into canvas coordinates. `None` while libobs
@@ -671,6 +759,7 @@ impl App {
         let Some(item) = obs.camera_items.get(&scene) else { return };
         match camera::set_camera_position(item, x as i32, y as i32) {
             Ok((x, y, scale_percent)) => {
+                self.camera_rect_changed();
                 emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
             }
             Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
@@ -706,6 +795,7 @@ impl App {
         let Some(item) = obs.camera_items.get(&scene) else { return };
         match camera::set_camera_transform(item, new_x as i32, new_y as i32, scale) {
             Ok((x, y, scale_percent)) => {
+                self.camera_rect_changed();
                 emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
             }
             Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
@@ -801,11 +891,17 @@ impl ApplicationHandler<EngineEvent> for App {
                 self.cursor = Some((position.x as f32, position.y as f32));
                 if self.drag.is_some() {
                     self.continue_drag();
+                } else {
+                    self.update_cursor_icon();
                 }
             }
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => match state {
                 ElementState::Pressed => self.begin_drag(),
-                ElementState::Released => self.drag = None,
+                ElementState::Released => {
+                    self.drag = None;
+                    // The camera may have ended up under a different part of the cursor.
+                    self.update_cursor_icon();
+                }
             },
             // The cursor leaving the preview ends the gesture: without this, coming back in
             // would teleport the camera by the distance travelled outside.
