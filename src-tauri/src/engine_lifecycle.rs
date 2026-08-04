@@ -241,6 +241,19 @@ pub(crate) fn switch_scene(state: State<EngineState>, name: String) -> Result<()
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi SwitchScene au moteur: {err}"))
 }
 
+/// Deletes a scene and everything scene-local it carried (multi-scene, tranche 3). The
+/// engine re-checks the two rules (the scene exists, it is not the last one) and answers an
+/// `Error` message rather than obeying — this command only carries the intent.
+#[tauri::command]
+pub(crate) fn delete_scene(state: State<EngineState>, name: String) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let Some(handle) = guard.handle.as_mut() else {
+        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
+    };
+    let line = to_line(&ControllerCommand::DeleteScene { name }).map_err(|err| err.to_string())?;
+    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi DeleteScene au moteur: {err}"))
+}
+
 /// Grafts the engine's preview window (`engine_hwnd`, just announced via `PreviewReady`)
 /// into the Aperçu panel's last-known rect (option B).
 fn graft_into_panel_rect(app: &AppHandle, engine_hwnd: i64) {

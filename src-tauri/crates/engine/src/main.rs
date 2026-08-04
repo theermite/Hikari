@@ -21,7 +21,7 @@ use std::io::{BufRead, Write};
 use std::time::Instant;
 
 use anyhow::{Context, Result};
-use hikari_protocol::{ControllerCommand, EngineMessage, SourceInfo};
+use hikari_protocol::{ControllerCommand, EngineMessage, SceneInfo, SourceInfo};
 use libobs_simple::sources::windows::monitor_capture::MonitorCaptureSource;
 use libobs_simple::sources::windows::{MonitorCaptureSourceBuilder, ObsDisplayCaptureMethod};
 use libobs_wrapper::context::ObsContext;
@@ -157,6 +157,7 @@ enum EngineEvent {
     ScaleCamera { scene: String, grow: bool },
     CreateScene { name: String },
     SwitchScene { name: String },
+    DeleteScene { name: String },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -217,7 +218,10 @@ impl App {
             active_scene: "main".to_string(),
         });
         self.window = Some(Sendable(window));
-        emit(&EngineMessage::SceneList { names: vec!["main".to_string()], active: "main".to_string() });
+        emit(&EngineMessage::SceneList {
+            scenes: vec![SceneInfo::empty("main")],
+            active: "main".to_string(),
+        });
         Ok(())
     }
 
@@ -330,13 +334,92 @@ impl App {
     }
 
     /// Emits the real scene list + active scene straight from libobs (never a shadowed
-    /// count) — shared tail of `handle_create_scene`/`handle_switch_scene`.
+    /// count) — shared tail of every command that can change what the scenes hold.
+    ///
+    /// Each entry carries what THAT scene holds (tranche 3), read from the engine's own
+    /// per-scene maps: the panel can then show the whole list at once, instead of forcing a
+    /// live scene switch just to discover what a scene contains.
     fn emit_scene_list(&mut self) {
         let Some(obs) = &mut self.obs else { return };
-        match scenes::list_scene_names(&mut obs.context) {
-            Ok(names) => emit(&EngineMessage::SceneList { names, active: obs.active_scene.clone() }),
-            Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
+        let names = match scenes::list_scene_names(&mut obs.context) {
+            Ok(names) => names,
+            Err(err) => {
+                emit(&EngineMessage::Error { message: err.to_string() });
+                return;
+            }
+        };
+        let scenes = names
+            .into_iter()
+            .map(|name| {
+                let (background_removal, circle_mask) =
+                    obs.scene_filter_state.get(&name).copied().unwrap_or((false, false));
+                SceneInfo {
+                    has_camera: obs.camera_items.contains_key(&name),
+                    background_removal,
+                    circle_mask,
+                    name,
+                }
+            })
+            .collect();
+        emit(&EngineMessage::SceneList { scenes, active: obs.active_scene.clone() });
+    }
+
+    /// Deletes a scene and everything scene-local it carried (multi-scene, tranche 3).
+    ///
+    /// Order matters and is the whole point of this function: re-validate, then leave the
+    /// scene if it is live (the output channel must never end up pointing at a scene that
+    /// is about to be dropped), then release its camera item and filter preference, and
+    /// only then delete. The shared physical webcam is untouched — other scenes keep
+    /// showing it, exactly like `handle_remove_camera`.
+    fn handle_delete_scene(&mut self, name: String) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error { message: "DeleteScene avant l'initialisation".into() });
+            return;
+        };
+        let existing = match scenes::list_scene_names(&mut obs.context) {
+            Ok(names) => names,
+            Err(err) => {
+                emit(&EngineMessage::Error { message: err.to_string() });
+                return;
+            }
+        };
+        if let Err(err) = hikari_protocol::validate_scene_deletion(&name, &existing) {
+            let message = match err {
+                hikari_protocol::SceneDeleteError::Unknown => {
+                    format!("scène introuvable : {name}")
+                }
+                hikari_protocol::SceneDeleteError::LastScene => {
+                    "impossible de supprimer la dernière scène".to_string()
+                }
+            };
+            emit(&EngineMessage::Error { message });
+            return;
         }
+
+        // Leave the scene before dropping it: a fallback is guaranteed to exist here,
+        // because `validate_scene_deletion` already refused the last-scene case.
+        if obs.active_scene == name {
+            let Some(fallback) = existing.iter().find(|other| **other != name).cloned() else {
+                emit(&EngineMessage::Error { message: "aucune scène de repli".into() });
+                return;
+            };
+            self.handle_switch_scene(fallback);
+            let Some(obs_again) = &mut self.obs else { return };
+            if obs_again.active_scene == name {
+                // The switch failed and already reported why; deleting now would leave the
+                // output channel on a dropped scene.
+                return;
+            }
+        }
+
+        let Some(obs) = &mut self.obs else { return };
+        obs.camera_items.remove(&name);
+        obs.scene_filter_state.remove(&name);
+        if let Err(err) = scenes::delete_scene(&mut obs.context, &name) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        self.emit_scene_list();
     }
 
     /// Puts the ONE physical webcam into `scene` (B-cam, multi-scene tranche 2) — builds
@@ -512,6 +595,7 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::ScaleCamera { scene, grow } => self.handle_scale_camera(scene, grow),
             EngineEvent::CreateScene { name } => self.handle_create_scene(name),
             EngineEvent::SwitchScene { name } => self.handle_switch_scene(name),
+            EngineEvent::DeleteScene { name } => self.handle_delete_scene(name),
         }
     }
 
@@ -618,6 +702,9 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 }
                 Ok(ControllerCommand::SwitchScene { name }) => {
                     let _ = proxy.send_event(EngineEvent::SwitchScene { name });
+                }
+                Ok(ControllerCommand::DeleteScene { name }) => {
+                    let _ = proxy.send_event(EngineEvent::DeleteScene { name });
                 }
                 Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),

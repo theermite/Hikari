@@ -52,6 +52,38 @@ pub struct CameraDevice {
     pub device_id: String,
 }
 
+/// What one scene currently holds, as the engine really sees it (multi-scene, tranche 3).
+///
+/// WHY per scene rather than "the active one": the Scenes panel shows the whole list at
+/// once, so it must say what EACH scene carries without the user having to switch to it
+/// just to find out — switching is a live cut on the output channel, never a free peek.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SceneInfo {
+    pub name: String,
+    /// Whether the ONE physical webcam is shown in this scene (`AddCamera`/`RemoveCamera`).
+    pub has_camera: bool,
+    /// This scene's OWN desired state for the NVIDIA background-removal filter — the value
+    /// applied to the shared filter whenever this scene becomes live, not the filter's
+    /// current global state (which belongs to whichever scene is live right now).
+    pub background_removal: bool,
+    /// This scene's OWN desired state for the circular mask filter. Same contract.
+    pub circle_mask: bool,
+}
+
+impl SceneInfo {
+    /// A scene that holds no camera and no filter preference — the shape every scene has
+    /// the moment `CreateScene` makes it. Pure, so tests and the engine agree on "empty"
+    /// instead of each spelling out four fields.
+    pub fn empty(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            has_camera: false,
+            background_removal: false,
+            circle_mask: false,
+        }
+    }
+}
+
 /// Messages the engine emits toward the controller (engine -> controller), one per line.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -106,10 +138,11 @@ pub enum EngineMessage {
     /// that platform (B3 acceptance: "aucun échec silencieux"). The other targets are
     /// unaffected and keep streaming.
     PlatformError { id: String, message: String },
-    /// Every scene the engine currently knows about, and which one is live on the output
-    /// channel (multi-scene, tranche 1) — emitted after `CreateScene`/`SwitchScene` and once
-    /// at startup, so a late-opening panel sees the real state, never an assumed one.
-    SceneList { names: Vec<String>, active: String },
+    /// Every scene the engine currently knows about (with what each one holds, tranche 3)
+    /// and which one is live on the output channel — emitted after `CreateScene`,
+    /// `SwitchScene`, `DeleteScene`, any camera/filter change, and once at startup, so a
+    /// late-opening panel sees the real state, never an assumed one.
+    SceneList { scenes: Vec<SceneInfo>, active: String },
 }
 
 /// Commands the controller sends to the engine (controller -> engine), one per line.
@@ -173,6 +206,37 @@ pub enum ControllerCommand {
     /// Switches the live scene (multi-scene, tranche 1) — an instant cut on the output
     /// channel (`obs_set_output_source`), never a transition (that's B7's remaining scope).
     SwitchScene { name: String },
+    /// Deletes the scene named `name` and everything scene-local it carried (its camera
+    /// placement, its own filter preferences). The shared physical webcam survives as long
+    /// as another scene still shows it — same release rule as `RemoveCamera`.
+    ///
+    /// The engine re-checks [`validate_scene_deletion`] and answers `Error` rather than
+    /// obeying blindly: deleting the last scene, or the live one with nowhere to fall back
+    /// to, would leave the output channel with nothing to render.
+    DeleteScene { name: String },
+}
+
+/// Why a scene could not be deleted (multi-scene, tranche 3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SceneDeleteError {
+    /// No scene by that name exists — a stale panel, or a name that was already deleted.
+    Unknown,
+    /// It is the only scene left. Deleting it would leave the output channel empty, so
+    /// the preview and the live stream would go black with nothing explaining why.
+    LastScene,
+}
+
+/// Validates a deletion request against the scenes that exist. Pure and total — no libobs —
+/// so both sides (panel before sending, engine before obeying) enforce the same two rules
+/// from one implementation, same split as [`validate_scene_name`].
+pub fn validate_scene_deletion(name: &str, existing: &[String]) -> Result<(), SceneDeleteError> {
+    if !existing.iter().any(|s| s == name) {
+        return Err(SceneDeleteError::Unknown);
+    }
+    if existing.len() <= 1 {
+        return Err(SceneDeleteError::LastScene);
+    }
+    Ok(())
 }
 
 /// Why a candidate scene name was rejected before ever reaching the engine.

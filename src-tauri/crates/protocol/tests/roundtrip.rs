@@ -38,8 +38,12 @@ fn engine_message_strategy() -> impl Strategy<Value = EngineMessage> {
             .prop_map(|(dropped, total)| EngineMessage::Frames { dropped, total }),
         any::<String>().prop_map(|message| EngineMessage::Error { message }),
         any::<i64>().prop_map(|hwnd| EngineMessage::PreviewReady { hwnd }),
-        (prop::collection::vec(any::<String>(), 0..4), any::<String>())
-            .prop_map(|(names, active)| EngineMessage::SceneList { names, active }),
+        (prop::collection::vec(any::<String>(), 0..4), any::<String>()).prop_map(
+            |(names, active)| EngineMessage::SceneList {
+                scenes: names.iter().map(hikari_protocol::SceneInfo::empty).collect(),
+                active,
+            }
+        ),
     ]
 }
 

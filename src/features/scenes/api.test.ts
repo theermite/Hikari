@@ -5,7 +5,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 import { invoke } from "@tauri-apps/api/core";
-import { createScene, switchScene } from "./api";
+import { createScene, deleteScene, switchScene } from "./api";
 
 describe("scenes api", () => {
   beforeEach(() => {
@@ -29,6 +29,16 @@ describe("scenes api", () => {
 
     expect(invoke).toHaveBeenCalledExactlyOnceWith("switch_scene", {
       name: "Discussion",
+    });
+  });
+
+  it("should_call_delete_scene_command_with_name_when_deleting", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await deleteScene("Jeu");
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("delete_scene", {
+      name: "Jeu",
     });
   });
 });

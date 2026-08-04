@@ -13,3 +13,11 @@ export function createScene(name: string): Promise<void> {
 export function switchScene(name: string): Promise<void> {
   return invoke("switch_scene", { name });
 }
+
+/** Deletes the scene `name` and everything scene-local it carried, its camera placement and
+ * its own filter preferences included (`delete_scene`, `engine_lifecycle.rs`). The shared
+ * webcam survives as long as another scene shows it. The engine refuses to delete the last
+ * scene, or an unknown one, and answers with an error rather than obeying. */
+export function deleteScene(name: string): Promise<void> {
+  return invoke("delete_scene", { name });
+}
