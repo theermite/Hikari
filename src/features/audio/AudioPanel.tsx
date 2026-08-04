@@ -59,6 +59,14 @@ const MONITORING_CHOICES: {
   },
 ];
 
+/** Asks the engine for the device list, swallowing the one failure that is not a failure:
+ * "the engine isn't started yet". At launch that is simply the normal state — the panel
+ * already says so in plain words, and a red error would blame the user for opening a panel
+ * in the wrong order. */
+function askForDevices(): void {
+  listAudioDevices().catch(() => undefined);
+}
+
 export function AudioPanel(_props: IDockviewPanelProps) {
   const [inputs, setInputs] = useState<AudioDevice[] | null>(null);
   const [outputs, setOutputs] = useState<AudioDevice[] | null>(null);
@@ -70,9 +78,15 @@ export function AudioPanel(_props: IDockviewPanelProps) {
   useEffect(() => {
     const unlisten = listen<AudioEngineMessage>("engine-message", (event) => {
       const msg = event.payload;
+      // Le moteur vient de démarrer : c'est le seul moment où il PEUT répondre. Le panneau
+      // s'affiche bien avant lui (le moteur démarre à l'ouverture de l'Aperçu), donc la
+      // demande faite au montage arrive trop tôt — sans ce rattrapage, le panneau restait
+      // bloqué sur un message d'erreur alors que le moteur tournait (Jay, 2026-08-04).
+      if (msg.type === "ready") askForDevices();
       if (msg.type === "audio_devices") {
         setInputs(msg.inputs ?? []);
         setOutputs(msg.outputs ?? []);
+        setError(null);
       }
       if (msg.type === "audio_sources" && msg.items) setSources(msg.items);
       if (msg.type === "audio_levels" && msg.levels) {
@@ -87,10 +101,10 @@ export function AudioPanel(_props: IDockviewPanelProps) {
     };
   }, []);
 
-  // Le moteur ne connaît les périphériques qu'une fois démarré : on redemande à chaque
-  // montage du panneau plutôt que de garder une liste qui peut dater d'avant un branchement.
+  // Tentative au montage : elle réussit si le moteur tourne déjà (panneau rouvert en cours
+  // de session), et échoue silencieusement sinon — l'écoute ci-dessus reprend le relais.
   useEffect(() => {
-    listAudioDevices().catch((err: unknown) => setError(String(err)));
+    askForDevices();
   }, []);
 
   const run = useCallback((action: Promise<void>) => {
