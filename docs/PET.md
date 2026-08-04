@@ -186,7 +186,7 @@ project: Hikari Stream
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
 | B3 | Multistream + vertical simultané | Critique | 🟧 horizontal fait (2026-07-19) · vertical prêt à coder (B0.2 GO 2026-07-21) |
-| B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | ⬜ |
+| B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | 🟧 tranche 1 (mixeur : périphériques, volume, sourdine, niveau, écoute) livrée + **prouvée à l'écran 2026-08-04** (écoute non vérifiée) · suppression bruit, ducking, waveformes restent |
 | B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | 🟧 déplacer/redimensionner par boutons (2026-07-24) **et à la souris, avec curseur adaptatif — prouvés 2026-08-04** · transitions/auto-move restent |
 | B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | 🟧 détection + ajout scène + masque cercle + fond IA + retrait/rajout fait (2026-07-23/24) · multi-scène (caméra unique, filtres indépendants par scène) **prouvée à l'écran 2026-08-04** · cam mobile reste |
 | **Multi-scènes** *(hors numérotation PET — apparu en session)* | Créer/lister/basculer entre scènes (F-005/F-006, sol pour B7 transitions) | Standard | 🟧 étape 1 (créer/lister/basculer) **prouvée à l'écran** 2026-07-24 · étape 2 (caméra unique, filtres par scène) **prouvée à l'écran** 2026-08-04 · étape 3 (panneau dédié) livrée 2026-08-04, **partiellement prouvée** : suppression + renommage vus à l'écran ; ordre persisté et bascule-avant-suppression **restent à vérifier** |
@@ -797,14 +797,50 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 > masque, retrait de fond) = transcriptibles. **B7 : 🟢 mouvements** (scene items + transforms prouvés)
 > **· 🟡-léger transitions** (source de transition à activer — un appel à confirmer, pas un inconnu).
 
-### B6 — Audio · Standard · 🟡 (API à confirmer)
+### B6 — Audio · Standard · 🟧 tranche 1 (mixeur) livrée · 🟢 API confirmée
 - **Objectif** : mixage + filtres micro + suppression bruit + ducking + routage écoute/diffusion + waveforms (F-021, F-037, F-039).
-- **Approche décidée** : sources/filtres audio libobs (suppression bruit = filtre NVIDIA/RNNoise, ducking = sidechain). Waveform = niveau réel lu du moteur.
+- **Veille faite 2026-08-04** — la brique passe 🟡 → 🟢. `libobs-wrapper` 9.0.4 ne wrappe RIEN
+  de l'audio ; tout passe par les liaisons brutes, dispatché sur le fil OBS comme
+  `camera::set_filter_enabled`. Confirmé présent : `obs_source_set_volume`,
+  `obs_source_set_muted`, `obs_source_set_monitoring_type`, `obs_set_audio_monitoring_device`,
+  la famille `obs_volmeter_*`. Identifiants confirmés à la source obs-studio :
+  `wasapi_input_capture` / `wasapi_output_capture` (propriété `device_id`),
+  `noise_suppress_filter` (méthodes `speex` / `rnnoise`), `compressor_filter`
+  (`sidechain_source`, `ratio`, `threshold`, `attack_time`, `release_time`, `output_gain`).
 - **Fichiers** : `src-tauri/crates/engine/src/audio.rs` · `src/features/audio/*`.
-- **Tests TDG** : `should_apply_noise_suppression_when_enabled` · `should_duck_when_voice_detected` · `should_reflect_real_level_in_waveform`.
-- **Critère d'acceptation** : bruit supprimé · ducking à la voix · waveform = niveau réel.
-- **Vérité externe** : API filtres audio `libobs-wrapper` — **à confirmer par veille** (non explorée). 🟡.
-- **Autonomie** : 🟡 — mini-veille de l'API d'abord, puis 🟢.
+
+**Tranche 1 — mixeur (livrée 2026-08-04)** : détecter les périphériques réels, ajouter un
+micro ou le son du bureau, volume, sourdine, niveau en direct, et écoute par périphérique.
+- **Les sources audio ne sont PAS des éléments de scène** : elles vivent sur leurs propres
+  canaux libobs (canal 0 = la vidéo de la scène), donc le son survit à un changement de
+  scène — le mixeur global d'OBS. **Prouvé à l'écran.**
+- **Sourdine ≠ volume zéro** : réactiver restaure le curseur laissé par l'utilisateur.
+- **Le mesureur écrit dans un atomique, jamais derrière un verrou** : libobs appelle sa
+  fonction de rappel depuis son PROPRE fil audio, et un rappel audio qui bloque sur un verrou
+  tenu par l'interface est une cause classique de grésillements. Le moteur lit à son rythme
+  (50 ms, cadence distincte des compteurs d'images à 2 s — sinon les barres avancent par
+  à-coups).
+- **Écoute** : trois choix par source, formulés par QUI entend. Défaut « public seul », le
+  seul sûr sur un micro sur enceintes (s'écouter soi-même déclenche un larsen). Piège évité :
+  libobs démarre SANS périphérique d'écoute — sans `obs_set_audio_monitoring_device` au
+  démarrage, le réglage aurait été accepté sans rien produire.
+- **2 régressions trouvées à l'écran par Jay, corrigées** :
+  1. *Le silence figeait toutes les barres.* libobs signale le silence par `-inf`, que JSON
+     ne sait pas écrire → `null` → le message ENTIER devient illisible. Une source coupée
+     privait donc toutes les autres de leur barre. Corrigé à la frontière
+     (`AudioLevel::new` borne toute lecture non finie au plancher) et épinglé par un
+     proptest. **Leçon : les tests d'aller-retour n'essayaient que des valeurs finies —
+     exactement le cas qui ne casse pas.**
+  2. *Course au démarrage.* Le panneau demandait les périphériques avant que le moteur
+     n'existe (il démarre à l'ouverture de l'Aperçu), échouait, et rien ne réessayait. Il
+     réagit désormais à l'annonce de démarrage du moteur.
+- **Tests** : 20 Rust sur le protocole audio (dont 4 proptest), 20 JS.
+- **État de preuve** : ajout, volume, niveau en direct, survie au changement de scène,
+  sourdine indépendante par périphérique — **tous vus à l'écran par Jay**. **Reste à
+  vérifier** : l'écoute (« Moi seul » / « Les deux »).
+
+**Tranches suivantes (non commencées)** : suppression de bruit · ducking · waveformes
+(historique du niveau, au-delà de la barre instantanée).
 
 ### B7 — Scènes avancées · Standard · 🟡 (API à confirmer)
 - **Objectif** : transitions, mouvements, auto-move (F-029, F-038).
