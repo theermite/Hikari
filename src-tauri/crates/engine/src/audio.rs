@@ -148,6 +148,44 @@ pub fn set_muted(source: &ObsSourceRef, muted: bool) -> Result<()> {
         .context("sourdine")
 }
 
+/// Sets whether the streamer hears this source, and whether the audience does.
+pub fn set_monitoring(source: &ObsSourceRef, monitoring: hikari_protocol::AudioMonitoring) -> Result<()> {
+    use hikari_protocol::AudioMonitoring;
+    let value = match monitoring {
+        AudioMonitoring::None => libobs::obs_monitoring_type_OBS_MONITORING_TYPE_NONE,
+        AudioMonitoring::MonitorOnly => libobs::obs_monitoring_type_OBS_MONITORING_TYPE_MONITOR_ONLY,
+        AudioMonitoring::MonitorAndOutput => {
+            libobs::obs_monitoring_type_OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT
+        }
+    };
+    let runtime = source.runtime().clone();
+    let ptr = source.as_ptr();
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // Safety: on the OBS thread, live pointer.
+            libobs::obs_source_set_monitoring_type(ptr.get_ptr(), value);
+        })
+        .context("réglage de l'écoute")
+}
+
+/// Points libobs's monitoring at the system's default playback device.
+///
+/// WHY it must be called at all: libobs starts with NO monitoring device, so
+/// `set_monitoring` would silently produce nothing — the setting would be accepted and
+/// nothing would be heard, the worst kind of failure. Called once at startup.
+pub fn use_default_monitoring_device(runtime: &libobs_wrapper::runtime::ObsRuntime) -> Result<()> {
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // "default" is the id libobs itself reserves for the system default device.
+            let name = std::ffi::CString::new("Default").expect("literal has no interior nul");
+            let id = std::ffi::CString::new("default").expect("literal has no interior nul");
+            // Safety: on the OBS thread; both strings outlive the call.
+            libobs::obs_set_audio_monitoring_device(name.as_ptr(), id.as_ptr())
+        })
+        .context("choix du périphérique d'écoute")?;
+    Ok(())
+}
+
 /// A live level meter attached to one source.
 ///
 /// libobs calls `on_level` from its own AUDIO thread, several times a second. The reading

@@ -129,15 +129,56 @@ pub struct AudioSourceInfo {
     /// to know the audio scale.
     pub volume_percent: i32,
     pub muted: bool,
+    /// Whether the streamer hears this source, and whether the audience does.
+    pub monitoring: AudioMonitoring,
 }
 
 /// One source's current loudness, as libobs measures it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AudioLevel {
     pub name: String,
-    /// Magnitude in decibels. `0` is the loudest undistorted signal; silence is very
-    /// negative (libobs reports `-inf`).
+    /// Magnitude in decibels, ALWAYS finite. `0` is the loudest undistorted signal;
+    /// silence is [`METER_FLOOR_DB`]. Build it with [`AudioLevel::new`], never by hand.
     pub magnitude_db: f32,
+}
+
+impl AudioLevel {
+    /// Builds a level the wire can actually carry, clamping silence and broken readings to
+    /// [`METER_FLOOR_DB`].
+    ///
+    /// WHY this exists (regression 2026-08-04): libobs reports silence as `-inf`, and JSON
+    /// has no way to write a non-finite number — `serde_json` emits `null`, which then fails
+    /// to parse back as `f32`. The failure is not local: the WHOLE `AudioLevels` message is
+    /// rejected, so one muted source froze every other source's bar. A level is clamped at
+    /// the boundary rather than trusted from the caller.
+    pub fn new(name: impl Into<String>, magnitude_db: f32) -> Self {
+        Self {
+            name: name.into(),
+            magnitude_db: if magnitude_db.is_finite() {
+                magnitude_db
+            } else if magnitude_db == f32::INFINITY {
+                0.0
+            } else {
+                METER_FLOOR_DB
+            },
+        }
+    }
+}
+
+/// Whether a source is played back to the streamer's own ears, and whether the audience
+/// hears it too (B6). Mirrors libobs's own three monitoring states.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AudioMonitoring {
+    /// The audience hears it, the streamer does not (their ears already hear the room).
+    /// libobs's default, and the right one for a microphone on speakers — monitoring a mic
+    /// out loud is how a feedback loop starts.
+    None,
+    /// The streamer hears it, the audience does not. For checking a source privately.
+    MonitorOnly,
+    /// Both hear it. For a source the machine plays but the streamer's headphones do not
+    /// already receive.
+    MonitorAndOutput,
 }
 
 /// The quietest level the meter shows. Below this the bar is simply empty — a meter that
@@ -328,6 +369,8 @@ pub enum ControllerCommand {
     /// Mutes or unmutes a source. Distinct from a zero volume: unmuting restores the slider
     /// where the user left it, so muting is never a destructive act.
     SetAudioMuted { name: String, muted: bool },
+    /// Sets whether the streamer hears this source, and whether the audience does.
+    SetAudioMonitoring { name: String, monitoring: AudioMonitoring },
 }
 
 /// Why a scene could not be deleted (multi-scene, tranche 3).

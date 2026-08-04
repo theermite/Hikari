@@ -11,6 +11,7 @@ import {
   addAudioSource,
   listAudioDevices,
   removeAudioSource,
+  setAudioMonitoring,
   setAudioMuted,
   setAudioVolume,
 } from "./api";
@@ -18,6 +19,7 @@ import { formatLevel, meterFraction, meterZone } from "./meter";
 import type {
   AudioDevice,
   AudioEngineMessage,
+  AudioMonitoring,
   AudioSourceInfo,
   AudioSourceKind,
 } from "./types";
@@ -32,6 +34,30 @@ const KIND_LABEL: Record<AudioSourceKind, string> = {
   input: "Micro",
   output: "Son du bureau",
 };
+
+/** Wording says WHO hears what, never the technical name of the routing — that is the only
+ * thing the user actually decides about. */
+const MONITORING_CHOICES: {
+  value: AudioMonitoring;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "none",
+    label: "Public seul",
+    hint: "Tes spectateurs l'entendent, toi non.",
+  },
+  {
+    value: "monitor_only",
+    label: "Moi seul",
+    hint: "Tu l'entends, tes spectateurs non.",
+  },
+  {
+    value: "monitor_and_output",
+    label: "Les deux",
+    hint: "Tu l'entends et tes spectateurs aussi.",
+  },
+];
 
 export function AudioPanel(_props: IDockviewPanelProps) {
   const [inputs, setInputs] = useState<AudioDevice[] | null>(null);
@@ -172,6 +198,31 @@ export function AudioPanel(_props: IDockviewPanelProps) {
                   >
                     ✕
                   </button>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="shrink-0 text-[11px] text-hikari-txt-faint">
+                    Qui l'entend
+                  </span>
+                  {MONITORING_CHOICES.map((choice) => (
+                    <button
+                      key={choice.value}
+                      type="button"
+                      onClick={() =>
+                        run(setAudioMonitoring(source.name, choice.value))
+                      }
+                      disabled={busy}
+                      title={choice.hint}
+                      aria-pressed={source.monitoring === choice.value}
+                      className={`rounded-[6px] border px-1.5 py-0.5 text-[11px] transition disabled:opacity-50 ${
+                        source.monitoring === choice.value
+                          ? "border-hikari-accent text-hikari-accent"
+                          : "border-hikari-line text-hikari-txt-dim hover:border-hikari-accent hover:text-hikari-txt"
+                      }`}
+                    >
+                      {choice.label}
+                    </button>
+                  ))}
                 </div>
               </li>
             );

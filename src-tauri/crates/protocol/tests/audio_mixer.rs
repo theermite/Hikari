@@ -3,9 +3,9 @@
 //! integration regime, proven by running the app.
 
 use hikari_protocol::{
-    AudioDevice, AudioLevel, AudioSourceInfo, AudioSourceKind, ControllerCommand, EngineMessage,
-    METER_FLOOR_DB, db_to_meter_fraction, parse_controller_command, parse_engine_message,
-    percent_to_volume, to_line, volume_to_percent,
+    AudioDevice, AudioLevel, AudioMonitoring, AudioSourceInfo, AudioSourceKind, ControllerCommand,
+    EngineMessage, METER_FLOOR_DB, db_to_meter_fraction, parse_controller_command,
+    parse_engine_message, percent_to_volume, to_line, volume_to_percent,
 };
 use proptest::prelude::*;
 
@@ -86,6 +86,7 @@ fn should_roundtrip_the_audio_source_list() {
             kind: AudioSourceKind::Input,
             volume_percent: 80,
             muted: false,
+            monitoring: AudioMonitoring::None,
         }],
     };
     let line = to_line(&msg).expect("serializes");
@@ -95,7 +96,56 @@ fn should_roundtrip_the_audio_source_list() {
 #[test]
 fn should_roundtrip_the_audio_levels() {
     let msg = EngineMessage::AudioLevels {
-        levels: vec![AudioLevel { name: "Micro".to_string(), magnitude_db: -18.5 }],
+        levels: vec![AudioLevel::new("Micro", -18.5)],
+    };
+    let line = to_line(&msg).expect("serializes");
+    assert_eq!(parse_engine_message(&line).expect("parses"), msg);
+}
+
+#[test]
+fn should_send_silence_as_the_floor_rather_than_an_illegal_json_number() {
+    // Vécu 2026-08-04 : le silence valait -infini, que JSON ne sait pas écrire. Il partait
+    // en `null`, et le message ENTIER était rejeté à l'arrivée — donc couper UN son figeait
+    // TOUTES les barres. Le silence voyage désormais comme la valeur plancher.
+    let level = AudioLevel::new("Micro", f32::NEG_INFINITY);
+    assert_eq!(level.magnitude_db, METER_FLOOR_DB);
+
+    let line = to_line(&EngineMessage::AudioLevels { levels: vec![level] }).expect("serializes");
+    assert!(!line.contains("null"), "le silence ne doit jamais partir en null : {line}");
+    parse_engine_message(&line).expect("un niveau silencieux doit se relire");
+}
+
+#[test]
+fn should_send_a_broken_reading_as_the_floor_rather_than_breaking_the_whole_message() {
+    // NaN vient d'une lecture cassée. Un seul micro défaillant ne doit pas priver les
+    // autres de leurs barres.
+    let line = to_line(&EngineMessage::AudioLevels {
+        levels: vec![AudioLevel::new("Cassé", f32::NAN), AudioLevel::new("Micro", -12.0)],
+    })
+    .expect("serializes");
+    let parsed = parse_engine_message(&line).expect("parses");
+    let EngineMessage::AudioLevels { levels } = parsed else { panic!("expected audio_levels") };
+    assert_eq!(levels[0].magnitude_db, METER_FLOOR_DB);
+    assert_eq!(levels[1].magnitude_db, -12.0);
+}
+
+#[test]
+fn should_roundtrip_the_monitoring_command_and_state() {
+    let cmd = ControllerCommand::SetAudioMonitoring {
+        name: "Micro".to_string(),
+        monitoring: AudioMonitoring::MonitorOnly,
+    };
+    let line = to_line(&cmd).expect("serializes");
+    assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
+
+    let msg = EngineMessage::AudioSources {
+        items: vec![AudioSourceInfo {
+            name: "Micro".to_string(),
+            kind: AudioSourceKind::Input,
+            volume_percent: 80,
+            muted: false,
+            monitoring: AudioMonitoring::MonitorAndOutput,
+        }],
     };
     let line = to_line(&msg).expect("serializes");
     assert_eq!(parse_engine_message(&line).expect("parses"), msg);
@@ -121,6 +171,16 @@ fn should_roundtrip_every_mixer_command() {
 }
 
 proptest! {
+    #[test]
+    fn should_always_send_a_level_json_can_actually_carry(db in prop::num::f32::ANY) {
+        // La propriété qui protège la régression du 04/08 : quelle que soit la lecture
+        // (silence, NaN, valeur absurde), le message doit rester relisible à l'arrivée.
+        let line = to_line(&EngineMessage::AudioLevels {
+            levels: vec![AudioLevel::new("Micro", db)],
+        }).expect("serializes");
+        prop_assert!(parse_engine_message(&line).is_ok(), "message illisible : {}", line);
+    }
+
     #[test]
     fn should_never_produce_a_bar_outside_zero_and_one(db in -200.0f32..60.0) {
         let fraction = db_to_meter_fraction(db);

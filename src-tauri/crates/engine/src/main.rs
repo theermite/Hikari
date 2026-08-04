@@ -167,6 +167,7 @@ struct MixerSource {
     /// The slider position, remembered so unmuting restores exactly what the user chose.
     volume_percent: i32,
     muted: bool,
+    monitoring: hikari_protocol::AudioMonitoring,
 }
 
 /// An in-progress camera gesture (B7, souris) — a move or a resize, decided at press time
@@ -213,6 +214,7 @@ enum EngineEvent {
     RemoveAudioSource { name: String },
     SetAudioVolume { name: String, percent: i32 },
     SetAudioMuted { name: String, muted: bool },
+    SetAudioMonitoring { name: String, monitoring: hikari_protocol::AudioMonitoring },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -266,6 +268,12 @@ impl App {
         let (sources, scene_item) =
             build_scene_with_capture(&mut context).context("construction scène")?;
         emit(&EngineMessage::Sources { items: sources.clone() });
+
+        // Without this, libobs has NO monitoring device and "écouter" would be accepted
+        // while producing nothing — a setting that lies is worse than a missing one.
+        if let Err(err) = audio::use_default_monitoring_device(context.runtime()) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+        }
 
         let display = create_preview(&mut context, &window).context("création aperçu")?;
         let RawWindowHandle::Win32(handle) = window.window_handle()?.as_raw() else {
@@ -723,6 +731,9 @@ impl App {
             // ear hears, so it starts at 100 rather than at some remembered default.
             volume_percent: 100,
             muted: false,
+            // libobs's own default, and the safe one: monitoring a microphone through
+            // speakers is how a feedback howl starts.
+            monitoring: hikari_protocol::AudioMonitoring::None,
         });
         self.emit_audio_sources();
     }
@@ -786,6 +797,25 @@ impl App {
         self.emit_audio_sources();
     }
 
+    /// Sets whether the streamer hears this source, and whether the audience does.
+    fn handle_set_audio_monitoring(
+        &mut self,
+        name: String,
+        monitoring: hikari_protocol::AudioMonitoring,
+    ) {
+        let Some(obs) = &mut self.obs else { return };
+        let Some(source) = obs.audio.iter_mut().find(|source| source.name == name) else {
+            emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
+            return;
+        };
+        if let Err(err) = audio::set_monitoring(&source.source, monitoring) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        source.monitoring = monitoring;
+        self.emit_audio_sources();
+    }
+
     /// Emits the mixer's real state — shared tail of every command that changes it.
     fn emit_audio_sources(&mut self) {
         let Some(obs) = &mut self.obs else { return };
@@ -797,6 +827,7 @@ impl App {
                 kind: source.kind,
                 volume_percent: source.volume_percent,
                 muted: source.muted,
+                monitoring: source.monitoring,
             })
             .collect();
         emit(&EngineMessage::AudioSources { items });
@@ -812,14 +843,16 @@ impl App {
         let levels = obs
             .audio
             .iter()
-            .map(|source| hikari_protocol::AudioLevel {
-                name: source.name.clone(),
+            .map(|source| {
                 // A muted source is silent to the listener; showing its bar still moving
-                // would say the opposite of what is being heard.
-                magnitude_db: match (&source.meter, source.muted) {
+                // would say the opposite of what is being heard. `AudioLevel::new` turns
+                // that silence into a value JSON can carry — sending `-inf` used to make
+                // the whole message unreadable, freezing EVERY bar (regression 2026-08-04).
+                let db = match (&source.meter, source.muted) {
                     (_, true) | (None, _) => f32::NEG_INFINITY,
                     (Some(meter), false) => meter.magnitude_db(),
-                },
+                };
+                hikari_protocol::AudioLevel::new(source.name.clone(), db)
             })
             .collect();
         emit(&EngineMessage::AudioLevels { levels });
@@ -1045,6 +1078,9 @@ impl ApplicationHandler<EngineEvent> for App {
                 self.handle_set_audio_volume(name, percent)
             }
             EngineEvent::SetAudioMuted { name, muted } => self.handle_set_audio_muted(name, muted),
+            EngineEvent::SetAudioMonitoring { name, monitoring } => {
+                self.handle_set_audio_monitoring(name, monitoring)
+            }
         }
     }
 
@@ -1203,6 +1239,9 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 }
                 Ok(ControllerCommand::SetAudioMuted { name, muted }) => {
                     let _ = proxy.send_event(EngineEvent::SetAudioMuted { name, muted });
+                }
+                Ok(ControllerCommand::SetAudioMonitoring { name, monitoring }) => {
+                    let _ = proxy.send_event(EngineEvent::SetAudioMonitoring { name, monitoring });
                 }
                 Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),

@@ -9,6 +9,7 @@ import {
   addAudioSource,
   listAudioDevices,
   removeAudioSource,
+  setAudioMonitoring,
   setAudioMuted,
   setAudioVolume,
 } from "./api";
@@ -58,6 +59,15 @@ describe("audio api", () => {
     expect(invoke).toHaveBeenCalledExactlyOnceWith("set_audio_muted", {
       name: "Micro",
       muted: true,
+    });
+  });
+
+  it("should_pass_the_monitoring_choice_when_routing_playback", async () => {
+    await setAudioMonitoring("Micro", "monitor_only");
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("set_audio_monitoring", {
+      name: "Micro",
+      monitoring: "monitor_only",
     });
   });
 });

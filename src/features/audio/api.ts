@@ -1,7 +1,7 @@
 // Audio mixer Tauri bridge (B6) — thin `invoke` wrappers, no logic here.
 
 import { invoke } from "@tauri-apps/api/core";
-import type { AudioSourceKind } from "./types";
+import type { AudioMonitoring, AudioSourceKind } from "./types";
 
 /** Asks the engine to emit the machine's real audio devices. Requires the engine running
  * (the Aperçu panel open). */
@@ -32,4 +32,12 @@ export function setAudioVolume(name: string, percent: number): Promise<void> {
 /** Mutes or unmutes a source, leaving its slider where the user put it. */
 export function setAudioMuted(name: string, muted: boolean): Promise<void> {
   return invoke("set_audio_muted", { name, muted });
+}
+
+/** Sets whether the streamer hears this source, and whether the audience does. */
+export function setAudioMonitoring(
+  name: string,
+  monitoring: AudioMonitoring,
+): Promise<void> {
+  return invoke("set_audio_monitoring", { name, monitoring });
 }

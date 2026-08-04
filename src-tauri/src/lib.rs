@@ -45,6 +45,7 @@ pub fn run() {
             engine_lifecycle::remove_audio_source,
             engine_lifecycle::set_audio_volume,
             engine_lifecycle::set_audio_muted,
+            engine_lifecycle::set_audio_monitoring,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .run(tauri::generate_context!())
