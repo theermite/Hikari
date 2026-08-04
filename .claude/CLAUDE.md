@@ -18,21 +18,24 @@ No exception. No shortcut.
 |-------|-------|
 | Name | Hikari (光 — lumière) |
 | Type | Desktop streaming cockpit, open-source, free |
-| Status | **Conception done + audited. No production code yet.** |
+| Status | **In development — the cockpit composes scenes.** Broadcast, accounts, deck, automations, camera and multi-scenes are merged and proven on screen. Next: dedicated Scenes UI, then audio (B6). Live state → project note + PET §6. |
 | Repo | `theermite/Hikari` — public, **GPL-3.0** (embedded `libobs` forces it) |
-| Docs | `docs/` — CDC v1.3.0 · PET v1.4.0 · mockup · `refs-concurrence/` · `legacy-ancien-repo/`. Moved here from `Takumi/` on 2026-07-17 (Jay). ⚠️ `docs/Veille-Technique.md` is **stale** — 3 of its core claims were false, see `docs/README.md`. |
+| Docs | `docs/` — CDC v1.3.0 · PET v1.5.0 · mockup · `refs-concurrence/` · `legacy-ancien-repo/`. Moved here from `Takumi/` on 2026-07-17 (Jay). ⚠️ `docs/Veille-Technique.md` is **stale** — 3 of its core claims were false, see `docs/README.md`. |
 | Project note | `Shinzo/02-Projets/Hikari-Stream.md` — sync at session start and end |
 
-## ⛔ BLOCKING — no production code before B0.0
+## Hardware floor — the rule that outlived the B0.0 spike
 
-The engine spike (B0.0, 1 day) comes first. It **measures**, it no longer decides
-(PET v1.4.0): a shipped counter-example (`league_record`, Rust + Tauri + OBS engine,
-in production since March 2022) proved the stack works. The one open unknown: nobody
-has crossed **Rust + OBS engine + live broadcast** — league_record records only.
+B0.0 is **done** (2026-07-18, GO branch A): the stack holds, and Rust + OBS engine +
+live broadcast — the one unknown nobody had crossed — is proven in production here.
+The old "no production code before B0.0" blocker is lifted; what follows still stands.
 
-B0.0 measures the **overhead against bare OBS**, never the machine. One machine is one
-point, never a curve; the product must run on anyone's hardware. Hardware floor =
-OBS's published floor + our measured overhead (ADR-014).
+Measure the **overhead against bare OBS**, never the machine. One machine is one point,
+never a curve; the product must run on anyone's hardware. Hardware floor = OBS's
+published floor + our measured overhead (ADR-014).
+
+**Proof is on screen, never in a green test.** The real libobs render (filters, scenes,
+camera) is not testable headless — a merged brick is proven only once Jay has seen it.
+Mark a brick "coded, not proven" honestly rather than implying proof.
 
 ## Founding decisions (detail → project note + PET)
 
