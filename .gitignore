@@ -19,9 +19,10 @@ Cargo.lock.bak
 *.so
 *.dylib
 # Données de plugins écrites par le runtime OBS à l'exécution (rtmp-services, win-capture,
-# etc.) quand le moteur tourne depuis la racine du dépôt — régénérables, jamais du code.
-/rtmp-services/
-/win-capture/
+# etc.) quand le moteur tourne — régénérables, jamais du code. Non ancré à la racine :
+# le moteur les écrit dans son répertoire courant (racine, src-tauri/, spikes/…).
+rtmp-services/
+win-capture/
 
 # --- Node / front ---
 node_modules/
@@ -45,6 +46,11 @@ secrets.*
 /spikes/**/*.mp4
 /spikes/**/*.mkv
 /spikes/**/*.flv
+# OBS compilé et serveur RTMP de test : téléchargés/reconstruits par le spike, des
+# centaines de Mo. Jamais dans l'historique d'un dépôt public (leçon Kobo 2026-07-28).
+/spikes/**/obs-build/
+/spikes/**/mediamtx/
+/spikes/**/*.zip
 
 # --- Éditeurs / OS ---
 .vscode/*
