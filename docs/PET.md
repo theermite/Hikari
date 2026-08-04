@@ -187,7 +187,7 @@ project: Hikari Stream
 |---|---|---|---|
 | B3 | Multistream + vertical simultané | Critique | 🟧 horizontal fait (2026-07-19) · vertical prêt à coder (B0.2 GO 2026-07-21) |
 | B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | ⬜ |
-| B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | 🟧 déplacer/redimensionner par boutons fait (2026-07-24) · souris + transitions/auto-move restent |
+| B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | 🟧 déplacer/redimensionner par boutons (2026-07-24) **et à la souris, avec curseur adaptatif — prouvés 2026-08-04** · transitions/auto-move restent |
 | B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | 🟧 détection + ajout scène + masque cercle + fond IA + retrait/rajout fait (2026-07-23/24) · multi-scène (caméra unique, filtres indépendants par scène) **prouvée à l'écran 2026-08-04** · cam mobile reste |
 | **Multi-scènes** *(hors numérotation PET — apparu en session)* | Créer/lister/basculer entre scènes (F-005/F-006, sol pour B7 transitions) | Standard | 🟧 étape 1 (créer/lister/basculer) **prouvée à l'écran** 2026-07-24 · étape 2 (caméra unique, filtres par scène) **prouvée à l'écran** 2026-08-04 · étape 3 (panneau dédié) livrée 2026-08-04, **partiellement prouvée** : suppression + renommage vus à l'écran ; ordre persisté et bascule-avant-suppression **restent à vérifier** |
 
@@ -818,11 +818,32 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
   `nudge_camera`/`scale_camera`) — livré pour la caméra, `SceneItemTrait::set_source_position/
   set_source_scale` (déjà prouvé, `fit_source_to_screen`). Clamp de sécurité générique
   (pas de lecture sûre de la taille canvas hors thread OBS interne), testé en pur.
-- **Dette (2026-07-24, décision Jay)** : glisser-déposer réel à la souris dans l'aperçu
-  (comme OBS), en plus des boutons — pas encore commencé. Demande une capture souris dans
-  la fenêtre native du moteur (le webview ne voit jamais ces clics) + un calcul de zone
-  cliquable (position/échelle de la source ↔ pixels fenêtre). Prochaine tranche B7 quand
-  Jay le priorise.
+- ~~Dette (2026-07-24) : glisser-déposer réel à la souris~~ → **FAIT ET PROUVÉ 2026-08-04**.
+  La capture souris vit dans la boucle winit du moteur (le webview ne voit jamais ces clics,
+  et le glisser cassé de dockview en WebView2 ne s'y applique donc pas).
+  - **Déplacer** : l'écart de prise est conservé, sinon la caméra saute pour coller son coin
+    sous le pointeur au premier mouvement.
+  - **Redimensionner** : attraper un COIN, le coin opposé reste épinglé tout le geste. Le
+    rapport largeur/hauteur est conservé (l'échelle vient de la seule distance horizontale).
+    Position et échelle écrites ensemble (`set_camera_transform`), sinon la caméra sauterait
+    d'une image entre les deux écritures. Aucun coin proposé sous 2× la marge de prise —
+    sinon une petite caméra perdrait toute zone « déplacer » et deviendrait immobile.
+  - **Curseur** : double flèche diagonale sur un coin, croix sur le corps. Les poignées ne
+    sont pas dessinées, le curseur est le seul indice (retour Jay, 2026-08-04).
+  - **Cache du rectangle caméra** : décider la forme du curseur à chaque mouvement coûtait
+    3 allers-retours au fil OBS et faisait saccader l'aperçu. Le cache est exact, pas
+    approximatif — rien d'autre que le moteur ne déplace la caméra, et chaque écrivain le
+    vide. La taille native de la webcam est mesurée une fois, oubliée au retrait (l'appareil
+    suivant peut avoir une autre résolution).
+  - **Deux lectures brutes ajoutées**, faute d'équivalent dans `libobs-wrapper` 9.0.4 :
+    taille de la source (`obs_source_get_width/height`) et taille du canevas
+    (`obs_get_video_info`), lue et jamais déduite des réglages de démarrage (ils peuvent
+    différer, et la caméra suivrait alors la souris à la mauvaise vitesse).
+  - **22 tests purs** sur la géométrie (conversion aperçu→canevas, survol, détection de coin,
+    échelle depuis l'ancrage, placement), dont 4 proptest — l'un épingle la propriété qui
+    rend le geste prévisible : *le coin opposé ne bouge jamais, quelle que soit la taille*.
+  - **Prouvé à l'écran par Jay** : déplacement, redimensionnement, curseur, et fluidité.
+- **Reste B7** : transitions au changement de scène · auto-move. Non commencés.
 
 ### B-cam — Caméra · Standard · 🟡 (API à confirmer)
 - **Objectif** : caméra perso, masques (cercle), fond sans écran vert, cam mobile (F-024, F-036).
