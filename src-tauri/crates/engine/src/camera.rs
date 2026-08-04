@@ -117,6 +117,70 @@ pub fn nudge_camera(item: &ObsSceneItemRef<ObsSourceRef>, dx: i32, dy: i32) -> R
     Ok((x, y, (scale.x() * 100.0).round() as i32))
 }
 
+/// Sets the camera's position outright (B7, glisser-souris), clamped by
+/// `hikari_protocol::clamp_camera_position`. Distinct from `nudge_camera`, which adds a
+/// delta: a drag already knows the absolute point the cursor is on, and re-reading the
+/// current position each mouse-move would accumulate rounding drift over a long gesture.
+/// Same "return the real, post-clamp transform" contract as its two siblings.
+pub fn set_camera_position(
+    item: &ObsSceneItemRef<ObsSourceRef>,
+    x: i32,
+    y: i32,
+) -> Result<(i32, i32, i32)> {
+    let (x, y) = hikari_protocol::clamp_camera_position(x, y);
+    item.set_source_position(Vec2::new(x as f32, y as f32)).context("déplacement caméra")?;
+    let scale = item.get_source_scale().context("lecture échelle caméra")?;
+    Ok((x, y, (scale.x() * 100.0).round() as i32))
+}
+
+/// The camera source's own pixel size, before any scene scaling — the webcam's native
+/// resolution as libobs reports it.
+///
+/// `libobs-wrapper` 9.0.4 wraps no size getter (checked in its source, 2026-08-04), so this
+/// dispatches the raw `obs_source_get_width`/`_height` on the OBS thread, the same
+/// `run_with_obs_result` contract `set_filter_enabled` already uses. Returns `(0, 0)` while
+/// the device is still opening — the caller treats that as "nothing to grab" rather than
+/// guessing a size.
+pub fn source_base_size(source: &ObsSourceRef) -> Result<(u32, u32)> {
+    let runtime = source.runtime().clone();
+    let ptr = source.as_ptr();
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // Safety: same argument as `set_filter_enabled` — the pointer comes from a live
+            // smart pointer we still hold a reference to, and we are on the OBS thread.
+            (
+                libobs::obs_source_get_width(ptr.get_ptr()),
+                libobs::obs_source_get_height(ptr.get_ptr()),
+            )
+        })
+        .context("lecture taille source caméra")
+}
+
+/// The live output canvas size (B7, glisser-souris) — the coordinate space every scene item
+/// position is expressed in, needed to turn a cursor position into a camera position.
+///
+/// Read from libobs itself via `obs_get_video_info` rather than assumed from the startup
+/// settings: the two can differ (a downscale is applied at output), and a wrong canvas size
+/// makes the camera trail the cursor at the wrong speed.
+pub fn canvas_size(runtime: &libobs_wrapper::runtime::ObsRuntime) -> Result<(u32, u32)> {
+    // Only the two numbers cross the thread boundary, never `obs_video_info` itself: it
+    // carries raw pointers (`graphics_module`), so it is not `Send` and the compiler refuses
+    // to move it out of the OBS thread — correctly, since those pointers belong there.
+    let size = runtime
+        .run_with_obs_result(|| unsafe {
+            let mut ovi: libobs::obs_video_info = std::mem::zeroed();
+            // Safety: `obs_get_video_info` only writes into the struct we own, and we are on
+            // the OBS thread. A `false` return means video is not initialized yet.
+            if libobs::obs_get_video_info(&mut ovi) {
+                Some((ovi.base_width, ovi.base_height))
+            } else {
+                None
+            }
+        })
+        .context("lecture réglages vidéo")?;
+    size.context("vidéo libobs non initialisée")
+}
+
 /// Grows (`grow = true`) or shrinks the camera by one fixed step (B7), clamped by
 /// `hikari_protocol::clamp_camera_scale`. Same "return the real result" contract as
 /// `nudge_camera`.

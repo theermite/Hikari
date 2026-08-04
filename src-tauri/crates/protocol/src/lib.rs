@@ -261,11 +261,16 @@ pub fn validate_scene_name(name: &str, existing: &[String]) -> Result<(), SceneN
     Ok(())
 }
 
-/// Clamp bounds for `NudgeCamera` (B7) — a generous sanity range, not exact canvas
-/// containment: the wrapper exposes no safe way to read the live canvas size outside
-/// libobs's own render thread (`obs_get_video_info` needs the crate's private
-/// `run_with_obs!` dispatch), so this only stops the camera drifting to absurd
-/// coordinates after many clicks, never a "stays inside the frame" guarantee.
+/// Clamp bounds for camera moves (B7) — a generous sanity range, not exact canvas
+/// containment: it stops the camera drifting to absurd coordinates, it never guarantees
+/// "stays inside the frame".
+///
+/// An earlier note here claimed the live canvas size was unreadable outside libobs's render
+/// thread (`obs_get_video_info` behind a private dispatch). That was wrong:
+/// `ObsRuntime::run_with_obs_result` is public, and `camera::canvas_size` reads it that way
+/// since the drag brick (2026-08-04). The bound stays a deliberate sanity range all the
+/// same — clamping to the exact canvas would forbid a camera deliberately parked
+/// half-offscreen, which OBS allows.
 pub const CAMERA_POSITION_BOUND: i32 = 4000;
 
 /// Multiplicative step applied per `ScaleCamera` click (B7) — ±10%, small enough that a
@@ -286,6 +291,38 @@ pub fn clamp_camera_position(x: i32, y: i32) -> (i32, i32) {
 /// same reason as `clamp_camera_position`.
 pub fn clamp_camera_scale(scale: f32) -> f32 {
     scale.clamp(CAMERA_SCALE_MIN, CAMERA_SCALE_MAX)
+}
+
+/// Converts a point in the preview window into canvas coordinates (B7, glisser-souris).
+///
+/// The preview shows the whole canvas shrunk to the fitted area, so one preview pixel is
+/// worth `canvas / fitted` canvas pixels — without that factor the camera would trail the
+/// cursor at the wrong speed. Each axis scales independently: the fitted area keeps the
+/// canvas aspect in practice, but nothing here depends on it.
+///
+/// A zero-sized preview really happens while a window is being minimized; it is treated as
+/// one pixel so the result stays finite instead of becoming infinity or NaN.
+pub fn window_to_canvas(
+    cursor_x: f32,
+    cursor_y: f32,
+    fitted_w: u32,
+    fitted_h: u32,
+    canvas_w: u32,
+    canvas_h: u32,
+) -> (f32, f32) {
+    let fitted_w = fitted_w.max(1) as f32;
+    let fitted_h = fitted_h.max(1) as f32;
+    (
+        cursor_x * (canvas_w as f32) / fitted_w,
+        cursor_y * (canvas_h as f32) / fitted_h,
+    )
+}
+
+/// Whether `(px, py)` falls within the rectangle at `(x, y)` of size `w × h`. Edges count as
+/// inside: grabbing the camera exactly on its border must work, otherwise the gesture
+/// misses by one pixel for no visible reason. An empty rectangle contains nothing.
+pub fn is_inside(px: f32, py: f32, x: f32, y: f32, w: f32, h: f32) -> bool {
+    w > 0.0 && h > 0.0 && px >= x && px <= x + w && py >= y && py <= y + h
 }
 
 /// One destination for `StartMultistream` (B3): a platform id (`"twitch"`, `"youtube"`) and

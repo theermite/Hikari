@@ -36,7 +36,7 @@ use multistream::{PlatformStream, report_platform_frame_stats, start_multistream
 use stream::{FRAME_STATS_INTERVAL, StreamState, report_frame_stats, start_stream};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy};
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::{Window, WindowId};
@@ -133,6 +133,16 @@ struct ObsInner {
     active_scene: String,
 }
 
+/// An in-progress camera drag (B7, glisser-souris).
+///
+/// `grab_offset` is where inside the camera the user grabbed it, in canvas pixels. Keeping
+/// that offset is what makes the camera follow the cursor instead of jumping so its corner
+/// snaps under the pointer on the first move.
+struct DragState {
+    grab_offset_x: f32,
+    grab_offset_y: f32,
+}
+
 /// The two one-way filters a camera source carries once created — kept together since
 /// they're always created/toggled as a pair alongside `camera_source`.
 struct CameraFilters {
@@ -176,6 +186,15 @@ struct App {
     /// whole batch (unlike `StreamState`, `PlatformStream` doesn't carry its own timer,
     /// since every target reports on the same cadence).
     multistream_last_stats_at: Instant,
+    /// Last known cursor position in the preview window, in physical pixels. winit reports
+    /// press/release WITHOUT coordinates, so the position has to be remembered from the
+    /// preceding move event.
+    cursor: Option<(f32, f32)>,
+    /// The preview's fitted size, kept in step with `Resized` — the divisor that turns a
+    /// preview pixel into a canvas pixel.
+    fitted: (u32, u32),
+    /// The drag in progress, if any (B7, glisser-souris).
+    drag: Option<DragState>,
     obs: Option<ObsInner>,
 }
 
@@ -566,6 +585,71 @@ impl App {
             Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
         }
     }
+
+    /// Where the camera sits in the ACTIVE scene, in canvas pixels: `(x, y, width, height)`.
+    /// `None` when no camera is in this scene, or while the device is still opening (a
+    /// zero-sized source has nothing to grab).
+    fn active_camera_rect(&mut self) -> Option<(f32, f32, f32, f32)> {
+        let obs = self.obs.as_mut()?;
+        let item = obs.camera_items.get(&obs.active_scene)?;
+        let source = obs.camera_source.as_ref()?;
+        let position = item.get_source_position().ok()?;
+        let scale = item.get_source_scale().ok()?;
+        let (base_w, base_h) = camera::source_base_size(source).ok()?;
+        if base_w == 0 || base_h == 0 {
+            return None;
+        }
+        Some((
+            *position.x(),
+            *position.y(),
+            base_w as f32 * scale.x(),
+            base_h as f32 * scale.y(),
+        ))
+    }
+
+    /// Turns a cursor position in the preview into canvas coordinates. `None` while libobs
+    /// video is not initialized — no guessed canvas size, ever.
+    fn cursor_in_canvas(&mut self, cursor: (f32, f32)) -> Option<(f32, f32)> {
+        let obs = self.obs.as_mut()?;
+        let (canvas_w, canvas_h) = camera::canvas_size(obs.context.runtime()).ok()?;
+        Some(hikari_protocol::window_to_canvas(
+            cursor.0,
+            cursor.1,
+            self.fitted.0,
+            self.fitted.1,
+            canvas_w,
+            canvas_h,
+        ))
+    }
+
+    /// Left button pressed: grab the camera if the cursor is on it (B7, glisser-souris).
+    /// A press anywhere else starts no drag — the rest of the canvas is not draggable yet.
+    fn begin_drag(&mut self) {
+        let Some(cursor) = self.cursor else { return };
+        let Some((cx, cy)) = self.cursor_in_canvas(cursor) else { return };
+        let Some((x, y, w, h)) = self.active_camera_rect() else { return };
+        if hikari_protocol::is_inside(cx, cy, x, y, w, h) {
+            self.drag = Some(DragState { grab_offset_x: cx - x, grab_offset_y: cy - y });
+        }
+    }
+
+    /// Cursor moved while dragging: put the camera where the cursor is, minus the grab
+    /// offset, so the point the user grabbed stays under the pointer.
+    fn continue_drag(&mut self) {
+        let Some(drag) = &self.drag else { return };
+        let (grab_x, grab_y) = (drag.grab_offset_x, drag.grab_offset_y);
+        let Some(cursor) = self.cursor else { return };
+        let Some((cx, cy)) = self.cursor_in_canvas(cursor) else { return };
+        let Some(obs) = &mut self.obs else { return };
+        let scene = obs.active_scene.clone();
+        let Some(item) = obs.camera_items.get(&scene) else { return };
+        match camera::set_camera_position(item, (cx - grab_x) as i32, (cy - grab_y) as i32) {
+            Ok((x, y, scale_percent)) => {
+                emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
+            }
+            Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
+        }
+    }
 }
 
 impl ApplicationHandler<EngineEvent> for App {
@@ -644,11 +728,27 @@ impl ApplicationHandler<EngineEvent> for App {
                 }
             }
             WindowEvent::Resized(size) => {
+                let (w, h) = fit_size(size.width, size.height);
+                // Kept even when libobs isn't up yet: it is the divisor every later cursor
+                // conversion uses, and a stale value would misplace the camera silently.
+                self.fitted = (w, h);
                 if let Some(obs) = &self.obs {
-                    let (w, h) = fit_size(size.width, size.height);
                     let _ = obs.display.set_size(w, h);
                 }
             }
+            WindowEvent::CursorMoved { position, .. } => {
+                self.cursor = Some((position.x as f32, position.y as f32));
+                if self.drag.is_some() {
+                    self.continue_drag();
+                }
+            }
+            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => match state {
+                ElementState::Pressed => self.begin_drag(),
+                ElementState::Released => self.drag = None,
+            },
+            // The cursor leaving the preview ends the gesture: without this, coming back in
+            // would teleport the camera by the distance travelled outside.
+            WindowEvent::CursorLeft { .. } => self.drag = None,
             _ => (),
         }
     }
@@ -722,6 +822,9 @@ fn run() -> Result<()> {
         stream: None,
         multistream: Vec::new(),
         multistream_last_stats_at: Instant::now(),
+        cursor: None,
+        fitted: (PREVIEW_START_WIDTH, PREVIEW_START_HEIGHT),
+        drag: None,
     };
     event_loop.run_app(&mut app)?;
     Ok(())
