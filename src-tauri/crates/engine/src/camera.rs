@@ -133,6 +133,22 @@ pub fn set_camera_position(
     Ok((x, y, (scale.x() * 100.0).round() as i32))
 }
 
+/// Sets position AND scale in one go (B7, redimensionnement à la souris) — the two must
+/// move together, or the camera would visibly jump between the two writes as the anchor
+/// corner drifted for a frame. `scale` is applied on both axes (aspect kept); the caller
+/// clamps it before calling.
+pub fn set_camera_transform(
+    item: &ObsSceneItemRef<ObsSourceRef>,
+    x: i32,
+    y: i32,
+    scale: f32,
+) -> Result<(i32, i32, i32)> {
+    let (x, y) = hikari_protocol::clamp_camera_position(x, y);
+    item.set_source_scale(Vec2::new(scale, scale)).context("mise à l'échelle caméra")?;
+    item.set_source_position(Vec2::new(x as f32, y as f32)).context("déplacement caméra")?;
+    Ok((x, y, (scale * 100.0).round() as i32))
+}
+
 /// The camera source's own pixel size, before any scene scaling — the webcam's native
 /// resolution as libobs reports it.
 ///

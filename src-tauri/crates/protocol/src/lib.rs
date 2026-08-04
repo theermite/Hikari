@@ -325,6 +325,87 @@ pub fn is_inside(px: f32, py: f32, x: f32, y: f32, w: f32, h: f32) -> bool {
     w > 0.0 && h > 0.0 && px >= x && px <= x + w && py >= y && py <= y + h
 }
 
+/// Which corner of the camera the cursor is over (B7, redimensionnement à la souris).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Corner {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+impl Corner {
+    /// Whether the corner OPPOSITE this one — the one that stays put while resizing — is on
+    /// the left, and on the top. Those two flags are all `resize_box` needs to place the
+    /// rectangle without a second match.
+    pub fn anchor_side(self) -> (bool, bool) {
+        match self {
+            Corner::TopLeft => (false, false),
+            Corner::TopRight => (true, false),
+            Corner::BottomLeft => (false, true),
+            Corner::BottomRight => (true, true),
+        }
+    }
+}
+
+/// How close to a corner the cursor must be to grab it, in canvas pixels. Big enough to hit
+/// comfortably, small enough that the middle of a small camera still means "move me".
+pub const CORNER_GRAB_MARGIN: f32 = 32.0;
+
+/// The corner under `(px, py)`, or `None` if the cursor is not near one — in which case the
+/// caller treats the gesture as a move.
+///
+/// A corner wins over the body on purpose: on a small camera the four margins can cover most
+/// of the surface, and resizing is the more precise intent. The rectangle must be at least
+/// twice the margin on both axes for corners to be offered at all, otherwise a tiny camera
+/// could never be moved again.
+pub fn corner_at(px: f32, py: f32, x: f32, y: f32, w: f32, h: f32, margin: f32) -> Option<Corner> {
+    if w < margin * 2.0 || h < margin * 2.0 || !is_inside(px, py, x, y, w, h) {
+        return None;
+    }
+    let left = px <= x + margin;
+    let right = px >= x + w - margin;
+    let top = py <= y + margin;
+    let bottom = py >= y + h - margin;
+    match (left, right, top, bottom) {
+        (true, _, true, _) => Some(Corner::TopLeft),
+        (_, true, true, _) => Some(Corner::TopRight),
+        (true, _, _, true) => Some(Corner::BottomLeft),
+        (_, true, _, true) => Some(Corner::BottomRight),
+        _ => None,
+    }
+}
+
+/// The scale a resize gesture asks for: the cursor's horizontal distance from the anchor,
+/// divided by the camera's native width. Width drives it alone so the aspect ratio is kept —
+/// a webcam squashed on one axis is never what the user meant.
+///
+/// A zero base width yields `0.0` rather than infinity; the caller clamps the result anyway
+/// (`clamp_camera_scale`), so a degenerate source can't produce an absurd size.
+pub fn resize_scale(anchor_x: f32, cursor_x: f32, base_w: u32) -> f32 {
+    if base_w == 0 {
+        return 0.0;
+    }
+    (cursor_x - anchor_x).abs() / base_w as f32
+}
+
+/// Where the resized rectangle starts, given the anchor corner that must stay put. The
+/// anchor is the corner OPPOSITE the one being dragged: grabbing bottom-right pins top-left,
+/// so the camera grows away from a fixed point instead of sliding while it resizes.
+pub fn resize_box(
+    anchor_x: f32,
+    anchor_y: f32,
+    anchor_is_left: bool,
+    anchor_is_top: bool,
+    new_w: f32,
+    new_h: f32,
+) -> (f32, f32) {
+    (
+        if anchor_is_left { anchor_x } else { anchor_x - new_w },
+        if anchor_is_top { anchor_y } else { anchor_y - new_h },
+    )
+}
+
 /// One destination for `StartMultistream` (B3): a platform id (`"twitch"`, `"youtube"`) and
 /// its RTMP server, both non-secret. The stream key never travels here — the engine reads
 /// it from `HIKARI_RTMP_KEY_<ID>` (uppercased `id`), exactly the pattern `StartStream`

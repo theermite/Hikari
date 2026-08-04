@@ -171,7 +171,11 @@ export function CameraPanel(_props: IDockviewPanelProps) {
   };
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 bg-hikari-bg-3 p-6 text-hikari-txt">
+    // `justify-start` + `overflow-y-auto` volontairement, jamais `justify-center` :
+    // centrer un contenu plus haut que le panneau rogne le HAUT et ce haut est
+    // inatteignable au défilement (piège flexbox connu). Vécu ici — les réglages sous la
+    // caméra étaient invisibles dans un panneau latéral étroit (Jay, 2026-08-04).
+    <div className="flex h-full flex-col items-center justify-start gap-6 overflow-y-auto bg-hikari-bg-3 p-6 text-hikari-txt">
       <p className="text-[12px] text-hikari-txt-faint">
         Scène : <span className="text-hikari-accent">{activeScene}</span>
       </p>

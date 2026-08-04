@@ -133,14 +133,18 @@ struct ObsInner {
     active_scene: String,
 }
 
-/// An in-progress camera drag (B7, glisser-souris).
-///
-/// `grab_offset` is where inside the camera the user grabbed it, in canvas pixels. Keeping
-/// that offset is what makes the camera follow the cursor instead of jumping so its corner
-/// snaps under the pointer on the first move.
-struct DragState {
-    grab_offset_x: f32,
-    grab_offset_y: f32,
+/// An in-progress camera gesture (B7, souris) — a move or a resize, decided at press time
+/// by where the cursor was.
+enum DragState {
+    /// Moving. `grab_offset` is where inside the camera the user grabbed it, in canvas
+    /// pixels. Keeping that offset is what makes the camera follow the cursor instead of
+    /// jumping so its corner snaps under the pointer on the first move.
+    Move { grab_offset_x: f32, grab_offset_y: f32 },
+    /// Resizing from a corner. `anchor` is the OPPOSITE corner, in canvas pixels — it stays
+    /// pinned for the whole gesture, so the camera grows away from a fixed point instead of
+    /// sliding while it resizes. Read once at press time: re-deriving it from the live
+    /// rectangle each move would chase its own changes.
+    Resize { anchor_x: f32, anchor_y: f32, anchor_is_left: bool, anchor_is_top: bool },
 }
 
 /// The two one-way filters a camera source carries once created — kept together since
@@ -622,28 +626,85 @@ impl App {
         ))
     }
 
-    /// Left button pressed: grab the camera if the cursor is on it (B7, glisser-souris).
-    /// A press anywhere else starts no drag — the rest of the canvas is not draggable yet.
+    /// Left button pressed: start a resize if the cursor is on a corner of the camera, a
+    /// move if it is anywhere else on it (B7, souris). A press off the camera starts
+    /// nothing — the rest of the canvas is not interactive yet.
     fn begin_drag(&mut self) {
         let Some(cursor) = self.cursor else { return };
         let Some((cx, cy)) = self.cursor_in_canvas(cursor) else { return };
         let Some((x, y, w, h)) = self.active_camera_rect() else { return };
-        if hikari_protocol::is_inside(cx, cy, x, y, w, h) {
-            self.drag = Some(DragState { grab_offset_x: cx - x, grab_offset_y: cy - y });
+        if let Some(corner) =
+            hikari_protocol::corner_at(cx, cy, x, y, w, h, hikari_protocol::CORNER_GRAB_MARGIN)
+        {
+            let (anchor_is_left, anchor_is_top) = corner.anchor_side();
+            self.drag = Some(DragState::Resize {
+                anchor_x: if anchor_is_left { x } else { x + w },
+                anchor_y: if anchor_is_top { y } else { y + h },
+                anchor_is_left,
+                anchor_is_top,
+            });
+        } else if hikari_protocol::is_inside(cx, cy, x, y, w, h) {
+            self.drag =
+                Some(DragState::Move { grab_offset_x: cx - x, grab_offset_y: cy - y });
         }
     }
 
-    /// Cursor moved while dragging: put the camera where the cursor is, minus the grab
-    /// offset, so the point the user grabbed stays under the pointer.
+    /// Cursor moved during a gesture — applies whichever one is in progress.
     fn continue_drag(&mut self) {
-        let Some(drag) = &self.drag else { return };
-        let (grab_x, grab_y) = (drag.grab_offset_x, drag.grab_offset_y);
         let Some(cursor) = self.cursor else { return };
         let Some((cx, cy)) = self.cursor_in_canvas(cursor) else { return };
+        match self.drag {
+            Some(DragState::Move { grab_offset_x, grab_offset_y }) => {
+                self.apply_move(cx - grab_offset_x, cy - grab_offset_y)
+            }
+            Some(DragState::Resize { anchor_x, anchor_y, anchor_is_left, anchor_is_top }) => {
+                self.apply_resize(cx, anchor_x, anchor_y, anchor_is_left, anchor_is_top)
+            }
+            None => (),
+        }
+    }
+
+    /// Puts the camera's top-left at `(x, y)` canvas pixels and reports the real result.
+    fn apply_move(&mut self, x: f32, y: f32) {
         let Some(obs) = &mut self.obs else { return };
         let scene = obs.active_scene.clone();
         let Some(item) = obs.camera_items.get(&scene) else { return };
-        match camera::set_camera_position(item, (cx - grab_x) as i32, (cy - grab_y) as i32) {
+        match camera::set_camera_position(item, x as i32, y as i32) {
+            Ok((x, y, scale_percent)) => {
+                emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
+            }
+            Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
+        }
+    }
+
+    /// Resizes the camera so the dragged corner follows the cursor while the anchor corner
+    /// stays pinned. The scale comes from the horizontal distance alone, so the webcam's
+    /// aspect ratio is kept — a squashed face is never what the user meant.
+    fn apply_resize(
+        &mut self,
+        cursor_x: f32,
+        anchor_x: f32,
+        anchor_y: f32,
+        anchor_is_left: bool,
+        anchor_is_top: bool,
+    ) {
+        let Some(obs) = &mut self.obs else { return };
+        let Some(source) = obs.camera_source.as_ref() else { return };
+        let Ok((base_w, base_h)) = camera::source_base_size(source) else { return };
+        let scale = hikari_protocol::clamp_camera_scale(hikari_protocol::resize_scale(
+            anchor_x, cursor_x, base_w,
+        ));
+        let (new_x, new_y) = hikari_protocol::resize_box(
+            anchor_x,
+            anchor_y,
+            anchor_is_left,
+            anchor_is_top,
+            base_w as f32 * scale,
+            base_h as f32 * scale,
+        );
+        let scene = obs.active_scene.clone();
+        let Some(item) = obs.camera_items.get(&scene) else { return };
+        match camera::set_camera_transform(item, new_x as i32, new_y as i32, scale) {
             Ok((x, y, scale_percent)) => {
                 emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
             }

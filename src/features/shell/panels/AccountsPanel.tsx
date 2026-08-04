@@ -100,7 +100,9 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
   const youtube = useYouTubeConnection();
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-8 bg-hikari-bg-3 p-6 text-hikari-txt">
+    // Même piège flexbox que le panneau Caméra : centrer verticalement rend le haut
+    // inatteignable dès que le contenu dépasse (voir `CameraPanel.tsx`, 2026-08-04).
+    <div className="flex h-full flex-col items-center justify-start gap-8 overflow-y-auto bg-hikari-bg-3 p-6 text-hikari-txt">
       <div className="flex flex-col items-center gap-4">
         <button
           type="button"
