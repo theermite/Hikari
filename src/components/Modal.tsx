@@ -8,6 +8,7 @@
 // ce bug. Le navigateur fournit en prime le confinement du focus et la fermeture par Échap.
 
 import { type ReactNode, useEffect, useId, useRef } from "react";
+import { suppressPreview } from "../features/preview/suppression";
 
 interface ModalProps {
   open: boolean;
@@ -20,6 +21,15 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const titleId = useId();
+
+  // L'aperçu du moteur est une fenêtre NATIVE greffée dans l'app : elle se dessine toujours
+  // au-dessus du contenu web, donc une modale ouverte par-dessus lui serait invisible (vécu
+  // 2026-08-05). Tant qu'une modale est ouverte, l'aperçu se retire de l'écran. C'est ici et
+  // pas dans le panneau audio : toute modale future rencontrerait le même mur.
+  useEffect(() => {
+    if (!open) return;
+    return suppressPreview();
+  }, [open]);
 
   useEffect(() => {
     const dialog = ref.current;

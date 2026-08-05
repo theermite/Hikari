@@ -10,6 +10,7 @@ import { listen } from "@tauri-apps/api/event";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useRef, useState } from "react";
 import { hidePreview, positionPreview, startEngine, stopEngine } from "./api";
+import { isPreviewSuppressed, onPreviewSuppressionChange } from "./suppression";
 import type { EngineMessage } from "./types";
 
 type State =
@@ -54,7 +55,9 @@ export function PreviewPanel(props: IDockviewPanelProps) {
 
   useEffect(() => {
     const reportRect = () => {
-      if (!props.api.isVisible) {
+      // Une modale ouverte doit passer DEVANT : impossible pour du contenu web face à une
+      // fenêtre native, donc l'aperçu se retire le temps qu'elle vive (voir `suppression.ts`).
+      if (!props.api.isVisible || isPreviewSuppressed()) {
         hidePreview().catch((error: unknown) => {
           console.error("preview: hide_preview failed", error);
         });
@@ -75,10 +78,13 @@ export function PreviewPanel(props: IDockviewPanelProps) {
 
     reportRect();
 
-    // Three independent triggers: the panel's OWN size (dimensions), its tab visibility
-    // (active/inactive), and the whole dock's layout (a SIBLING panel resizing can shift
-    // this one's position without changing ITS OWN dimensions — dimensions alone misses
-    // that case).
+    // Four independent triggers: the panel's OWN size (dimensions), its tab visibility
+    // (active/inactive), the whole dock's layout (a SIBLING panel resizing can shift this
+    // one's position without changing ITS OWN dimensions — dimensions alone misses that
+    // case), and a modal opening or closing. Without that last one the preview would stay
+    // hidden after a modal closes, until some unrelated resize happened to fire.
+    const unsuppress = onPreviewSuppressionChange(reportRect);
+
     const dims = props.api.onDidDimensionsChange(reportRect);
     const visibility = props.api.onDidVisibilityChange(reportRect);
     const active = props.api.onDidActiveChange(reportRect);
@@ -90,6 +96,7 @@ export function PreviewPanel(props: IDockviewPanelProps) {
     }
 
     return () => {
+      unsuppress();
       dims.dispose();
       visibility.dispose();
       active.dispose();
