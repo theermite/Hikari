@@ -188,6 +188,7 @@ project: Hikari Stream
 | B3 | Multistream + vertical simultané | Critique | 🟧 horizontal fait (2026-07-19) · vertical prêt à coder (B0.2 GO 2026-07-21) |
 | B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | 🟧 tranches 1-3 livrées (mixeur · suppression de bruit réglable · volumes casque/public séparés + fenêtre de réglages), **prouvées à l'écran 2026-08-04/05** sauf 2 points listés en fiche · ducking et waveformes restent |
 | B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | 🟧 déplacer/redimensionner par boutons (2026-07-24) **et à la souris, avec curseur adaptatif — prouvés 2026-08-04** · transitions/auto-move restent |
+| **B-sources** *(hors numérotation PET — né d'un constat de Jay 2026-08-05)* | Sources de scène : ajouter/retirer/réordonner jeu, fenêtre, écran, image, vidéo · déplacer et redimensionner à la souris · liseré · aimantation · recherche | Standard | ✅ **livrée et prouvée à l'écran 2026-08-05** · restent texte, navigateur, verrouillage |
 | B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | 🟧 détection + ajout scène + masque cercle + fond IA + retrait/rajout fait (2026-07-23/24) · multi-scène (caméra unique, filtres indépendants par scène) **prouvée à l'écran 2026-08-04** · cam mobile reste |
 | **Multi-scènes** *(hors numérotation PET — apparu en session)* | Créer/lister/basculer entre scènes (F-005/F-006, sol pour B7 transitions) | Standard | 🟧 étape 1 (créer/lister/basculer) **prouvée à l'écran** 2026-07-24 · étape 2 (caméra unique, filtres par scène) **prouvée à l'écran** 2026-08-04 · étape 3 (panneau dédié) livrée 2026-08-04, **partiellement prouvée** : suppression + renommage vus à l'écran ; ordre persisté et bascule-avant-suppression **restent à vérifier** |
 
@@ -922,6 +923,48 @@ instantanée).
     rend le geste prévisible : *le coin opposé ne bouge jamais, quelle que soit la taille*.
   - **Prouvé à l'écran par Jay** : déplacement, redimensionnement, curseur, et fluidité.
 - **Reste B7** : transitions au changement de scène · auto-move. Non commencés.
+
+### B-sources — Sources de scène · Standard · 🟢 (livrée 2026-08-05)
+
+**Brique absente du PET, née d'un constat de Jay** : B1a annonçait « scène + sources » et est
+marquée faite, mais elle n'avait livré qu'UNE capture d'écran en dur. Une scène ne pouvait
+donc rien montrer d'autre que cet écran et la webcam — ni le jeu, ni une fenêtre, ni un
+habillage. C'était le trou entre « ça diffuse » et « je peux m'en servir ».
+
+- **Ajouter** : jeu, fenêtre, écran (listés en direct), image et vidéo (choisies sur le
+  disque). Identifiants vérifiés à la source obs-studio, jamais devinés.
+- **Retirer, réordonner** : la pile décide qui cache qui ; notre liste bouge du même pas que
+  le moteur, sinon le panneau mentirait sur ce qui est devant.
+- **Déplacer et redimensionner N'IMPORTE QUELLE source à la souris** : le clic désigne la
+  plus en avant sous le curseur, l'ordre venant de la pile RÉELLE du moteur.
+- **Liseré de sélection** dessiné par le moteur — seul endroit possible, la fenêtre native de
+  l'aperçu couvrant tout contenu web.
+- **Aimantation** aux quatre bords et aux deux axes centraux, le repère le plus proche
+  gagnant. Elle corrige, ne téléporte pas (jamais plus que sa portée, épinglé par proptest).
+- **Recherche** globale, insensible aux accents et à l'ordre des mots.
+- **La capture de démarrage est devenue une source ordinaire** : elle était hors du modèle
+  générique, donc ni retirable ni saisissable — « une source que je ne peux pas supprimer ».
+
+**Quatre défauts trouvés à l'écran par Jay, tous avec cause racine** :
+1. *La fenêtre de fichiers ne s'ouvrait pas* — permission Tauri absente, échec silencieux.
+2. *La recherche ne cherchait que dans la famille ouverte* — défaut de conception.
+3. *Le nettoyage d'accents vidait la chaîne* dans le navigateur de l'app (`\p{Diacritic}`),
+   pas dans le lanceur de tests. Recherche vide = tout accepté.
+4. *La liste restait figée* — Windows expose douze entrées au MÊME identifiant, utilisé comme
+   clé de rendu ; des clés en double empêchent React de savoir quelle ligne remplacer.
+
+**Ce qui a tranché le 4ᵉ** : mesurer les DEUX côtés de la frontière — « 1 résultat calculé »
+affiché à côté de 16 lignes visibles. La contradiction ne laissait qu'une explication. Les
+trois corrections précédentes étaient toutes justes et aucune n'était celle-là.
+
+**Leçon de tests** : 23 tests verts n'ont attrapé aucun de ces quatre défauts. Ils tournent
+hors du navigateur de l'app, et aucun ne regardait la brique en dessous (ce que le nettoyage
+REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à regarder.
+
+- **Tests** : 14 Rust (identifiants libobs, validation de nom, contenu par scène,
+  aimantation) + 22 JS (recherche, dédoublonnage, nommage depuis un chemin).
+- **État de preuve** : tout **prouvé à l'écran par Jay** les 2026-08-05.
+- **Reste** : sources texte et navigateur ; verrouillage d'une source ; poignées visibles.
 
 ### B-cam — Caméra · Standard · 🟡 (API à confirmer)
 - **Objectif** : caméra perso, masques (cercle), fond sans écran vert, cam mobile (F-024, F-036).
