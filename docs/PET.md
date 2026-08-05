@@ -186,7 +186,7 @@ project: Hikari Stream
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
 | B3 | Multistream + vertical simultané | Critique | 🟧 horizontal fait (2026-07-19) · vertical prêt à coder (B0.2 GO 2026-07-21) |
-| B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | 🟧 tranche 1 (mixeur : périphériques, volume, sourdine, niveau, écoute) livrée + **prouvée à l'écran 2026-08-04** (écoute non vérifiée) · suppression bruit, ducking, waveformes restent |
+| B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | 🟧 tranches 1-3 livrées (mixeur · suppression de bruit réglable · volumes casque/public séparés + fenêtre de réglages), **prouvées à l'écran 2026-08-04/05** sauf 2 points listés en fiche · ducking et waveformes restent |
 | B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | 🟧 déplacer/redimensionner par boutons (2026-07-24) **et à la souris, avec curseur adaptatif — prouvés 2026-08-04** · transitions/auto-move restent |
 | B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | 🟧 détection + ajout scène + masque cercle + fond IA + retrait/rajout fait (2026-07-23/24) · multi-scène (caméra unique, filtres indépendants par scène) **prouvée à l'écran 2026-08-04** · cam mobile reste |
 | **Multi-scènes** *(hors numérotation PET — apparu en session)* | Créer/lister/basculer entre scènes (F-005/F-006, sol pour B7 transitions) | Standard | 🟧 étape 1 (créer/lister/basculer) **prouvée à l'écran** 2026-07-24 · étape 2 (caméra unique, filtres par scène) **prouvée à l'écran** 2026-08-04 · étape 3 (panneau dédié) livrée 2026-08-04, **partiellement prouvée** : suppression + renommage vus à l'écran ; ordre persisté et bascule-avant-suppression **restent à vérifier** |
@@ -839,8 +839,50 @@ micro ou le son du bureau, volume, sourdine, niveau en direct, et écoute par p�
   sourdine indépendante par périphérique — **tous vus à l'écran par Jay**. **Reste à
   vérifier** : l'écoute (« Moi seul » / « Les deux »).
 
-**Tranches suivantes (non commencées)** : suppression de bruit · ducking · waveformes
-(historique du niveau, au-delà de la barre instantanée).
+**Tranche 2 — suppression de bruit (livrée 2026-08-05)** : un interrupteur par micro, offert
+sur les micros SEULEMENT (le son du bureau est déjà numérique, le filtre y abîmerait la
+musique en croyant nettoyer une voix). Filtre posé une fois puis basculé en place.
+- **Contre-intuitif, vérifié deux fois à la source obs-filters** : c'est la méthode ANCIENNE
+  (speex) qui a une intensité réglable ; la méthode par apprentissage (rnnoise) n'a AUCUN
+  paramètre — OBS masque lui-même le champ quand on la choisit. Le protocole porte cette
+  règle (`has_level()`), testée des deux côtés, pour que l'écran n'invente jamais un réglage
+  inexistant. À l'écran : « Léger » et « Fort », nom technique au survol.
+- L'intensité est conservée même quand la méthode ne l'utilise pas — revenir en arrière
+  restaure le choix de l'utilisateur.
+
+**Tranche 3 — volumes casque/public séparés + fenêtre de réglages (livrée 2026-08-05)**
+- **Décision Jay** : libobs a UN seul volume par source, appliqué au direct ET au casque
+  (vérifié dans les liaisons brutes ; OBS a la même limite). Les rendre indépendants exige
+  DEUX captures du même périphérique. Une entrée du mixeur devient donc un objet logique
+  portant 1 ou 2 captures : « Public seul » et « Moi seul » en ont une, « Les deux » en a
+  deux, chacune son volume. Coût assumé : CPU doublé sur cette entrée, et quelques
+  périphériques refusent d'être ouverts deux fois.
+- **L'ordre compte** : on FERME ce qui n'est plus voulu AVANT d'ouvrir ce qui manque, sinon
+  un périphérique refusant deux captures échouerait sur un simple changement de routage.
+- **Un seul point de réconciliation** pousse l'état complet d'une entrée vers libobs, plutôt
+  que cinq endroits qui rustinent chacun un champ : le routage décide quelle capture porte
+  quel volume, ces réglages ne sont pas indépendants.
+- **Interface** (3 experts consultés — UX, accessibilité, front-end ; ils divergeaient) : la
+  LIGNE maigrit (niveau, phrase d'état en lecture seule, couper/volume/⚙/✕), tout le réglage
+  fin part dans une fenêtre. Modale native `<dialog>` plutôt que le panneau ancré que
+  préférait l'UX : celui-ci exige une librairie de positionnement flottant, la famille de
+  mécanisme qui a déjà cassé en silence ici (dockview). Zéro dépendance ajoutée.
+- **🔴 Piège architectural découvert** : la fenêtre s'ouvrait DERRIÈRE l'aperçu. L'aperçu est
+  une fenêtre NATIVE greffée dans l'app (ADR-013) ; une fenêtre native se dessine toujours
+  au-dessus du contenu web, aucun z-index n'y peut rien. Parade : toute modale escamote
+  l'aperçu tant qu'elle vit, avec un comptage de références partagé. Corrigé dans le
+  composant Modal, donc toute modale future hérite de la parade.
+- **Accessibilité** : la barre animée reste masquée aux lecteurs d'écran (20 changements par
+  seconde), un élément `meter` porte la valeur, et une alerte de saturation est limitée à une
+  toutes les 3 secondes. Corrige une régression que j'avais introduite (barre entièrement
+  invisible = zéro accès au niveau).
+- **État de preuve** : la fenêtre s'ouvre et se ferme, l'aperçu s'escamote et revient —
+  **vus à l'écran par Jay**. **Restent à vérifier** : les deux volumes réellement
+  indépendants sur « Les deux », et la bascule Léger/Fort.
+
+**Tranche suivante (non commencée)** : ducking (`compressor_filter` + `sidechain_source`,
+propriétés déjà vérifiées) · waveformes (historique du niveau, au-delà de la barre
+instantanée).
 
 ### B7 — Scènes avancées · Standard · 🟡 (API à confirmer)
 - **Objectif** : transitions, mouvements, auto-move (F-029, F-038).
