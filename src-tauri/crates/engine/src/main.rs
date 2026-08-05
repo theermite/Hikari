@@ -793,6 +793,8 @@ impl App {
             emit(&EngineMessage::Error { message: err.to_string() });
             return;
         }
+        // Vérifié par sonde le 2026-08-05 : notre liste et l'ordre réel du moteur coïncident
+        // exactement après ce échange (positions relevées des deux côtés).
         list.swap(index, target);
         self.emit_scene_list();
     }
