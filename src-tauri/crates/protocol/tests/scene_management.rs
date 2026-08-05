@@ -62,6 +62,7 @@ fn should_carry_each_scene_own_camera_and_filter_state() {
         has_camera: true,
         background_removal: true,
         circle_mask: false,
+        sources: Vec::new(),
     };
     let msg = EngineMessage::SceneList {
         scenes: vec![SceneInfo::empty("main"), jeu.clone()],

@@ -52,6 +52,63 @@ pub struct CameraDevice {
     pub device_id: String,
 }
 
+/// The libobs source-kind identifier for a game / fullscreen-application capture — the id
+/// the real win-capture plugin registers (verified 2026-08-05 in `libobs-simple` 8.0.1,
+/// which mirrors obs-studio's own).
+pub const GAME_CAPTURE_KIND: &str = "game_capture";
+
+/// The libobs source-kind identifier for a single-window capture. Same verification.
+pub const WINDOW_CAPTURE_KIND: &str = "window_capture";
+
+/// What a capture source points at (brique Sources).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CaptureKind {
+    /// A game or fullscreen application — the fast path, hooks the app directly.
+    Game,
+    /// One window, whatever it is. Works where the game hook cannot.
+    Window,
+    /// A whole screen.
+    Monitor,
+}
+
+impl CaptureKind {
+    /// The libobs source id to build. A wrong id yields a source libobs silently refuses.
+    pub fn libobs_id(self) -> &'static str {
+        match self {
+            CaptureKind::Game => GAME_CAPTURE_KIND,
+            CaptureKind::Window => WINDOW_CAPTURE_KIND,
+            CaptureKind::Monitor => MONITOR_CAPTURE_KIND,
+        }
+    }
+}
+
+/// One thing the user can capture: a game, a window, or a screen. `id` is the exact value
+/// libobs expects in the source's own setting, never rebuilt by hand; `label` is what the
+/// user reads.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CaptureTarget {
+    pub id: String,
+    pub label: String,
+}
+
+/// One source inside a scene, as the engine really holds it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SceneSourceInfo {
+    pub name: String,
+    /// The libobs source-kind id, so a panel can show the right icon without guessing.
+    pub kind: String,
+}
+
+/// Validates a candidate source name against the sources ALREADY IN THAT SCENE.
+///
+/// Same two rules as a scene name, and the same reason to enforce them early: libobs
+/// silently renames a duplicate ("Webcam 2"), after which the panel no longer finds the
+/// source it thinks it is naming.
+pub fn validate_source_name(name: &str, existing: &[String]) -> Result<(), SceneNameError> {
+    validate_scene_name(name, existing)
+}
+
 /// What one scene currently holds, as the engine really sees it (multi-scene, tranche 3).
 ///
 /// WHY per scene rather than "the active one": the Scenes panel shows the whole list at
@@ -68,6 +125,9 @@ pub struct SceneInfo {
     pub background_removal: bool,
     /// This scene's OWN desired state for the circular mask filter. Same contract.
     pub circle_mask: bool,
+    /// Everything this scene holds, in the order it was added — so the panel shows a
+    /// scene's contents without switching to it (switching is a live cut, never a peek).
+    pub sources: Vec<SceneSourceInfo>,
 }
 
 impl SceneInfo {
@@ -80,6 +140,7 @@ impl SceneInfo {
             has_camera: false,
             background_removal: false,
             circle_mask: false,
+            sources: Vec::new(),
         }
     }
 }
@@ -360,6 +421,14 @@ pub enum EngineMessage {
     /// batch rather than one message per source: they are read on the same tick, and one
     /// line per source per tick would flood the pipe.
     AudioLevels { levels: Vec<AudioLevel> },
+    /// Everything the machine can capture right now (brique Sources) — answering
+    /// `ListCaptureTargets`. Read live from the system, never a presumed list: a game that
+    /// was not running a minute ago must appear without restarting anything.
+    CaptureTargets {
+        games: Vec<CaptureTarget>,
+        windows: Vec<CaptureTarget>,
+        monitors: Vec<CaptureTarget>,
+    },
 }
 
 /// Commands the controller sends to the engine (controller -> engine), one per line.
@@ -458,6 +527,16 @@ pub enum ControllerCommand {
     /// rebuilt — a rebuild would interrupt the sound, exactly the blip the camera filters
     /// used to have.
     SetNoiseSettings { name: String, enabled: bool, method: NoiseMethod, level_db: f32 },
+    /// Ask the engine for everything the machine can capture right now (brique Sources).
+    ListCaptureTargets,
+    /// Adds a capture of `target_id` into `scene`, named `name`.
+    ///
+    /// Sources belong to a SCENE, unlike audio which lives on global channels: that is the
+    /// whole point of scenes — showing the game in one and a waiting screen in another.
+    /// `target_id` comes from `CaptureTargets`, never guessed.
+    AddCaptureSource { scene: String, kind: CaptureKind, target_id: String, name: String },
+    /// Removes a source from `scene` only. Other scenes keep theirs.
+    RemoveSource { scene: String, name: String },
     /// Sets the volume the STREAMER hears, independently of what the audience hears.
     ///
     /// WHY it needs its own command and its own plumbing: libobs has ONE volume per source,

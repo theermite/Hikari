@@ -9,7 +9,15 @@
 import { listen } from "@tauri-apps/api/event";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useRef, useState } from "react";
-import { createScene, deleteScene, switchScene } from "./api";
+import { Modal } from "../../components/Modal";
+import {
+  addCaptureSource,
+  createScene,
+  deleteScene,
+  listCaptureTargets,
+  removeSource,
+  switchScene,
+} from "./api";
 import {
   EMPTY_LAYOUT,
   labelFor,
@@ -20,7 +28,12 @@ import {
   saveSceneLayout,
   validateLabel,
 } from "./sceneLayout";
-import type { EngineMessage, SceneInfo } from "./types";
+import type {
+  CaptureKind,
+  CaptureTarget,
+  EngineMessage,
+  SceneInfo,
+} from "./types";
 
 type State =
   | { status: "idle" }
@@ -30,6 +43,48 @@ const LABEL_ERRORS = {
   empty: "Le nom ne peut pas être vide.",
   duplicate: "Une autre scène porte déjà ce nom.",
 } as const;
+
+/** Un pictogramme par famille de source, pour reconnaître le contenu d'une scène d'un coup
+ * d'œil. Clé = identifiant libobs, jamais un nom inventé côté écran. */
+const SOURCE_ICON: Record<string, string> = {
+  game_capture: "🎮",
+  window_capture: "🪟",
+  monitor_capture: "🖥️",
+  dshow_input: "🎥",
+};
+
+/** Les trois familles proposées à l'ajout, dites par ce qu'elles montrent. */
+const CAPTURE_FAMILIES: {
+  kind: CaptureKind;
+  label: string;
+  hint: string;
+  pick: (t: CaptureTargets) => CaptureTarget[];
+}[] = [
+  {
+    kind: "game",
+    label: "Un jeu",
+    hint: "Accroche le jeu directement — la voie la plus fluide.",
+    pick: (t) => t.games,
+  },
+  {
+    kind: "window",
+    label: "Une fenêtre",
+    hint: "N'importe quelle fenêtre ouverte, même hors jeu.",
+    pick: (t) => t.windows,
+  },
+  {
+    kind: "monitor",
+    label: "Un écran",
+    hint: "Tout un écran, choisi parmi les tiens.",
+    pick: (t) => t.monitors,
+  },
+];
+
+interface CaptureTargets {
+  games: CaptureTarget[];
+  windows: CaptureTarget[];
+  monitors: CaptureTarget[];
+}
 
 export function ScenesPanel(_props: IDockviewPanelProps) {
   const [state, setState] = useState<State>({ status: "idle" });
@@ -41,6 +96,8 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const [draftLabel, setDraftLabel] = useState("");
   const [labelError, setLabelError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [addingTo, setAddingTo] = useState<string | null>(null);
+  const [targets, setTargets] = useState<CaptureTargets | null>(null);
   const renameInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,6 +108,13 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       }
       // Le moteur refuse lui-même la suppression interdite : on affiche SA raison plutôt
       // que d'inventer un message côté écran.
+      if (msg.type === "capture_targets") {
+        setTargets({
+          games: msg.games ?? [],
+          windows: msg.windows ?? [],
+          monitors: msg.monitors ?? [],
+        });
+      }
       if (msg.type === "error" && msg.message) setActionError(msg.message);
     });
     return () => {
@@ -100,6 +164,33 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         persist({ order: layout.order.filter((n) => n !== name), labels });
       })
       .catch((error: unknown) => setActionError(String(error)));
+  };
+
+  // Redemandée à chaque ouverture du choix, jamais mise en cache : un jeu lancé entre-temps
+  // doit apparaître sans rien redémarrer.
+  useEffect(() => {
+    if (addingTo) listCaptureTargets().catch(() => undefined);
+  }, [addingTo]);
+
+  const addToScene = (
+    scene: string,
+    kind: CaptureKind,
+    target: CaptureTarget,
+  ) => {
+    setActionError(null);
+    setAddingTo(null);
+    // Le libellé lisible sert de nom dans la scène : c'est ce que l'utilisateur reconnaît,
+    // et le moteur refuse un doublon.
+    addCaptureSource(scene, kind, target.id, target.label).catch(
+      (error: unknown) => setActionError(String(error)),
+    );
+  };
+
+  const removeFromScene = (scene: string, name: string) => {
+    setActionError(null);
+    removeSource(scene, name).catch((error: unknown) =>
+      setActionError(String(error)),
+    );
   };
 
   const startRename = (name: string) => {
@@ -227,9 +318,43 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                   </div>
                 </div>
 
-                <p className="text-[11.5px] text-hikari-txt-faint">
+                <ul className="flex flex-col gap-0.5">
+                  {scene.sources.length === 0 ? (
+                    <li className="text-[11.5px] text-hikari-txt-faint">
+                      Scène vide — ajoute une source ci-dessous.
+                    </li>
+                  ) : (
+                    scene.sources.map((item) => (
+                      <li
+                        key={item.name}
+                        className="flex items-center justify-between gap-2 text-[11.5px] text-hikari-txt-faint"
+                      >
+                        <span className="truncate">
+                          {SOURCE_ICON[item.kind] ?? "▪"} {item.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeFromScene(scene.name, item.name)}
+                          aria-label={`Retirer ${item.name} de ${labelFor(scene.name, layout)}`}
+                          title={`Retirer ${item.name}`}
+                          className="shrink-0 px-1 text-hikari-txt-faint transition hover:text-hikari-red"
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+                <p className="text-[11px] text-hikari-txt-faint">
                   {describeContent(scene)}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setAddingTo(scene.name)}
+                  className="self-start rounded-[6px] border border-hikari-line px-2 py-0.5 text-[11.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+                >
+                  + Ajouter une source
+                </button>
 
                 {confirmingDelete === scene.name && (
                   <div className="flex items-center justify-between gap-2 rounded-[6px] bg-hikari-bg px-2 py-1.5">
@@ -259,6 +384,66 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
           })}
         </ul>
       )}
+
+      <Modal
+        open={addingTo !== null}
+        title={
+          addingTo ? `Ajouter une source — ${labelFor(addingTo, layout)}` : ""
+        }
+        onClose={() => setAddingTo(null)}
+      >
+        {addingTo && (
+          <>
+            {targets === null && (
+              <p className="text-hikari-txt-faint">Recherche en cours…</p>
+            )}
+            {targets !== null &&
+              CAPTURE_FAMILIES.map((family) => {
+                const list = family.pick(targets);
+                return (
+                  <div key={family.kind} className="flex flex-col gap-1.5">
+                    <h3
+                      className="text-[11px] uppercase tracking-wider text-hikari-txt-faint"
+                      title={family.hint}
+                    >
+                      {family.label}
+                    </h3>
+                    {list.length === 0 ? (
+                      <p className="text-[12px] text-hikari-txt-faint">
+                        Rien à proposer pour l'instant.
+                      </p>
+                    ) : (
+                      <ul className="flex flex-col gap-1">
+                        {list.map((target) => (
+                          <li key={`${family.kind}:${target.id}`}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                addToScene(addingTo, family.kind, target)
+                              }
+                              className="w-full truncate rounded-[6px] border border-hikari-line px-2 py-1 text-left text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+                            >
+                              {
+                                SOURCE_ICON[
+                                  family.kind === "game"
+                                    ? "game_capture"
+                                    : family.kind === "window"
+                                      ? "window_capture"
+                                      : "monitor_capture"
+                                ]
+                              }{" "}
+                              {target.label}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+          </>
+        )}
+      </Modal>
 
       {labelError && <p className="text-hikari-red">❌ {labelError}</p>}
       {actionError && <p className="text-hikari-red">❌ {actionError}</p>}

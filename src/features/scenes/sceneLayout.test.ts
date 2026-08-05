@@ -13,6 +13,7 @@ const scene = (name: string): SceneInfo => ({
   has_camera: false,
   background_removal: false,
   circle_mask: false,
+  sources: [],
 });
 
 const EMPTY: SceneLayout = { order: [], labels: {} };

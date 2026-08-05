@@ -17,6 +17,7 @@ mod camera;
 mod filters;
 mod multistream;
 mod scenes;
+mod sources;
 mod stream;
 
 use std::io::{BufRead, Write};
@@ -151,6 +152,18 @@ struct ObsInner {
     /// The mixer (B6) — audio sources in insertion order, so a source keeps its channel and
     /// its place in the panel for its whole life.
     audio: Vec<MixerSource>,
+    /// What each scene holds (brique Sources), in the order the user added it. Keyed by
+    /// scene name. The camera lives in `camera_items` instead — it is ONE physical source
+    /// shared across scenes, a rule this generic list would break.
+    scene_sources: std::collections::HashMap<String, Vec<SceneSource>>,
+}
+
+/// One capture the user put into a scene.
+struct SceneSource {
+    name: String,
+    /// The libobs source-kind id, kept so the panel can show what it is without asking.
+    kind: String,
+    item: ObsSceneItemRef<ObsSourceRef>,
 }
 
 /// One libobs capture behind a mixer entry, with everything the engine must free later.
@@ -256,6 +269,14 @@ enum EngineEvent {
         level_db: f32,
     },
     SetMonitorVolume { name: String, percent: i32 },
+    ListCaptureTargets,
+    AddCaptureSource {
+        scene: String,
+        kind: hikari_protocol::CaptureKind,
+        target_id: String,
+        name: String,
+    },
+    RemoveSource { scene: String, name: String },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -335,10 +356,17 @@ impl App {
             camera_rect: None,
             camera_base_size: None,
             audio: Vec::new(),
+            scene_sources: std::collections::HashMap::new(),
         });
         self.window = Some(Sendable(window));
         emit(&EngineMessage::SceneList {
-            scenes: vec![SceneInfo::empty("main")],
+            scenes: vec![SceneInfo {
+                sources: vec![hikari_protocol::SceneSourceInfo {
+                    name: MONITOR_CAPTURE_NAME.to_string(),
+                    kind: hikari_protocol::MONITOR_CAPTURE_KIND.to_string(),
+                }],
+                ..SceneInfo::empty("main")
+            }],
             active: "main".to_string(),
         });
         Ok(())
@@ -475,12 +503,30 @@ impl App {
             .map(|name| {
                 let (background_removal, circle_mask) =
                     obs.scene_filter_state.get(&name).copied().unwrap_or((false, false));
-                SceneInfo {
-                    has_camera: obs.camera_items.contains_key(&name),
-                    background_removal,
-                    circle_mask,
-                    name,
+                let has_camera = obs.camera_items.contains_key(&name);
+                let mut sources: Vec<hikari_protocol::SceneSourceInfo> = Vec::new();
+                // La capture d'écran posée au démarrage vit dans "main" et n'a jamais eu de
+                // suivi générique — elle est annoncée ici pour que le panneau montre une
+                // scène complète plutôt qu'une scène qui paraît vide alors qu'elle diffuse.
+                if name == "main" {
+                    sources.push(hikari_protocol::SceneSourceInfo {
+                        name: MONITOR_CAPTURE_NAME.to_string(),
+                        kind: hikari_protocol::MONITOR_CAPTURE_KIND.to_string(),
+                    });
                 }
+                if let Some(added) = obs.scene_sources.get(&name) {
+                    sources.extend(added.iter().map(|source| hikari_protocol::SceneSourceInfo {
+                        name: source.name.clone(),
+                        kind: source.kind.clone(),
+                    }));
+                }
+                if has_camera {
+                    sources.push(hikari_protocol::SceneSourceInfo {
+                        name: camera::CAMERA_SOURCE_NAME.to_string(),
+                        kind: hikari_protocol::CAMERA_KIND.to_string(),
+                    });
+                }
+                SceneInfo { has_camera, background_removal, circle_mask, sources, name }
             })
             .collect();
         emit(&EngineMessage::SceneList { scenes, active: obs.active_scene.clone() });
@@ -538,6 +584,9 @@ impl App {
         obs.camera_items.remove(&name);
         obs.scene_filter_state.remove(&name);
         obs.camera_rect = None;
+        // Les captures de cette scène partent avec elle : garder leurs poignées maintiendrait
+        // la scène en vie et la suppression ne ferait rien (même piège que l'élément caméra).
+        obs.scene_sources.remove(&name);
         if let Err(err) = scenes::delete_scene(&mut obs.context, &name) {
             emit(&EngineMessage::Error { message: err.to_string() });
             return;
@@ -701,6 +750,94 @@ impl App {
             }
             Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
         }
+    }
+
+    /// Emits everything the machine can capture right now (brique Sources).
+    fn handle_list_capture_targets(&mut self) {
+        let (games, windows, monitors) = sources::list_capture_targets();
+        emit(&EngineMessage::CaptureTargets { games, windows, monitors });
+    }
+
+    /// The names already taken in `scene` — every capture plus the camera. Used to refuse a
+    /// duplicate BEFORE libobs silently renames it ("Webcam 2").
+    fn source_names_in_scene(&self, scene: &str) -> Vec<String> {
+        let Some(obs) = &self.obs else { return Vec::new() };
+        let mut names: Vec<String> = obs
+            .scene_sources
+            .get(scene)
+            .map(|added| added.iter().map(|source| source.name.clone()).collect())
+            .unwrap_or_default();
+        if scene == "main" {
+            names.push(MONITOR_CAPTURE_NAME.to_string());
+        }
+        if obs.camera_items.contains_key(scene) {
+            names.push(camera::CAMERA_SOURCE_NAME.to_string());
+        }
+        names
+    }
+
+    /// Adds a game, window or screen capture into a scene (brique Sources).
+    fn handle_add_capture_source(
+        &mut self,
+        scene: String,
+        kind: hikari_protocol::CaptureKind,
+        target_id: String,
+        name: String,
+    ) {
+        if self.obs.is_none() {
+            emit(&EngineMessage::Error {
+                message: "AddCaptureSource avant l'initialisation".into(),
+            });
+            return;
+        }
+        let taken = self.source_names_in_scene(&scene);
+        if let Err(err) = hikari_protocol::validate_source_name(&name, &taken) {
+            let message = match err {
+                hikari_protocol::SceneNameError::Empty => "le nom de la source est vide".to_string(),
+                hikari_protocol::SceneNameError::Duplicate => {
+                    format!("« {name} » existe déjà dans cette scène")
+                }
+            };
+            emit(&EngineMessage::Error { message });
+            return;
+        }
+        let Some(obs) = &mut self.obs else { return };
+        match sources::add_capture_to_scene(&mut obs.context, kind, &target_id, &name, &scene) {
+            Ok(item) => {
+                obs.scene_sources.entry(scene).or_default().push(SceneSource {
+                    name,
+                    kind: kind.libobs_id().to_string(),
+                    item,
+                });
+            }
+            Err(err) => {
+                emit(&EngineMessage::Error { message: err.to_string() });
+                return;
+            }
+        }
+        self.emit_scene_list();
+    }
+
+    /// Removes a capture from ONE scene. Other scenes keep theirs.
+    fn handle_remove_source(&mut self, scene: String, name: String) {
+        let Some(obs) = &mut self.obs else { return };
+        let Some(list) = obs.scene_sources.get_mut(&scene) else {
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas une source retirable de cette scène"),
+            });
+            return;
+        };
+        let Some(index) = list.iter().position(|source| source.name == name) else {
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas une source retirable de cette scène"),
+            });
+            return;
+        };
+        let removed = list.remove(index);
+        if let Err(err) = sources::remove_from_scene(&mut obs.context, &scene, removed.item) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+        }
+        self.emit_scene_list();
     }
 
     /// Emits the machine's real audio devices, both sides (B6). A failure on one side is
@@ -1309,6 +1446,11 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetMonitorVolume { name, percent } => {
                 self.handle_set_monitor_volume(name, percent)
             }
+            EngineEvent::ListCaptureTargets => self.handle_list_capture_targets(),
+            EngineEvent::AddCaptureSource { scene, kind, target_id, name } => {
+                self.handle_add_capture_source(scene, kind, target_id, name)
+            }
+            EngineEvent::RemoveSource { scene, name } => self.handle_remove_source(scene, name),
         }
     }
 
@@ -1477,6 +1619,16 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 }
                 Ok(ControllerCommand::SetMonitorVolume { name, percent }) => {
                     let _ = proxy.send_event(EngineEvent::SetMonitorVolume { name, percent });
+                }
+                Ok(ControllerCommand::ListCaptureTargets) => {
+                    let _ = proxy.send_event(EngineEvent::ListCaptureTargets);
+                }
+                Ok(ControllerCommand::AddCaptureSource { scene, kind, target_id, name }) => {
+                    let _ = proxy
+                        .send_event(EngineEvent::AddCaptureSource { scene, kind, target_id, name });
+                }
+                Ok(ControllerCommand::RemoveSource { scene, name }) => {
+                    let _ = proxy.send_event(EngineEvent::RemoveSource { scene, name });
                 }
                 Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),

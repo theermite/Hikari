@@ -48,6 +48,9 @@ pub fn run() {
             engine_lifecycle::set_audio_monitoring,
             engine_lifecycle::set_noise_settings,
             engine_lifecycle::set_monitor_volume,
+            engine_lifecycle::list_capture_targets,
+            engine_lifecycle::add_capture_source,
+            engine_lifecycle::remove_source,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .run(tauri::generate_context!())

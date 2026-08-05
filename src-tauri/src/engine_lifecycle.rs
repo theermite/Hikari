@@ -254,10 +254,38 @@ pub(crate) fn delete_scene(state: State<EngineState>, name: String) -> Result<()
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi DeleteScene au moteur: {err}"))
 }
 
+/// Asks the engine for everything the machine can capture right now (brique Sources).
+#[tauri::command]
+pub(crate) fn list_capture_targets(state: State<EngineState>) -> Result<(), String> {
+    send_command(&state, ControllerCommand::ListCaptureTargets)
+}
+
+/// Adds a game, window or screen capture into a scene (brique Sources).
+#[tauri::command]
+pub(crate) fn add_capture_source(
+    state: State<EngineState>,
+    scene: String,
+    kind: hikari_protocol::CaptureKind,
+    target_id: String,
+    name: String,
+) -> Result<(), String> {
+    send_command(&state, ControllerCommand::AddCaptureSource { scene, kind, target_id, name })
+}
+
+/// Removes a capture from one scene (brique Sources).
+#[tauri::command]
+pub(crate) fn remove_source(
+    state: State<EngineState>,
+    scene: String,
+    name: String,
+) -> Result<(), String> {
+    send_command(&state, ControllerCommand::RemoveSource { scene, name })
+}
+
 /// Sends one mixer command to the engine (B6). Shared body of the five audio commands
 /// below: they differ only by the payload, and repeating the lock/guard/serialize dance five
 /// times is where a divergence would eventually creep in.
-fn send_audio(state: &State<EngineState>, command: ControllerCommand) -> Result<(), String> {
+fn send_command(state: &State<EngineState>, command: ControllerCommand) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
@@ -269,7 +297,7 @@ fn send_audio(state: &State<EngineState>, command: ControllerCommand) -> Result<
 /// Asks the engine for the machine's real audio devices (B6).
 #[tauri::command]
 pub(crate) fn list_audio_devices(state: State<EngineState>) -> Result<(), String> {
-    send_audio(&state, ControllerCommand::ListAudioDevices)
+    send_command(&state, ControllerCommand::ListAudioDevices)
 }
 
 /// Adds a microphone or desktop-audio capture to the mixer (B6).
@@ -280,13 +308,13 @@ pub(crate) fn add_audio_source(
     kind: hikari_protocol::AudioSourceKind,
     name: String,
 ) -> Result<(), String> {
-    send_audio(&state, ControllerCommand::AddAudioSource { device_id, kind, name })
+    send_command(&state, ControllerCommand::AddAudioSource { device_id, kind, name })
 }
 
 /// Removes an audio source from the mixer (B6).
 #[tauri::command]
 pub(crate) fn remove_audio_source(state: State<EngineState>, name: String) -> Result<(), String> {
-    send_audio(&state, ControllerCommand::RemoveAudioSource { name })
+    send_command(&state, ControllerCommand::RemoveAudioSource { name })
 }
 
 /// Sets a mixer source's volume from a 0–100 slider position (B6).
@@ -296,7 +324,7 @@ pub(crate) fn set_audio_volume(
     name: String,
     percent: i32,
 ) -> Result<(), String> {
-    send_audio(&state, ControllerCommand::SetAudioVolume { name, percent })
+    send_command(&state, ControllerCommand::SetAudioVolume { name, percent })
 }
 
 /// Mutes or unmutes a mixer source (B6).
@@ -306,7 +334,7 @@ pub(crate) fn set_audio_muted(
     name: String,
     muted: bool,
 ) -> Result<(), String> {
-    send_audio(&state, ControllerCommand::SetAudioMuted { name, muted })
+    send_command(&state, ControllerCommand::SetAudioMuted { name, muted })
 }
 
 /// Sets whether the streamer hears a source, and whether the audience does (B6).
@@ -316,7 +344,7 @@ pub(crate) fn set_audio_monitoring(
     name: String,
     monitoring: hikari_protocol::AudioMonitoring,
 ) -> Result<(), String> {
-    send_audio(&state, ControllerCommand::SetAudioMonitoring { name, monitoring })
+    send_command(&state, ControllerCommand::SetAudioMonitoring { name, monitoring })
 }
 
 /// Sets room-noise suppression for a microphone: on/off, method, and Speex's strength (B6).
@@ -328,7 +356,7 @@ pub(crate) fn set_noise_settings(
     method: hikari_protocol::NoiseMethod,
     level_db: f32,
 ) -> Result<(), String> {
-    send_audio(&state, ControllerCommand::SetNoiseSettings { name, enabled, method, level_db })
+    send_command(&state, ControllerCommand::SetNoiseSettings { name, enabled, method, level_db })
 }
 
 /// Sets the volume the streamer hears, independently of the audience's (B6).
@@ -338,7 +366,7 @@ pub(crate) fn set_monitor_volume(
     name: String,
     percent: i32,
 ) -> Result<(), String> {
-    send_audio(&state, ControllerCommand::SetMonitorVolume { name, percent })
+    send_command(&state, ControllerCommand::SetMonitorVolume { name, percent })
 }
 
 /// Grafts the engine's preview window (`engine_hwnd`, just announced via `PreviewReady`)
