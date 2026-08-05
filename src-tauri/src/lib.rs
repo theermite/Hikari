@@ -51,6 +51,7 @@ pub fn run() {
             engine_lifecycle::list_capture_targets,
             engine_lifecycle::add_capture_source,
             engine_lifecycle::remove_source,
+            engine_lifecycle::reorder_source,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .run(tauri::generate_context!())

@@ -277,6 +277,7 @@ enum EngineEvent {
         name: String,
     },
     RemoveSource { scene: String, name: String },
+    ReorderSource { scene: String, name: String, direction: hikari_protocol::SourceOrder },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -752,6 +753,50 @@ impl App {
         }
     }
 
+    /// Moves a source one step in front of, or behind, the others in its scene.
+    ///
+    /// Notre propre liste bouge du même pas que libobs : elle sert de source de vérité au
+    /// panneau, et deux ordres qui divergent donneraient un écran qui ment sur ce qui cache
+    /// quoi. À l'écran, la liste va du plus en AVANT au plus en arrière, comme dans OBS.
+    fn handle_reorder_source(
+        &mut self,
+        scene: String,
+        name: String,
+        direction: hikari_protocol::SourceOrder,
+    ) {
+        let Some(obs) = &mut self.obs else { return };
+        let Some(list) = obs.scene_sources.get_mut(&scene) else {
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas une source déplaçable de cette scène"),
+            });
+            return;
+        };
+        let Some(index) = list.iter().position(|source| source.name == name) else {
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas une source déplaçable de cette scène"),
+            });
+            return;
+        };
+        // Le premier de la liste est le plus en avant : avancer, c'est reculer d'un index.
+        let target = match direction {
+            hikari_protocol::SourceOrder::Front => index.checked_sub(1),
+            hikari_protocol::SourceOrder::Back => {
+                if index + 1 < list.len() { Some(index + 1) } else { None }
+            }
+        };
+        // Déjà au bout : rien à faire, et surtout pas d'enroulement — un clic de trop ne
+        // doit jamais envoyer une source à l'autre extrémité de la pile.
+        let Some(target) = target else { return };
+        let runtime = obs.context.runtime().clone();
+        let Some(list) = obs.scene_sources.get_mut(&scene) else { return };
+        if let Err(err) = sources::set_order(&runtime, &list[index].item, direction) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        list.swap(index, target);
+        self.emit_scene_list();
+    }
+
     /// Emits everything the machine can capture right now (brique Sources).
     fn handle_list_capture_targets(&mut self) {
         let (games, windows, monitors) = sources::list_capture_targets();
@@ -804,11 +849,13 @@ impl App {
         let Some(obs) = &mut self.obs else { return };
         match sources::add_capture_to_scene(&mut obs.context, kind, &target_id, &name, &scene) {
             Ok(item) => {
-                obs.scene_sources.entry(scene).or_default().push(SceneSource {
-                    name,
-                    kind: kind.libobs_id().to_string(),
-                    item,
-                });
+                // En TÊTE, pas en queue : libobs pose une nouvelle source devant les autres,
+                // et notre liste doit refléter cet ordre réel — sinon le panneau annoncerait
+                // l'inverse de ce que l'écran montre.
+                obs.scene_sources.entry(scene).or_default().insert(
+                    0,
+                    SceneSource { name, kind: kind.libobs_id().to_string(), item },
+                );
             }
             Err(err) => {
                 emit(&EngineMessage::Error { message: err.to_string() });
@@ -1451,6 +1498,9 @@ impl ApplicationHandler<EngineEvent> for App {
                 self.handle_add_capture_source(scene, kind, target_id, name)
             }
             EngineEvent::RemoveSource { scene, name } => self.handle_remove_source(scene, name),
+            EngineEvent::ReorderSource { scene, name, direction } => {
+                self.handle_reorder_source(scene, name, direction)
+            }
         }
     }
 
@@ -1629,6 +1679,9 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 }
                 Ok(ControllerCommand::RemoveSource { scene, name }) => {
                     let _ = proxy.send_event(EngineEvent::RemoveSource { scene, name });
+                }
+                Ok(ControllerCommand::ReorderSource { scene, name, direction }) => {
+                    let _ = proxy.send_event(EngineEvent::ReorderSource { scene, name, direction });
                 }
                 Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),

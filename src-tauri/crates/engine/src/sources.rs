@@ -11,7 +11,7 @@
 //! dans l'autre.
 
 use anyhow::{Context, Result};
-use hikari_protocol::{CaptureKind, CaptureTarget};
+use hikari_protocol::{CaptureKind, CaptureTarget, SourceOrder};
 // `WindowInfo`/`WindowSearchMode` viennent de `libobs-window-helper`, mais on passe par la
 // réexportation de `libobs-simple` : ajouter une dépendance directe la ferait dériver de la
 // version que `libobs-simple` lie réellement.
@@ -21,7 +21,7 @@ use libobs_simple::sources::windows::{
 };
 use libobs_wrapper::context::ObsContext;
 use libobs_wrapper::data::{ObsData, ObsDataSetters};
-use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemExtSceneTrait};
+use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemExtSceneTrait, SceneItemTrait};
 use libobs_wrapper::sources::ObsSourceRef;
 use libobs_wrapper::sys as libobs;
 
@@ -146,6 +146,30 @@ pub fn add_capture_to_scene(
         .context("recherche scène")?
         .context("scène introuvable")?;
     scene.add_source(source).context("ajout de la source à la scène")
+}
+
+/// Déplace `item` d'un cran devant ou derrière les autres sources de sa scène.
+///
+/// `libobs-wrapper` 9.0.4 n'expose pas l'ordre d'empilement (vérifié dans sa source), donc
+/// on passe par l'appel brut sur le fil OBS, même contrat que les filtres et l'audio.
+pub fn set_order(
+    runtime: &libobs_wrapper::runtime::ObsRuntime,
+    item: &ObsSceneItemRef<ObsSourceRef>,
+    direction: SourceOrder,
+) -> Result<()> {
+    let movement = match direction {
+        SourceOrder::Front => libobs::obs_order_movement_OBS_ORDER_MOVE_UP,
+        SourceOrder::Back => libobs::obs_order_movement_OBS_ORDER_MOVE_DOWN,
+    };
+    let runtime = runtime.clone();
+    let ptr = item.as_ptr().clone();
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // Safety: sur le fil OBS, et le pointeur vient d'un pointeur intelligent vivant
+            // (l'élément est encore dans la scène, nous en tenons une référence).
+            libobs::obs_sceneitem_set_order(ptr.get_ptr(), movement);
+        })
+        .context("changement d'ordre de la source")
 }
 
 /// Retire `item` de `scene_name` — le vrai détachement, pas seulement l'oubli de notre

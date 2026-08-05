@@ -4,7 +4,8 @@
 
 use hikari_protocol::{
     CaptureKind, CaptureTarget, ControllerCommand, EngineMessage, SceneInfo, SceneNameError,
-    SceneSourceInfo, parse_controller_command, parse_engine_message, to_line, validate_source_name,
+    SceneSourceInfo, SourceOrder, parse_controller_command, parse_engine_message, to_line,
+    validate_source_name,
 };
 use proptest::prelude::*;
 
@@ -62,6 +63,16 @@ fn should_roundtrip_every_source_command() {
         ControllerCommand::RemoveSource {
             scene: "main".to_string(),
             name: "Jeu".to_string(),
+        },
+        ControllerCommand::ReorderSource {
+            scene: "main".to_string(),
+            name: "Jeu".to_string(),
+            direction: SourceOrder::Front,
+        },
+        ControllerCommand::ReorderSource {
+            scene: "main".to_string(),
+            name: "Jeu".to_string(),
+            direction: SourceOrder::Back,
         },
     ];
     for cmd in commands {

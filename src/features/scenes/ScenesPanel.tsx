@@ -16,6 +16,7 @@ import {
   deleteScene,
   listCaptureTargets,
   removeSource,
+  reorderSource,
   switchScene,
 } from "./api";
 import {
@@ -33,6 +34,7 @@ import type {
   CaptureTarget,
   EngineMessage,
   SceneInfo,
+  SourceOrder,
 } from "./types";
 
 type State =
@@ -186,6 +188,19 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     );
   };
 
+  // Nommé sans ambiguïté : `reorder` plus bas déplace une SCÈNE dans la liste, celui-ci
+  // déplace une SOURCE dans la pile d'une scène. Deux gestes voisins, jamais le même.
+  const reorderInScene = (
+    scene: string,
+    name: string,
+    direction: SourceOrder,
+  ) => {
+    setActionError(null);
+    reorderSource(scene, name, direction).catch((error: unknown) =>
+      setActionError(String(error)),
+    );
+  };
+
   const removeFromScene = (scene: string, name: string) => {
     setActionError(null);
     removeSource(scene, name).catch((error: unknown) =>
@@ -324,7 +339,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                       Scène vide — ajoute une source ci-dessous.
                     </li>
                   ) : (
-                    scene.sources.map((item) => (
+                    scene.sources.map((item, position) => (
                       <li
                         key={item.name}
                         className="flex items-center justify-between gap-2 text-[11.5px] text-hikari-txt-faint"
@@ -332,15 +347,37 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                         <span className="truncate">
                           {SOURCE_ICON[item.kind] ?? "▪"} {item.name}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => removeFromScene(scene.name, item.name)}
-                          aria-label={`Retirer ${item.name} de ${labelFor(scene.name, layout)}`}
-                          title={`Retirer ${item.name}`}
-                          className="shrink-0 px-1 text-hikari-txt-faint transition hover:text-hikari-red"
-                        >
-                          ✕
-                        </button>
+                        <span className="flex shrink-0 items-center gap-0.5">
+                          <OrderButton
+                            label={`Mettre ${item.name} devant`}
+                            disabled={position === 0}
+                            onClick={() =>
+                              reorderInScene(scene.name, item.name, "front")
+                            }
+                          >
+                            ↑
+                          </OrderButton>
+                          <OrderButton
+                            label={`Mettre ${item.name} derrière`}
+                            disabled={position === scene.sources.length - 1}
+                            onClick={() =>
+                              reorderInScene(scene.name, item.name, "back")
+                            }
+                          >
+                            ↓
+                          </OrderButton>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeFromScene(scene.name, item.name)
+                            }
+                            aria-label={`Retirer ${item.name} de ${labelFor(scene.name, layout)}`}
+                            title={`Retirer ${item.name}`}
+                            className="px-1 text-hikari-txt-faint transition hover:text-hikari-red"
+                          >
+                            ✕
+                          </button>
+                        </span>
                       </li>
                     ))
                   )}
@@ -482,6 +519,33 @@ function describeContent(scene: SceneInfo): string {
   return filters.length
     ? `Caméra · ${filters.join(" · ")}`
     : "Caméra · sans filtre";
+}
+
+/** Une flèche d'empilement, plus discrète que les boutons de scène pour ne pas confondre
+ * « ordre des scènes » et « ordre des sources DANS une scène ». */
+function OrderButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="px-1 text-hikari-txt-faint transition hover:text-hikari-accent disabled:cursor-not-allowed disabled:opacity-30"
+    >
+      {children}
+    </button>
+  );
 }
 
 /** A small square control. `label` is the accessible name (WCAG 2.2 AA: the glyph alone

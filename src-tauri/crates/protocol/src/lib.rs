@@ -92,6 +92,19 @@ pub struct CaptureTarget {
     pub label: String,
 }
 
+/// Which way a source moves in the stack of a scene (brique Sources).
+///
+/// Said in what the user sees — in front of or behind the others — never in list-index
+/// terms, which nobody can picture.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceOrder {
+    /// Closer to the viewer: drawn over the others.
+    Front,
+    /// Further away: drawn under the others.
+    Back,
+}
+
 /// One source inside a scene, as the engine really holds it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SceneSourceInfo {
@@ -537,6 +550,9 @@ pub enum ControllerCommand {
     AddCaptureSource { scene: String, kind: CaptureKind, target_id: String, name: String },
     /// Removes a source from `scene` only. Other scenes keep theirs.
     RemoveSource { scene: String, name: String },
+    /// Moves a source one step in front of, or behind, the others in `scene`. Which source
+    /// hides which is a composition decision, so it belongs to the scene, not to the source.
+    ReorderSource { scene: String, name: String, direction: SourceOrder },
     /// Sets the volume the STREAMER hears, independently of what the audience hears.
     ///
     /// WHY it needs its own command and its own plumbing: libobs has ONE volume per source,

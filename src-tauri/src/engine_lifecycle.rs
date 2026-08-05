@@ -282,6 +282,17 @@ pub(crate) fn remove_source(
     send_command(&state, ControllerCommand::RemoveSource { scene, name })
 }
 
+/// Moves a source one step in front of, or behind, the others in its scene (brique Sources).
+#[tauri::command]
+pub(crate) fn reorder_source(
+    state: State<EngineState>,
+    scene: String,
+    name: String,
+    direction: hikari_protocol::SourceOrder,
+) -> Result<(), String> {
+    send_command(&state, ControllerCommand::ReorderSource { scene, name, direction })
+}
+
 /// Sends one mixer command to the engine (B6). Shared body of the five audio commands
 /// below: they differ only by the payload, and repeating the lock/guard/serialize dance five
 /// times is where a divergence would eventually creep in.

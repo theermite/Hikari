@@ -1,7 +1,7 @@
 // Scenes Tauri bridge (multi-scene, tranche 1) — thin `invoke` wrapper, no logic here.
 
 import { invoke } from "@tauri-apps/api/core";
-import type { CaptureKind } from "./types";
+import type { CaptureKind, SourceOrder } from "./types";
 
 /** Creates a new, empty scene named `name` (`create_scene`, `engine_lifecycle.rs`).
  * Requires the engine running (the Aperçu panel open). */
@@ -44,4 +44,14 @@ export function addCaptureSource(
 /** Removes a capture from one scene. Other scenes keep theirs. */
 export function removeSource(scene: string, name: string): Promise<void> {
   return invoke("remove_source", { scene, name });
+}
+
+/** Moves a source one step in front of, or behind, the others in its scene — which source
+ * hides which is a composition decision, so it belongs to the scene. */
+export function reorderSource(
+  scene: string,
+  name: string,
+  direction: SourceOrder,
+): Promise<void> {
+  return invoke("reorder_source", { scene, name, direction });
 }
