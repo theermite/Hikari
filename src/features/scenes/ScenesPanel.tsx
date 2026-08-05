@@ -31,6 +31,7 @@ import {
   validateLabel,
 } from "./sceneLayout";
 import {
+  dedupeTargets,
   FILE_FILTERS,
   nameFromPath,
   SOURCE_FAMILIES,
@@ -522,10 +523,9 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                         targets.monitors,
                         search,
                       )
-                    : targetsFor(chosenFamily, targets).map((target) => ({
-                        kind: chosenFamily,
-                        target,
-                      }));
+                    : dedupeTargets(targetsFor(chosenFamily, targets)).map(
+                        (target) => ({ kind: chosenFamily, target }),
+                      );
                   if (hits.length === 0) {
                     return (
                       <p className="text-[12px] text-hikari-txt-faint">
@@ -536,22 +536,28 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                     );
                   }
                   return (
-                    <ul className="flex flex-col gap-1">
-                      {hits.map((hit) => (
-                        <li key={`${hit.kind}:${hit.target.id}`}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              addToScene(addingTo, hit.kind, hit.target)
-                            }
-                            className="w-full truncate rounded-[6px] border border-hikari-line px-2 py-1 text-left text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
-                          >
-                            {SOURCE_ICON[KIND_TO_LIBOBS[hit.kind]] ?? "▪"}{" "}
-                            {hit.target.label}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                    <>
+                      <ul className="flex flex-col gap-1">
+                        {/* La position entre dans la clé : Windows expose plusieurs entrées
+                            au MÊME identifiant, et des clés en double empêchaient React de
+                            savoir quelle ligne remplacer — la liste restait figée pendant
+                            la frappe (vécu 2026-08-05). */}
+                        {hits.map((hit, position) => (
+                          <li key={`${hit.kind}:${hit.target.id}:${position}`}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                addToScene(addingTo, hit.kind, hit.target)
+                              }
+                              className="w-full truncate rounded-[6px] border border-hikari-line px-2 py-1 text-left text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+                            >
+                              {SOURCE_ICON[KIND_TO_LIBOBS[hit.kind]] ?? "▪"}{" "}
+                              {hit.target.label}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
                   );
                 })()}
               </>

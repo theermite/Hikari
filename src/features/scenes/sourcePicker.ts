@@ -81,6 +81,25 @@ export function matchesSearch(target: CaptureTarget, query: string): boolean {
   return needle.split(/\s+/).every((word) => fold(target.label).includes(word));
 }
 
+/** Retire les cibles en double d'une liste.
+ *
+ * POURQUOI (vécu 2026-08-05) : Windows expose la même application plusieurs fois — douze
+ * « Spotify Widget » portant le MÊME identifiant dans la liste des jeux. Douze lignes
+ * identiques n'aident personne à choisir, et surtout elles cassaient l'affichage : leur
+ * identifiant servait de clé de rendu, et des clés en double empêchaient React de savoir
+ * quelle ligne remplacer — la liste restait figée pendant la frappe.
+ */
+export function dedupeTargets(targets: CaptureTarget[]): CaptureTarget[] {
+  const seen = new Set<string>();
+  return targets.filter((target) => {
+    // Deux entrées qui portent le même nom ET le même identifiant sont la même chose.
+    const key = `${target.id}|${target.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /** Un résultat de recherche : la cible, et la famille dont elle vient. */
 export interface SearchHit {
   kind: SourceKind;

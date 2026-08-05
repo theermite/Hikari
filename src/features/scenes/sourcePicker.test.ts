@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  dedupeTargets,
   FILE_FILTERS,
   fold,
   matchesSearch,
@@ -135,6 +136,54 @@ describe("recherche sur les libellés RÉELS de la machine de Jay (2026-08-05)",
     expect(
       searchAll(games, windows, monitors, "mejias").map((h) => h.target.label),
     ).toHaveLength(1);
+  });
+});
+
+describe("dedupeTargets", () => {
+  it("should_collapse_the_twelve_identical_entries_windows_really_reports", () => {
+    // Cas réel du 2026-08-05 : Windows expose douze « Spotify Widget » avec le MÊME
+    // identifiant. Douze lignes identiques n'aident personne, et leurs clés en double
+    // figeaient l'affichage.
+    const targets = Array.from({ length: 12 }, () => ({
+      id: "spotify",
+      label: "Spotify Widget",
+    }));
+
+    expect(dedupeTargets(targets)).toHaveLength(1);
+  });
+
+  it("should_keep_two_entries_that_differ_by_identifier", () => {
+    const targets = [
+      { id: "a", label: "Bloc-notes" },
+      { id: "b", label: "Bloc-notes" },
+    ];
+
+    expect(dedupeTargets(targets)).toHaveLength(2);
+  });
+
+  it("should_keep_the_first_occurrence_order", () => {
+    const targets = [
+      { id: "a", label: "Premier" },
+      { id: "b", label: "Second" },
+      { id: "a", label: "Premier" },
+    ];
+
+    expect(dedupeTargets(targets).map((t) => t.label)).toEqual([
+      "Premier",
+      "Second",
+    ]);
+  });
+
+  it("should_produce_a_list_whose_identifiers_are_all_unique", () => {
+    // La propriété qui protège l'affichage : un identifiant en double casse le rendu.
+    const targets = [
+      { id: "a", label: "X" },
+      { id: "a", label: "X" },
+      { id: "b", label: "Y" },
+    ];
+    const ids = dedupeTargets(targets).map((t) => t.id);
+
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });
 
