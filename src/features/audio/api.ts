@@ -1,7 +1,7 @@
 // Audio mixer Tauri bridge (B6) — thin `invoke` wrappers, no logic here.
 
 import { invoke } from "@tauri-apps/api/core";
-import type { AudioMonitoring, AudioSourceKind } from "./types";
+import type { AudioMonitoring, AudioSourceKind, NoiseMethod } from "./types";
 
 /** Asks the engine to emit the machine's real audio devices. Requires the engine running
  * (the Aperçu panel open). */
@@ -42,10 +42,18 @@ export function setAudioMonitoring(
   return invoke("set_audio_monitoring", { name, monitoring });
 }
 
-/** Turns room-noise suppression on or off for a microphone. */
-export function setNoiseSuppression(
+/** Sets room-noise suppression for a microphone: on/off, method, and the adjustable method's
+ * strength — one call, because a half-applied combination means nothing. */
+export function setNoiseSettings(
   name: string,
   enabled: boolean,
+  method: NoiseMethod,
+  levelDb: number,
 ): Promise<void> {
-  return invoke("set_noise_suppression", { name, enabled });
+  return invoke("set_noise_settings", { name, enabled, method, levelDb });
+}
+
+/** Sets the volume the streamer hears, independently of what the audience hears. */
+export function setMonitorVolume(name: string, percent: number): Promise<void> {
+  return invoke("set_monitor_volume", { name, percent });
 }

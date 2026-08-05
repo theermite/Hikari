@@ -12,7 +12,8 @@ import {
   setAudioMonitoring,
   setAudioMuted,
   setAudioVolume,
-  setNoiseSuppression,
+  setMonitorVolume,
+  setNoiseSettings,
 } from "./api";
 
 describe("audio api", () => {
@@ -72,12 +73,25 @@ describe("audio api", () => {
     });
   });
 
-  it("should_pass_the_enabled_flag_when_switching_noise_suppression", async () => {
-    await setNoiseSuppression("Micro", true);
+  it("should_send_the_whole_noise_setting_at_once", async () => {
+    // Une combinaison à moitié appliquée (méthode sans réglage + une force) n'a pas de
+    // sens : les trois valeurs partent ensemble.
+    await setNoiseSettings("Micro", true, "speex", -24);
 
-    expect(invoke).toHaveBeenCalledExactlyOnceWith("set_noise_suppression", {
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("set_noise_settings", {
       name: "Micro",
       enabled: true,
+      method: "speex",
+      levelDb: -24,
+    });
+  });
+
+  it("should_pass_the_headphone_percent_when_setting_monitor_volume", async () => {
+    await setMonitorVolume("Micro", 65);
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("set_monitor_volume", {
+      name: "Micro",
+      percent: 65,
     });
   });
 });
