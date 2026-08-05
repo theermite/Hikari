@@ -1505,10 +1505,34 @@ impl App {
     }
 
     /// Puts one source's top-left at `(x, y)` canvas pixels and reports the real result.
+    ///
+    /// La position passe par l'aimantation : approcher un bord ou un axe central y colle la
+    /// source. C'est ce qui rend un cadrage propre atteignable à la souris, sans viser au
+    /// pixel — et ça ne coûte rien quand on place volontairement de travers, l'aimantation
+    /// ne corrigeant jamais au-delà de sa portée.
     fn apply_move(&mut self, name: &str, x: f32, y: f32) {
+        let (x, y) = self.snapped(name, x, y);
         let Some(item) = self.active_item(name) else { return };
         let result = camera::set_camera_position(item, x as i32, y as i32);
         self.report_transform(result);
+    }
+
+    /// La position aimantée d'une source, ou la position brute si le cadre ou la taille de
+    /// la source sont inconnus — jamais une aimantation devinée sur des dimensions supposées.
+    fn snapped(&mut self, name: &str, x: f32, y: f32) -> (f32, f32) {
+        let Some((width, height)) = self
+            .active_item_rects()
+            .iter()
+            .find(|rect| rect.name == name)
+            .map(|rect| (rect.width, rect.height))
+        else {
+            return (x, y);
+        };
+        let Some(obs) = &self.obs else { return (x, y) };
+        let Ok((canvas_w, canvas_h)) = camera::canvas_size(obs.context.runtime()) else {
+            return (x, y);
+        };
+        hikari_protocol::snap_position(x, y, width, height, canvas_w, canvas_h)
     }
 
     /// Resizes one source so the dragged corner follows the cursor while the anchor corner

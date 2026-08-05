@@ -609,6 +609,45 @@ pub fn validate_scene_name(name: &str, existing: &[String]) -> Result<(), SceneN
     Ok(())
 }
 
+/// Distance d'accroche de l'aimantation, en pixels de canevas (B7).
+///
+/// Assez large pour attraper sans viser, assez courte pour qu'une source posée volontairement
+/// à 30 pixels d'un bord y reste.
+pub const SNAP_DISTANCE: f32 = 16.0;
+
+/// Colle une source aux repères du cadre quand elle en approche : les quatre bords, et les
+/// deux axes centraux.
+///
+/// L'aimantation CORRIGE, elle ne téléporte pas — une position ne bouge jamais de plus de
+/// [`SNAP_DISTANCE`], propriété épinglée par un proptest. Loin de tout repère, la source suit
+/// la souris au pixel près : aimanter ce qu'on place volontairement de travers serait pire
+/// que ne rien aimanter.
+pub fn snap_position(
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    canvas_w: u32,
+    canvas_h: u32,
+) -> (f32, f32) {
+    let snap_axis = |value: f32, targets: [f32; 3]| {
+        targets
+            .into_iter()
+            .filter(|target| target.is_finite() && (value - target).abs() <= SNAP_DISTANCE)
+            // Le repère le plus proche gagne, jamais le premier trouvé : deux repères
+            // voisins (un bord et le centre sur une petite source) doivent départager.
+            .min_by(|a, b| {
+                (value - a).abs().total_cmp(&(value - b).abs())
+            })
+            .unwrap_or(value)
+    };
+    let (canvas_w, canvas_h) = (canvas_w as f32, canvas_h as f32);
+    (
+        snap_axis(x, [0.0, canvas_w - width, (canvas_w - width) / 2.0]),
+        snap_axis(y, [0.0, canvas_h - height, (canvas_h - height) / 2.0]),
+    )
+}
+
 /// Clamp bounds for camera moves (B7) — a generous sanity range, not exact canvas
 /// containment: it stops the camera drifting to absurd coordinates, it never guarantees
 /// "stays inside the frame".
