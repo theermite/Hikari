@@ -282,6 +282,23 @@ pub(crate) fn remove_source(
     send_command(&state, ControllerCommand::RemoveSource { scene, name })
 }
 
+/// Places a source exactly (brique Persistance) — ce qui permet de rejouer une session
+/// sauvegardée au lancement suivant.
+#[tauri::command]
+pub(crate) fn set_source_transform(
+    state: State<EngineState>,
+    scene: String,
+    name: String,
+    x: i32,
+    y: i32,
+    scale_percent: i32,
+) -> Result<(), String> {
+    send_command(
+        &state,
+        ControllerCommand::SetSourceTransform { scene, name, x, y, scale_percent },
+    )
+}
+
 /// Moves a source one step in front of, or behind, the others in its scene (brique Sources).
 #[tauri::command]
 pub(crate) fn reorder_source(

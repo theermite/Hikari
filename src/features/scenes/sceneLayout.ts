@@ -10,6 +10,7 @@
 // UI concern, so there is nothing to ask the engine for.
 
 import { load, type Store } from "@tauri-apps/plugin-store";
+import { EMPTY_SESSION, type SessionDoc } from "./session";
 import type { SceneInfo } from "./types";
 
 const STORE_FILE = "scene-layout.json";
@@ -104,4 +105,23 @@ export async function loadSceneLayout(): Promise<SceneLayout> {
 export async function saveSceneLayout(layout: SceneLayout): Promise<void> {
   const store = await getStore();
   await store.set(LAYOUT_KEY, layout);
+}
+
+const SESSION_KEY = "session";
+
+/** Retient la session : les scènes, leurs sources, et laquelle était en direct.
+ *
+ * Rangée dans le même fichier que la présentation : les deux décrivent la même chose vue de
+ * deux côtés, et les séparer ferait deux fichiers à garder cohérents. */
+export async function saveSession(doc: SessionDoc): Promise<void> {
+  const store = await getStore();
+  await store.set(SESSION_KEY, doc);
+}
+
+/** La session sauvegardée, ou une session vide au premier lancement — jamais une erreur :
+ * ne rien avoir retenu est un état normal, pas une panne. */
+export async function loadSession(): Promise<SessionDoc> {
+  const store = await getStore();
+  const saved = await store.get<SessionDoc>(SESSION_KEY);
+  return saved ?? EMPTY_SESSION;
 }

@@ -17,10 +17,18 @@ export interface CaptureTarget {
 /** Vers l'avant (dessine par-dessus) ou vers l'arrière (passe dessous). */
 export type SourceOrder = "front" | "back";
 
-/** Une source posée dans une scène. `kind` est l'identifiant libobs, jamais deviné. */
+/** Une source posée dans une scène. `kind` est l'identifiant libobs, jamais deviné.
+ *
+ * Porte tout ce qu'il faut pour la RECRÉER au prochain lancement : sa famille, ce qu'elle
+ * capture, et où elle est posée. Ce qui manquerait ici serait un réglage à refaire à la main. */
 export interface SceneSourceInfo {
   name: string;
   kind: string;
+  source_kind: SourceKind;
+  target_id: string;
+  x: number;
+  y: number;
+  scale_percent: number;
 }
 
 export interface SceneInfo {

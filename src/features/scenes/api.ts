@@ -46,6 +46,18 @@ export function removeSource(scene: string, name: string): Promise<void> {
   return invoke("remove_source", { scene, name });
 }
 
+/** Places a source exactly, without the mouse — ce qui rend une session rejouable au
+ * lancement suivant. */
+export function setSourceTransform(
+  scene: string,
+  name: string,
+  x: number,
+  y: number,
+  scalePercent: number,
+): Promise<void> {
+  return invoke("set_source_transform", { scene, name, x, y, scalePercent });
+}
+
 /** Moves a source one step in front of, or behind, the others in its scene — which source
  * hides which is a composition decision, so it belongs to the scene. */
 export function reorderSource(

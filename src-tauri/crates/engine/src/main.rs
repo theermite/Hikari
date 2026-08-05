@@ -75,20 +75,21 @@ pub(crate) fn emit(msg: &EngineMessage) {
 /// modèle finit toujours par se voir à l'écran.
 fn build_scene_with_capture(
     context: &mut ObsContext,
-) -> Result<(Vec<SourceInfo>, ObsSceneItemRef<ObsSourceRef>)> {
+) -> Result<(Vec<SourceInfo>, ObsSceneItemRef<ObsSourceRef>, String)> {
     context.scene("main", Some(0))?;
     let monitors = MonitorCaptureSourceBuilder::get_monitors()?;
     let first = monitors.first().context("no monitor available to capture")?;
+    let monitor_id = first.0.name.clone();
     let item = sources::add_capture_to_scene(
         context,
         hikari_protocol::SourceKind::Monitor,
-        first.0.name.as_str(),
+        &monitor_id,
         MONITOR_CAPTURE_NAME,
         "main",
     )?;
     // Mise au cadre : un écran 4K sur un canevas 1080p déborderait sans ça.
     item.fit_source_to_screen()?;
-    Ok((vec![SourceInfo::monitor_capture(MONITOR_CAPTURE_NAME)], item))
+    Ok((vec![SourceInfo::monitor_capture(MONITOR_CAPTURE_NAME)], item, monitor_id))
 }
 
 /// Creates the preview window + its `obs_display`. Transcribed from the B1b spike
@@ -181,6 +182,10 @@ struct SceneSource {
     name: String,
     /// The libobs source-kind id, kept so the panel can show what it is without asking.
     kind: String,
+    /// Sa famille et ce qu'elle capture — gardés pour que l'app puisse la RECRÉER au
+    /// lancement suivant. Sans eux, une session sauvegardée ne serait pas rejouable.
+    source_kind: hikari_protocol::SourceKind,
+    target_id: String,
     item: ObsSceneItemRef<ObsSourceRef>,
 }
 
@@ -302,6 +307,7 @@ enum EngineEvent {
     },
     RemoveSource { scene: String, name: String },
     ReorderSource { scene: String, name: String, direction: hikari_protocol::SourceOrder },
+    SetSourceTransform { scene: String, name: String, x: i32, y: i32, scale_percent: i32 },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -352,7 +358,7 @@ impl App {
         let mut context = ObsContext::new(StartupInfo::default()).context("init libobs")?;
         emit(&EngineMessage::Ready);
 
-        let (sources, scene_item) =
+        let (sources, scene_item, startup_monitor) =
             build_scene_with_capture(&mut context).context("construction scène")?;
         emit(&EngineMessage::Sources { items: sources.clone() });
 
@@ -392,19 +398,15 @@ impl App {
                 vec![SceneSource {
                     name: MONITOR_CAPTURE_NAME.to_string(),
                     kind: hikari_protocol::MONITOR_CAPTURE_KIND.to_string(),
+                    source_kind: hikari_protocol::SourceKind::Monitor,
+                    target_id: startup_monitor,
                     item: scene_item,
                 }],
             )]),
         });
         self.window = Some(Sendable(window));
         emit(&EngineMessage::SceneList {
-            scenes: vec![SceneInfo {
-                sources: vec![hikari_protocol::SceneSourceInfo {
-                    name: MONITOR_CAPTURE_NAME.to_string(),
-                    kind: hikari_protocol::MONITOR_CAPTURE_KIND.to_string(),
-                }],
-                ..SceneInfo::empty("main")
-            }],
+            scenes: vec![SceneInfo::empty("main")],
             active: "main".to_string(),
         });
         Ok(())
@@ -544,15 +546,36 @@ impl App {
                 let has_camera = obs.camera_items.contains_key(&name);
                 let mut sources: Vec<hikari_protocol::SceneSourceInfo> = Vec::new();
                 if let Some(added) = obs.scene_sources.get(&name) {
-                    sources.extend(added.iter().map(|source| hikari_protocol::SceneSourceInfo {
-                        name: source.name.clone(),
-                        kind: source.kind.clone(),
+                    sources.extend(added.iter().map(|source| {
+                        // Placement lu depuis libobs, jamais mémorisé de notre côté : une
+                        // copie qui dérive ferait sauvegarder une position fausse.
+                        let position = source.item.get_source_position().ok();
+                        let scale = source.item.get_source_scale().ok();
+                        hikari_protocol::SceneSourceInfo {
+                            name: source.name.clone(),
+                            kind: source.kind.clone(),
+                            source_kind: source.source_kind,
+                            target_id: source.target_id.clone(),
+                            x: position.as_ref().map_or(0, |p| *p.x() as i32),
+                            y: position.as_ref().map_or(0, |p| *p.y() as i32),
+                            scale_percent: scale
+                                .as_ref()
+                                .map_or(100, |s| (s.x() * 100.0).round() as i32),
+                        }
                     }));
                 }
                 if has_camera {
                     sources.push(hikari_protocol::SceneSourceInfo {
                         name: camera::CAMERA_SOURCE_NAME.to_string(),
                         kind: hikari_protocol::CAMERA_KIND.to_string(),
+                        // La caméra se recrée par sa propre commande (elle est UNE source
+                        // physique partagée entre scènes) : elle n'a pas de cible à retenir
+                        // ici, et sa persistance est une tranche à part.
+                        source_kind: hikari_protocol::SourceKind::Window,
+                        target_id: String::new(),
+                        x: 0,
+                        y: 0,
+                        scale_percent: 100,
                     });
                 }
                 SceneInfo { has_camera, background_removal, circle_mask, sources, name }
@@ -829,6 +852,38 @@ impl App {
         self.emit_scene_list();
     }
 
+    /// Places a source exactly — la commande qui rend une session rejouable.
+    fn handle_set_source_transform(
+        &mut self,
+        scene: String,
+        name: String,
+        x: i32,
+        y: i32,
+        scale_percent: i32,
+    ) {
+        let Some(obs) = &self.obs else { return };
+        let Some(item) = obs
+            .scene_sources
+            .get(&scene)
+            .and_then(|list| list.iter().find(|source| source.name == name))
+            .map(|source| &source.item)
+        else {
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas dans « {scene} »"),
+            });
+            return;
+        };
+        // L'échelle voyage en pourcentage — un entier survit à l'aller-retour d'un fichier
+        // de session sans les surprises d'arrondi d'un nombre à virgule.
+        let scale = hikari_protocol::clamp_camera_scale(scale_percent as f32 / 100.0);
+        if let Err(err) = camera::set_camera_transform(item, x, y, scale) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        self.scene_layout_changed();
+        self.emit_scene_list();
+    }
+
     /// Emits everything the machine can capture right now (brique Sources).
     fn handle_list_capture_targets(&mut self) {
         let (games, windows, monitors) = sources::list_capture_targets();
@@ -883,7 +938,13 @@ impl App {
                 // l'inverse de ce que l'écran montre.
                 obs.scene_sources.entry(scene).or_default().insert(
                     0,
-                    SceneSource { name, kind: kind.libobs_id().to_string(), item },
+                    SceneSource {
+                        name,
+                        kind: kind.libobs_id().to_string(),
+                        source_kind: kind,
+                        target_id,
+                        item,
+                    },
                 );
                 // Oubli corrigé le 2026-08-05 : sans ça, le cache des rectangles gardait la
                 // scène telle qu'elle était AVANT l'ajout, donc la nouvelle source n'était
@@ -1638,6 +1699,9 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::ReorderSource { scene, name, direction } => {
                 self.handle_reorder_source(scene, name, direction)
             }
+            EngineEvent::SetSourceTransform { scene, name, x, y, scale_percent } => {
+                self.handle_set_source_transform(scene, name, x, y, scale_percent)
+            }
         }
     }
 
@@ -1819,6 +1883,9 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 }
                 Ok(ControllerCommand::ReorderSource { scene, name, direction }) => {
                     let _ = proxy.send_event(EngineEvent::ReorderSource { scene, name, direction });
+                }
+                Ok(ControllerCommand::SetSourceTransform { scene, name, x, y, scale_percent }) => {
+                    let _ = proxy.send_event(EngineEvent::SetSourceTransform { scene, name, x, y, scale_percent });
                 }
                 Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),

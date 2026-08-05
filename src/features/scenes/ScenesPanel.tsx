@@ -18,18 +18,22 @@ import {
   listCaptureTargets,
   removeSource,
   reorderSource,
+  setSourceTransform,
   switchScene,
 } from "./api";
 import {
   EMPTY_LAYOUT,
   labelFor,
   loadSceneLayout,
+  loadSession,
   moveScene,
   orderScenes,
   type SceneLayout,
   saveSceneLayout,
+  saveSession,
   validateLabel,
 } from "./sceneLayout";
+import { buildReplay, toSession } from "./session";
 import {
   dedupeTargets,
   FILE_FILTERS,
@@ -108,12 +112,25 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     SOURCE_FAMILIES.find((f) => f.kind === chosenFamily)?.isFile ?? false;
   const renameInput = useRef<HTMLInputElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
+  /** Vrai pendant le rejeu de la session — empêche de réécrire par-dessus ce qu'on restaure. */
+  const replaying = useRef(false);
+  /** L'état vu par le rejeu. Une référence et non l'état React : le rejeu démarre depuis une
+   * fonction de rappel qui a capturé un état déjà périmé. */
+  const stateRef = useRef<SceneInfo[]>([]);
 
   useEffect(() => {
     const unlisten = listen<EngineMessage>("engine-message", (event) => {
       const msg = event.payload;
       if (msg.type === "scene_list" && msg.scenes && msg.active) {
         setState({ status: "ready", scenes: msg.scenes, active: msg.active });
+        stateRef.current = msg.scenes;
+        // Retenu à CHAQUE changement plutôt qu'à la fermeture : une app fermée brutalement
+        // ne sauvegarde rien, et c'est précisément le moment où l'on perd le plus.
+        // Pendant le rejeu, on ne réécrit pas — sinon l'état partiel en cours de
+        // reconstruction écraserait la session qu'on est en train de restaurer.
+        if (!replaying.current) {
+          saveSession(toSession(msg.scenes, msg.active)).catch(() => undefined);
+        }
       }
       // Le moteur refuse lui-même la suppression interdite : on affiche SA raison plutôt
       // que d'inventer un message côté écran.
@@ -121,6 +138,9 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       // rattrapage, ouvrir l'Aperçu après la fenêtre d'ajout laisserait celle-ci vide.
       if (msg.type === "ready") {
         listCaptureTargets().catch(() => undefined);
+        // Le moteur repart vierge à chaque lancement : c'est ici, et seulement ici, qu'on
+        // peut lui rendre la session d'avant.
+        restoreSession();
       }
       if (msg.type === "capture_targets") {
         setTargets({
@@ -152,6 +172,47 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   useEffect(() => {
     if (addingTo && targets && !chosenIsFile) searchInput.current?.focus();
   }, [addingTo, targets, chosenIsFile]);
+
+  /** Rend au moteur la session d'avant : il repart vierge à chaque lancement.
+   *
+   * Les étapes sont jouées EN SÉRIE et non en parallèle : chacune dépend de la précédente
+   * (on ne remplit pas une scène qui n'existe pas encore), et le moteur les traite dans
+   * l'ordre où elles arrivent. */
+  const restoreSession = async () => {
+    if (replaying.current) return;
+    replaying.current = true;
+    try {
+      const saved = await loadSession();
+      const steps = buildReplay(saved, stateRef.current);
+      for (const step of steps) {
+        if (step.do === "createScene") await createScene(step.scene);
+        if (step.do === "addSource") {
+          await addCaptureSource(
+            step.scene,
+            step.kind,
+            step.targetId,
+            step.name,
+          );
+        }
+        if (step.do === "transform") {
+          await setSourceTransform(
+            step.scene,
+            step.name,
+            step.x,
+            step.y,
+            step.scalePercent,
+          );
+        }
+        if (step.do === "switchScene") await switchScene(step.scene);
+      }
+    } catch (error: unknown) {
+      // Une session qu'on ne peut pas rendre est signalée, jamais avalée : l'utilisateur
+      // doit savoir que son cadrage n'a pas été retrouvé plutôt que de le découvrir en direct.
+      setActionError(`Session non restaurée : ${String(error)}`);
+    } finally {
+      replaying.current = false;
+    }
+  };
 
   const persist = (next: SceneLayout) => {
     setLayout(next);

@@ -130,11 +130,25 @@ pub enum SourceOrder {
 }
 
 /// One source inside a scene, as the engine really holds it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Carries everything needed to RECREATE it identically at the next launch — kind, what it
+/// points at, and where it sits. Anything missing here is a setting the user would have to
+/// redo by hand, so the completeness of this struct IS the persistence guarantee.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SceneSourceInfo {
     pub name: String,
     /// The libobs source-kind id, so a panel can show the right icon without guessing.
     pub kind: String,
+    /// Which family it belongs to — what a rebuild needs, the libobs id alone being a
+    /// display detail.
+    pub source_kind: SourceKind,
+    /// What it captures: a window id, a monitor id, or a file path.
+    pub target_id: String,
+    /// Where it sits in the canvas, and how big — the placement the user chose with the
+    /// mouse, worth exactly as much as the source itself.
+    pub x: i32,
+    pub y: i32,
+    pub scale_percent: i32,
 }
 
 /// Validates a candidate source name against the sources ALREADY IN THAT SCENE.
@@ -151,7 +165,7 @@ pub fn validate_source_name(name: &str, existing: &[String]) -> Result<(), Scene
 /// WHY per scene rather than "the active one": the Scenes panel shows the whole list at
 /// once, so it must say what EACH scene carries without the user having to switch to it
 /// just to find out — switching is a live cut on the output channel, never a free peek.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SceneInfo {
     pub name: String,
     /// Whether the ONE physical webcam is shown in this scene (`AddCamera`/`RemoveCamera`).
@@ -577,6 +591,12 @@ pub enum ControllerCommand {
     /// Moves a source one step in front of, or behind, the others in `scene`. Which source
     /// hides which is a composition decision, so it belongs to the scene, not to the source.
     ReorderSource { scene: String, name: String, direction: SourceOrder },
+    /// Places a source exactly, without going through the mouse.
+    ///
+    /// C'est ce qui rend une session REJOUABLE : au démarrage suivant, l'app recrée les
+    /// sources puis les repose là où elles étaient. Sans cette commande, tout le placement
+    /// serait à refaire à chaque lancement.
+    SetSourceTransform { scene: String, name: String, x: i32, y: i32, scale_percent: i32 },
     /// Sets the volume the STREAMER hears, independently of what the audience hears.
     ///
     /// WHY it needs its own command and its own plumbing: libobs has ONE volume per source,

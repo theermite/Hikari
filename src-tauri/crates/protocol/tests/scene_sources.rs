@@ -21,6 +21,27 @@ fn should_use_the_exact_libobs_source_ids() {
 }
 
 #[test]
+fn should_carry_everything_needed_to_rebuild_a_source() {
+    // Ce que ce test protège : la persistance. Tout champ manquant ici est un réglage que
+    // l'utilisateur devra refaire à la main au prochain lancement.
+    let source = SceneSourceInfo {
+        name: "Jeu".to_string(),
+        kind: "game_capture".to_string(),
+        source_kind: SourceKind::Game,
+        target_id: "LoL".to_string(),
+        x: 120,
+        y: -40,
+        scale_percent: 75,
+    };
+    let line = to_line(&source).expect("serializes");
+    let back: SceneSourceInfo = serde_json::from_str(&line).expect("parses");
+
+    assert_eq!(back.source_kind, SourceKind::Game, "la famille survit");
+    assert_eq!(back.target_id, "LoL", "ce qu'elle capture survit");
+    assert_eq!((back.x, back.y, back.scale_percent), (120, -40, 75), "le placement survit");
+}
+
+#[test]
 fn should_tell_a_file_source_apart_from_a_live_capture() {
     // Une image ou une vidéo se CHOISIT sur le disque ; un jeu, une fenêtre ou un écran se
     // choisit dans une liste. Le panneau doit poser deux questions différentes.
@@ -95,6 +116,13 @@ fn should_roundtrip_every_source_command() {
             name: "Jeu".to_string(),
             direction: SourceOrder::Back,
         },
+        ControllerCommand::SetSourceTransform {
+            scene: "main".to_string(),
+            name: "Jeu".to_string(),
+            x: 120,
+            y: -40,
+            scale_percent: 75,
+        },
     ];
     for cmd in commands {
         let line = to_line(&cmd).expect("serializes");
@@ -112,8 +140,24 @@ fn should_carry_each_scenes_own_source_list() {
         background_removal: false,
         circle_mask: false,
         sources: vec![
-            SceneSourceInfo { name: "Jeu".to_string(), kind: "game_capture".to_string() },
-            SceneSourceInfo { name: "Webcam".to_string(), kind: "dshow_input".to_string() },
+            SceneSourceInfo {
+                name: "Jeu".to_string(),
+                kind: "game_capture".to_string(),
+                source_kind: SourceKind::Game,
+                target_id: "LoL".to_string(),
+                x: 10,
+                y: 20,
+                scale_percent: 100,
+            },
+            SceneSourceInfo {
+                name: "Webcam".to_string(),
+                kind: "dshow_input".to_string(),
+                source_kind: SourceKind::Window,
+                target_id: String::new(),
+                x: 0,
+                y: 0,
+                scale_percent: 100,
+            },
         ],
     };
     let msg = EngineMessage::SceneList {
