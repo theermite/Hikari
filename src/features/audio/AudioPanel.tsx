@@ -204,7 +204,7 @@ export function AudioPanel(_props: IDockviewPanelProps) {
                   </button>
 
                   <VolumeSlider
-                    label={`Volume de ${source.name}`}
+                    label={`Volume de ${source.name} pour le public`}
                     value={source.volume_percent}
                     disabled={busy}
                     onChange={(percent) =>
@@ -227,6 +227,31 @@ export function AudioPanel(_props: IDockviewPanelProps) {
                     ✕
                   </IconButton>
                 </div>
+
+                {/* Le volume du retour vit sur la LIGNE et non dans les réglages (Jay,
+                    2026-08-05) : régler son propre retour est un geste fréquent, pas un
+                    réglage rare — l'enfouir derrière ⚙ ajoutait des clics à chaque fois.
+                    Il n'apparaît que sur les sources que le streamer écoute, donc les
+                    autres gardent une ligne courte. */}
+                {source.monitoring !== "none" && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      title="Volume dans ton casque"
+                      className="shrink-0 text-[11.5px] text-hikari-txt-faint"
+                    >
+                      🎧
+                    </span>
+                    <VolumeSlider
+                      label={`Volume de ${source.name} dans mon casque`}
+                      value={source.monitor_volume_percent}
+                      disabled={busy}
+                      onChange={(percent) =>
+                        run(setMonitorVolume(source.name, percent))
+                      }
+                    />
+                  </div>
+                )}
               </li>
             );
           })}
@@ -353,7 +378,6 @@ function DeviceSettings({
   busy: boolean;
   run: (action: Promise<void>) => void;
 }) {
-  const hearsMe = source.monitoring !== "none";
   const pushNoise = (
     over: Partial<{ enabled: boolean; method: string; levelDb: number }>,
   ) =>
@@ -396,27 +420,8 @@ function DeviceSettings({
         </div>
       </fieldset>
 
-      {/* Absent, pas grisé, quand personne ne t'écoute : un champ sans effet n'a rien à
-          faire à l'écran, et un champ grisé sans explication laisse deviner pourquoi. */}
-      {/* Un titre visuel, pas un <label> : le curseur porte déjà son propre nom accessible,
-          et l'envelopper le nommerait une seconde fois. */}
-      {hearsMe && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] uppercase tracking-wider text-hikari-txt-faint">
-            Volume dans mon casque
-          </span>
-          <span className="flex items-center gap-2">
-            <VolumeSlider
-              label={`Volume de ${source.name} dans mon casque`}
-              value={source.monitor_volume_percent}
-              disabled={busy}
-              onChange={(percent) =>
-                run(setMonitorVolume(source.name, percent))
-              }
-            />
-          </span>
-        </div>
-      )}
+      {/* Le volume du retour n'est PAS ici : il vit sur la ligne du mixeur, à portée
+          directe (Jay, 2026-08-05). Cette fenêtre ne garde que ce qu'on règle rarement. */}
 
       {source.kind === "input" && (
         <fieldset className="flex flex-col gap-2">
