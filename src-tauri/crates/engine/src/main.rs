@@ -25,14 +25,13 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use hikari_protocol::{ControllerCommand, EngineMessage, SceneInfo, SourceInfo};
-use libobs_simple::sources::windows::monitor_capture::MonitorCaptureSource;
-use libobs_simple::sources::windows::{MonitorCaptureSourceBuilder, ObsDisplayCaptureMethod};
+use libobs_simple::sources::windows::MonitorCaptureSourceBuilder;
 use libobs_wrapper::context::ObsContext;
 use libobs_wrapper::data::output::ObsOutputTrait;
 use libobs_wrapper::encoders::ObsContextEncoders;
 use libobs_wrapper::display::{ObsDisplayCreationData, ObsDisplayRef, ObsWindowHandle, WindowPositionTrait};
 use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemTrait};
-use libobs_wrapper::sources::{ObsSourceBuilder, ObsSourceRef};
+use libobs_wrapper::sources::ObsSourceRef;
 use libobs_wrapper::unsafe_send::Sendable;
 use libobs_wrapper::utils::StartupInfo;
 use multistream::{PlatformStream, report_platform_frame_stats, start_multistream, stop_one};
@@ -66,17 +65,27 @@ pub(crate) fn emit(msg: &EngineMessage) {
     }
 }
 
-/// Build the "main" scene with a screen capture and return its sources. Requires the real
-/// libobs runtime (a GPU and at least one monitor).
-fn build_scene_with_capture(context: &mut ObsContext) -> Result<(Vec<SourceInfo>, ObsSceneItemRef<MonitorCaptureSource>)> {
-    let mut scene = context.scene("main", Some(0))?;
+/// Build the "main" scene with a screen capture, as an ORDINARY source.
+///
+/// Elle passe par le même chemin que toute source ajoutée à la main (2026-08-05) : avant, la
+/// capture de démarrage était construite à part et rangée dans un champ dédié, ce qui la
+/// rendait ni retirable, ni saisissable à la souris, ni listée comme les autres. Jay l'a
+/// signalé — « il y a une source que je ne peux pas supprimer ». Une exception dans le
+/// modèle finit toujours par se voir à l'écran.
+fn build_scene_with_capture(
+    context: &mut ObsContext,
+) -> Result<(Vec<SourceInfo>, ObsSceneItemRef<ObsSourceRef>)> {
+    context.scene("main", Some(0))?;
     let monitors = MonitorCaptureSourceBuilder::get_monitors()?;
     let first = monitors.first().context("no monitor available to capture")?;
-    let item = context
-        .source_builder::<MonitorCaptureSourceBuilder, _>(MONITOR_CAPTURE_NAME)?
-        .set_monitor(first)
-        .set_capture_method(ObsDisplayCaptureMethod::MethodDXGI)
-        .add_to_scene(&mut scene)?;
+    let item = sources::add_capture_to_scene(
+        context,
+        hikari_protocol::CaptureKind::Monitor,
+        first.0.name.as_str(),
+        MONITOR_CAPTURE_NAME,
+        "main",
+    )?;
+    // Mise au cadre : un écran 4K sur un canevas 1080p déborderait sans ça.
     item.fit_source_to_screen()?;
     Ok((vec![SourceInfo::monitor_capture(MONITOR_CAPTURE_NAME)], item))
 }
@@ -116,7 +125,6 @@ fn fit_size(win_w: u32, win_h: u32) -> (u32, u32) {
 struct ObsInner {
     display: ObsDisplayRef,
     context: ObsContext,
-    _scene_item: ObsSceneItemRef<MonitorCaptureSource>,
     /// The real, currently-composed scene sources — grown by `handle_add_camera`. Kept
     /// here (never re-derived from libobs) so every `Sources` emission reflects the whole
     /// scene, never just the last-added delta.
@@ -362,7 +370,6 @@ impl App {
         self.obs = Some(ObsInner {
             display,
             context,
-            _scene_item: scene_item,
             sources,
             camera_source: None,
             camera_filters: None,
@@ -371,7 +378,16 @@ impl App {
             active_scene: "main".to_string(),
             item_rects: None,
             audio: Vec::new(),
-            scene_sources: std::collections::HashMap::new(),
+            // La capture de démarrage est enregistrée comme une source ORDINAIRE : c'est ce
+            // qui la rend retirable, saisissable et listée au même titre que les autres.
+            scene_sources: std::collections::HashMap::from([(
+                "main".to_string(),
+                vec![SceneSource {
+                    name: MONITOR_CAPTURE_NAME.to_string(),
+                    kind: hikari_protocol::MONITOR_CAPTURE_KIND.to_string(),
+                    item: scene_item,
+                }],
+            )]),
         });
         self.window = Some(Sendable(window));
         emit(&EngineMessage::SceneList {
@@ -520,15 +536,6 @@ impl App {
                     obs.scene_filter_state.get(&name).copied().unwrap_or((false, false));
                 let has_camera = obs.camera_items.contains_key(&name);
                 let mut sources: Vec<hikari_protocol::SceneSourceInfo> = Vec::new();
-                // La capture d'écran posée au démarrage vit dans "main" et n'a jamais eu de
-                // suivi générique — elle est annoncée ici pour que le panneau montre une
-                // scène complète plutôt qu'une scène qui paraît vide alors qu'elle diffuse.
-                if name == "main" {
-                    sources.push(hikari_protocol::SceneSourceInfo {
-                        name: MONITOR_CAPTURE_NAME.to_string(),
-                        kind: hikari_protocol::MONITOR_CAPTURE_KIND.to_string(),
-                    });
-                }
                 if let Some(added) = obs.scene_sources.get(&name) {
                     sources.extend(added.iter().map(|source| hikari_protocol::SceneSourceInfo {
                         name: source.name.clone(),
@@ -808,8 +815,10 @@ impl App {
             return;
         }
         // Vérifié par sonde le 2026-08-05 : notre liste et l'ordre réel du moteur coïncident
-        // exactement après ce échange (positions relevées des deux côtés).
+        // exactement après cet échange (positions relevées des deux côtés).
         list.swap(index, target);
+        // L'ordre décide quelle source un clic désigne : le cache doit repartir de zéro.
+        obs.item_rects = None;
         self.emit_scene_list();
     }
 
@@ -828,9 +837,6 @@ impl App {
             .get(scene)
             .map(|added| added.iter().map(|source| source.name.clone()).collect())
             .unwrap_or_default();
-        if scene == "main" {
-            names.push(MONITOR_CAPTURE_NAME.to_string());
-        }
         if obs.camera_items.contains_key(scene) {
             names.push(camera::CAMERA_SOURCE_NAME.to_string());
         }
@@ -872,6 +878,10 @@ impl App {
                     0,
                     SceneSource { name, kind: kind.libobs_id().to_string(), item },
                 );
+                // Oubli corrigé le 2026-08-05 : sans ça, le cache des rectangles gardait la
+                // scène telle qu'elle était AVANT l'ajout, donc la nouvelle source n'était
+                // saisissable par personne.
+                obs.item_rects = None;
             }
             Err(err) => {
                 emit(&EngineMessage::Error { message: err.to_string() });
@@ -897,6 +907,7 @@ impl App {
             return;
         };
         let removed = list.remove(index);
+        obs.item_rects = None;
         if let Err(err) = sources::remove_from_scene(&mut obs.context, &scene, removed.item) {
             emit(&EngineMessage::Error { message: err.to_string() });
         }
@@ -1290,10 +1301,6 @@ impl App {
     }
 
     /// Every grabbable source of the ACTIVE scene with its rectangle, front-first.
-    ///
-    /// The startup screen capture is deliberately absent: it is the backdrop, it is not
-    /// removable, and making it grabbable would mean every click on empty canvas grabs the
-    /// whole background instead of doing nothing.
     fn active_item_rects(&mut self) -> &[ItemRect] {
         if self.obs.as_ref().is_some_and(|obs| obs.item_rects.is_some()) {
             return self.obs.as_ref().map_or(&[], |obs| {
