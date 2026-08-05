@@ -32,9 +32,9 @@ import {
 } from "./sceneLayout";
 import {
   FILE_FILTERS,
-  matchesSearch,
   nameFromPath,
   SOURCE_FAMILIES,
+  searchAll,
 } from "./sourcePicker";
 import type {
   CaptureTarget,
@@ -60,6 +60,14 @@ const SOURCE_ICON: Record<string, string> = {
   window_capture: "🪟",
   monitor_capture: "🖥️",
   dshow_input: "🎥",
+};
+
+/** Le pictogramme d'un résultat de recherche vient de sa famille — un résultat global mêle
+ * les familles, il faut donc dire de laquelle il sort. */
+const KIND_TO_LIBOBS: Record<string, string> = {
+  game: "game_capture",
+  window: "window_capture",
+  monitor: "monitor_capture",
 };
 
 interface CaptureTargets {
@@ -495,10 +503,20 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                   className="rounded-[6px] border border-hikari-line bg-hikari-bg px-2 py-1 text-[12.5px] text-hikari-txt placeholder:text-hikari-txt-faint"
                 />
                 {(() => {
-                  const list = targetsFor(chosenFamily, targets).filter(
-                    (target) => matchesSearch(target, search),
-                  );
-                  if (list.length === 0) {
+                  // Dès qu'on tape, on cherche dans TOUTES les familles : quelqu'un qui
+                  // tape un nom cherche CETTE chose, pas « cette chose parmi les jeux ».
+                  const hits = search.trim()
+                    ? searchAll(
+                        targets.games,
+                        targets.windows,
+                        targets.monitors,
+                        search,
+                      )
+                    : targetsFor(chosenFamily, targets).map((target) => ({
+                        kind: chosenFamily,
+                        target,
+                      }));
+                  if (hits.length === 0) {
                     return (
                       <p className="text-[12px] text-hikari-txt-faint">
                         {search.trim()
@@ -509,16 +527,17 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                   }
                   return (
                     <ul className="flex flex-col gap-1">
-                      {list.map((target) => (
-                        <li key={target.id}>
+                      {hits.map((hit) => (
+                        <li key={`${hit.kind}:${hit.target.id}`}>
                           <button
                             type="button"
                             onClick={() =>
-                              addToScene(addingTo, chosenFamily, target)
+                              addToScene(addingTo, hit.kind, hit.target)
                             }
                             className="w-full truncate rounded-[6px] border border-hikari-line px-2 py-1 text-left text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
                           >
-                            {target.label}
+                            {SOURCE_ICON[KIND_TO_LIBOBS[hit.kind]] ?? "▪"}{" "}
+                            {hit.target.label}
                           </button>
                         </li>
                       ))}

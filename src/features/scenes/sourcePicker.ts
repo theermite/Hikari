@@ -74,6 +74,45 @@ export function matchesSearch(target: CaptureTarget, query: string): boolean {
   return needle.split(/\s+/).every((word) => fold(target.label).includes(word));
 }
 
+/** Un résultat de recherche : la cible, et la famille dont elle vient. */
+export interface SearchHit {
+  kind: SourceKind;
+  target: CaptureTarget;
+}
+
+/** Cherche dans TOUTES les familles vivantes à la fois.
+ *
+ * POURQUOI global et non dans la famille choisie (correction 2026-08-05) : quelqu'un qui
+ * tape un nom cherche CETTE chose, pas « cette chose parmi les jeux ». Restreindre à la
+ * famille ouverte donnait une liste vide sans rien expliquer — Jay cherchait une fenêtre
+ * depuis l'onglet « Un jeu ».
+ */
+export function searchAll(
+  games: CaptureTarget[],
+  windows: CaptureTarget[],
+  monitors: CaptureTarget[],
+  query: string,
+): SearchHit[] {
+  const families: [SourceKind, CaptureTarget[]][] = [
+    ["game", games],
+    ["window", windows],
+    ["monitor", monitors],
+  ];
+  const seen = new Set<string>();
+  return families.flatMap(([kind, list]) =>
+    list
+      .filter((target) => matchesSearch(target, query))
+      // Une même fenêtre apparaît souvent dans « jeux » ET dans « fenêtres ». La montrer
+      // deux fois ferait douter du résultat ; la première famille gagne.
+      .filter((target) => {
+        if (seen.has(target.id)) return false;
+        seen.add(target.id);
+        return true;
+      })
+      .map((target) => ({ kind, target })),
+  );
+}
+
 /** Le nom donné au fichier une fois posé dans la scène : son nom, sans le chemin ni
  * l'extension. C'est ce que l'utilisateur reconnaît. */
 export function nameFromPath(path: string): string {

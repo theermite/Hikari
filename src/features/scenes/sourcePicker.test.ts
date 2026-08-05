@@ -4,6 +4,7 @@ import {
   matchesSearch,
   nameFromPath,
   SOURCE_FAMILIES,
+  searchAll,
 } from "./sourcePicker";
 
 const target = (label: string) => ({ id: "x", label });
@@ -41,6 +42,45 @@ describe("matchesSearch", () => {
 
   it("should_match_a_fragment_inside_a_word", () => {
     expect(matchesSearch(target("Bloc-notes"), "note")).toBe(true);
+  });
+});
+
+describe("searchAll", () => {
+  const games = [{ id: "g1", label: "League of Legends" }];
+  const windows = [
+    { id: "w1", label: "Bloc-notes" },
+    { id: "g1", label: "League of Legends" },
+  ];
+  const monitors = [{ id: "m1", label: "Écran 1" }];
+
+  it("should_find_a_window_even_when_the_game_family_is_the_open_one", () => {
+    // Le defaut vecu le 2026-08-05 : chercher une fenêtre depuis l'onglet « Un jeu »
+    // renvoyait une liste vide, sans rien expliquer.
+    const hits = searchAll(games, windows, monitors, "bloc");
+
+    expect(hits).toEqual([{ kind: "window", target: windows[0] }]);
+  });
+
+  it("should_find_across_every_family_at_once", () => {
+    expect(searchAll(games, windows, monitors, "e").length).toBeGreaterThan(1);
+  });
+
+  it("should_show_a_target_present_in_two_families_only_once", () => {
+    // Une même fenêtre apparaît souvent dans « jeux » ET dans « fenêtres ». La montrer
+    // deux fois ferait douter du résultat.
+    const hits = searchAll(games, windows, monitors, "league");
+
+    expect(hits).toHaveLength(1);
+    expect(hits[0].kind).toBe("game");
+  });
+
+  it("should_return_nothing_when_no_target_matches", () => {
+    expect(searchAll(games, windows, monitors, "zzzz")).toEqual([]);
+  });
+
+  it("should_return_everything_when_the_search_is_empty", () => {
+    // 4 cibles, dont un doublon d'identifiant retiré.
+    expect(searchAll(games, windows, monitors, "")).toHaveLength(3);
   });
 });
 
