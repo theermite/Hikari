@@ -101,6 +101,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [targets, setTargets] = useState<CaptureTargets | null>(null);
+  const [targetsError, setTargetsError] = useState<string | null>(null);
   const [chosenFamily, setFamily] = useState<SourceKind>("game");
   const [search, setSearch] = useState("");
   const chosenIsFile =
@@ -116,12 +117,18 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       }
       // Le moteur refuse lui-même la suppression interdite : on affiche SA raison plutôt
       // que d'inventer un message côté écran.
+      // Le moteur vient de démarrer : c'est le seul moment où il PEUT répondre. Sans ce
+      // rattrapage, ouvrir l'Aperçu après la fenêtre d'ajout laisserait celle-ci vide.
+      if (msg.type === "ready") {
+        listCaptureTargets().catch(() => undefined);
+      }
       if (msg.type === "capture_targets") {
         setTargets({
           games: msg.games ?? [],
           windows: msg.windows ?? [],
           monitors: msg.monitors ?? [],
         });
+        setTargetsError(null);
       }
       if (msg.type === "error" && msg.message) setActionError(msg.message);
     });
@@ -182,8 +189,18 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
 
   // Redemandée à chaque ouverture du choix, jamais mise en cache : un jeu lancé entre-temps
   // doit apparaître sans rien redémarrer.
+  //
+  // L'échec est DIT, jamais avalé : le moteur ne tourne qu'avec le panneau Aperçu ouvert, et
+  // afficher « Recherche en cours… » pour toujours laisse l'utilisateur attendre une liste
+  // qui ne viendra jamais (même défaut que le panneau Audio, corrigé le 2026-08-04).
   useEffect(() => {
-    if (addingTo) listCaptureTargets().catch(() => undefined);
+    if (!addingTo) return;
+    setTargetsError(null);
+    listCaptureTargets().catch(() =>
+      setTargetsError(
+        "Le moteur n'est pas démarré — ouvre le panneau Aperçu, la liste apparaîtra toute seule.",
+      ),
+    );
   }, [addingTo]);
 
   const addToScene = (
@@ -497,6 +514,8 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
               >
                 Choisir un fichier…
               </button>
+            ) : targetsError ? (
+              <p className="text-hikari-red">❌ {targetsError}</p>
             ) : targets === null ? (
               <p className="text-hikari-txt-faint">Recherche en cours…</p>
             ) : (
