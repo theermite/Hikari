@@ -172,6 +172,48 @@ pub fn set_order(
         .context("changement d'ordre de la source")
 }
 
+/// La taille native de la source portée par un élément de scène, avant toute mise à
+/// l'échelle — nécessaire pour savoir où l'utilisateur clique.
+///
+/// Passe par la source de l'élément plutôt que par une référence rangée à côté : ça marche
+/// pour TOUTE source, y compris celles dont on ne garde pas la poignée. Rend `(0, 0)` tant
+/// que la source n'a pas produit sa première image ; l'appelant traite ça comme « rien à
+/// attraper » plutôt que de deviner une taille.
+pub fn item_base_size(
+    runtime: &libobs_wrapper::runtime::ObsRuntime,
+    item: &ObsSceneItemRef<ObsSourceRef>,
+) -> Result<(u32, u32)> {
+    let runtime = runtime.clone();
+    let ptr = item.as_ptr().clone();
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // Safety: sur le fil OBS, pointeur intelligent vivant. `obs_sceneitem_get_source`
+            // rend une référence empruntée, jamais à libérer ici.
+            let source = libobs::obs_sceneitem_get_source(ptr.get_ptr());
+            if source.is_null() {
+                return (0, 0);
+            }
+            (libobs::obs_source_get_width(source), libobs::obs_source_get_height(source))
+        })
+        .context("lecture de la taille d'une source")
+}
+
+/// La position d'un élément dans la pile de sa scène — plus le nombre est grand, plus il est
+/// devant. Sert à savoir QUELLE source un clic désigne quand plusieurs se recouvrent.
+pub fn order_position(
+    runtime: &libobs_wrapper::runtime::ObsRuntime,
+    item: &ObsSceneItemRef<ObsSourceRef>,
+) -> Result<i32> {
+    let runtime = runtime.clone();
+    let ptr = item.as_ptr().clone();
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // Safety: sur le fil OBS, pointeur intelligent vivant.
+            libobs::obs_sceneitem_get_order_position(ptr.get_ptr())
+        })
+        .context("lecture de la position d'une source")
+}
+
 /// Retire `item` de `scene_name` — le vrai détachement, pas seulement l'oubli de notre
 /// poignée. La scène garde son propre exemplaire (`libobs-wrapper` 9.0.4), donc laisser
 /// tomber notre référence ne suffirait pas : c'est la cause racine des doublons « Webcam 2 »

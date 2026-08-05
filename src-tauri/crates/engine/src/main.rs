@@ -138,17 +138,17 @@ struct ObsInner {
     /// exposes no "which scene is on this channel" getter, so this is the one piece of
     /// state the engine must track itself rather than read back.
     active_scene: String,
-    /// The active scene's camera rectangle in canvas pixels, cached (B7, curseur au survol).
+    /// Every source of the ACTIVE scene with its rectangle, FRONT-FIRST — cached (B7).
     ///
-    /// WHY a cache: the cursor shape is decided on EVERY mouse move, and measuring the
-    /// camera costs three round-trips to the OBS thread (position, scale, source size).
-    /// Doing that per move made the preview stutter. The cache is exact rather than
-    /// approximate because nothing but this engine ever moves the camera — every writer
-    /// clears it through `invalidate_camera_rect`.
-    camera_rect: Option<(f32, f32, f32, f32)>,
-    /// The camera's native pixel size, measured once. A webcam does not change resolution
-    /// mid-session; re-asking libobs on every mouse move would be pure cost.
-    camera_base_size: Option<(u32, u32)>,
+    /// WHY front-first: a click designates the source the user actually sees, so the hit
+    /// test walks the stack from the top down and stops at the first match.
+    ///
+    /// WHY a cache: the cursor shape is decided on EVERY mouse move, and measuring one
+    /// source costs four round-trips to the OBS thread (position, scale, size, stack
+    /// order). Doing that per source per move made the preview stutter. The cache is exact
+    /// rather than approximate because nothing but this engine moves these sources — every
+    /// writer clears it through `scene_layout_changed`.
+    item_rects: Option<Vec<ItemRect>>,
     /// The mixer (B6) — audio sources in insertion order, so a source keeps its channel and
     /// its place in the panel for its whole life.
     audio: Vec<MixerSource>,
@@ -156,6 +156,15 @@ struct ObsInner {
     /// scene name. The camera lives in `camera_items` instead — it is ONE physical source
     /// shared across scenes, a rule this generic list would break.
     scene_sources: std::collections::HashMap<String, Vec<SceneSource>>,
+}
+
+/// Where one source of the active scene sits, in canvas pixels.
+struct ItemRect {
+    name: String,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
 }
 
 /// One capture the user put into a scene.
@@ -220,15 +229,21 @@ impl MixerSource {
 /// An in-progress camera gesture (B7, souris) — a move or a resize, decided at press time
 /// by where the cursor was.
 enum DragState {
-    /// Moving. `grab_offset` is where inside the camera the user grabbed it, in canvas
-    /// pixels. Keeping that offset is what makes the camera follow the cursor instead of
+    /// Moving. `grab_offset` is where inside the source the user grabbed it, in canvas
+    /// pixels. Keeping that offset is what makes the source follow the cursor instead of
     /// jumping so its corner snaps under the pointer on the first move.
-    Move { grab_offset_x: f32, grab_offset_y: f32 },
+    Move { name: String, grab_offset_x: f32, grab_offset_y: f32 },
     /// Resizing from a corner. `anchor` is the OPPOSITE corner, in canvas pixels — it stays
-    /// pinned for the whole gesture, so the camera grows away from a fixed point instead of
+    /// pinned for the whole gesture, so the source grows away from a fixed point instead of
     /// sliding while it resizes. Read once at press time: re-deriving it from the live
     /// rectangle each move would chase its own changes.
-    Resize { anchor_x: f32, anchor_y: f32, anchor_is_left: bool, anchor_is_top: bool },
+    Resize {
+        name: String,
+        anchor_x: f32,
+        anchor_y: f32,
+        anchor_is_left: bool,
+        anchor_is_top: bool,
+    },
 }
 
 /// The two one-way filters a camera source carries once created — kept together since
@@ -354,8 +369,7 @@ impl App {
             camera_items: std::collections::HashMap::new(),
             scene_filter_state: std::collections::HashMap::new(),
             active_scene: "main".to_string(),
-            camera_rect: None,
-            camera_base_size: None,
+            item_rects: None,
             audio: Vec::new(),
             scene_sources: std::collections::HashMap::new(),
         });
@@ -462,7 +476,7 @@ impl App {
         obs.active_scene = name.clone();
         // The camera sits differently in each scene (its own position and scale), so the
         // cached rectangle belongs to the scene we just left.
-        obs.camera_rect = None;
+        obs.item_rects = None;
         // Applies THIS scene's own filter state (Jay, 2026-07-24) — the "scene automation
         // toggles my filters" flow: switching scenes turns the right filters on/off.
         self.apply_scene_filter_state(&name);
@@ -584,7 +598,7 @@ impl App {
         let Some(obs) = &mut self.obs else { return };
         obs.camera_items.remove(&name);
         obs.scene_filter_state.remove(&name);
-        obs.camera_rect = None;
+        obs.item_rects = None;
         // Les captures de cette scène partent avec elle : garder leurs poignées maintiendrait
         // la scène en vie et la suppression ne ferait rien (même piège que l'élément caméra).
         obs.scene_sources.remove(&name);
@@ -640,7 +654,7 @@ impl App {
         obs.camera_items.insert(scene.clone(), item);
         obs.scene_filter_state.entry(scene.clone()).or_insert((false, false));
         // A camera appeared in this scene: any cached rectangle is stale (there was none).
-        obs.camera_rect = None;
+        obs.item_rects = None;
         if scene == obs.active_scene {
             self.apply_scene_filter_state(&scene);
         }
@@ -700,12 +714,12 @@ impl App {
             emit(&EngineMessage::Error { message: err.to_string() });
         }
         obs.scene_filter_state.remove(&scene);
-        obs.camera_rect = None;
+        obs.item_rects = None;
         if obs.camera_items.is_empty() {
             obs.camera_source = None;
             obs.camera_filters = None;
             // The next camera may be a different device with its own resolution.
-            obs.camera_base_size = None;
+            
             obs.sources.retain(|source| source.kind != hikari_protocol::CAMERA_KIND);
             emit(&EngineMessage::Sources { items: obs.sources.clone() });
         }
@@ -724,8 +738,8 @@ impl App {
         };
         match camera::nudge_camera(item, dx, dy) {
             Ok((x, y, scale_percent)) => {
-                self.camera_rect_changed();
-                self.camera_rect_changed();
+                self.scene_layout_changed();
+                self.scene_layout_changed();
                 emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
             }
             Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
@@ -745,8 +759,8 @@ impl App {
         };
         match camera::scale_camera(item, grow) {
             Ok((x, y, scale_percent)) => {
-                self.camera_rect_changed();
-                self.camera_rect_changed();
+                self.scene_layout_changed();
+                self.scene_layout_changed();
                 emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
             }
             Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
@@ -1266,51 +1280,86 @@ impl App {
         emit(&EngineMessage::AudioLevels { levels });
     }
 
-    /// Forgets the cached camera rectangle. Called by every path that moves, resizes, adds
-    /// or removes the camera, and by every scene switch — the cache is only exact as long
-    /// as no writer forgets this.
-    fn camera_rect_changed(&mut self) {
+    /// Forgets the cached rectangles. Called by every path that moves, resizes, adds,
+    /// removes or reorders a source, and by every scene switch — the cache is only exact as
+    /// long as no writer forgets this.
+    fn scene_layout_changed(&mut self) {
         if let Some(obs) = &mut self.obs {
-            obs.camera_rect = None;
+            obs.item_rects = None;
         }
     }
 
-    /// The camera's native size, measured once then remembered. `None` while the device is
-    /// still opening (libobs reports 0×0 until the first frame).
-    fn camera_base_size(&mut self) -> Option<(u32, u32)> {
-        let obs = self.obs.as_mut()?;
-        if let Some(size) = obs.camera_base_size {
-            return Some(size);
+    /// Every grabbable source of the ACTIVE scene with its rectangle, front-first.
+    ///
+    /// The startup screen capture is deliberately absent: it is the backdrop, it is not
+    /// removable, and making it grabbable would mean every click on empty canvas grabs the
+    /// whole background instead of doing nothing.
+    fn active_item_rects(&mut self) -> &[ItemRect] {
+        if self.obs.as_ref().is_some_and(|obs| obs.item_rects.is_some()) {
+            return self.obs.as_ref().map_or(&[], |obs| {
+                obs.item_rects.as_deref().unwrap_or(&[])
+            });
         }
-        let source = obs.camera_source.as_ref()?;
-        let size = camera::source_base_size(source).ok()?;
-        if size.0 == 0 || size.1 == 0 {
-            return None;
+        let Some(obs) = &mut self.obs else { return &[] };
+        let runtime = obs.context.runtime().clone();
+        let scene = obs.active_scene.clone();
+
+        // Camera + captures gathered together: the user sees one stack, not two families.
+        let mut items: Vec<(String, &ObsSceneItemRef<ObsSourceRef>)> = obs
+            .scene_sources
+            .get(&scene)
+            .map(|list| {
+                list.iter().map(|source| (source.name.clone(), &source.item)).collect()
+            })
+            .unwrap_or_default();
+        if let Some(item) = obs.camera_items.get(&scene) {
+            items.push((camera::CAMERA_SOURCE_NAME.to_string(), item));
         }
-        obs.camera_base_size = Some(size);
-        Some(size)
+
+        let mut measured: Vec<(i32, ItemRect)> = items
+            .into_iter()
+            .filter_map(|(name, item)| {
+                let (base_w, base_h) = sources::item_base_size(&runtime, item).ok()?;
+                if base_w == 0 || base_h == 0 {
+                    // Source pas encore prête : rien à attraper, plutôt qu'un rectangle
+                    // inventé sur une taille supposée.
+                    return None;
+                }
+                let position = item.get_source_position().ok()?;
+                let scale = item.get_source_scale().ok()?;
+                let order = sources::order_position(&runtime, item).ok()?;
+                Some((
+                    order,
+                    ItemRect {
+                        name,
+                        x: *position.x(),
+                        y: *position.y(),
+                        width: base_w as f32 * scale.x(),
+                        height: base_h as f32 * scale.y(),
+                    },
+                ))
+            })
+            .collect();
+        // Trié par la pile RÉELLE du moteur, jamais par notre ordre d'insertion : c'est ce
+        // que l'utilisateur voit qui décide quelle source un clic désigne. Décroissant, donc
+        // le plus en avant vient en premier.
+        measured.sort_by_key(|(order, _)| std::cmp::Reverse(*order));
+
+        obs.item_rects = Some(measured.into_iter().map(|(_, rect)| rect).collect());
+        obs.item_rects.as_deref().unwrap_or(&[])
     }
 
-    /// Where the camera sits in the ACTIVE scene, in canvas pixels: `(x, y, width, height)`.
-    /// `None` when no camera is in this scene, or while the device is still opening (a
-    /// zero-sized source has nothing to grab). Served from the cache when it is warm.
-    fn active_camera_rect(&mut self) -> Option<(f32, f32, f32, f32)> {
-        if let Some(rect) = self.obs.as_ref()?.camera_rect {
-            return Some(rect);
+    /// The scene item behind a name, in the active scene.
+    fn active_item(&self, name: &str) -> Option<&ObsSceneItemRef<ObsSourceRef>> {
+        let obs = self.obs.as_ref()?;
+        if name == camera::CAMERA_SOURCE_NAME {
+            return obs.camera_items.get(&obs.active_scene);
         }
-        let (base_w, base_h) = self.camera_base_size()?;
-        let obs = self.obs.as_mut()?;
-        let item = obs.camera_items.get(&obs.active_scene)?;
-        let position = item.get_source_position().ok()?;
-        let scale = item.get_source_scale().ok()?;
-        let rect = (
-            *position.x(),
-            *position.y(),
-            base_w as f32 * scale.x(),
-            base_h as f32 * scale.y(),
-        );
-        obs.camera_rect = Some(rect);
-        Some(rect)
+        obs.scene_sources
+            .get(&obs.active_scene)?
+            .iter()
+            .find(|source| source.name == name)
+            .map(|source| &source.item)
     }
 
     /// Sets the mouse pointer to match what a click would do right here (B7) — the only
@@ -1326,12 +1375,28 @@ impl App {
         }
     }
 
+    /// The front-most source under the cursor, and the corner it is on if any.
+    ///
+    /// Walks the stack from the top down and stops at the first hit: the user aims at what
+    /// they SEE, so a source hidden behind another must never be the one that answers.
+    fn hit_test(&mut self) -> Option<(String, f32, f32, f32, f32, Option<hikari_protocol::Corner>)> {
+        let cursor = self.cursor?;
+        let (cx, cy) = self.cursor_in_canvas(cursor)?;
+        for rect in self.active_item_rects() {
+            let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
+            let corner =
+                hikari_protocol::corner_at(cx, cy, x, y, w, h, hikari_protocol::CORNER_GRAB_MARGIN);
+            if corner.is_some() || hikari_protocol::is_inside(cx, cy, x, y, w, h) {
+                return Some((rect.name.clone(), x, y, w, h, corner));
+            }
+        }
+        None
+    }
+
     /// Which pointer shape the current cursor position calls for.
     fn hover_icon(&mut self) -> CursorIcon {
-        let Some(cursor) = self.cursor else { return CursorIcon::Default };
-        let Some((cx, cy)) = self.cursor_in_canvas(cursor) else { return CursorIcon::Default };
-        let Some((x, y, w, h)) = self.active_camera_rect() else { return CursorIcon::Default };
-        match hikari_protocol::corner_at(cx, cy, x, y, w, h, hikari_protocol::CORNER_GRAB_MARGIN) {
+        let Some((_, _, _, _, _, corner)) = self.hit_test() else { return CursorIcon::Default };
+        match corner {
             // The double-headed diagonal arrows Windows itself uses for a corner resize:
             // "↘↖" on the two corners of one diagonal, "↙↗" on the other.
             Some(hikari_protocol::Corner::TopLeft | hikari_protocol::Corner::BottomRight) => {
@@ -1340,8 +1405,7 @@ impl App {
             Some(hikari_protocol::Corner::TopRight | hikari_protocol::Corner::BottomLeft) => {
                 CursorIcon::NeswResize
             }
-            None if hikari_protocol::is_inside(cx, cy, x, y, w, h) => CursorIcon::Move,
-            None => CursorIcon::Default,
+            None => CursorIcon::Move,
         }
     }
 
@@ -1366,66 +1430,76 @@ impl App {
     fn begin_drag(&mut self) {
         let Some(cursor) = self.cursor else { return };
         let Some((cx, cy)) = self.cursor_in_canvas(cursor) else { return };
-        let Some((x, y, w, h)) = self.active_camera_rect() else { return };
-        if let Some(corner) =
-            hikari_protocol::corner_at(cx, cy, x, y, w, h, hikari_protocol::CORNER_GRAB_MARGIN)
-        {
-            let (anchor_is_left, anchor_is_top) = corner.anchor_side();
-            self.drag = Some(DragState::Resize {
-                anchor_x: if anchor_is_left { x } else { x + w },
-                anchor_y: if anchor_is_top { y } else { y + h },
-                anchor_is_left,
-                anchor_is_top,
-            });
-        } else if hikari_protocol::is_inside(cx, cy, x, y, w, h) {
-            self.drag =
-                Some(DragState::Move { grab_offset_x: cx - x, grab_offset_y: cy - y });
-        }
+        let Some((name, x, y, w, h, corner)) = self.hit_test() else { return };
+        self.drag = Some(match corner {
+            Some(corner) => {
+                let (anchor_is_left, anchor_is_top) = corner.anchor_side();
+                DragState::Resize {
+                    name,
+                    anchor_x: if anchor_is_left { x } else { x + w },
+                    anchor_y: if anchor_is_top { y } else { y + h },
+                    anchor_is_left,
+                    anchor_is_top,
+                }
+            }
+            None => DragState::Move { name, grab_offset_x: cx - x, grab_offset_y: cy - y },
+        });
     }
 
     /// Cursor moved during a gesture — applies whichever one is in progress.
     fn continue_drag(&mut self) {
         let Some(cursor) = self.cursor else { return };
         let Some((cx, cy)) = self.cursor_in_canvas(cursor) else { return };
-        match self.drag {
-            Some(DragState::Move { grab_offset_x, grab_offset_y }) => {
-                self.apply_move(cx - grab_offset_x, cy - grab_offset_y)
+        // Cloné plutôt qu'emprunté : le geste appelle ensuite des méthodes qui empruntent
+        // `self` en entier.
+        let drag = match &self.drag {
+            Some(DragState::Move { name, grab_offset_x, grab_offset_y }) => {
+                Some((name.clone(), None, (*grab_offset_x, *grab_offset_y)))
             }
-            Some(DragState::Resize { anchor_x, anchor_y, anchor_is_left, anchor_is_top }) => {
-                self.apply_resize(cx, anchor_x, anchor_y, anchor_is_left, anchor_is_top)
+            Some(DragState::Resize { name, anchor_x, anchor_y, anchor_is_left, anchor_is_top }) => {
+                Some((
+                    name.clone(),
+                    Some((*anchor_x, *anchor_y, *anchor_is_left, *anchor_is_top)),
+                    (0.0, 0.0),
+                ))
             }
-            None => (),
+            None => None,
+        };
+        let Some((name, resize, (grab_x, grab_y))) = drag else { return };
+        match resize {
+            Some((anchor_x, anchor_y, anchor_is_left, anchor_is_top)) => {
+                self.apply_resize(&name, cx, anchor_x, anchor_y, anchor_is_left, anchor_is_top)
+            }
+            None => self.apply_move(&name, cx - grab_x, cy - grab_y),
         }
     }
 
-    /// Puts the camera's top-left at `(x, y)` canvas pixels and reports the real result.
-    fn apply_move(&mut self, x: f32, y: f32) {
-        let Some(obs) = &mut self.obs else { return };
-        let scene = obs.active_scene.clone();
-        let Some(item) = obs.camera_items.get(&scene) else { return };
-        match camera::set_camera_position(item, x as i32, y as i32) {
-            Ok((x, y, scale_percent)) => {
-                self.camera_rect_changed();
-                emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
-            }
-            Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
-        }
+    /// Puts one source's top-left at `(x, y)` canvas pixels and reports the real result.
+    fn apply_move(&mut self, name: &str, x: f32, y: f32) {
+        let Some(item) = self.active_item(name) else { return };
+        let result = camera::set_camera_position(item, x as i32, y as i32);
+        self.report_transform(result);
     }
 
-    /// Resizes the camera so the dragged corner follows the cursor while the anchor corner
-    /// stays pinned. The scale comes from the horizontal distance alone, so the webcam's
-    /// aspect ratio is kept — a squashed face is never what the user meant.
+    /// Resizes one source so the dragged corner follows the cursor while the anchor corner
+    /// stays pinned. The scale comes from the horizontal distance alone, so the source's
+    /// aspect ratio is kept — a squashed image is never what the user meant.
     fn apply_resize(
         &mut self,
+        name: &str,
         cursor_x: f32,
         anchor_x: f32,
         anchor_y: f32,
         anchor_is_left: bool,
         anchor_is_top: bool,
     ) {
-        let Some(obs) = &mut self.obs else { return };
-        let Some(source) = obs.camera_source.as_ref() else { return };
-        let Ok((base_w, base_h)) = camera::source_base_size(source) else { return };
+        let Some(obs) = &self.obs else { return };
+        let runtime = obs.context.runtime().clone();
+        let Some(item) = self.active_item(name) else { return };
+        let Ok((base_w, base_h)) = sources::item_base_size(&runtime, item) else { return };
+        if base_w == 0 || base_h == 0 {
+            return;
+        }
         let scale = hikari_protocol::clamp_camera_scale(hikari_protocol::resize_scale(
             anchor_x, cursor_x, base_w,
         ));
@@ -1437,11 +1511,18 @@ impl App {
             base_w as f32 * scale,
             base_h as f32 * scale,
         );
-        let scene = obs.active_scene.clone();
-        let Some(item) = obs.camera_items.get(&scene) else { return };
-        match camera::set_camera_transform(item, new_x as i32, new_y as i32, scale) {
+        let Some(item) = self.active_item(name) else { return };
+        let result = camera::set_camera_transform(item, new_x as i32, new_y as i32, scale);
+        self.report_transform(result);
+    }
+
+    /// Shared tail of both gestures: forget the cached rectangles and report what really
+    /// happened (the clamped values, never the requested ones).
+    fn report_transform(&mut self, result: Result<(i32, i32, i32)>) {
+        let scene = self.obs.as_ref().map(|obs| obs.active_scene.clone()).unwrap_or_default();
+        match result {
             Ok((x, y, scale_percent)) => {
-                self.camera_rect_changed();
+                self.scene_layout_changed();
                 emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
             }
             Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),

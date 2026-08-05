@@ -149,6 +149,11 @@ pub fn set_camera_transform(
     Ok((x, y, (scale * 100.0).round() as i32))
 }
 
+/// Remplacée par `sources::item_base_size`, qui lit la taille depuis l'ÉLÉMENT de scène et
+/// marche donc pour toute source, pas seulement celle dont on garde la poignée
+/// (généralisation du geste souris, 2026-08-05). Conservée : elle reste la voie directe
+/// quand on tient déjà la source, et le pré-vol pourra en avoir besoin.
+#[allow(dead_code)]
 /// The camera source's own pixel size, before any scene scaling — the webcam's native
 /// resolution as libobs reports it.
 ///
