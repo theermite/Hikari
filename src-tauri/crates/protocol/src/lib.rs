@@ -125,10 +125,53 @@ impl AudioSourceKind {
 /// 2026-08-04 against obs-studio source.
 pub const NOISE_SUPPRESS_FILTER_KIND: &str = "noise_suppress_filter";
 
-/// The suppression method Hikari uses. RNNoise is the machine-learning one: no level to
-/// tune, which is the whole point — one switch, not a dial nobody knows how to set.
-/// (`speex`, the alternative, needs a `suppress_level` the user would have to guess.)
-pub const NOISE_SUPPRESS_METHOD: &str = "rnnoise";
+/// How the room noise is removed (B6).
+///
+/// Counter-intuitive but verified twice in the obs-filters source (2026-08-04): the
+/// *machine-learning* method is the one with NO dial, and the *older* one is the adjustable
+/// one. OBS itself hides the level field when RNNoise is picked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NoiseMethod {
+    /// Speex — the adjustable one. Lighter on the CPU, and its strength is a dial.
+    Speex,
+    /// RNNoise — the machine-learning one. Cleaner result, no setting at all, costs more CPU.
+    Rnnoise,
+}
+
+impl NoiseMethod {
+    /// The exact value the filter's `method` property expects.
+    pub fn libobs_value(self) -> &'static str {
+        match self {
+            NoiseMethod::Speex => "speex",
+            NoiseMethod::Rnnoise => "rnnoise",
+        }
+    }
+
+    /// Whether this method exposes a strength to set. Only Speex does — showing a dial for
+    /// RNNoise would be inventing a setting that does not exist.
+    pub fn has_level(self) -> bool {
+        matches!(self, NoiseMethod::Speex)
+    }
+}
+
+/// The libobs property name carrying Speex's strength.
+pub const NOISE_LEVEL_PROPERTY: &str = "suppress_level";
+/// Strongest suppression Speex accepts, in decibels (obs-filters source, 2026-08-04).
+pub const NOISE_LEVEL_MIN_DB: f32 = -60.0;
+/// Weakest suppression Speex accepts.
+pub const NOISE_LEVEL_MAX_DB: f32 = 0.0;
+/// OBS's own default, kept so a Hikari user and an OBS user hear the same thing.
+pub const NOISE_LEVEL_DEFAULT_DB: f32 = -30.0;
+
+/// Clamps a Speex strength into the range the filter accepts. A non-finite value falls back
+/// to the default rather than reaching libobs.
+pub fn clamp_noise_level(level_db: f32) -> f32 {
+    if !level_db.is_finite() {
+        return NOISE_LEVEL_DEFAULT_DB;
+    }
+    level_db.clamp(NOISE_LEVEL_MIN_DB, NOISE_LEVEL_MAX_DB)
+}
 
 /// One audio device libobs reports on this machine. `device_id` is the exact value the
 /// wasapi source's `device_id` property expects, never hand-built.
@@ -138,20 +181,32 @@ pub struct AudioDevice {
     pub device_id: String,
 }
 
-/// One audio source currently in the mixer, and its live settings.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// One entry in the mixer, and its live settings.
+///
+/// One entry can be backed by TWO libobs sources — see [`ControllerCommand::SetMonitorVolume`]
+/// for why. The panel never sees that: it reads one row with two volumes.
+///
+/// `PartialEq` but not `Eq`: `noise_level_db` is a float.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AudioSourceInfo {
     pub name: String,
     pub kind: AudioSourceKind,
-    /// 0–100, the slider position — never the raw libobs multiplier, so the panel never has
-    /// to know the audio scale.
+    /// 0–100, the slider position for what the AUDIENCE hears — never the raw libobs
+    /// multiplier, so the panel never has to know the audio scale.
     pub volume_percent: i32,
+    /// 0–100, the slider position for what the STREAMER hears in their headphones.
+    /// Meaningful only when `monitoring` includes them.
+    pub monitor_volume_percent: i32,
     pub muted: bool,
     /// Whether the streamer hears this source, and whether the audience does.
     pub monitoring: AudioMonitoring,
     /// Whether room-noise suppression is on. Always `false` on a source whose kind does not
     /// support it (see [`AudioSourceKind::supports_noise_suppression`]).
     pub noise_suppression: bool,
+    pub noise_method: NoiseMethod,
+    /// Speex's strength. Carried even when the method is RNNoise, so switching back and
+    /// forth does not lose what the user had set.
+    pub noise_level_db: f32,
 }
 
 /// One source's current loudness, as libobs measures it.
@@ -308,7 +363,10 @@ pub enum EngineMessage {
 }
 
 /// Commands the controller sends to the engine (controller -> engine), one per line.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// `PartialEq` but not `Eq`: `SetNoiseSettings` carries a decibel level, and a float has no
+/// total equality. Comparisons still work; nothing hashes a command.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ControllerCommand {
     /// Create a scene with the given name.
@@ -392,10 +450,23 @@ pub enum ControllerCommand {
     SetAudioMuted { name: String, muted: bool },
     /// Sets whether the streamer hears this source, and whether the audience does.
     SetAudioMonitoring { name: String, monitoring: AudioMonitoring },
-    /// Turns room-noise suppression on or off for a microphone. The filter is attached once
-    /// and toggled in place (`obs_source_set_enabled`), never rebuilt — a rebuild would
-    /// interrupt the sound, exactly the blip the camera filters used to have.
-    SetNoiseSuppression { name: String, enabled: bool },
+    /// Sets room-noise suppression for a microphone: on/off, which method, and Speex's
+    /// strength. One command rather than three because the settings panel edits them
+    /// together, and a half-applied combination (RNNoise + a level) means nothing.
+    ///
+    /// The filter is attached once and toggled in place (`obs_source_set_enabled`), never
+    /// rebuilt — a rebuild would interrupt the sound, exactly the blip the camera filters
+    /// used to have.
+    SetNoiseSettings { name: String, enabled: bool, method: NoiseMethod, level_db: f32 },
+    /// Sets the volume the STREAMER hears, independently of what the audience hears.
+    ///
+    /// WHY it needs its own command and its own plumbing: libobs has ONE volume per source,
+    /// applied to both the stream and the headphones — verified in the raw bindings
+    /// (2026-08-04), and OBS itself has the same limit. To make the two independent, an
+    /// entry set to "both hear it" is backed by TWO libobs sources on the same device: one
+    /// sent to the audience, one played back to the streamer, each carrying its own volume.
+    /// The cost is a second capture of the device, which a few devices refuse.
+    SetMonitorVolume { name: String, percent: i32 },
 }
 
 /// Why a scene could not be deleted (multi-scene, tranche 3).

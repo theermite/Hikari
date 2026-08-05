@@ -153,26 +153,55 @@ struct ObsInner {
     audio: Vec<MixerSource>,
 }
 
-/// One audio source in the mixer, with everything the engine must remember about it.
+/// One libobs capture behind a mixer entry, with everything the engine must free later.
+struct LiveCapture {
+    source: ObsSourceRef,
+    /// The libobs output channel it occupies. Kept explicitly so removing it frees the right
+    /// channel — recomputing it from list order would free the wrong one once any earlier
+    /// capture has been removed.
+    channel: u32,
+    /// The room-noise suppression filter, created alongside the capture when the kind
+    /// supports it, then toggled in place. `None` on desktop sound, which has no room noise.
+    noise_filter: Option<libobs_wrapper::sources::ObsFilterRef>,
+}
+
+/// One entry in the mixer — what the user sees as a single device.
+///
+/// It can be backed by TWO libobs captures of the same device. WHY: libobs has ONE volume
+/// per source, applied to both the stream and the headphones, so a single capture cannot
+/// have an audience volume and a headphone volume at once (OBS has the same limit). When the
+/// user asks for "both hear it", the engine opens a second capture routed to the headphones
+/// only — each capture then carries its own volume. Decision Jay, 2026-08-05: the second
+/// capture costs CPU, and a few devices refuse to be opened twice; that is accepted, because
+/// the alternative is the multi-tool assembly Hikari exists to remove.
 struct MixerSource {
     name: String,
     kind: hikari_protocol::AudioSourceKind,
-    source: ObsSourceRef,
-    /// The libobs output channel it occupies. Kept explicitly so removing a source frees the
-    /// right channel — recomputing it from the list order would free the wrong one once any
-    /// earlier source has been removed.
-    channel: u32,
-    /// Its live level meter. `None` when libobs refused to create one — a missing bar costs
-    /// a display, never the sound, so it is not a fatal error.
+    /// The capture the AUDIENCE hears. Absent when only the streamer listens.
+    public: Option<LiveCapture>,
+    /// The capture the STREAMER hears. Absent when only the audience listens.
+    monitor: Option<LiveCapture>,
+    /// The live level meter, attached to whichever capture exists. `None` when libobs
+    /// refused — a missing bar costs a display, never the sound.
     meter: Option<audio::LevelMeter>,
-    /// The slider position, remembered so unmuting restores exactly what the user chose.
+    /// Slider positions, remembered so unmuting restores exactly what the user chose.
     volume_percent: i32,
+    monitor_volume_percent: i32,
     muted: bool,
     monitoring: hikari_protocol::AudioMonitoring,
-    /// The room-noise suppression filter, created once alongside the source when its kind
-    /// supports it, then toggled in place. `None` on desktop sound, which has no room noise.
-    noise_filter: Option<libobs_wrapper::sources::ObsFilterRef>,
     noise_suppression: bool,
+    noise_method: hikari_protocol::NoiseMethod,
+    noise_level_db: f32,
+    /// The device this entry captures, kept so a second capture can be opened later without
+    /// asking the panel again.
+    device_id: String,
+}
+
+impl MixerSource {
+    /// Every capture currently open behind this entry.
+    fn captures(&self) -> impl Iterator<Item = &LiveCapture> {
+        self.public.iter().chain(self.monitor.iter())
+    }
 }
 
 /// An in-progress camera gesture (B7, souris) — a move or a resize, decided at press time
@@ -220,7 +249,13 @@ enum EngineEvent {
     SetAudioVolume { name: String, percent: i32 },
     SetAudioMuted { name: String, muted: bool },
     SetAudioMonitoring { name: String, monitoring: hikari_protocol::AudioMonitoring },
-    SetNoiseSuppression { name: String, enabled: bool },
+    SetNoiseSettings {
+        name: String,
+        enabled: bool,
+        method: hikari_protocol::NoiseMethod,
+        level_db: f32,
+    },
+    SetMonitorVolume { name: String, percent: i32 },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -708,27 +743,66 @@ impl App {
             });
             return;
         };
-        let source = match audio::build_audio_source(&mut obs.context, kind, &device_id, &name) {
-            Ok(source) => source,
-            Err(err) => {
-                emit(&EngineMessage::Error { message: err.to_string() });
-                return;
-            }
+        let capture = match self.open_capture(&device_id, kind, &name, channel) {
+            Some(capture) => capture,
+            None => return,
         };
-        if let Err(err) = audio::attach_to_channel(&source, channel) {
-            emit(&EngineMessage::Error { message: err.to_string() });
-            return;
-        }
+        let Some(obs) = &mut self.obs else { return };
         // A missing meter costs a bar, never the sound — reported, then carried on without.
-        let meter = match audio::LevelMeter::attach(&source) {
+        let meter = match audio::LevelMeter::attach(&capture.source) {
             Ok(meter) => Some(meter),
             Err(err) => {
                 emit(&EngineMessage::Error { message: err.to_string() });
                 None
             }
         };
+        obs.audio.push(MixerSource {
+            name,
+            kind,
+            public: Some(capture),
+            monitor: None,
+            meter,
+            // libobs starts a source at unity gain; the slider must say the same thing the
+            // ear hears, so it starts at 100 rather than at some remembered default.
+            volume_percent: 100,
+            monitor_volume_percent: 100,
+            muted: false,
+            // libobs's own default, and the safe one: monitoring a microphone through
+            // speakers is how a feedback howl starts.
+            monitoring: hikari_protocol::AudioMonitoring::None,
+            noise_suppression: false,
+            noise_method: hikari_protocol::NoiseMethod::Rnnoise,
+            noise_level_db: hikari_protocol::NOISE_LEVEL_DEFAULT_DB,
+            device_id,
+        });
+        self.emit_audio_sources();
+    }
+
+    /// Opens ONE libobs capture of `device_id` on `channel`, with its noise filter attached
+    /// disabled where that means something. `None` (after reporting) if libobs refused —
+    /// which is the case a second capture of the same device can genuinely hit.
+    fn open_capture(
+        &mut self,
+        device_id: &str,
+        kind: hikari_protocol::AudioSourceKind,
+        libobs_name: &str,
+        channel: u32,
+    ) -> Option<LiveCapture> {
+        let obs = self.obs.as_mut()?;
+        let source = match audio::build_audio_source(&mut obs.context, kind, device_id, libobs_name)
+        {
+            Ok(source) => source,
+            Err(err) => {
+                emit(&EngineMessage::Error { message: err.to_string() });
+                return None;
+            }
+        };
+        if let Err(err) = audio::attach_to_channel(&source, channel) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return None;
+        }
         // Attached disabled, only where it means something. A failure costs the feature on
-        // this source, never the source itself — the microphone still works without it.
+        // this capture, never the capture itself — the microphone still works without it.
         let noise_filter = if kind.supports_noise_suppression() {
             match audio::create_noise_suppression_filter(&source) {
                 Ok(filter) => Some(filter),
@@ -740,122 +814,224 @@ impl App {
         } else {
             None
         };
-        obs.audio.push(MixerSource {
-            name,
-            kind,
-            source,
-            channel,
-            meter,
-            // libobs starts a source at unity gain; the slider must say the same thing the
-            // ear hears, so it starts at 100 rather than at some remembered default.
-            volume_percent: 100,
-            muted: false,
-            // libobs's own default, and the safe one: monitoring a microphone through
-            // speakers is how a feedback howl starts.
-            monitoring: hikari_protocol::AudioMonitoring::None,
-            noise_filter,
-            noise_suppression: false,
-        });
-        self.emit_audio_sources();
+        Some(LiveCapture { source, channel, noise_filter })
     }
 
-    /// The lowest channel no mixer source occupies. `None` when the mixer is full.
+    /// The lowest channel no capture occupies. `None` when the mixer is full. Counts every
+    /// capture, not every entry — an entry heard by both sides holds two.
     fn free_audio_channel(sources: &[MixerSource]) -> Option<u32> {
-        (audio::FIRST_AUDIO_CHANNEL..audio::FIRST_AUDIO_CHANNEL + audio::MAX_AUDIO_SOURCES)
-            .find(|channel| !sources.iter().any(|source| source.channel == *channel))
+        (audio::FIRST_AUDIO_CHANNEL..audio::FIRST_AUDIO_CHANNEL + audio::MAX_AUDIO_SOURCES).find(
+            |channel| {
+                !sources
+                    .iter()
+                    .flat_map(MixerSource::captures)
+                    .any(|capture| capture.channel == *channel)
+            },
+        )
     }
 
-    /// Removes a source from the mixer: frees its channel, destroys its meter, drops it.
+    /// Frees one capture's channel. The capture itself drops with its owner.
+    fn close_capture(runtime: &libobs_wrapper::runtime::ObsRuntime, capture: &LiveCapture) {
+        if let Err(err) = audio::clear_channel(runtime, capture.channel) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+        }
+    }
+
+    /// Removes an entry from the mixer: destroys its meter, frees every capture it holds.
     fn handle_remove_audio_source(&mut self, name: String) {
         let Some(obs) = &mut self.obs else { return };
         let Some(index) = obs.audio.iter().position(|source| source.name == name) else {
             emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
             return;
         };
-        let removed = obs.audio.remove(index);
+        let mut removed = obs.audio.remove(index);
         let runtime = obs.context.runtime().clone();
-        // The meter goes first: it must stop pointing at a source that is about to be freed.
-        if let Some(meter) = removed.meter {
+        // The meter goes first: it must stop pointing at a source about to be freed. Taken
+        // out of the entry so the captures below can still be read from it.
+        if let Some(meter) = removed.meter.take() {
             if let Err(err) = meter.destroy(&runtime) {
                 emit(&EngineMessage::Error { message: err.to_string() });
             }
         }
-        if let Err(err) = audio::clear_channel(&runtime, removed.channel) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+        for capture in removed.captures() {
+            Self::close_capture(&runtime, capture);
         }
         self.emit_audio_sources();
     }
 
-    /// Sets a source's volume from the 0–100 slider. A muted source keeps the new value: it
-    /// takes effect the moment it is unmuted, never silently discarded.
+    /// Sets the volume the AUDIENCE hears. A muted entry keeps the new value: it takes
+    /// effect the moment it is unmuted, never silently discarded.
     fn handle_set_audio_volume(&mut self, name: String, percent: i32) {
-        let Some(obs) = &mut self.obs else { return };
-        let Some(source) = obs.audio.iter_mut().find(|source| source.name == name) else {
-            emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
-            return;
-        };
-        let volume = hikari_protocol::percent_to_volume(percent);
-        if let Err(err) = audio::set_volume(&source.source, volume) {
-            emit(&EngineMessage::Error { message: err.to_string() });
-            return;
-        }
-        source.volume_percent = hikari_protocol::volume_to_percent(volume);
-        self.emit_audio_sources();
+        self.update_entry(&name, |entry| {
+            entry.volume_percent =
+                hikari_protocol::volume_to_percent(hikari_protocol::percent_to_volume(percent));
+        });
     }
 
-    /// Mutes or unmutes a source, leaving its slider untouched.
+    /// Sets the volume the STREAMER hears, independently of the audience's.
+    fn handle_set_monitor_volume(&mut self, name: String, percent: i32) {
+        self.update_entry(&name, |entry| {
+            entry.monitor_volume_percent =
+                hikari_protocol::volume_to_percent(hikari_protocol::percent_to_volume(percent));
+        });
+    }
+
+    /// Mutes or unmutes an entry, leaving its sliders untouched.
     fn handle_set_audio_muted(&mut self, name: String, muted: bool) {
+        self.update_entry(&name, |entry| entry.muted = muted);
+    }
+
+    /// Sets room-noise suppression: on/off, method, and Speex's strength.
+    fn handle_set_noise_settings(
+        &mut self,
+        name: String,
+        enabled: bool,
+        method: hikari_protocol::NoiseMethod,
+        level_db: f32,
+    ) {
+        self.update_entry(&name, |entry| {
+            entry.noise_suppression = enabled;
+            entry.noise_method = method;
+            entry.noise_level_db = hikari_protocol::clamp_noise_level(level_db);
+        });
+    }
+
+    /// Applies a change to one entry, then re-pushes ITS WHOLE desired state to libobs.
+    ///
+    /// Re-applying everything rather than only what changed is deliberate: routing decides
+    /// which capture carries which volume, so a volume change and a routing change touch the
+    /// same libobs calls. One place that reconciles the whole entry cannot drift; five places
+    /// that each patch one field eventually do.
+    fn update_entry(&mut self, name: &str, change: impl FnOnce(&mut MixerSource)) {
         let Some(obs) = &mut self.obs else { return };
-        let Some(source) = obs.audio.iter_mut().find(|source| source.name == name) else {
+        let Some(index) = obs.audio.iter().position(|source| source.name == name) else {
             emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
             return;
         };
-        if let Err(err) = audio::set_muted(&source.source, muted) {
-            emit(&EngineMessage::Error { message: err.to_string() });
-            return;
-        }
-        source.muted = muted;
+        change(&mut obs.audio[index]);
+        self.reconcile_entry(index);
         self.emit_audio_sources();
     }
 
-    /// Sets whether the streamer hears this source, and whether the audience does.
+    /// Sets whether the streamer hears this entry, and whether the audience does.
+    ///
+    /// This is the call that may open or close the SECOND capture: "both hear it" needs two
+    /// (one per volume), the two one-sided modes need one.
     fn handle_set_audio_monitoring(
         &mut self,
         name: String,
         monitoring: hikari_protocol::AudioMonitoring,
     ) {
-        let Some(obs) = &mut self.obs else { return };
-        let Some(source) = obs.audio.iter_mut().find(|source| source.name == name) else {
-            emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
-            return;
-        };
-        if let Err(err) = audio::set_monitoring(&source.source, monitoring) {
-            emit(&EngineMessage::Error { message: err.to_string() });
-            return;
-        }
-        source.monitoring = monitoring;
-        self.emit_audio_sources();
+        self.update_entry(&name, |entry| entry.monitoring = monitoring);
     }
 
-    /// Turns room-noise suppression on or off for a microphone.
-    fn handle_set_noise_suppression(&mut self, name: String, enabled: bool) {
+    /// Makes libobs match one entry's desired state — captures, volumes, mute, filters.
+    fn reconcile_entry(&mut self, index: usize) {
+        use hikari_protocol::AudioMonitoring;
         let Some(obs) = &mut self.obs else { return };
-        let Some(source) = obs.audio.iter_mut().find(|source| source.name == name) else {
-            emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
-            return;
+        let Some(entry) = obs.audio.get(index) else { return };
+        let (wants_public, wants_monitor) = match entry.monitoring {
+            AudioMonitoring::None => (true, false),
+            AudioMonitoring::MonitorOnly => (false, true),
+            AudioMonitoring::MonitorAndOutput => (true, true),
         };
-        let Some(filter) = &source.noise_filter else {
-            emit(&EngineMessage::Error {
-                message: format!("« {name} » n'a pas de suppression de bruit"),
-            });
-            return;
-        };
-        if let Err(err) = filters::set_enabled(filter, enabled) {
-            emit(&EngineMessage::Error { message: err.to_string() });
-            return;
+        let runtime = obs.context.runtime().clone();
+        let (name, device_id, kind) =
+            (entry.name.clone(), entry.device_id.clone(), entry.kind);
+
+        // Close what is no longer wanted BEFORE opening what is: a device that refuses two
+        // simultaneous captures would otherwise fail on a mere routing change.
+        for (wanted, take) in [
+            (wants_public, true),
+            (wants_monitor, false),
+        ] {
+            if wanted {
+                continue;
+            }
+            let Some(obs) = &mut self.obs else { return };
+            let Some(entry) = obs.audio.get_mut(index) else { return };
+            let slot = if take { &mut entry.public } else { &mut entry.monitor };
+            if let Some(capture) = slot.take() {
+                Self::close_capture(&runtime, &capture);
+            }
         }
-        source.noise_suppression = enabled;
-        self.emit_audio_sources();
+
+        // Open what is missing. A refusal is reported and leaves the entry one-sided rather
+        // than silently pretending both volumes are live.
+        for (wanted, is_public) in [(wants_public, true), (wants_monitor, false)] {
+            let already = self
+                .obs
+                .as_ref()
+                .and_then(|obs| obs.audio.get(index))
+                .is_some_and(|entry| if is_public { entry.public.is_some() } else { entry.monitor.is_some() });
+            if !wanted || already {
+                continue;
+            }
+            let Some(channel) =
+                Self::free_audio_channel(self.obs.as_ref().map_or(&[], |obs| &obs.audio))
+            else {
+                emit(&EngineMessage::Error {
+                    message: format!("mixeur plein ({} canaux)", audio::MAX_AUDIO_SOURCES),
+                });
+                continue;
+            };
+            // The second capture needs its own libobs name — two sources cannot share one.
+            let libobs_name =
+                if is_public { name.clone() } else { format!("{name} (retour)") };
+            let Some(capture) = self.open_capture(&device_id, kind, &libobs_name, channel) else {
+                continue;
+            };
+            let Some(obs) = &mut self.obs else { return };
+            let Some(entry) = obs.audio.get_mut(index) else { return };
+            if is_public {
+                entry.public = Some(capture);
+            } else {
+                entry.monitor = Some(capture);
+            }
+        }
+
+        self.apply_entry_settings(index);
+    }
+
+    /// Pushes an entry's volumes, mute and filter state onto whichever captures now exist.
+    fn apply_entry_settings(&mut self, index: usize) {
+        use hikari_protocol::AudioMonitoring;
+        let Some(obs) = &mut self.obs else { return };
+        let Some(entry) = obs.audio.get(index) else { return };
+        let public_volume = hikari_protocol::percent_to_volume(entry.volume_percent);
+        let monitor_volume = hikari_protocol::percent_to_volume(entry.monitor_volume_percent);
+        let (muted, enabled, method, level_db) =
+            (entry.muted, entry.noise_suppression, entry.noise_method, entry.noise_level_db);
+
+        let apply = |capture: &LiveCapture, volume: f32, routing: AudioMonitoring| {
+            if let Err(err) = audio::set_volume(&capture.source, volume) {
+                emit(&EngineMessage::Error { message: err.to_string() });
+            }
+            if let Err(err) = audio::set_muted(&capture.source, muted) {
+                emit(&EngineMessage::Error { message: err.to_string() });
+            }
+            if let Err(err) = audio::set_monitoring(&capture.source, routing) {
+                emit(&EngineMessage::Error { message: err.to_string() });
+            }
+            if let Some(filter) = &capture.noise_filter {
+                if let Err(err) = audio::apply_noise_settings(filter, method, level_db) {
+                    emit(&EngineMessage::Error { message: err.to_string() });
+                }
+                if let Err(err) = filters::set_enabled(filter, enabled) {
+                    emit(&EngineMessage::Error { message: err.to_string() });
+                }
+            }
+        };
+
+        if let Some(capture) = &entry.public {
+            // The public capture is never played back: the monitor capture does that job.
+            apply(capture, public_volume, AudioMonitoring::None);
+        }
+        if let Some(capture) = &entry.monitor {
+            // Always the headphone slider — whether this capture is the entry's only one
+            // (streamer listens alone) or its second (both listen).
+            apply(capture, monitor_volume, AudioMonitoring::MonitorOnly);
+        }
     }
 
     /// Emits the mixer's real state — shared tail of every command that changes it.
@@ -868,9 +1044,12 @@ impl App {
                 name: source.name.clone(),
                 kind: source.kind,
                 volume_percent: source.volume_percent,
+                monitor_volume_percent: source.monitor_volume_percent,
                 muted: source.muted,
                 monitoring: source.monitoring,
                 noise_suppression: source.noise_suppression,
+                noise_method: source.noise_method,
+                noise_level_db: source.noise_level_db,
             })
             .collect();
         emit(&EngineMessage::AudioSources { items });
@@ -1124,8 +1303,11 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetAudioMonitoring { name, monitoring } => {
                 self.handle_set_audio_monitoring(name, monitoring)
             }
-            EngineEvent::SetNoiseSuppression { name, enabled } => {
-                self.handle_set_noise_suppression(name, enabled)
+            EngineEvent::SetNoiseSettings { name, enabled, method, level_db } => {
+                self.handle_set_noise_settings(name, enabled, method, level_db)
+            }
+            EngineEvent::SetMonitorVolume { name, percent } => {
+                self.handle_set_monitor_volume(name, percent)
             }
         }
     }
@@ -1289,8 +1471,12 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::SetAudioMonitoring { name, monitoring }) => {
                     let _ = proxy.send_event(EngineEvent::SetAudioMonitoring { name, monitoring });
                 }
-                Ok(ControllerCommand::SetNoiseSuppression { name, enabled }) => {
-                    let _ = proxy.send_event(EngineEvent::SetNoiseSuppression { name, enabled });
+                Ok(ControllerCommand::SetNoiseSettings { name, enabled, method, level_db }) => {
+                    let _ = proxy
+                        .send_event(EngineEvent::SetNoiseSettings { name, enabled, method, level_db });
+                }
+                Ok(ControllerCommand::SetMonitorVolume { name, percent }) => {
+                    let _ = proxy.send_event(EngineEvent::SetMonitorVolume { name, percent });
                 }
                 Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),

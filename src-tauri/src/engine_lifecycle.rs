@@ -319,14 +319,26 @@ pub(crate) fn set_audio_monitoring(
     send_audio(&state, ControllerCommand::SetAudioMonitoring { name, monitoring })
 }
 
-/// Turns room-noise suppression on or off for a microphone (B6).
+/// Sets room-noise suppression for a microphone: on/off, method, and Speex's strength (B6).
 #[tauri::command]
-pub(crate) fn set_noise_suppression(
+pub(crate) fn set_noise_settings(
     state: State<EngineState>,
     name: String,
     enabled: bool,
+    method: hikari_protocol::NoiseMethod,
+    level_db: f32,
 ) -> Result<(), String> {
-    send_audio(&state, ControllerCommand::SetNoiseSuppression { name, enabled })
+    send_audio(&state, ControllerCommand::SetNoiseSettings { name, enabled, method, level_db })
+}
+
+/// Sets the volume the streamer hears, independently of the audience's (B6).
+#[tauri::command]
+pub(crate) fn set_monitor_volume(
+    state: State<EngineState>,
+    name: String,
+    percent: i32,
+) -> Result<(), String> {
+    send_audio(&state, ControllerCommand::SetMonitorVolume { name, percent })
 }
 
 /// Grafts the engine's preview window (`engine_hwnd`, just announced via `PreviewReady`)

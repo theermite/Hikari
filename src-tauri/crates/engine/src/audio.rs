@@ -158,7 +158,7 @@ pub fn create_noise_suppression_filter(source: &ObsSourceRef) -> Result<ObsFilte
     let runtime = source.runtime().clone();
     let mut settings = ObsData::new(runtime.clone()).context("réglages suppression de bruit")?;
     settings
-        .set_string("method", hikari_protocol::NOISE_SUPPRESS_METHOD)
+        .set_string("method", hikari_protocol::NoiseMethod::Rnnoise.libobs_value())
         .context("réglage méthode de suppression")?;
     let filter = ObsFilterRef::new(
         hikari_protocol::NOISE_SUPPRESS_FILTER_KIND,
@@ -172,6 +172,29 @@ pub fn create_noise_suppression_filter(source: &ObsSourceRef) -> Result<ObsFilte
     crate::filters::set_enabled(&filter, false)
         .context("désactivation initiale du filtre de bruit")?;
     Ok(filter)
+}
+
+/// Pushes the chosen method and strength onto an already-attached noise filter.
+///
+/// The strength is written even when the method is RNNoise: OBS simply ignores it there (it
+/// hides the field), and keeping it means switching back to the adjustable method restores
+/// what the user had set instead of resetting it.
+pub fn apply_noise_settings(
+    filter: &ObsFilterRef,
+    method: hikari_protocol::NoiseMethod,
+    level_db: f32,
+) -> Result<()> {
+    let runtime = filter.runtime().clone();
+    let mut settings = ObsData::new(runtime).context("réglages suppression de bruit")?;
+    settings
+        .set_string("method", method.libobs_value())
+        .context("réglage méthode de suppression")?
+        .set_double(
+            hikari_protocol::NOISE_LEVEL_PROPERTY,
+            hikari_protocol::clamp_noise_level(level_db) as f64,
+        )
+        .context("réglage intensité de suppression")?;
+    filter.update_settings(settings).context("mise à jour du filtre de bruit")
 }
 
 /// Sets whether the streamer hears this source, and whether the audience does.

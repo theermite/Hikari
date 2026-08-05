@@ -4,7 +4,8 @@
 
 use hikari_protocol::{
     AudioDevice, AudioLevel, AudioMonitoring, AudioSourceInfo, AudioSourceKind, ControllerCommand,
-    EngineMessage, METER_FLOOR_DB, db_to_meter_fraction, parse_controller_command,
+    EngineMessage, METER_FLOOR_DB, NOISE_LEVEL_DEFAULT_DB, NOISE_LEVEL_MAX_DB, NOISE_LEVEL_MIN_DB,
+    NoiseMethod, clamp_noise_level, db_to_meter_fraction, parse_controller_command,
     parse_engine_message, percent_to_volume, to_line, volume_to_percent,
 };
 use proptest::prelude::*;
@@ -85,9 +86,12 @@ fn should_roundtrip_the_audio_source_list() {
             name: "Micro".to_string(),
             kind: AudioSourceKind::Input,
             volume_percent: 80,
+            monitor_volume_percent: 100,
             muted: false,
             monitoring: AudioMonitoring::None,
             noise_suppression: false,
+            noise_method: NoiseMethod::Rnnoise,
+            noise_level_db: NOISE_LEVEL_DEFAULT_DB,
         }],
     };
     let line = to_line(&msg).expect("serializes");
@@ -131,13 +135,50 @@ fn should_send_a_broken_reading_as_the_floor_rather_than_breaking_the_whole_mess
 }
 
 #[test]
-fn should_roundtrip_the_noise_suppression_command() {
-    let cmd = ControllerCommand::SetNoiseSuppression {
+fn should_roundtrip_the_noise_settings_command() {
+    let cmd = ControllerCommand::SetNoiseSettings {
         name: "Micro".to_string(),
         enabled: true,
+        method: NoiseMethod::Speex,
+        level_db: -24.0,
     };
     let line = to_line(&cmd).expect("serializes");
     assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
+}
+
+#[test]
+fn should_roundtrip_the_monitor_volume_command() {
+    let cmd = ControllerCommand::SetMonitorVolume { name: "Micro".to_string(), percent: 65 };
+    let line = to_line(&cmd).expect("serializes");
+    assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
+}
+
+#[test]
+fn should_offer_a_strength_only_on_the_adjustable_method() {
+    // Contre-intuitif mais vérifié 2 fois dans la source obs-filters : c'est la méthode
+    // ANCIENNE qui a un réglage, la méthode par apprentissage n'en a aucun.
+    assert!(NoiseMethod::Speex.has_level());
+    assert!(!NoiseMethod::Rnnoise.has_level());
+}
+
+#[test]
+fn should_use_the_exact_libobs_method_values() {
+    assert_eq!(NoiseMethod::Speex.libobs_value(), "speex");
+    assert_eq!(NoiseMethod::Rnnoise.libobs_value(), "rnnoise");
+}
+
+#[test]
+fn should_clamp_a_strength_outside_the_accepted_range() {
+    assert_eq!(clamp_noise_level(-200.0), NOISE_LEVEL_MIN_DB);
+    assert_eq!(clamp_noise_level(50.0), NOISE_LEVEL_MAX_DB);
+    assert_eq!(clamp_noise_level(-24.0), -24.0);
+}
+
+#[test]
+fn should_fall_back_to_the_obs_default_on_a_broken_strength() {
+    // Une valeur non finie ne doit jamais atteindre libobs.
+    assert_eq!(clamp_noise_level(f32::NAN), NOISE_LEVEL_DEFAULT_DB);
+    assert_eq!(clamp_noise_level(f32::NEG_INFINITY), NOISE_LEVEL_DEFAULT_DB);
 }
 
 #[test]
@@ -167,9 +208,12 @@ fn should_roundtrip_the_monitoring_command_and_state() {
             name: "Micro".to_string(),
             kind: AudioSourceKind::Input,
             volume_percent: 80,
+            monitor_volume_percent: 65,
             muted: false,
             monitoring: AudioMonitoring::MonitorAndOutput,
             noise_suppression: true,
+            noise_method: NoiseMethod::Speex,
+            noise_level_db: -24.0,
         }],
     };
     let line = to_line(&msg).expect("serializes");
