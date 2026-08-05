@@ -16,6 +16,7 @@ mod audio;
 mod camera;
 mod filters;
 mod multistream;
+mod outline;
 mod scenes;
 mod sources;
 mod stream;
@@ -362,6 +363,12 @@ impl App {
         }
 
         let display = create_preview(&mut context, &window).context("création aperçu")?;
+        // Le liseré se dessine par-dessus l'image du moteur — seul endroit possible, la
+        // fenêtre native couvrant tout contenu web. Un échec coûte le contour, jamais
+        // l'aperçu : signalé, puis on continue.
+        if let Err(err) = outline::attach(context.runtime(), &display) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+        }
         let RawWindowHandle::Win32(handle) = window.window_handle()?.as_raw() else {
             anyhow::bail!("moteur Windows uniquement : handle de fenêtre Win32 attendu");
         };
@@ -1400,9 +1407,25 @@ impl App {
         None
     }
 
-    /// Which pointer shape the current cursor position calls for.
+    /// Which pointer shape the current cursor position calls for, and — même geste — le
+    /// liseré qui entoure la source visée. Les deux répondent à la même question : « laquelle
+    /// vais-je saisir ». Les séparer les ferait fatalement diverger.
     fn hover_icon(&mut self) -> CursorIcon {
-        let Some((_, _, _, _, _, corner)) = self.hit_test() else { return CursorIcon::Default };
+        let hit = self.hit_test();
+        match &hit {
+            Some((_, x, y, w, h, _)) => {
+                let canvas = self
+                    .obs
+                    .as_ref()
+                    .and_then(|obs| camera::canvas_size(obs.context.runtime()).ok());
+                match canvas {
+                    Some(canvas) => outline::show(*x, *y, *w, *h, canvas),
+                    None => outline::hide(),
+                }
+            }
+            None => outline::hide(),
+        }
+        let Some((_, _, _, _, _, corner)) = hit else { return CursorIcon::Default };
         match corner {
             // The double-headed diagonal arrows Windows itself uses for a corner resize:
             // "↘↖" on the two corners of one diagonal, "↙↗" on the other.
