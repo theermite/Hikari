@@ -15,7 +15,12 @@ export default defineConfig(async () => ({
   server: {
     port: 1420, // 2. Tauri attend un port fixe
     strictPort: true,
-    host: host || false,
+    // Épinglé sur la boucle locale IPv4, jamais laissé au choix du serveur.
+    // Vécu 2026-08-05 : avec `false`, Vite n'écoutait QUE en IPv6 (`::1`). La fenêtre de
+    // l'app charge `localhost`, qui se résout tantôt en IPv6 tantôt en IPv4 ; quand elle
+    // tombait sur l'IPv4, la connexion était refusée et l'app restait BLANCHE, sans la
+    // moindre erreur dans les journaux. Cette adresse écoute les deux familles utiles ici.
+    host: host || "127.0.0.1",
     hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
     watch: {
       ignored: ["**/src-tauri/**"], // 3. ne pas surveiller src-tauri
