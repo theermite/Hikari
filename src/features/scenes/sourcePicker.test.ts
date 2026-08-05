@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FILE_FILTERS,
+  fold,
   matchesSearch,
   nameFromPath,
   SOURCE_FAMILIES,
@@ -45,6 +46,22 @@ describe("matchesSearch", () => {
   });
 });
 
+describe("fold", () => {
+  it("should_never_empty_a_non_empty_text", () => {
+    // LE test qui manquait le 2026-08-05. L'ancien nettoyage d'accents vidait la chaîne
+    // dans le navigateur de l'app : la recherche devenait vide, donc tout passait, et la
+    // liste semblait ne pas réagir. Aucun test ne regardait ce que le nettoyage RENDAIT.
+    for (const text of ["MNK Terminal", "Spoti", "Écran 1", "MNK Ter"]) {
+      expect(fold(text).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("should_only_remove_the_accent_marks", () => {
+    expect(fold("Écran")).toBe("ecran");
+    expect(fold("MNK Terminal")).toBe("mnk terminal");
+  });
+});
+
 describe("searchAll", () => {
   const games = [{ id: "g1", label: "League of Legends" }];
   const windows = [
@@ -81,6 +98,43 @@ describe("searchAll", () => {
   it("should_return_everything_when_the_search_is_empty", () => {
     // 4 cibles, dont un doublon d'identifiant retiré.
     expect(searchAll(games, windows, monitors, "")).toHaveLength(3);
+  });
+});
+
+describe("recherche sur les libellés RÉELS de la machine de Jay (2026-08-05)", () => {
+  // Libellés relevés par sonde dans le moteur, copiés tels quels — un test sur des
+  // exemples inventés prouve le filtre contre lui-même, jamais contre le terrain.
+  const windows = [
+    { id: "w1", label: "MNK Terminal" },
+    { id: "w2", label: "Spotify Widget" },
+    { id: "w3", label: "@•● Héclyps ●• - Discord" },
+    { id: "w4", label: "Kung Fu Panda 2.mkv - VLC media player" },
+    { id: "w5", label: "‎Angelique Mejias – (46)" },
+  ];
+  const games = [{ id: "g1", label: "Ankama Launcher" }];
+  const monitors = [{ id: "m1", label: "Écran 1" }];
+
+  for (const typed of ["MNK", "Termin", "MNK T", "mnk terminal"]) {
+    it(`should_find_MNK_Terminal_when_typing_${typed.replace(/\s/g, "_")}`, () => {
+      const hits = searchAll(games, windows, monitors, typed);
+
+      expect(hits.map((h) => h.target.label)).toContain("MNK Terminal");
+    });
+  }
+
+  it("should_find_Spotify_when_typing_Spoti", () => {
+    const hits = searchAll(games, windows, monitors, "Spoti");
+
+    expect(hits.map((h) => h.target.label)).toContain("Spotify Widget");
+  });
+
+  it("should_survive_a_label_carrying_invisible_characters", () => {
+    // « ‎Angelique » commence par une marque de direction invisible. Une recherche qui
+    // planterait dessus ferait échouer TOUTE la liste, pas seulement cette ligne.
+    expect(() => searchAll(games, windows, monitors, "angel")).not.toThrow();
+    expect(
+      searchAll(games, windows, monitors, "mejias").map((h) => h.target.label),
+    ).toHaveLength(1);
   });
 });
 

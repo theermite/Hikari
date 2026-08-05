@@ -105,6 +105,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const chosenIsFile =
     SOURCE_FAMILIES.find((f) => f.kind === chosenFamily)?.isFile ?? false;
   const renameInput = useRef<HTMLInputElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const unlisten = listen<EngineMessage>("engine-message", (event) => {
@@ -137,6 +138,12 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   useEffect(() => {
     if (renaming) renameInput.current?.focus();
   }, [renaming]);
+
+  // Le champ de recherche apparaît APRÈS l'ouverture de la fenêtre, quand les cibles
+  // arrivent — d'où ce focus posé à son apparition plutôt qu'à l'ouverture.
+  useEffect(() => {
+    if (addingTo && targets && !chosenIsFile) searchInput.current?.focus();
+  }, [addingTo, targets, chosenIsFile]);
 
   const persist = (next: SceneLayout) => {
     setLayout(next);
@@ -493,9 +500,12 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
               <p className="text-hikari-txt-faint">Recherche en cours…</p>
             ) : (
               <>
+                {/* Le focus est posé ICI et non par la fenêtre : quand elle s'ouvre, ce
+                    champ n'existe pas encore (la liste des cibles arrive après), donc son
+                    autofocus ne trouvait rien à viser. */}
                 <input
+                  ref={searchInput}
                   type="search"
-                  data-autofocus
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Rechercher…"

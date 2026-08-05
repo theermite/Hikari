@@ -36,7 +36,7 @@ const WINDOW_SEARCH_MODE: WindowSearchMode =
 /// doit apparaître sans redémarrer quoi que ce soit. Un échec sur une famille rend une liste
 /// vide pour elle plutôt que de faire tomber les deux autres — trois questions indépendantes.
 pub fn list_capture_targets() -> (Vec<CaptureTarget>, Vec<CaptureTarget>, Vec<CaptureTarget>) {
-    let games = GameCaptureSourceBuilder::get_windows(WINDOW_SEARCH_MODE)
+    let games: Vec<CaptureTarget> = GameCaptureSourceBuilder::get_windows(WINDOW_SEARCH_MODE)
         .map(|windows| {
             windows
                 .into_iter()
@@ -48,7 +48,7 @@ pub fn list_capture_targets() -> (Vec<CaptureTarget>, Vec<CaptureTarget>, Vec<Ca
         })
         .unwrap_or_default();
 
-    let windows = WindowCaptureSourceBuilder::get_windows(WINDOW_SEARCH_MODE)
+    let windows: Vec<CaptureTarget> = WindowCaptureSourceBuilder::get_windows(WINDOW_SEARCH_MODE)
         .map(|found| {
             found
                 .into_iter()
@@ -60,7 +60,7 @@ pub fn list_capture_targets() -> (Vec<CaptureTarget>, Vec<CaptureTarget>, Vec<Ca
         })
         .unwrap_or_default();
 
-    let monitors = MonitorCaptureSourceBuilder::get_monitors()
+    let monitors: Vec<CaptureTarget> = MonitorCaptureSourceBuilder::get_monitors()
         .map(|found| {
             found
                 .into_iter()
@@ -74,6 +74,15 @@ pub fn list_capture_targets() -> (Vec<CaptureTarget>, Vec<CaptureTarget>, Vec<Ca
                 .collect()
         })
         .unwrap_or_default();
+
+    // Sonde de diagnostic (2026-08-05) : ce que l'utilisateur LIT dans la liste. Si les
+    // libellés ne sont pas les titres de fenêtre attendus, aucune recherche ne peut marcher.
+    eprintln!(
+        "[engine] cibles — jeux: {:?} | fenêtres: {:?} | écrans: {:?}",
+        games.iter().map(|t| &t.label).collect::<Vec<_>>(),
+        windows.iter().map(|t| &t.label).collect::<Vec<_>>(),
+        monitors.iter().map(|t| &t.label).collect::<Vec<_>>(),
+    );
 
     (games, windows, monitors)
 }

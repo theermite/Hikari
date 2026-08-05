@@ -57,11 +57,18 @@ export const FILE_FILTERS: Record<string, string[]> = {
 
 /** Enlève accents et casse pour comparer ce que l'utilisateur TAPE à ce qu'il LIT.
  * Sans ça, chercher « ecran » ne trouverait jamais « Écran 1 ». */
-function fold(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
+export function fold(text: string): string {
+  return (
+    text
+      .normalize("NFD")
+      // Plage explicite des marques combinantes, PAS `\p{Diacritic}` : cette classe Unicode
+      // vidait la chaîne entière dans le navigateur de l'app (vécu 2026-08-05 — le filtre
+      // laissait tout passer, une recherche vide acceptant tout), alors qu'elle se comportait
+      // normalement dans le lanceur de tests. Une plage de codes est supportée partout de la
+      // même façon, et elle couvre exactement les accents latins qui nous concernent.
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+  );
 }
 
 /** Si une cible correspond à la recherche. Une recherche vide accepte tout — un champ vide
