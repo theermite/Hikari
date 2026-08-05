@@ -63,25 +63,49 @@ pub const WINDOW_CAPTURE_KIND: &str = "window_capture";
 /// What a capture source points at (brique Sources).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CaptureKind {
+pub enum SourceKind {
     /// A game or fullscreen application — the fast path, hooks the app directly.
     Game,
     /// One window, whatever it is. Works where the game hook cannot.
     Window,
     /// A whole screen.
     Monitor,
+    /// A still image on disk — logo, overlay, waiting screen.
+    Image,
+    /// A video file on disk, played in a loop.
+    Video,
 }
 
-impl CaptureKind {
+impl SourceKind {
     /// The libobs source id to build. A wrong id yields a source libobs silently refuses.
     pub fn libobs_id(self) -> &'static str {
         match self {
-            CaptureKind::Game => GAME_CAPTURE_KIND,
-            CaptureKind::Window => WINDOW_CAPTURE_KIND,
-            CaptureKind::Monitor => MONITOR_CAPTURE_KIND,
+            SourceKind::Game => GAME_CAPTURE_KIND,
+            SourceKind::Window => WINDOW_CAPTURE_KIND,
+            SourceKind::Monitor => MONITOR_CAPTURE_KIND,
+            SourceKind::Image => IMAGE_SOURCE_KIND,
+            SourceKind::Video => VIDEO_SOURCE_KIND,
         }
     }
+
+    /// Whether this kind designates a FILE on disk rather than something to capture live.
+    /// The panel asks for a file instead of listing targets.
+    pub fn is_file(self) -> bool {
+        matches!(self, SourceKind::Image | SourceKind::Video)
+    }
 }
+
+/// The libobs source-kind identifier for a still image — the real obs-studio image-source
+/// plugin id (verified 2026-08-05 against its source).
+pub const IMAGE_SOURCE_KIND: &str = "image_source";
+/// The property carrying the image's path.
+pub const IMAGE_PATH_PROPERTY: &str = "file";
+
+/// The libobs source-kind identifier for a media file. Same verification, obs-ffmpeg plugin.
+pub const VIDEO_SOURCE_KIND: &str = "ffmpeg_source";
+/// The property carrying the video's path. Different from the image's — a shared name would
+/// have been convenient and is simply not what OBS uses.
+pub const VIDEO_PATH_PROPERTY: &str = "local_file";
 
 /// One thing the user can capture: a game, a window, or a screen. `id` is the exact value
 /// libobs expects in the source's own setting, never rebuilt by hand; `label` is what the
@@ -547,7 +571,7 @@ pub enum ControllerCommand {
     /// Sources belong to a SCENE, unlike audio which lives on global channels: that is the
     /// whole point of scenes — showing the game in one and a waiting screen in another.
     /// `target_id` comes from `CaptureTargets`, never guessed.
-    AddCaptureSource { scene: String, kind: CaptureKind, target_id: String, name: String },
+    AddCaptureSource { scene: String, kind: SourceKind, target_id: String, name: String },
     /// Removes a source from `scene` only. Other scenes keep theirs.
     RemoveSource { scene: String, name: String },
     /// Moves a source one step in front of, or behind, the others in `scene`. Which source

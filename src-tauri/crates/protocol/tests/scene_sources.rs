@@ -3,7 +3,7 @@
 //! intégration, prouvée en lançant l'app.
 
 use hikari_protocol::{
-    CaptureKind, CaptureTarget, ControllerCommand, EngineMessage, SceneInfo, SceneNameError,
+    SourceKind, CaptureTarget, ControllerCommand, EngineMessage, SceneInfo, SceneNameError,
     SceneSourceInfo, SourceOrder, parse_controller_command, parse_engine_message, to_line,
     validate_source_name,
 };
@@ -13,9 +13,30 @@ use proptest::prelude::*;
 fn should_use_the_exact_libobs_source_ids() {
     // Identifiants du vrai greffon win-capture d'OBS, jamais inventés : une faute ici
     // produirait une source que libobs refuse de créer, sans dire pourquoi.
-    assert_eq!(CaptureKind::Game.libobs_id(), "game_capture");
-    assert_eq!(CaptureKind::Window.libobs_id(), "window_capture");
-    assert_eq!(CaptureKind::Monitor.libobs_id(), "monitor_capture");
+    assert_eq!(SourceKind::Game.libobs_id(), "game_capture");
+    assert_eq!(SourceKind::Window.libobs_id(), "window_capture");
+    assert_eq!(SourceKind::Monitor.libobs_id(), "monitor_capture");
+    assert_eq!(SourceKind::Image.libobs_id(), "image_source");
+    assert_eq!(SourceKind::Video.libobs_id(), "ffmpeg_source");
+}
+
+#[test]
+fn should_tell_a_file_source_apart_from_a_live_capture() {
+    // Une image ou une vidéo se CHOISIT sur le disque ; un jeu, une fenêtre ou un écran se
+    // choisit dans une liste. Le panneau doit poser deux questions différentes.
+    assert!(SourceKind::Image.is_file());
+    assert!(SourceKind::Video.is_file());
+    assert!(!SourceKind::Game.is_file());
+    assert!(!SourceKind::Window.is_file());
+    assert!(!SourceKind::Monitor.is_file());
+}
+
+#[test]
+fn should_use_the_path_property_each_file_kind_really_expects() {
+    // Les deux diffèrent : une propriété partagée aurait été pratique, ce n'est pas ce
+    // qu'OBS utilise.
+    assert_eq!(hikari_protocol::IMAGE_PATH_PROPERTY, "file");
+    assert_eq!(hikari_protocol::VIDEO_PATH_PROPERTY, "local_file");
 }
 
 #[test]
@@ -56,7 +77,7 @@ fn should_roundtrip_every_source_command() {
         ControllerCommand::ListCaptureTargets,
         ControllerCommand::AddCaptureSource {
             scene: "main".to_string(),
-            kind: CaptureKind::Game,
+            kind: SourceKind::Game,
             target_id: "LoL".to_string(),
             name: "Jeu".to_string(),
         },

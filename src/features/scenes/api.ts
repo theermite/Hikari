@@ -1,7 +1,7 @@
 // Scenes Tauri bridge (multi-scene, tranche 1) — thin `invoke` wrapper, no logic here.
 
 import { invoke } from "@tauri-apps/api/core";
-import type { CaptureKind, SourceOrder } from "./types";
+import type { SourceKind, SourceOrder } from "./types";
 
 /** Creates a new, empty scene named `name` (`create_scene`, `engine_lifecycle.rs`).
  * Requires the engine running (the Aperçu panel open). */
@@ -34,7 +34,7 @@ export function listCaptureTargets(): Promise<void> {
  * the engine's own list, never guessed. */
 export function addCaptureSource(
   scene: string,
-  kind: CaptureKind,
+  kind: SourceKind,
   targetId: string,
   name: string,
 ): Promise<void> {

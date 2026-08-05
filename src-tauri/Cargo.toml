@@ -71,3 +71,4 @@ reqwest = { workspace = true }
 tiny_http = { workspace = true }
 urlencoding = { workspace = true }
 tauri-plugin-store = { workspace = true }
+tauri-plugin-dialog = "2.7.2"

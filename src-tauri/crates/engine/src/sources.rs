@@ -11,7 +11,7 @@
 //! dans l'autre.
 
 use anyhow::{Context, Result};
-use hikari_protocol::{CaptureKind, CaptureTarget, SourceOrder};
+use hikari_protocol::{SourceKind, CaptureTarget, SourceOrder};
 // `WindowInfo`/`WindowSearchMode` viennent de `libobs-window-helper`, mais on passe par la
 // réexportation de `libobs-simple` : ajouter une dépendance directe la ferait dériver de la
 // version que `libobs-simple` lie réellement.
@@ -100,7 +100,7 @@ fn window_label(window: &WindowInfo) -> String {
 /// et elle évite la contrainte de conscience du zoom écran que DXGI impose au processus.
 pub fn add_capture_to_scene(
     context: &mut ObsContext,
-    kind: CaptureKind,
+    kind: SourceKind,
     target_id: &str,
     name: &str,
     scene_name: &str,
@@ -108,7 +108,7 @@ pub fn add_capture_to_scene(
     let runtime = context.runtime().clone();
     let mut settings = ObsData::new(runtime.clone()).context("réglages source de capture")?;
     match kind {
-        CaptureKind::Game => {
+        SourceKind::Game => {
             settings
                 // "window" : viser CETTE application, jamais « n'importe quel plein écran »,
                 // qui changerait de cible dès que l'utilisateur bascule ailleurs.
@@ -119,7 +119,7 @@ pub fn add_capture_to_scene(
                 .set_bool("capture_cursor", true)
                 .context("réglage curseur")?;
         }
-        CaptureKind::Window => {
+        SourceKind::Window => {
             settings
                 .set_string("window", target_id)
                 .context("réglage fenêtre")?
@@ -128,7 +128,7 @@ pub fn add_capture_to_scene(
                 .set_bool("cursor", true)
                 .context("réglage curseur")?;
         }
-        CaptureKind::Monitor => {
+        SourceKind::Monitor => {
             settings
                 .set_string("monitor_id", target_id)
                 .context("réglage écran")?
@@ -136,6 +136,24 @@ pub fn add_capture_to_scene(
                 .context("réglage méthode de capture écran")?
                 .set_bool("capture_cursor", true)
                 .context("réglage curseur")?;
+        }
+        SourceKind::Image => {
+            settings
+                .set_string(hikari_protocol::IMAGE_PATH_PROPERTY, target_id)
+                .context("réglage chemin de l'image")?;
+        }
+        SourceKind::Video => {
+            settings
+                .set_string(hikari_protocol::VIDEO_PATH_PROPERTY, target_id)
+                .context("réglage chemin de la vidéo")?
+                // Sans ce drapeau, la source attend une adresse réseau et n'ouvre jamais le
+                // fichier — le nom de la propriété ne suffit pas à le lui dire.
+                .set_bool("is_local_file", true)
+                .context("réglage fichier local")?
+                // En boucle par défaut : un habillage vidéo qui s'arrête au bout de dix
+                // secondes et laisse un cadre noir n'est jamais l'intention.
+                .set_bool("looping", true)
+                .context("réglage lecture en boucle")?;
         }
     }
 

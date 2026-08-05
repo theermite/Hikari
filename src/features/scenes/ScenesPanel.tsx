@@ -7,6 +7,7 @@
 // moteur — son identifiant y reste fixe à vie.
 
 import { listen } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "../../components/Modal";
@@ -29,11 +30,17 @@ import {
   saveSceneLayout,
   validateLabel,
 } from "./sceneLayout";
+import {
+  FILE_FILTERS,
+  matchesSearch,
+  nameFromPath,
+  SOURCE_FAMILIES,
+} from "./sourcePicker";
 import type {
-  CaptureKind,
   CaptureTarget,
   EngineMessage,
   SceneInfo,
+  SourceKind,
   SourceOrder,
 } from "./types";
 
@@ -55,37 +62,22 @@ const SOURCE_ICON: Record<string, string> = {
   dshow_input: "🎥",
 };
 
-/** Les trois familles proposées à l'ajout, dites par ce qu'elles montrent. */
-const CAPTURE_FAMILIES: {
-  kind: CaptureKind;
-  label: string;
-  hint: string;
-  pick: (t: CaptureTargets) => CaptureTarget[];
-}[] = [
-  {
-    kind: "game",
-    label: "Un jeu",
-    hint: "Accroche le jeu directement — la voie la plus fluide.",
-    pick: (t) => t.games,
-  },
-  {
-    kind: "window",
-    label: "Une fenêtre",
-    hint: "N'importe quelle fenêtre ouverte, même hors jeu.",
-    pick: (t) => t.windows,
-  },
-  {
-    kind: "monitor",
-    label: "Un écran",
-    hint: "Tout un écran, choisi parmi les tiens.",
-    pick: (t) => t.monitors,
-  },
-];
-
 interface CaptureTargets {
   games: CaptureTarget[];
   windows: CaptureTarget[];
   monitors: CaptureTarget[];
+}
+
+/** Ce que chaque famille vivante propose. Les familles de fichier n'ont pas de liste : on y
+ * ouvre le sélecteur du système. */
+function targetsFor(
+  kind: SourceKind,
+  targets: CaptureTargets,
+): CaptureTarget[] {
+  if (kind === "game") return targets.games;
+  if (kind === "window") return targets.windows;
+  if (kind === "monitor") return targets.monitors;
+  return [];
 }
 
 export function ScenesPanel(_props: IDockviewPanelProps) {
@@ -100,6 +92,10 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [targets, setTargets] = useState<CaptureTargets | null>(null);
+  const [chosenFamily, setFamily] = useState<SourceKind>("game");
+  const [search, setSearch] = useState("");
+  const chosenIsFile =
+    SOURCE_FAMILIES.find((f) => f.kind === chosenFamily)?.isFile ?? false;
   const renameInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -176,7 +172,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
 
   const addToScene = (
     scene: string,
-    kind: CaptureKind,
+    kind: SourceKind,
     target: CaptureTarget,
   ) => {
     setActionError(null);
@@ -186,6 +182,27 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     addCaptureSource(scene, kind, target.id, target.label).catch(
       (error: unknown) => setActionError(String(error)),
     );
+  };
+
+  /** Ouvre le sélecteur du système, puis pose le fichier choisi dans la scène. Un abandon
+   * (aucun fichier retenu) ne fait rien et ne dit rien : ce n'est pas une erreur. */
+  const pickFile = (scene: string, kind: SourceKind) => {
+    setActionError(null);
+    open({
+      multiple: false,
+      filters: [
+        {
+          name: kind === "image" ? "Images" : "Vidéos",
+          extensions: FILE_FILTERS[kind] ?? [],
+        },
+      ],
+    })
+      .then((path) => {
+        if (typeof path !== "string") return;
+        setAddingTo(null);
+        return addCaptureSource(scene, kind, path, nameFromPath(path));
+      })
+      .catch((error: unknown) => setActionError(String(error)));
   };
 
   // Nommé sans ambiguïté : `reorder` plus bas déplace une SCÈNE dans la liste, celui-ci
@@ -431,53 +448,85 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       >
         {addingTo && (
           <>
-            {targets === null && (
+            {/* Une seule famille ouverte à la fois : cinq listes dépliées d'un coup
+                redonneraient le mur de choix qu'on vient d'éviter. */}
+            <div className="flex flex-wrap gap-1.5">
+              {SOURCE_FAMILIES.map((family) => (
+                <button
+                  key={family.kind}
+                  type="button"
+                  onClick={() => {
+                    setFamily(family.kind);
+                    setSearch("");
+                  }}
+                  title={family.hint}
+                  aria-pressed={family.kind === chosenFamily}
+                  className={`rounded-[6px] border px-2 py-1 text-[12px] transition ${
+                    family.kind === chosenFamily
+                      ? "border-hikari-accent text-hikari-accent"
+                      : "border-hikari-line text-hikari-txt-dim hover:border-hikari-accent hover:text-hikari-txt"
+                  }`}
+                >
+                  {family.label}
+                </button>
+              ))}
+            </div>
+
+            {chosenIsFile ? (
+              <button
+                type="button"
+                data-autofocus
+                onClick={() => pickFile(addingTo, chosenFamily)}
+                className="self-start rounded-[6px] bg-hikari-accent px-3 py-1.5 text-[12.5px] font-medium text-[#1a1206] transition hover:brightness-110"
+              >
+                Choisir un fichier…
+              </button>
+            ) : targets === null ? (
               <p className="text-hikari-txt-faint">Recherche en cours…</p>
-            )}
-            {targets !== null &&
-              CAPTURE_FAMILIES.map((family) => {
-                const list = family.pick(targets);
-                return (
-                  <div key={family.kind} className="flex flex-col gap-1.5">
-                    <h3
-                      className="text-[11px] uppercase tracking-wider text-hikari-txt-faint"
-                      title={family.hint}
-                    >
-                      {family.label}
-                    </h3>
-                    {list.length === 0 ? (
+            ) : (
+              <>
+                <input
+                  type="search"
+                  data-autofocus
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Rechercher…"
+                  aria-label="Rechercher parmi les sources disponibles"
+                  className="rounded-[6px] border border-hikari-line bg-hikari-bg px-2 py-1 text-[12.5px] text-hikari-txt placeholder:text-hikari-txt-faint"
+                />
+                {(() => {
+                  const list = targetsFor(chosenFamily, targets).filter(
+                    (target) => matchesSearch(target, search),
+                  );
+                  if (list.length === 0) {
+                    return (
                       <p className="text-[12px] text-hikari-txt-faint">
-                        Rien à proposer pour l'instant.
+                        {search.trim()
+                          ? "Rien ne correspond à cette recherche."
+                          : "Rien à proposer pour l'instant."}
                       </p>
-                    ) : (
-                      <ul className="flex flex-col gap-1">
-                        {list.map((target) => (
-                          <li key={`${family.kind}:${target.id}`}>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                addToScene(addingTo, family.kind, target)
-                              }
-                              className="w-full truncate rounded-[6px] border border-hikari-line px-2 py-1 text-left text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
-                            >
-                              {
-                                SOURCE_ICON[
-                                  family.kind === "game"
-                                    ? "game_capture"
-                                    : family.kind === "window"
-                                      ? "window_capture"
-                                      : "monitor_capture"
-                                ]
-                              }{" "}
-                              {target.label}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  }
+                  return (
+                    <ul className="flex flex-col gap-1">
+                      {list.map((target) => (
+                        <li key={target.id}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              addToScene(addingTo, chosenFamily, target)
+                            }
+                            className="w-full truncate rounded-[6px] border border-hikari-line px-2 py-1 text-left text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+                          >
+                            {target.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
+              </>
+            )}
           </>
         )}
       </Modal>

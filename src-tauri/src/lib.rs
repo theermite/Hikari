@@ -54,6 +54,7 @@ pub fn run() {
             engine_lifecycle::reorder_source,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_dialog::init())
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application Tauri");
 }

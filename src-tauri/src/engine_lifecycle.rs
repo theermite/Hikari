@@ -265,7 +265,7 @@ pub(crate) fn list_capture_targets(state: State<EngineState>) -> Result<(), Stri
 pub(crate) fn add_capture_source(
     state: State<EngineState>,
     scene: String,
-    kind: hikari_protocol::CaptureKind,
+    kind: hikari_protocol::SourceKind,
     target_id: String,
     name: String,
 ) -> Result<(), String> {

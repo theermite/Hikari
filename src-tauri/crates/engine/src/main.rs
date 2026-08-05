@@ -81,7 +81,7 @@ fn build_scene_with_capture(
     let first = monitors.first().context("no monitor available to capture")?;
     let item = sources::add_capture_to_scene(
         context,
-        hikari_protocol::CaptureKind::Monitor,
+        hikari_protocol::SourceKind::Monitor,
         first.0.name.as_str(),
         MONITOR_CAPTURE_NAME,
         "main",
@@ -296,7 +296,7 @@ enum EngineEvent {
     ListCaptureTargets,
     AddCaptureSource {
         scene: String,
-        kind: hikari_protocol::CaptureKind,
+        kind: hikari_protocol::SourceKind,
         target_id: String,
         name: String,
     },
@@ -854,7 +854,7 @@ impl App {
     fn handle_add_capture_source(
         &mut self,
         scene: String,
-        kind: hikari_protocol::CaptureKind,
+        kind: hikari_protocol::SourceKind,
         target_id: String,
         name: String,
     ) {
