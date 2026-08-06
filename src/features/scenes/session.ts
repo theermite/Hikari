@@ -25,6 +25,9 @@ export interface SavedSource {
   x: number;
   y: number;
   scalePercent: number;
+  /** Figée à la souris. Absent des sessions écrites avant le 2026-08-06 : l'absence vaut
+   * « libre », jamais « verrouillée » — personne n'a demandé à figer l'existant. */
+  locked?: boolean;
 }
 
 export interface SavedScene {
@@ -46,6 +49,8 @@ export interface SavedCamera {
   x: number;
   y: number;
   scalePercent: number;
+  /** Figée à la souris dans cette scène. Même règle d'absence que pour les captures. */
+  locked?: boolean;
 }
 
 /** Le nom que le moteur donne à sa caméra quand une session ancienne ne le porte pas
@@ -102,6 +107,7 @@ export function toSession(
           x: source.x,
           y: source.y,
           scalePercent: source.scale_percent,
+          locked: source.locked,
         })),
     })),
     audio: audio.map((entry) => ({
@@ -130,6 +136,7 @@ function cameraOf(scene: SceneInfo): SavedCamera | undefined {
     x: camera.x,
     y: camera.y,
     scalePercent: camera.scale_percent,
+    locked: camera.locked,
   };
 }
 
@@ -155,6 +162,7 @@ export type ReplayStep =
   | { do: "addCamera"; scene: string; deviceId: string }
   | { do: "cameraFilters"; scene: string; background: boolean; circle: boolean }
   | { do: "addAudio"; audio: SavedAudio }
+  | { do: "lock"; scene: string; name: string }
   | { do: "switchScene"; scene: string };
 
 /** Le plan pour retrouver l'état sauvegardé, à partir de ce que le moteur a DÉJÀ.
@@ -238,6 +246,23 @@ export function buildReplay(
         x: scene.camera.x,
         y: scene.camera.y,
         scalePercent: scene.camera.scalePercent,
+      });
+    }
+  }
+
+  // Les verrous se posent APRÈS tous les placements, jamais avant : une source verrouillée
+  // trop tôt serait figée au cadre par défaut, et le cadrage retenu perdu pour de bon.
+  for (const scene of saved.scenes) {
+    for (const source of scene.sources) {
+      if (source.locked) {
+        steps.push({ do: "lock", scene: scene.name, name: source.name });
+      }
+    }
+    if (scene.camera?.locked) {
+      steps.push({
+        do: "lock",
+        scene: scene.name,
+        name: scene.camera.name ?? DEFAULT_CAMERA_NAME,
       });
     }
   }

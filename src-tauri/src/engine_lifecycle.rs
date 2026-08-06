@@ -299,6 +299,19 @@ pub(crate) fn set_source_transform(
     )
 }
 
+/// Locks or unlocks a source against the mouse, in one scene (brique Sources). A locked
+/// source stays visible, reorderable and removable — the lock guards against the accidental
+/// gesture, never against the deliberate decision.
+#[tauri::command]
+pub(crate) fn set_source_locked(
+    state: State<EngineState>,
+    scene: String,
+    name: String,
+    locked: bool,
+) -> Result<(), String> {
+    send_command(&state, ControllerCommand::SetSourceLocked { scene, name, locked })
+}
+
 /// Moves a source one step in front of, or behind, the others in its scene (brique Sources).
 #[tauri::command]
 pub(crate) fn reorder_source(

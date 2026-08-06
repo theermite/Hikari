@@ -53,6 +53,7 @@ pub fn run() {
             engine_lifecycle::remove_source,
             engine_lifecycle::reorder_source,
             engine_lifecycle::set_source_transform,
+            engine_lifecycle::set_source_locked,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())

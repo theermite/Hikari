@@ -32,6 +32,7 @@ fn should_carry_everything_needed_to_rebuild_a_source() {
         x: 120,
         y: -40,
         scale_percent: 75,
+        locked: true,
     };
     let line = to_line(&source).expect("serializes");
     let back: SceneSourceInfo = serde_json::from_str(&line).expect("parses");
@@ -39,6 +40,30 @@ fn should_carry_everything_needed_to_rebuild_a_source() {
     assert_eq!(back.source_kind, SourceKind::Game, "la famille survit");
     assert_eq!(back.target_id, "LoL", "ce qu'elle capture survit");
     assert_eq!((back.x, back.y, back.scale_percent), (120, -40, 75), "le placement survit");
+    assert!(back.locked, "le verrou survit — sinon il se rouvre seul au lancement suivant");
+}
+
+#[test]
+fn should_read_a_source_saved_before_the_lock_existed_as_unlocked() {
+    // Les scènes déjà sur le disque n'ont pas ce champ. Un verrou par défaut les figerait
+    // toutes d'un coup, sans que personne ne l'ait demandé : l'absence vaut « libre ».
+    let line = r#"{"name":"Jeu","kind":"game_capture","source_kind":"game","target_id":"LoL","x":0,"y":0,"scale_percent":100}"#;
+
+    let back: SceneSourceInfo = serde_json::from_str(line).expect("parses");
+
+    assert!(!back.locked);
+}
+
+#[test]
+fn should_roundtrip_the_lock_command() {
+    let command = ControllerCommand::SetSourceLocked {
+        scene: "Dofus".to_string(),
+        name: "Webcam".to_string(),
+        locked: true,
+    };
+    let line = to_line(&command).expect("serializes");
+
+    assert_eq!(parse_controller_command(&line).expect("parses"), command);
 }
 
 #[test]
@@ -123,6 +148,11 @@ fn should_roundtrip_every_source_command() {
             y: -40,
             scale_percent: 75,
         },
+        ControllerCommand::SetSourceLocked {
+            scene: "main".to_string(),
+            name: "Jeu".to_string(),
+            locked: true,
+        },
     ];
     for cmd in commands {
         let line = to_line(&cmd).expect("serializes");
@@ -148,6 +178,7 @@ fn should_carry_each_scenes_own_source_list() {
                 x: 10,
                 y: 20,
                 scale_percent: 100,
+                locked: false,
             },
             SceneSourceInfo {
                 name: "Webcam".to_string(),
@@ -157,6 +188,7 @@ fn should_carry_each_scenes_own_source_list() {
                 x: 0,
                 y: 0,
                 scale_percent: 100,
+                locked: true,
             },
         ],
     };

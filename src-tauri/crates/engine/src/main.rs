@@ -169,6 +169,12 @@ struct ObsInner {
     /// scene name. The camera lives in `camera_items` instead — it is ONE physical source
     /// shared across scenes, a rule this generic list would break.
     scene_sources: std::collections::HashMap<String, Vec<SceneSource>>,
+    /// The `(scene, source name)` pairs locked against the mouse (brique Sources).
+    ///
+    /// Keyed by the PAIR rather than stored on `SceneSource`, so the camera obeys the same
+    /// lock without being pulled into that list — it is one physical source shared across
+    /// scenes, and its lock is per scene like its placement. Absent from the set = free.
+    locked: std::collections::HashSet<(String, String)>,
 }
 
 /// Where one source of the active scene sits, in canvas pixels.
@@ -311,6 +317,7 @@ enum EngineEvent {
     RemoveSource { scene: String, name: String },
     ReorderSource { scene: String, name: String, direction: hikari_protocol::SourceOrder },
     SetSourceTransform { scene: String, name: String, x: i32, y: i32, scale_percent: i32 },
+    SetSourceLocked { scene: String, name: String, locked: bool },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on
@@ -391,6 +398,7 @@ impl App {
             camera_device_id: None,
             camera_filters: None,
             camera_items: std::collections::HashMap::new(),
+            locked: std::collections::HashSet::new(),
             scene_filter_state: std::collections::HashMap::new(),
             active_scene: "main".to_string(),
             item_rects: None,
@@ -565,6 +573,9 @@ impl App {
                             scale_percent: scale
                                 .as_ref()
                                 .map_or(100, |s| (s.x() * 100.0).round() as i32),
+                            locked: obs
+                                .locked
+                                .contains(&(name.clone(), source.name.clone())),
                         }
                     }));
                 }
@@ -583,6 +594,10 @@ impl App {
                         scale_percent: scale
                             .as_ref()
                             .map_or(100, |s| (s.x() * 100.0).round() as i32),
+                        locked: obs.locked.contains(&(
+                            name.clone(),
+                            camera::CAMERA_SOURCE_NAME.to_string(),
+                        )),
                     });
                 }
                 SceneInfo { has_camera, background_removal, circle_mask, sources, name }
@@ -896,6 +911,25 @@ impl App {
             return;
         }
         self.scene_layout_changed();
+        self.emit_scene_list();
+    }
+
+    /// Locks or unlocks a source against the mouse, in ONE scene (brique Sources).
+    ///
+    /// Ne vérifie pas que la source existe : verrouiller ce qui n'est pas là n'abîme rien, et
+    /// une erreur ici ferait échouer le rejeu d'une session dont une source a disparu entre
+    /// deux lancements (une fenêtre fermée, un fichier déplacé). Le verrou attend alors la
+    /// source, plutôt que d'interrompre tout le reste.
+    fn handle_set_source_locked(&mut self, scene: String, name: String, locked: bool) {
+        let Some(obs) = &mut self.obs else { return };
+        if locked {
+            obs.locked.insert((scene, name));
+        } else {
+            obs.locked.remove(&(scene, name));
+        }
+        // Le cache des rectangles décide de ce qu'un clic peut attraper : le laisser tel quel
+        // rendrait le verrou effectif seulement au prochain changement de scène.
+        obs.item_rects = None;
         self.emit_scene_list();
     }
 
@@ -1396,14 +1430,27 @@ impl App {
         let scene = obs.active_scene.clone();
 
         // Camera + captures gathered together: the user sees one stack, not two families.
+        //
+        // Une source VERROUILLÉE n'entre pas dans cette liste (brique Sources). C'est le seul
+        // endroit où le verrou peut vraiment tenir : tout geste souris — saisir, déplacer,
+        // redimensionner, et jusqu'au curseur qui change de forme — part de ce test de clic.
+        // Le désactiver côté écran laisserait la source attrapable, donc pas verrouillée.
         let mut items: Vec<(String, &ObsSceneItemRef<ObsSourceRef>)> = obs
             .scene_sources
             .get(&scene)
             .map(|list| {
-                list.iter().map(|source| (source.name.clone(), &source.item)).collect()
+                list.iter()
+                    .filter(|source| {
+                        !obs.locked.contains(&(scene.clone(), source.name.clone()))
+                    })
+                    .map(|source| (source.name.clone(), &source.item))
+                    .collect()
             })
             .unwrap_or_default();
-        if let Some(item) = obs.camera_items.get(&scene) {
+        let camera_locked = obs
+            .locked
+            .contains(&(scene.clone(), camera::CAMERA_SOURCE_NAME.to_string()));
+        if let Some(item) = obs.camera_items.get(&scene).filter(|_| !camera_locked) {
             items.push((camera::CAMERA_SOURCE_NAME.to_string(), item));
         }
 
@@ -1718,6 +1765,9 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetSourceTransform { scene, name, x, y, scale_percent } => {
                 self.handle_set_source_transform(scene, name, x, y, scale_percent)
             }
+            EngineEvent::SetSourceLocked { scene, name, locked } => {
+                self.handle_set_source_locked(scene, name, locked)
+            }
         }
     }
 
@@ -1902,6 +1952,9 @@ fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 }
                 Ok(ControllerCommand::SetSourceTransform { scene, name, x, y, scale_percent }) => {
                     let _ = proxy.send_event(EngineEvent::SetSourceTransform { scene, name, x, y, scale_percent });
+                }
+                Ok(ControllerCommand::SetSourceLocked { scene, name, locked }) => {
+                    let _ = proxy.send_event(EngineEvent::SetSourceLocked { scene, name, locked });
                 }
                 Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),

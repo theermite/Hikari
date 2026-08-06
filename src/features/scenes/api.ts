@@ -58,6 +58,17 @@ export function setSourceTransform(
   return invoke("set_source_transform", { scene, name, x, y, scalePercent });
 }
 
+/** Fige une source à la souris dans cette scène, ou la libère. Le moteur cesse alors de la
+ * voir au test de clic : ni déplacement, ni redimensionnement. Elle reste visible,
+ * réordonnable et supprimable. */
+export function setSourceLocked(
+  scene: string,
+  name: string,
+  locked: boolean,
+): Promise<void> {
+  return invoke("set_source_locked", { scene, name, locked });
+}
+
 /** Moves a source one step in front of, or behind, the others in its scene — which source
  * hides which is a composition decision, so it belongs to the scene. */
 export function reorderSource(

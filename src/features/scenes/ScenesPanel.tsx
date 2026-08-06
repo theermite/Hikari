@@ -32,6 +32,7 @@ import {
   listCaptureTargets,
   removeSource,
   reorderSource,
+  setSourceLocked,
   setSourceTransform,
   switchScene,
 } from "./api";
@@ -198,6 +199,9 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                 a.noiseLevelDb,
               );
             }
+          }
+          if (step.do === "lock") {
+            await setSourceLocked(step.scene, step.name, true);
           }
           if (step.do === "switchScene") await switchScene(step.scene);
         }
@@ -393,6 +397,15 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     );
   };
 
+  /** Fige une source à la souris, ou la libère. L'état affiché vient du moteur au message
+   * suivant : on n'anticipe pas ici, sinon le cadenas mentirait si la commande échouait. */
+  const toggleLock = (scene: string, name: string, locked: boolean) => {
+    setActionError(null);
+    setSourceLocked(scene, name, locked).catch((error: unknown) =>
+      setActionError(String(error)),
+    );
+  };
+
   const startRename = (name: string) => {
     setLabelError(null);
     setRenaming(name);
@@ -551,6 +564,30 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                           >
                             ↓
                           </OrderButton>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              toggleLock(scene.name, item.name, !item.locked)
+                            }
+                            aria-label={
+                              item.locked
+                                ? `Libérer ${item.name} dans ${labelFor(scene.name, layout)}`
+                                : `Figer ${item.name} dans ${labelFor(scene.name, layout)}`
+                            }
+                            aria-pressed={item.locked}
+                            title={
+                              item.locked
+                                ? `${item.name} est figée — cliquer pour la libérer`
+                                : `Figer ${item.name} : plus déplaçable à la souris`
+                            }
+                            className={`px-1 transition ${
+                              item.locked
+                                ? "text-hikari-accent"
+                                : "text-hikari-txt-faint hover:text-hikari-txt"
+                            }`}
+                          >
+                            {item.locked ? "🔒" : "🔓"}
+                          </button>
                           <button
                             type="button"
                             onClick={() =>

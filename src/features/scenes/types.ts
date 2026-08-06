@@ -37,6 +37,11 @@ export interface SceneSourceInfo {
   x: number;
   y: number;
   scale_percent: number;
+  /** Figée à la souris DANS CETTE SCÈNE. Le moteur refuse alors de la saisir ; elle reste
+   * visible, réordonnable et supprimable — le verrou protège du geste accidentel, jamais de
+   * la décision. Par scène, car la même caméra est cadrée une fois pour toutes ici et libre
+   * ailleurs. */
+  locked: boolean;
 }
 
 export interface SceneInfo {

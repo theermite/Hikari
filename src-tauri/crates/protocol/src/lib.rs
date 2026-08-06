@@ -163,6 +163,14 @@ pub struct SceneSourceInfo {
     pub x: i32,
     pub y: i32,
     pub scale_percent: i32,
+    /// Locked against the mouse IN THIS SCENE — a placement the user considers settled.
+    ///
+    /// Per scene, not per source: the same webcam is framed once and for all in a talking
+    /// scene while it still moves freely in a gameplay scene. The lock is enforced where the
+    /// gesture is resolved (the click hit test ignores it), never by hiding a button — a
+    /// source that can still be grabbed is not locked, whatever the panel shows.
+    #[serde(default)]
+    pub locked: bool,
 }
 
 /// Validates a candidate source name against the sources ALREADY IN THAT SCENE.
@@ -614,6 +622,14 @@ pub enum ControllerCommand {
     /// sources puis les repose là où elles étaient. Sans cette commande, tout le placement
     /// serait à refaire à chaque lancement.
     SetSourceTransform { scene: String, name: String, x: i32, y: i32, scale_percent: i32 },
+    /// Locks or unlocks `name` in `scene` against the mouse (brique Sources). A locked
+    /// source is skipped by the click hit test, so it can be neither moved nor resized —
+    /// it stays visible, still reorderable and still removable, because locking guards
+    /// against the accidental gesture, never against the deliberate decision.
+    ///
+    /// Applies to the camera too, under its own name: it is the item most often nudged by
+    /// accident, and excluding it would make the lock feel arbitrary.
+    SetSourceLocked { scene: String, name: String, locked: bool },
     /// Sets the volume the STREAMER hears, independently of what the audience hears.
     ///
     /// WHY it needs its own command and its own plumbing: libobs has ONE volume per source,

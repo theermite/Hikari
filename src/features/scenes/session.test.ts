@@ -10,6 +10,7 @@ const source = (over: Partial<SceneSourceInfo> = {}): SceneSourceInfo => ({
   x: 10,
   y: 20,
   scale_percent: 100,
+  locked: false,
   ...over,
 });
 
@@ -32,6 +33,7 @@ describe("toSession", () => {
       x: 10,
       y: 20,
       scalePercent: 100,
+      locked: false,
     });
   });
 
@@ -260,6 +262,68 @@ describe("buildReplay", () => {
 
     expect(added).toBeGreaterThanOrEqual(0);
     expect(placed).toBeGreaterThan(added);
+  });
+
+  it("should_lock_back_a_source_the_user_had_locked", () => {
+    // Un verrou qui se rouvre au lancement ne protège de rien : c'est précisément après un
+    // redémarrage qu'on redispose l'écran, donc qu'on risque le geste accidentel.
+    const saved = toSession(
+      [scene("Bureau", [source({ name: "Fond", locked: true })])],
+      "Bureau",
+    );
+
+    const steps = buildReplay(saved, [scene("main")]);
+
+    expect(steps).toContainEqual({
+      do: "lock",
+      scene: "Bureau",
+      name: "Fond",
+    });
+  });
+
+  it("should_lock_only_after_the_source_is_placed", () => {
+    // Verrouiller avant de replacer figerait la source au cadre par défaut : le moteur
+    // refuserait ensuite de la bouger, et le placement retenu serait perdu pour de bon.
+    const saved = toSession(
+      [scene("Bureau", [source({ name: "Fond", locked: true })])],
+      "Bureau",
+    );
+
+    const steps = buildReplay(saved, [scene("main")]);
+    const placed = steps.findIndex(
+      (s) => s.do === "transform" && s.name === "Fond",
+    );
+    const locked = steps.findIndex((s) => s.do === "lock" && s.name === "Fond");
+
+    expect(placed).toBeGreaterThanOrEqual(0);
+    expect(locked).toBeGreaterThan(placed);
+  });
+
+  it("should_ask_for_no_lock_when_nothing_is_locked", () => {
+    const steps = buildReplay(saved, [scene("main")]);
+
+    expect(steps.filter((s) => s.do === "lock")).toHaveLength(0);
+  });
+
+  it("should_lock_back_a_camera_the_user_had_locked", () => {
+    // La caméra est celle qu'on bouge le plus par accident : l'exclure du verrou en ferait
+    // une exception que rien ne justifie côté utilisateur.
+    const bureau = scene("Bureau", [
+      source({
+        name: "Webcam",
+        source_kind: "camera",
+        target_id: "cam:1",
+        locked: true,
+      }),
+    ]);
+
+    const steps = buildReplay(toSession([bureau], "Bureau"), [scene("main")]);
+
+    expect(steps).toContainEqual({
+      do: "lock",
+      scene: "Bureau",
+      name: "Webcam",
+    });
   });
 
   it("should_still_place_a_camera_saved_before_its_name_was_kept", () => {
