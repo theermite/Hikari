@@ -139,6 +139,74 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const activeRef = useRef("main");
 
   useEffect(() => {
+    /** Rend au moteur la session d'avant : il repart vierge à chaque lancement.
+     *
+     * Définie DANS l'effet, et non au-dessus : elle n'est appelée que par l'écoute qui vit
+     * ici, et une fonction déclarée dehors serait recréée à chaque rendu — l'écoute devrait
+     * alors se réabonner sans cesse, ou mentir sur ce dont elle dépend.
+     *
+     * Les étapes sont jouées EN SÉRIE et non en parallèle : chacune dépend de la précédente
+     * (on ne remplit pas une scène qui n'existe pas encore), et le moteur les traite dans
+     * l'ordre où elles arrivent. */
+    const restoreSession = async () => {
+      if (replaying.current) return;
+      replaying.current = true;
+      try {
+        const saved = await loadSession();
+        const steps = buildReplay(saved, stateRef.current);
+        for (const step of steps) {
+          if (step.do === "createScene") await createScene(step.scene);
+          if (step.do === "addSource") {
+            await addCaptureSource(
+              step.scene,
+              step.kind,
+              step.targetId,
+              step.name,
+            );
+          }
+          if (step.do === "transform") {
+            await setSourceTransform(
+              step.scene,
+              step.name,
+              step.x,
+              step.y,
+              step.scalePercent,
+            );
+          }
+          if (step.do === "addCamera") {
+            await addCameraSource(step.deviceId, step.scene);
+          }
+          if (step.do === "cameraFilters") {
+            await setBackgroundRemoval(step.scene, step.background);
+            await setCircleMask(step.scene, step.circle);
+          }
+          if (step.do === "addAudio") {
+            const a = step.audio;
+            await addAudioSource(a.deviceId, a.kind, a.name);
+            await setAudioVolume(a.name, a.volumePercent);
+            await setMonitorVolume(a.name, a.monitorVolumePercent);
+            await setAudioMonitoring(a.name, a.monitoring);
+            await setAudioMuted(a.name, a.muted);
+            if (a.kind === "input") {
+              await setNoiseSettings(
+                a.name,
+                a.noiseSuppression,
+                a.noiseMethod,
+                a.noiseLevelDb,
+              );
+            }
+          }
+          if (step.do === "switchScene") await switchScene(step.scene);
+        }
+      } catch (error: unknown) {
+        // Une session qu'on ne peut pas rendre est signalée, jamais avalée : l'utilisateur
+        // doit savoir que son cadrage n'a pas été retrouvé plutôt que de le découvrir en direct.
+        setActionError(`Session non restaurée : ${String(error)}`);
+      } finally {
+        replaying.current = false;
+      }
+    };
+
     const unlisten = listen<EngineMessage>("engine-message", (event) => {
       const msg = event.payload;
       if (msg.type === "scene_list" && msg.scenes && msg.active) {
@@ -206,70 +274,6 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   useEffect(() => {
     if (addingTo && targets && !chosenIsFile) searchInput.current?.focus();
   }, [addingTo, targets, chosenIsFile]);
-
-  /** Rend au moteur la session d'avant : il repart vierge à chaque lancement.
-   *
-   * Les étapes sont jouées EN SÉRIE et non en parallèle : chacune dépend de la précédente
-   * (on ne remplit pas une scène qui n'existe pas encore), et le moteur les traite dans
-   * l'ordre où elles arrivent. */
-  const restoreSession = async () => {
-    if (replaying.current) return;
-    replaying.current = true;
-    try {
-      const saved = await loadSession();
-      const steps = buildReplay(saved, stateRef.current);
-      for (const step of steps) {
-        if (step.do === "createScene") await createScene(step.scene);
-        if (step.do === "addSource") {
-          await addCaptureSource(
-            step.scene,
-            step.kind,
-            step.targetId,
-            step.name,
-          );
-        }
-        if (step.do === "transform") {
-          await setSourceTransform(
-            step.scene,
-            step.name,
-            step.x,
-            step.y,
-            step.scalePercent,
-          );
-        }
-        if (step.do === "addCamera") {
-          await addCameraSource(step.deviceId, step.scene);
-        }
-        if (step.do === "cameraFilters") {
-          await setBackgroundRemoval(step.scene, step.background);
-          await setCircleMask(step.scene, step.circle);
-        }
-        if (step.do === "addAudio") {
-          const a = step.audio;
-          await addAudioSource(a.deviceId, a.kind, a.name);
-          await setAudioVolume(a.name, a.volumePercent);
-          await setMonitorVolume(a.name, a.monitorVolumePercent);
-          await setAudioMonitoring(a.name, a.monitoring);
-          await setAudioMuted(a.name, a.muted);
-          if (a.kind === "input") {
-            await setNoiseSettings(
-              a.name,
-              a.noiseSuppression,
-              a.noiseMethod,
-              a.noiseLevelDb,
-            );
-          }
-        }
-        if (step.do === "switchScene") await switchScene(step.scene);
-      }
-    } catch (error: unknown) {
-      // Une session qu'on ne peut pas rendre est signalée, jamais avalée : l'utilisateur
-      // doit savoir que son cadrage n'a pas été retrouvé plutôt que de le découvrir en direct.
-      setActionError(`Session non restaurée : ${String(error)}`);
-    } finally {
-      replaying.current = false;
-    }
-  };
 
   const persist = (next: SceneLayout) => {
     setLayout(next);
@@ -673,28 +677,27 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                     );
                   }
                   return (
-                    <>
-                      <ul className="flex flex-col gap-1">
-                        {/* La position entre dans la clé : Windows expose plusieurs entrées
-                            au MÊME identifiant, et des clés en double empêchaient React de
-                            savoir quelle ligne remplacer — la liste restait figée pendant
-                            la frappe (vécu 2026-08-05). */}
-                        {hits.map((hit, position) => (
-                          <li key={`${hit.kind}:${hit.target.id}:${position}`}>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                addToScene(addingTo, hit.kind, hit.target)
-                              }
-                              className="w-full truncate rounded-[6px] border border-hikari-line px-2 py-1 text-left text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
-                            >
-                              {SOURCE_ICON[KIND_TO_LIBOBS[hit.kind]] ?? "▪"}{" "}
-                              {hit.target.label}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
+                    <ul className="flex flex-col gap-1">
+                      {/* La position entre dans la clé : Windows expose plusieurs entrées
+                          au MÊME identifiant, et des clés en double empêchaient React de
+                          savoir quelle ligne remplacer — la liste restait figée pendant
+                          la frappe (vécu 2026-08-05). */}
+                      {hits.map((hit, position) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: la position départage un identifiant, elle ne le remplace pas — Windows expose jusqu'à 12 entrées au MÊME identifiant, et sans ce départage les clés se dupliquent et la liste se fige pendant la frappe (vécu 2026-08-05).
+                        <li key={`${hit.kind}:${hit.target.id}:${position}`}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              addToScene(addingTo, hit.kind, hit.target)
+                            }
+                            className="w-full truncate rounded-[6px] border border-hikari-line px-2 py-1 text-left text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+                          >
+                            {SOURCE_ICON[KIND_TO_LIBOBS[hit.kind]] ?? "▪"}{" "}
+                            {hit.target.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   );
                 })()}
               </>
