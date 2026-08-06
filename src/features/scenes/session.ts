@@ -37,12 +37,22 @@ export interface SavedScene {
  * à chaque scène — c'est exactement le flux que Jay utilise. */
 export interface SavedCamera {
   deviceId: string;
+  /** Le nom que le moteur donne à la source caméra. Retenu parce que replacer un objet
+   * exige de savoir le nommer — sans lui, le cadrage ci-dessous ne serait adressable par
+   * aucune commande au rejeu. Absent des sessions écrites avant le 2026-08-06. */
+  name?: string;
   backgroundRemoval: boolean;
   circleMask: boolean;
   x: number;
   y: number;
   scalePercent: number;
 }
+
+/** Le nom que le moteur donne à sa caméra quand une session ancienne ne le porte pas
+ * (`CAMERA_SOURCE_NAME`, `crates/protocol/src/lib.rs` — une seule caméra, donc un seul nom
+ * possible). Le test `should_keep_the_camera_name_the_session_replay_falls_back_to` casse
+ * si l'autre côté de la frontière change cette valeur sans qu'on touche à celle-ci. */
+const DEFAULT_CAMERA_NAME = "Webcam";
 
 /** Une entrée du mixeur telle qu'on la retrouvera. */
 export interface SavedAudio {
@@ -114,6 +124,7 @@ function cameraOf(scene: SceneInfo): SavedCamera | undefined {
   if (!camera) return undefined;
   return {
     deviceId: camera.target_id,
+    name: camera.name,
     backgroundRemoval: scene.background_removal,
     circleMask: scene.circle_mask,
     x: camera.x,
@@ -205,7 +216,9 @@ export function buildReplay(
 
   // Le placement est réappliqué même sur une source déjà présente : la capture d'écran que
   // le moteur pose lui-même au démarrage arrive au cadre par défaut, pas là où l'utilisateur
-  // l'avait mise.
+  // l'avait mise. La caméra en fait partie — elle vient d'être ajoutée juste au-dessus, donc
+  // au cadre par défaut elle aussi, et c'est ici et nulle part ailleurs qu'elle retrouve le
+  // sien (Jay, 2026-08-06 : le cadrage était écrit sur le disque, jamais rendu à l'écran).
   for (const scene of saved.scenes) {
     for (const source of scene.sources) {
       steps.push({
@@ -215,6 +228,16 @@ export function buildReplay(
         x: source.x,
         y: source.y,
         scalePercent: source.scalePercent,
+      });
+    }
+    if (scene.camera) {
+      steps.push({
+        do: "transform",
+        scene: scene.name,
+        name: scene.camera.name ?? DEFAULT_CAMERA_NAME,
+        x: scene.camera.x,
+        y: scene.camera.y,
+        scalePercent: scene.camera.scalePercent,
       });
     }
   }

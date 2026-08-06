@@ -4,11 +4,20 @@
 //! libobs-backed brick in this codebase.
 
 use hikari_protocol::{
-    CAMERA_POSITION_BOUND, CAMERA_SCALE_MAX, CAMERA_SCALE_MIN, ControllerCommand, EngineMessage,
-    clamp_camera_position, clamp_camera_scale, parse_controller_command, parse_engine_message,
-    to_line,
+    CAMERA_POSITION_BOUND, CAMERA_SCALE_MAX, CAMERA_SCALE_MIN, CAMERA_SOURCE_NAME,
+    ControllerCommand, EngineMessage, clamp_camera_position, clamp_camera_scale,
+    parse_controller_command, parse_engine_message, to_line,
 };
 use proptest::prelude::*;
+
+/// Une session enregistrée avant le 2026-08-06 ne porte pas le nom de sa caméra : le rejeu
+/// retombe alors sur cette valeur, recopiée de l'autre côté de la frontière
+/// (`DEFAULT_CAMERA_NAME`, `src/features/scenes/session.ts`). La renommer d'un seul côté
+/// ferait silencieusement perdre le cadrage au lancement — ce test casse à la place.
+#[test]
+fn should_keep_the_camera_name_the_session_replay_falls_back_to() {
+    assert_eq!(CAMERA_SOURCE_NAME, "Webcam");
+}
 
 #[test]
 fn should_pass_through_position_within_bound() {

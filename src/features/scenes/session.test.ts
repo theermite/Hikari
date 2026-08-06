@@ -115,6 +115,21 @@ describe("toSession", () => {
   it("should_remember_which_scene_was_live", () => {
     expect(toSession([scene("main"), scene("Jeu")], "Jeu").active).toBe("Jeu");
   });
+
+  it("should_remember_the_cameras_own_source_name", () => {
+    // Sans son nom, le placement retenu n'est adressable par aucune commande au rejeu : il
+    // reste sur le disque sans jamais revenir à l'écran (défaut trouvé par Jay, 2026-08-06).
+    const doc = toSession(
+      [
+        scene("Bureau", [
+          source({ name: "Webcam", source_kind: "camera", target_id: "cam:1" }),
+        ]),
+      ],
+      "Bureau",
+    );
+
+    expect(doc.scenes[0].camera?.name).toBe("Webcam");
+  });
 });
 
 describe("buildReplay", () => {
@@ -200,5 +215,70 @@ describe("buildReplay", () => {
     ]);
 
     expect(steps).toEqual([]);
+  });
+
+  /** Le cadrage de la caméra était retenu sur le disque et jamais rendu à l'écran (Jay,
+   * 2026-08-06 : « la position de la caméra n'a pas été mémorisée »). Une caméra ajoutée
+   * revient au cadre par défaut du moteur : sans replacement explicite, chaque lancement
+   * défait le cadrage de la veille. */
+  const withCamera = () => {
+    const bureau = scene("Bureau", [
+      source({
+        name: "Webcam",
+        source_kind: "camera",
+        target_id: "cam:1",
+        x: 941,
+        y: 486,
+        scale_percent: 55,
+      }),
+    ]);
+    bureau.background_removal = true;
+    return toSession([bureau], "Bureau");
+  };
+
+  it("should_put_the_camera_back_where_the_user_left_it", () => {
+    const steps = buildReplay(withCamera(), [scene("main")]);
+
+    expect(steps).toContainEqual({
+      do: "transform",
+      scene: "Bureau",
+      name: "Webcam",
+      x: 941,
+      y: 486,
+      scalePercent: 55,
+    });
+  });
+
+  it("should_place_the_camera_only_after_it_exists", () => {
+    // Replacer une caméra que le moteur n'a pas encore reçue viserait un objet absent :
+    // le moteur répondrait « Webcam n'est pas dans Bureau » et le cadrage serait perdu.
+    const steps = buildReplay(withCamera(), [scene("main")]);
+    const added = steps.findIndex((s) => s.do === "addCamera");
+    const placed = steps.findIndex(
+      (s) => s.do === "transform" && s.name === "Webcam",
+    );
+
+    expect(added).toBeGreaterThanOrEqual(0);
+    expect(placed).toBeGreaterThan(added);
+  });
+
+  it("should_still_place_a_camera_saved_before_its_name_was_kept", () => {
+    // Les sessions écrites avant ce correctif n'ont pas de nom de caméra. Le moteur n'en
+    // a qu'un seul possible : s'en servir évite de perdre un cadrage au premier lancement
+    // qui suit la mise à jour.
+    const doc = withCamera();
+    const camera = doc.scenes[0].camera;
+    if (camera) delete (camera as { name?: string }).name;
+
+    const steps = buildReplay(doc, [scene("main")]);
+
+    expect(steps).toContainEqual({
+      do: "transform",
+      scene: "Bureau",
+      name: "Webcam",
+      x: 941,
+      y: 486,
+      scalePercent: 55,
+    });
   });
 });

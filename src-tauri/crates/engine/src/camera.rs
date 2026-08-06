@@ -76,7 +76,11 @@ pub fn probe_camera_devices(context: &ObsContext) -> Result<Vec<CameraDevice>> {
 /// The fixed name given to the physical webcam source — ONE camera source total (Jay,
 /// 2026-07-24: "la caméra est unique"), reused across every scene it appears in, exactly
 /// like OBS itself (a source added to several scenes is the same source, not a clone).
-pub const CAMERA_SOURCE_NAME: &str = "Webcam";
+///
+/// Défini dans `hikari-protocol` : l'app s'en sert aussi (repli du rejeu de session), et ce
+/// binaire ne tourne aucun test, donc une constante gardée ici ne serait épinglée par aucun.
+/// Ré-exporté pour que le code caméra garde son propre vocabulaire.
+pub use hikari_protocol::CAMERA_SOURCE_NAME;
 
 /// Builds the `dshow_input` source for `device_id` — called ONCE, the first time a camera
 /// is added to any scene. Does not add it to a scene itself (see `add_existing_camera_to_scene`,

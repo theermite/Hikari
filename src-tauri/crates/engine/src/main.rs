@@ -871,11 +871,17 @@ impl App {
         scale_percent: i32,
     ) {
         let Some(obs) = &self.obs else { return };
+        // La caméra ne vit pas dans `scene_sources` (elle est UNE source physique partagée,
+        // rangée à part) : la chercher là seulement rendait son cadrage IMPLACABLE au rejeu
+        // de session — retenu sur le disque, refusé par le moteur (Jay, 2026-08-06).
         let Some(item) = obs
             .scene_sources
             .get(&scene)
             .and_then(|list| list.iter().find(|source| source.name == name))
             .map(|source| &source.item)
+            .or_else(|| {
+                (name == camera::CAMERA_SOURCE_NAME).then(|| obs.camera_items.get(&scene))?
+            })
         else {
             emit(&EngineMessage::Error {
                 message: format!("« {name} » n'est pas dans « {scene} »"),

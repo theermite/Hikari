@@ -22,6 +22,15 @@ pub const MONITOR_CAPTURE_KIND: &str = "monitor_capture";
 /// win-dshow OBS plugin registers, never invented (B-cam).
 pub const CAMERA_KIND: &str = "dshow_input";
 
+/// The fixed name the engine gives its webcam source — ONE camera source total, reused by
+/// every scene that shows it (Jay, 2026-07-24: « la caméra est unique »).
+///
+/// Lives HERE rather than in the engine because both sides of the wire need it: the app
+/// falls back to this name to replace a camera saved before the name was recorded, and the
+/// engine answers to it. The engine binary links libobs and therefore runs no tests
+/// (`test = false`), so a constant kept there could never be pinned by one.
+pub const CAMERA_SOURCE_NAME: &str = "Webcam";
+
 /// One source inside a scene (e.g. a monitor capture). `kind` names the libobs source
 /// family so a deck can render an icon without guessing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
