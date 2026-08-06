@@ -128,6 +128,9 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const searchInput = useRef<HTMLInputElement>(null);
   /** Vrai pendant le rejeu de la session — empêche de réécrire par-dessus ce qu'on restaure. */
   const replaying = useRef(false);
+  /** Vrai une fois le rejeu lancé. Tant qu'il est faux, on ne SAUVEGARDE pas : l'état nu du
+   * moteur au démarrage écraserait la session qu'on s'apprête justement à lui rendre. */
+  const restored = useRef(false);
   /** L'état vu par le rejeu. Une référence et non l'état React : le rejeu démarre depuis une
    * fonction de rappel qui a capturé un état déjà périmé. */
   const stateRef = useRef<SceneInfo[]>([]);
@@ -213,11 +216,24 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         setState({ status: "ready", scenes: msg.scenes, active: msg.active });
         stateRef.current = msg.scenes;
         activeRef.current = msg.active;
+        // Le rejeu part d'ICI, au premier inventaire reçu, et non du signal de démarrage :
+        // il calcule ce qui MANQUE au moteur, donc il lui faut d'abord savoir ce que le
+        // moteur a. Lancé trop tôt il croyait le moteur vide et redemandait tout, ce qui
+        // affichait « Monitor Capture existe déjà » à chaque lancement (Jay, 2026-08-06).
+        //
+        // Recevoir un inventaire suffit — inutile d'attendre en plus le signal de démarrage,
+        // qu'une page rechargée en cours de session a déjà manqué : le rejeu resterait alors
+        // en attente pour toujours, et avec lui la sauvegarde.
+        if (!restored.current) {
+          restored.current = true;
+          restoreSession();
+          return;
+        }
         // Retenu à CHAQUE changement plutôt qu'à la fermeture : une app fermée brutalement
         // ne sauvegarde rien, et c'est précisément le moment où l'on perd le plus.
-        // Pendant le rejeu, on ne réécrit pas — sinon l'état partiel en cours de
-        // reconstruction écraserait la session qu'on est en train de restaurer.
-        if (!replaying.current) {
+        // Jamais AVANT d'avoir rejoué : la session d'avant serait écrasée par l'état nu du
+        // moteur au démarrage. Ni PENDANT, où l'état est à moitié reconstruit.
+        if (restored.current && !replaying.current) {
           saveSession(
             toSession(msg.scenes, msg.active, audioRef.current),
           ).catch(() => undefined);
@@ -240,9 +256,6 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       // rattrapage, ouvrir l'Aperçu après la fenêtre d'ajout laisserait celle-ci vide.
       if (msg.type === "ready") {
         listCaptureTargets().catch(() => undefined);
-        // Le moteur repart vierge à chaque lancement : c'est ici, et seulement ici, qu'on
-        // peut lui rendre la session d'avant.
-        restoreSession();
       }
       if (msg.type === "capture_targets") {
         setTargets({
