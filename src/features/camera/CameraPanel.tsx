@@ -5,13 +5,17 @@
 // (`obs_source_set_enabled`, instantané, jamais un rebuild) et gardent un état INDÉPENDANT
 // par scène — changer de scène applique automatiquement les filtres de cette scène.
 //
-// Simplification connue de cette tranche : l'état affiché ici (ajoutée/filtres) repart à
-// zéro visuellement à chaque changement de scène (aucune commande de lecture d'état
-// n'existe encore côté moteur) — le moteur, lui, garde le vrai état par scène.
+// Ce panneau LIT l'état du moteur, il ne le devine pas. Chaque `scene_list` dit, pour la
+// scène en direct, si elle porte la caméra et quels filtres y sont actifs : c'est cette
+// vérité qui pilote l'affichage. Auparavant le panneau tenait sa propre supposition, remise
+// à zéro à chaque changement de scène — après un rejeu de session la caméra était à l'écran
+// et le panneau la croyait absente, donc ses filtres restaient hors d'atteinte (Jay,
+// 2026-08-06 : « je ne peux pas appliquer des filtres, ce qui est gênant »).
 
 import { listen } from "@tauri-apps/api/event";
 import type { IDockviewPanelProps } from "dockview-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { SceneInfo } from "../scenes/types";
 import {
   addCameraSource,
   listCameras,
@@ -31,6 +35,7 @@ interface EngineMessage {
   type: string;
   names?: string[];
   active?: string;
+  scenes?: SceneInfo[];
 }
 
 type State =
@@ -74,36 +79,66 @@ export function CameraPanel(_props: IDockviewPanelProps) {
   });
   const [transformError, setTransformError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const unlisten = listen<EngineMessage>("engine-message", (event) => {
-      const msg = event.payload;
-      if (msg.type === "scene_list" && msg.active) {
-        setActiveScene((current) => {
-          if (current !== msg.active) {
-            // A different scene became live — its camera/filter state is independent and
-            // unknown to this panel yet (no state-read command exists), so the UI resets
-            // rather than show stale info from the previous scene.
-            setAddState({ status: "idle" });
-            setBackgroundState(INITIAL_EFFECT);
-            setMaskState(INITIAL_EFFECT);
-          }
-          return msg.active as string;
-        });
-      }
-    });
-    return () => {
-      unlisten.then((f) => f());
-    };
-  }, []);
+  /** Vrai dès qu'une détection a été lancée — la liste des appareils se demande UNE fois,
+   * pas à chaque message du moteur. */
+  const detecting = useRef(false);
 
-  const detect = () => {
+  /** Identité stable : l'écoute des messages du moteur en dépend, et une fonction recréée à
+   * chaque rendu la forcerait à se réabonner sans cesse. */
+  const detect = useCallback(() => {
+    detecting.current = true;
     setState({ status: "checking" });
     listCameras()
       .then((devices) => setState({ status: "done", devices }))
       .catch((error: unknown) => {
         setState({ status: "error", message: String(error) });
       });
-  };
+  }, []);
+
+  useEffect(() => {
+    const unlisten = listen<EngineMessage>("engine-message", (event) => {
+      const msg = event.payload;
+      // Le moteur vient de démarrer : c'est le premier instant où il peut répondre. Sans
+      // cette détection automatique, la liste restait vide tant que l'utilisateur n'avait
+      // pas cliqué — et les réglages d'une caméra pourtant visible à l'écran restaient
+      // inaccessibles au retour d'une session (Jay, 2026-08-06).
+      if (msg.type === "ready" && !detecting.current) detect();
+
+      if (msg.type === "scene_list" && msg.active) {
+        setActiveScene(msg.active);
+        // Rattrapage si ce panneau a été ouvert APRÈS le démarrage du moteur : il a alors
+        // manqué le signal ci-dessus, et rien d'autre ne relancerait la détection.
+        if (!detecting.current) detect();
+
+        const live = msg.scenes?.find((scene) => scene.name === msg.active);
+        if (!live) return;
+        // La scène en direct dit elle-même ce qu'elle porte : on affiche ÇA, jamais une
+        // supposition locale. Un réglage en cours d'envoi n'est pas écrasé — sa réponse
+        // arrivera dans un `scene_list` suivant.
+        const camera = live.sources.find((s) => s.source_kind === "camera");
+        setAddState((current) =>
+          current.status === "adding"
+            ? current
+            : camera
+              ? { status: "added", deviceId: camera.target_id }
+              : { status: "idle" },
+        );
+        setBackgroundState((current) =>
+          current.pending
+            ? current
+            : { enabled: live.background_removal, pending: false, error: null },
+        );
+        setMaskState((current) =>
+          current.pending
+            ? current
+            : { enabled: live.circle_mask, pending: false, error: null },
+        );
+      }
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, [detect]);
 
   const addToScene = (deviceId: string) => {
     setAddState({ status: "adding", deviceId });
