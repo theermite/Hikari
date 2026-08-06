@@ -9,6 +9,12 @@
 // « main » avec sa capture d'écran. Rejouer aveuglément tenterait de la recréer et se ferait
 // refuser. On ne demande donc que ce qui manque.
 
+import type {
+  AudioMonitoring,
+  AudioSourceInfo,
+  AudioSourceKind,
+  NoiseMethod,
+} from "../audio/types";
 import type { SceneInfo, SourceKind } from "./types";
 
 /** Une source telle qu'on la retrouvera au prochain lancement. */
@@ -24,27 +30,61 @@ export interface SavedSource {
 export interface SavedScene {
   name: string;
   sources: SavedSource[];
+  camera?: SavedCamera;
+}
+
+/** La caméra d'une scène : le même appareil partout, mais un cadrage et des filtres propres
+ * à chaque scène — c'est exactement le flux que Jay utilise. */
+export interface SavedCamera {
+  deviceId: string;
+  backgroundRemoval: boolean;
+  circleMask: boolean;
+  x: number;
+  y: number;
+  scalePercent: number;
+}
+
+/** Une entrée du mixeur telle qu'on la retrouvera. */
+export interface SavedAudio {
+  name: string;
+  kind: AudioSourceKind;
+  deviceId: string;
+  volumePercent: number;
+  monitorVolumePercent: number;
+  muted: boolean;
+  monitoring: AudioMonitoring;
+  noiseSuppression: boolean;
+  noiseMethod: NoiseMethod;
+  noiseLevelDb: number;
 }
 
 export interface SessionDoc {
   scenes: SavedScene[];
   active: string;
+  audio: SavedAudio[];
 }
 
-export const EMPTY_SESSION: SessionDoc = { scenes: [], active: "main" };
-
-/** La caméra ne se rejoue pas par ce chemin : c'est UNE source physique partagée entre
- * scènes, recréée par sa propre commande. La retenir ici la ferait recréer en double. */
-const CAMERA_KIND = "dshow_input";
+export const EMPTY_SESSION: SessionDoc = {
+  scenes: [],
+  active: "main",
+  audio: [],
+};
 
 /** Ce qu'il faut retenir de l'état courant. Pure : c'est ce qui la rend prouvable. */
-export function toSession(scenes: SceneInfo[], active: string): SessionDoc {
+export function toSession(
+  scenes: SceneInfo[],
+  active: string,
+  audio: AudioSourceInfo[] = [],
+): SessionDoc {
   return {
     active,
     scenes: scenes.map((scene) => ({
       name: scene.name,
+      // La caméra est retenue à part : elle se recrée par sa propre commande, jamais comme
+      // une capture — la poser deux fois ouvrirait l'appareil une seconde fois.
+      camera: cameraOf(scene),
       sources: scene.sources
-        .filter((source) => source.kind !== CAMERA_KIND)
+        .filter((source) => source.source_kind !== "camera")
         .map((source) => ({
           name: source.name,
           kind: source.source_kind,
@@ -54,6 +94,31 @@ export function toSession(scenes: SceneInfo[], active: string): SessionDoc {
           scalePercent: source.scale_percent,
         })),
     })),
+    audio: audio.map((entry) => ({
+      name: entry.name,
+      kind: entry.kind,
+      deviceId: entry.device_id,
+      volumePercent: entry.volume_percent,
+      monitorVolumePercent: entry.monitor_volume_percent,
+      muted: entry.muted,
+      monitoring: entry.monitoring,
+      noiseSuppression: entry.noise_suppression,
+      noiseMethod: entry.noise_method,
+      noiseLevelDb: entry.noise_level_db,
+    })),
+  };
+}
+
+function cameraOf(scene: SceneInfo): SavedCamera | undefined {
+  const camera = scene.sources.find((s) => s.source_kind === "camera");
+  if (!camera) return undefined;
+  return {
+    deviceId: camera.target_id,
+    backgroundRemoval: scene.background_removal,
+    circleMask: scene.circle_mask,
+    x: camera.x,
+    y: camera.y,
+    scalePercent: camera.scale_percent,
   };
 }
 
@@ -76,6 +141,9 @@ export type ReplayStep =
       y: number;
       scalePercent: number;
     }
+  | { do: "addCamera"; scene: string; deviceId: string }
+  | { do: "cameraFilters"; scene: string; background: boolean; circle: boolean }
+  | { do: "addAudio"; audio: SavedAudio }
   | { do: "switchScene"; scene: string };
 
 /** Le plan pour retrouver l'état sauvegardé, à partir de ce que le moteur a DÉJÀ.
@@ -113,6 +181,28 @@ export function buildReplay(
     }
   }
 
+  // La caméra vient APRÈS les captures : elle est une source physique unique, et l'ajouter
+  // scène par scène réutilise le même appareil au lieu de le rouvrir.
+  for (const scene of saved.scenes) {
+    if (!scene.camera) continue;
+    const already = currentByName
+      .get(scene.name)
+      ?.sources.some((s) => s.source_kind === "camera");
+    if (!already) {
+      steps.push({
+        do: "addCamera",
+        scene: scene.name,
+        deviceId: scene.camera.deviceId,
+      });
+    }
+    steps.push({
+      do: "cameraFilters",
+      scene: scene.name,
+      background: scene.camera.backgroundRemoval,
+      circle: scene.camera.circleMask,
+    });
+  }
+
   // Le placement est réappliqué même sur une source déjà présente : la capture d'écran que
   // le moteur pose lui-même au démarrage arrive au cadre par défaut, pas là où l'utilisateur
   // l'avait mise.
@@ -127,6 +217,12 @@ export function buildReplay(
         scalePercent: source.scalePercent,
       });
     }
+  }
+
+  // Le mixeur est indépendant des scènes (canaux globaux) : il se rejoue à part, et son
+  // ordre n'a pas d'importance vis-à-vis d'elles.
+  for (const entry of saved.audio) {
+    steps.push({ do: "addAudio", audio: entry });
   }
 
   if (saved.active) {

@@ -134,6 +134,9 @@ struct ObsInner {
     /// The ONE physical webcam source (Jay, 2026-07-24: "la caméra est unique"), created the
     /// first time any scene adds a camera. Reused (never rebuilt) for every later scene.
     camera_source: Option<ObsSourceRef>,
+    /// L'appareil derrière la caméra — retenu pour que l'app puisse la recréer au lancement
+    /// suivant. Une seule caméra physique, donc une seule valeur.
+    camera_device_id: Option<String>,
     /// The two one-way filters attached to `camera_source`, created once alongside it and
     /// toggled in place per scene (`camera::set_filter_enabled`) — never removed/rebuilt.
     camera_filters: Option<CameraFilters>,
@@ -385,6 +388,7 @@ impl App {
             context,
             sources,
             camera_source: None,
+            camera_device_id: None,
             camera_filters: None,
             camera_items: std::collections::HashMap::new(),
             scene_filter_state: std::collections::HashMap::new(),
@@ -564,18 +568,21 @@ impl App {
                         }
                     }));
                 }
-                if has_camera {
+                if let Some(item) = obs.camera_items.get(&name) {
+                    // Même traitement que les autres sources : placement lu depuis libobs, et
+                    // l'appareil retenu comme cible — c'est ce qui rend la caméra rejouable.
+                    let position = item.get_source_position().ok();
+                    let scale = item.get_source_scale().ok();
                     sources.push(hikari_protocol::SceneSourceInfo {
                         name: camera::CAMERA_SOURCE_NAME.to_string(),
                         kind: hikari_protocol::CAMERA_KIND.to_string(),
-                        // La caméra se recrée par sa propre commande (elle est UNE source
-                        // physique partagée entre scènes) : elle n'a pas de cible à retenir
-                        // ici, et sa persistance est une tranche à part.
-                        source_kind: hikari_protocol::SourceKind::Window,
-                        target_id: String::new(),
-                        x: 0,
-                        y: 0,
-                        scale_percent: 100,
+                        source_kind: hikari_protocol::SourceKind::Camera,
+                        target_id: obs.camera_device_id.clone().unwrap_or_default(),
+                        x: position.as_ref().map_or(0, |p| *p.x() as i32),
+                        y: position.as_ref().map_or(0, |p| *p.y() as i32),
+                        scale_percent: scale
+                            .as_ref()
+                            .map_or(100, |s| (s.x() * 100.0).round() as i32),
                     });
                 }
                 SceneInfo { has_camera, background_removal, circle_mask, sources, name }
@@ -678,6 +685,7 @@ impl App {
                 }
             };
             obs.camera_source = Some(source);
+            obs.camera_device_id = Some(device_id.clone());
             obs.camera_filters = Some(CameraFilters { background_removal, circle_mask });
         }
         let source = obs.camera_source.clone().expect("camera_source just ensured above");
@@ -754,6 +762,7 @@ impl App {
         obs.item_rects = None;
         if obs.camera_items.is_empty() {
             obs.camera_source = None;
+            obs.camera_device_id = None;
             obs.camera_filters = None;
             // The next camera may be a different device with its own resolution.
             
@@ -1322,6 +1331,7 @@ impl App {
             .map(|source| hikari_protocol::AudioSourceInfo {
                 name: source.name.clone(),
                 kind: source.kind,
+                device_id: source.device_id.clone(),
                 volume_percent: source.volume_percent,
                 monitor_volume_percent: source.monitor_volume_percent,
                 muted: source.muted,

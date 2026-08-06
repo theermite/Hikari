@@ -35,20 +35,81 @@ describe("toSession", () => {
     });
   });
 
-  it("should_not_remember_the_camera", () => {
+  it("should_remember_the_camera_apart_from_the_other_sources", () => {
     // La caméra est UNE source physique partagée entre scènes, recréée par sa propre
-    // commande. La retenir ici la ferait recréer en double.
+    // commande. La ranger avec les captures la ferait recréer comme l'une d'elles, ce qui
+    // ouvrirait l'appareil une seconde fois.
     const doc = toSession(
       [
         scene("main", [
           source(),
-          source({ name: "Webcam", kind: "dshow_input" }),
+          source({
+            name: "Webcam",
+            kind: "dshow_input",
+            source_kind: "camera",
+            target_id: "cam:1",
+            x: 50,
+            y: 60,
+            scale_percent: 40,
+          }),
         ]),
       ],
       "main",
     );
 
     expect(doc.scenes[0].sources.map((s) => s.name)).toEqual(["Jeu"]);
+    expect(doc.scenes[0].camera).toMatchObject({
+      deviceId: "cam:1",
+      x: 50,
+      y: 60,
+      scalePercent: 40,
+    });
+  });
+
+  it("should_remember_each_scenes_own_camera_filters", () => {
+    // Le flux que Jay utilise : une seule caméra, des filtres propres à chaque scène.
+    const withCamera = scene("Jeu", [
+      source({ name: "Webcam", source_kind: "camera", target_id: "cam:1" }),
+    ]);
+    withCamera.background_removal = true;
+    withCamera.circle_mask = false;
+
+    const doc = toSession([withCamera], "Jeu");
+
+    expect(doc.scenes[0].camera).toMatchObject({
+      backgroundRemoval: true,
+      circleMask: false,
+    });
+  });
+
+  it("should_remember_a_mixer_entry_with_everything_needed_to_rebuild_it", () => {
+    const doc = toSession([scene("main")], "main", [
+      {
+        name: "Micro",
+        kind: "input",
+        device_id: "{0.0.1}",
+        volume_percent: 80,
+        monitor_volume_percent: 65,
+        muted: true,
+        monitoring: "monitor_and_output",
+        noise_suppression: true,
+        noise_method: "speex",
+        noise_level_db: -24,
+      },
+    ]);
+
+    expect(doc.audio[0]).toEqual({
+      name: "Micro",
+      kind: "input",
+      deviceId: "{0.0.1}",
+      volumePercent: 80,
+      monitorVolumePercent: 65,
+      muted: true,
+      monitoring: "monitor_and_output",
+      noiseSuppression: true,
+      noiseMethod: "speex",
+      noiseLevelDb: -24,
+    });
   });
 
   it("should_remember_which_scene_was_live", () => {
@@ -134,7 +195,9 @@ describe("buildReplay", () => {
   });
 
   it("should_produce_no_step_from_an_empty_session", () => {
-    const steps = buildReplay({ scenes: [], active: "" }, [scene("main")]);
+    const steps = buildReplay({ scenes: [], active: "", audio: [] }, [
+      scene("main"),
+    ]);
 
     expect(steps).toEqual([]);
   });

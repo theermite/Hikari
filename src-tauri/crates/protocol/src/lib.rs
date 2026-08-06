@@ -74,6 +74,10 @@ pub enum SourceKind {
     Image,
     /// A video file on disk, played in a loop.
     Video,
+    /// The webcam. Recreated by its OWN command (`AddCamera`) because it is ONE physical
+    /// source shared across scenes — never by `AddCaptureSource`, which would open the
+    /// device a second time.
+    Camera,
 }
 
 impl SourceKind {
@@ -85,6 +89,7 @@ impl SourceKind {
             SourceKind::Monitor => MONITOR_CAPTURE_KIND,
             SourceKind::Image => IMAGE_SOURCE_KIND,
             SourceKind::Video => VIDEO_SOURCE_KIND,
+            SourceKind::Camera => CAMERA_KIND,
         }
     }
 
@@ -303,6 +308,9 @@ pub struct AudioDevice {
 pub struct AudioSourceInfo {
     pub name: String,
     pub kind: AudioSourceKind,
+    /// L'appareil réel derrière cette entrée — sans lui, une session sauvegardée ne peut
+    /// pas la recréer au lancement suivant.
+    pub device_id: String,
     /// 0–100, the slider position for what the AUDIENCE hears — never the raw libobs
     /// multiplier, so the panel never has to know the audio scale.
     pub volume_percent: i32,

@@ -85,6 +85,7 @@ fn should_roundtrip_the_audio_source_list() {
         items: vec![AudioSourceInfo {
             name: "Micro".to_string(),
             kind: AudioSourceKind::Input,
+            device_id: "{0.0.1}".to_string(),
             volume_percent: 80,
             monitor_volume_percent: 100,
             muted: false,
@@ -207,6 +208,7 @@ fn should_roundtrip_the_monitoring_command_and_state() {
         items: vec![AudioSourceInfo {
             name: "Micro".to_string(),
             kind: AudioSourceKind::Input,
+            device_id: "{0.0.1}".to_string(),
             volume_percent: 80,
             monitor_volume_percent: 65,
             muted: false,

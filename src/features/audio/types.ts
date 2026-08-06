@@ -19,6 +19,8 @@ export type NoiseMethod = "speex" | "rnnoise";
 export interface AudioSourceInfo {
   name: string;
   kind: AudioSourceKind;
+  /** L'appareil réel derrière l'entrée — ce qui permet de la recréer au lancement suivant. */
+  device_id: string;
   /** 0–100 slider position for what the AUDIENCE hears. */
   volume_percent: number;
   /** 0–100 slider position for what the STREAMER hears in their headphones. */

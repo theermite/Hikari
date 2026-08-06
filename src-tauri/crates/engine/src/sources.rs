@@ -151,6 +151,12 @@ pub fn add_capture_to_scene(
                 .set_string(hikari_protocol::IMAGE_PATH_PROPERTY, target_id)
                 .context("réglage chemin de l'image")?;
         }
+        SourceKind::Camera => {
+            // La caméra n'entre JAMAIS par ce chemin : elle est UNE source physique
+            // partagée entre scènes, créée et réutilisée par `AddCamera`. Passer ici
+            // ouvrirait l'appareil une seconde fois, ce que le pilote peut refuser.
+            anyhow::bail!("la caméra s'ajoute par sa propre commande, pas comme une capture");
+        }
         SourceKind::Video => {
             settings
                 .set_string(hikari_protocol::VIDEO_PATH_PROPERTY, target_id)

@@ -5,7 +5,15 @@
 /** One scene as the engine sees it, mirroring `hikari_protocol::SceneInfo`. Field names are
  * the wire's own snake_case — renaming them here would silently stop matching the JSON. */
 /** Ce qu'une source vise : quelque chose de vivant à capturer, ou un fichier du disque. */
-export type SourceKind = "game" | "window" | "monitor" | "image" | "video";
+export type SourceKind =
+  | "game"
+  | "window"
+  | "monitor"
+  | "image"
+  | "video"
+  /** La webcam — recréée par sa PROPRE commande, jamais comme une capture : c'est une
+   * source physique unique partagée entre scènes. */
+  | "camera";
 
 /** Une chose capturable proposée par le moteur. `id` est la valeur exacte qu'il attend,
  * `label` est ce que l'utilisateur lit. */

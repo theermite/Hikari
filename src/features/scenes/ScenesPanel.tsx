@@ -12,6 +12,20 @@ import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "../../components/Modal";
 import {
+  addAudioSource,
+  setAudioMonitoring,
+  setAudioMuted,
+  setAudioVolume,
+  setMonitorVolume,
+  setNoiseSettings,
+} from "../audio/api";
+import type { AudioEngineMessage, AudioSourceInfo } from "../audio/types";
+import {
+  addCameraSource,
+  setBackgroundRemoval,
+  setCircleMask,
+} from "../camera/api";
+import {
   addCaptureSource,
   createScene,
   deleteScene,
@@ -117,6 +131,12 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   /** L'état vu par le rejeu. Une référence et non l'état React : le rejeu démarre depuis une
    * fonction de rappel qui a capturé un état déjà périmé. */
   const stateRef = useRef<SceneInfo[]>([]);
+  /** Le mixeur vu par la mémoire. Il vit dans un autre panneau, mais la session est UNE
+   * chose : la couper en deux fichiers ferait deux états à garder cohérents. */
+  const audioRef = useRef<AudioSourceInfo[]>([]);
+  /** La scène en direct, pour que l'écoute du mixeur sache quoi retenir sans dépendre d'un
+   * état React déjà périmé au moment où elle s'exécute. */
+  const activeRef = useRef("main");
 
   useEffect(() => {
     const unlisten = listen<EngineMessage>("engine-message", (event) => {
@@ -124,12 +144,26 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       if (msg.type === "scene_list" && msg.scenes && msg.active) {
         setState({ status: "ready", scenes: msg.scenes, active: msg.active });
         stateRef.current = msg.scenes;
+        activeRef.current = msg.active;
         // Retenu à CHAQUE changement plutôt qu'à la fermeture : une app fermée brutalement
         // ne sauvegarde rien, et c'est précisément le moment où l'on perd le plus.
         // Pendant le rejeu, on ne réécrit pas — sinon l'état partiel en cours de
         // reconstruction écraserait la session qu'on est en train de restaurer.
         if (!replaying.current) {
-          saveSession(toSession(msg.scenes, msg.active)).catch(() => undefined);
+          saveSession(
+            toSession(msg.scenes, msg.active, audioRef.current),
+          ).catch(() => undefined);
+        }
+      }
+      // Le mixeur change dans un autre panneau : on l'écoute ici parce que la session est
+      // UNE chose, et qu'un seul endroit doit décider de ce qu'on retient.
+      const audioMsg = msg as AudioEngineMessage;
+      if (audioMsg.type === "audio_sources" && audioMsg.items) {
+        audioRef.current = audioMsg.items;
+        if (!replaying.current && stateRef.current.length > 0) {
+          saveSession(
+            toSession(stateRef.current, activeRef.current, audioMsg.items),
+          ).catch(() => undefined);
         }
       }
       // Le moteur refuse lui-même la suppression interdite : on affiche SA raison plutôt
@@ -202,6 +236,29 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
             step.y,
             step.scalePercent,
           );
+        }
+        if (step.do === "addCamera") {
+          await addCameraSource(step.deviceId, step.scene);
+        }
+        if (step.do === "cameraFilters") {
+          await setBackgroundRemoval(step.scene, step.background);
+          await setCircleMask(step.scene, step.circle);
+        }
+        if (step.do === "addAudio") {
+          const a = step.audio;
+          await addAudioSource(a.deviceId, a.kind, a.name);
+          await setAudioVolume(a.name, a.volumePercent);
+          await setMonitorVolume(a.name, a.monitorVolumePercent);
+          await setAudioMonitoring(a.name, a.monitoring);
+          await setAudioMuted(a.name, a.muted);
+          if (a.kind === "input") {
+            await setNoiseSettings(
+              a.name,
+              a.noiseSuppression,
+              a.noiseMethod,
+              a.noiseLevelDb,
+            );
+          }
         }
         if (step.do === "switchScene") await switchScene(step.scene);
       }

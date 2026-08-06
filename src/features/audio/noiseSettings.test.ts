@@ -11,6 +11,7 @@ import type { AudioSourceInfo } from "./types";
 const source = (over: Partial<AudioSourceInfo> = {}): AudioSourceInfo => ({
   name: "Micro",
   kind: "input",
+  device_id: "{0.0.1}",
   volume_percent: 100,
   monitor_volume_percent: 100,
   muted: false,
