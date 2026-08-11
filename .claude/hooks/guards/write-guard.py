@@ -3,12 +3,110 @@
 
 RECOVERY PRINCIPLE: Every BLOCKED/WARNING message MUST include
 a concrete recovery action so Takumi knows what to do next.
+
+2026-08-07 — this guard had never blocked anything. Two defects compounding:
+`get_file_info` read `data["file_path"]` at the top level while the harness
+nests it under `tool_input`, so the path was always empty; and the empty branch
+returned a 4-tuple where `main` unpacks 5, which raised a ValueError before any
+check ran. Every rule below was therefore hook-enforced in name only. Covered
+now by end-to-end tests in `tests/test_write_guard.py` — a unit test on a check
+function cannot catch a guard that dies before calling it.
+
+The long pattern tables live at module level rather than inside their checks:
+they are data, and keeping them out of the functions is what lets each one stay
+readable (Quality.md, Maintainability).
 """
 
 import json
 import os
 import re
 import sys
+
+
+# Order matters: more specific patterns first so the BLOCKED message names the
+# right provider. Generic `sk-` (OpenAI/DeepSeek) sits AFTER `sk-ant-`
+# (Anthropic) so Anthropic keys are not mislabeled.
+SECRET_PATTERNS = [
+    (r"sk_live_[a-zA-Z0-9]{10,}", "Stripe live key"),
+    (r"ghp_[a-zA-Z0-9]{36}", "GitHub token"),
+    (r"AKIA[0-9A-Z]{16}", "AWS access key"),
+    (r"(?i)aws_secret_access_key\s*=\s*['\"][A-Za-z0-9/+=]{40}['\"]", "AWS secret access key"),
+    (r"sk-ant-(?:api03-)?[A-Za-z0-9_\-]{40,}", "Anthropic API key"),
+    (r"sk-proj-[A-Za-z0-9_\-]{40,}", "OpenAI API key"),
+    (r"sk-[A-Za-z0-9]{40,}", "OpenAI/DeepSeek API key"),
+    (r"gsk_[A-Za-z0-9]{50,}", "Groq API key"),
+    (r"xox[baprs]-[A-Za-z0-9\-]{10,}-[A-Za-z0-9\-]{10,}", "Slack token"),
+    (r"-----BEGIN (?:RSA |OPENSSH |EC |DSA |PGP )?PRIVATE KEY( BLOCK)?-----", "Private key"),
+    (r"PRIVATE KEY", "Private key"),  # fallback for fragments
+]
+
+WEAK_HASH_PATTERNS = [
+    (r"createHash\s*\(\s*[\"']md5", "MD5"),
+    (r"createHash\s*\(\s*[\"']sha1", "SHA1"),
+    (r"hashlib\.md5", "MD5"),
+    (r"hashlib\.sha1", "SHA1"),
+]
+
+LEGO_COMPONENTS = (
+    "Button|Input|Textarea|Badge|Card|Skeleton|Modal|EmptyState|"
+    "ThemeProvider|ThemeToggle|BackToTop|RevealOnScroll|LanguageSwitcher|"
+    "CookieConsent|TagInput|DictationButton|CollapsibleCard|PromptDialog|"
+    "SaveIndicator|ConfirmModal|SafeImage|BodyGraph|BodyGraphCenter|"
+    "BodyGraphChannel|BodyGraphLegend|StructuredData|ArticleSchema|"
+    "BreadcrumbSchema|FAQSchema|ReviewSchema|PortfolioSchema|"
+    "PortfolioItemSchema|PortfolioListSchema|ServiceSchema|"
+    "ToastProvider|Toast|"
+    "FilePicker|FilePickerUploadZone|FilePickerBrowseGrid|"
+    "FilePickerPreview|ImagePicker|ImageBrowserModal|"
+    "NavShell|NavLink|NavGroup|"
+    "SettingsSection|RevealToggle|PasswordChangeForm|"
+    "AvatarUpload|AvatarCropModal|"
+    "EnergySlider|DayScore|KiGauge|KiBudgetGauges|KiCheckIn|"
+    "SportTracker|MealTracker|TaskCard|SleepTracker|"
+    "KiBudgetMini|SleepSummaryCard|EnergyTrendChart|EnergyPixelMap|"
+    "TodayTasksList|QuickActionGrid|ProfileChipBar|"
+    "QuestionRenderer|ProgressTracker|LoadingStepper|PhaseCard|"
+    "CollapsibleSection|LikertOptions|SingleChoice|MultiChoice|OpenText|"
+    "DodgeMaster|SkillshotTrainer|MultiTask|ImagePairs"
+)
+
+# Generated / vendored / test material: a Lego duplicate or a hardcoded string
+# there is not the defect these checks exist to catch.
+UI_SKIP_PATTERNS = (
+    "Shinkofa-Shared/", "node_modules/", ".test.", ".spec.",
+    ".stories.", "__tests__", ".claude/",
+)
+
+NAMING_EXCEPTIONS = {
+    "README.md", "LICENSE", "CHANGELOG.md", "CLAUDE.md", "SKILL.md",
+    "MEMORY.md", "Makefile", ".gitignore", ".gitkeep",
+}
+
+NAMING_CONFIG_PATTERNS = (
+    "package.json", "tsconfig.json", "biome.json",
+    "vitest.config.", "playwright.config.", "next.config.",
+    "tailwind.config.", "postcss.config.",
+)
+
+NAMING_SKIP_DIRS = (
+    ".claude/", ".github/", "node_modules/", ".next/", "__pycache__",
+    ".obsidian/", ".vscode/",
+)
+
+NAMING_CONVENTIONS = {
+    "py": (r"^[a-z][a-z0-9_]*$", "snake_case"),
+    "sh": (r"^[a-z][a-z0-9-]*$", "kebab-case"),
+    "ts": (r"^[a-z][a-zA-Z0-9]*$", "camelCase"),
+    "js": (r"^[a-z][a-zA-Z0-9]*$", "camelCase"),
+    "tsx": (r"^[A-Z][a-zA-Z0-9]*$", "PascalCase"),
+    "jsx": (r"^[A-Z][a-zA-Z0-9]*$", "PascalCase"),
+}
+
+CRITICAL_PATHS = (
+    "/auth/", "/authentication/", "/authorization/", "/payment/",
+    "/payments/", "/billing/", "/crypto/", "/encryption/",
+    "/security/", "/sessions/",
+)
 
 
 def read_input():
@@ -20,10 +118,22 @@ def read_input():
     return raw, data
 
 
+def _tool_input(data):
+    """The payload the harness nests under `tool_input`.
+
+    The flat shape stays as a fallback so an older caller (or a manual
+    invocation) keeps working.
+    """
+    nested = data.get("tool_input")
+    return nested if isinstance(nested, dict) else data
+
+
 def get_file_info(data):
-    file_path = data.get("file_path", "")
+    file_path = _tool_input(data).get("file_path", "") or ""
     if not file_path:
-        return None, None, None, None
+        # `None`, never a tuple of Nones: the caller tests `info is None`, and a
+        # 4-tuple is truthy — which is how the arity mismatch stayed invisible.
+        return None
     file_path = file_path.replace("\\\\", "/").replace("\\", "/")
     filename = os.path.basename(file_path)
     name, ext = os.path.splitext(filename)
@@ -33,7 +143,8 @@ def get_file_info(data):
 
 
 def get_content(data):
-    return data.get("new_string", "") or data.get("content", "")
+    payload = _tool_input(data)
+    return payload.get("new_string", "") or payload.get("content", "")
 
 
 def check_env_guard(filename, dirname):
@@ -59,30 +170,7 @@ def check_localstorage_jwt(raw):
 
 
 def check_secrets_in_files(raw):
-    # Order matters: more specific patterns first so the BLOCKED message
-    # names the right provider. Generic `sk-` (OpenAI/DeepSeek) is intentionally
-    # placed AFTER `sk-ant-` (Anthropic) so Anthropic keys don't get mislabeled.
-    patterns = [
-        # Existing
-        (r"sk_live_[a-zA-Z0-9]{10,}", "Stripe live key"),
-        (r"ghp_[a-zA-Z0-9]{36}", "GitHub token"),
-        # AWS
-        (r"AKIA[0-9A-Z]{16}", "AWS access key"),
-        (r"(?i)aws_secret_access_key\s*=\s*['\"][A-Za-z0-9/+=]{40}['\"]", "AWS secret access key"),
-        # Anthropic (must come BEFORE generic sk- catchall)
-        (r"sk-ant-(?:api03-)?[A-Za-z0-9_\-]{40,}", "Anthropic API key"),
-        # OpenAI (project keys: sk-proj-..., legacy: sk-<48+>)
-        (r"sk-proj-[A-Za-z0-9_\-]{40,}", "OpenAI API key"),
-        (r"sk-[A-Za-z0-9]{40,}", "OpenAI/DeepSeek API key"),
-        # Groq
-        (r"gsk_[A-Za-z0-9]{50,}", "Groq API key"),
-        # Slack
-        (r"xox[baprs]-[A-Za-z0-9\-]{10,}-[A-Za-z0-9\-]{10,}", "Slack token"),
-        # Generic private keys (RSA, OpenSSH, EC, DSA, PGP)
-        (r"-----BEGIN (?:RSA |OPENSSH |EC |DSA |PGP )?PRIVATE KEY( BLOCK)?-----", "Private key"),
-        (r"PRIVATE KEY", "Private key"),  # fallback for fragments
-    ]
-    for pattern, name in patterns:
+    for pattern, name in SECRET_PATTERNS:
         if re.search(pattern, raw):
             return (
                 f"BLOCKED: {name} detected in code. "
@@ -119,60 +207,33 @@ def check_stack_versions(filename, content):
     return None
 
 
-def check_lego_library(file_path, ext, content):
+def _skips_ui_check(file_path, ext):
     if ext not in ("tsx", "jsx"):
+        return True
+    return any(p in file_path for p in UI_SKIP_PATTERNS)
+
+
+def check_lego_library(file_path, ext, content):
+    if _skips_ui_check(file_path, ext):
         return None
-    skip_patterns = (
-        "Shinkofa-Shared/", "node_modules/", ".test.", ".spec.",
-        ".stories.", "__tests__", ".claude/",
-    )
-    if any(p in file_path for p in skip_patterns):
-        return None
-    lego_components = (
-        "Button|Input|Textarea|Badge|Card|Skeleton|Modal|EmptyState|"
-        "ThemeProvider|ThemeToggle|BackToTop|RevealOnScroll|LanguageSwitcher|"
-        "CookieConsent|TagInput|DictationButton|CollapsibleCard|PromptDialog|"
-        "SaveIndicator|ConfirmModal|SafeImage|BodyGraph|BodyGraphCenter|"
-        "BodyGraphChannel|BodyGraphLegend|StructuredData|ArticleSchema|"
-        "BreadcrumbSchema|FAQSchema|ReviewSchema|PortfolioSchema|"
-        "PortfolioItemSchema|PortfolioListSchema|ServiceSchema|"
-        "ToastProvider|Toast|"
-        "FilePicker|FilePickerUploadZone|FilePickerBrowseGrid|"
-        "FilePickerPreview|ImagePicker|ImageBrowserModal|"
-        "NavShell|NavLink|NavGroup|"
-        "SettingsSection|RevealToggle|PasswordChangeForm|"
-        "AvatarUpload|AvatarCropModal|"
-        "EnergySlider|DayScore|KiGauge|KiBudgetGauges|KiCheckIn|"
-        "SportTracker|MealTracker|TaskCard|SleepTracker|"
-        "KiBudgetMini|SleepSummaryCard|EnergyTrendChart|EnergyPixelMap|"
-        "TodayTasksList|QuickActionGrid|ProfileChipBar|"
-        "QuestionRenderer|ProgressTracker|LoadingStepper|PhaseCard|"
-        "CollapsibleSection|LikertOptions|SingleChoice|MultiChoice|OpenText|"
-        "DodgeMaster|SkillshotTrainer|MultiTask|ImagePairs"
-    )
-    pattern = rf"(export )?(function|const) ({lego_components})[^a-zA-Z]"
+    pattern = rf"(export )?(function|const) ({LEGO_COMPONENTS})[^a-zA-Z]"
     match = re.search(pattern, content)
-    if match:
-        comp_name_match = re.search(rf"({lego_components})", match.group(0))
-        if comp_name_match:
-            comp = comp_name_match.group(1)
-            return (
-                f"BLOCKED: '{comp}' already exists in @shinkofa/ui. "
-                "RECOVERY: Import from @shinkofa/ui instead of redefining "
-                "(e.g. `import { " + comp + " } from '@shinkofa/ui'`). "
-                "NEVER duplicate a Lego component. See rules/Quality.md Lego Library."
-            )
-    return None
+    if not match:
+        return None
+    comp_name_match = re.search(rf"({LEGO_COMPONENTS})", match.group(0))
+    if not comp_name_match:
+        return None
+    comp = comp_name_match.group(1)
+    return (
+        f"BLOCKED: '{comp}' already exists in @shinkofa/ui. "
+        "RECOVERY: Import from @shinkofa/ui instead of redefining "
+        "(e.g. `import { " + comp + " } from '@shinkofa/ui'`). "
+        "NEVER duplicate a Lego component. See rules/Quality.md Lego Library."
+    )
 
 
 def check_i18n_hardcoded(file_path, ext, content):
-    if ext not in ("tsx", "jsx"):
-        return None
-    skip_patterns = (
-        "Shinkofa-Shared/", "node_modules/", ".test.", ".spec.",
-        ".stories.", "__tests__", ".claude/",
-    )
-    if any(p in file_path for p in skip_patterns):
+    if _skips_ui_check(file_path, ext):
         return None
     messages = []
     if re.search(r'(title|placeholder|aria-label|alt)="[A-Z][a-zA-Z ]{3,}"', content):
@@ -202,17 +263,15 @@ def check_hs256(ext, content, file_path=""):
 
 def check_bare_except(ext, content, file_path=""):
     """Detect swallowed exceptions: except/catch blocks with no logging."""
-    critical_paths = (
-        "/auth/", "/authentication/", "/authorization/", "/payment/",
-        "/payments/", "/billing/", "/crypto/", "/encryption/",
-        "/security/", "/sessions/",
-    )
-    is_critical = any(p in file_path.lower() for p in critical_paths)
+    is_critical = any(p in file_path.lower() for p in CRITICAL_PATHS)
+    level = "BLOCKED" if is_critical else "WARNING"
 
     if ext == "py":
         # except: pass, except Exception: pass, except Exception as e: pass
-        if re.search(r"except(\s+\w+(\s+as\s+\w+)?)?\s*:\s*\n\s*(pass|\.\.\.)\s*$", content, re.MULTILINE):
-            level = "BLOCKED" if is_critical else "WARNING"
+        swallowed = re.search(
+            r"except(\s+\w+(\s+as\s+\w+)?)?\s*:\s*\n\s*(pass|\.\.\.)\s*$", content, re.MULTILINE
+        )
+        if swallowed:
             return (
                 f"{level}: Swallowed exception (except/pass) detected. "
                 "RECOVERY: Log the exception at appropriate level "
@@ -222,7 +281,6 @@ def check_bare_except(ext, content, file_path=""):
     elif ext in ("ts", "js", "tsx", "jsx"):
         # catch {}, catch (e) {}, catch (_) {}
         if re.search(r"catch\s*\([^)]*\)\s*\{\s*\}", content):
-            level = "BLOCKED" if is_critical else "WARNING"
             return (
                 f"{level}: Empty catch block detected. "
                 "RECOVERY: Log the error or handle it explicitly. "
@@ -254,13 +312,7 @@ def check_type_suppression(ext, content):
 def check_weak_hash(ext, content):
     if ext not in ("ts", "js", "py", "tsx", "jsx"):
         return None
-    patterns = [
-        (r"createHash\s*\(\s*[\"']md5", "MD5"),
-        (r"createHash\s*\(\s*[\"']sha1", "SHA1"),
-        (r"hashlib\.md5", "MD5"),
-        (r"hashlib\.sha1", "SHA1"),
-    ]
-    for pattern, name in patterns:
+    for pattern, name in WEAK_HASH_PATTERNS:
         if re.search(pattern, content, re.IGNORECASE):
             return (
                 f"BLOCKED: Weak hash ({name}) detected. "
@@ -302,62 +354,55 @@ def check_tkinter(ext, content):
     return None
 
 
-def check_naming(file_path, filename, name, ext):
-    exceptions = {
-        "README.md", "LICENSE", "CHANGELOG.md", "CLAUDE.md", "SKILL.md",
-        "MEMORY.md", "Makefile", ".gitignore", ".gitkeep",
-    }
-    if filename in exceptions:
-        return None
+def _naming_is_exempt(file_path, filename):
+    if filename in NAMING_EXCEPTIONS:
+        return True
     if filename.startswith(("Dockerfile", ".env", "index.")):
-        return None
+        return True
     if filename.endswith(".lock"):
+        return True
+    if any(
+        filename.startswith(p.split(".")[0]) and p.split(".")[-1] in filename
+        for p in NAMING_CONFIG_PATTERNS
+    ):
+        return True
+    return any(d in file_path for d in NAMING_SKIP_DIRS)
+
+
+def _check_code_naming(filename, name, ext):
+    if ext not in NAMING_CONVENTIONS:
         return None
-    config_patterns = (
-        "package.json", "tsconfig.json", "biome.json",
-        "vitest.config.", "playwright.config.", "next.config.",
-        "tailwind.config.", "postcss.config.",
+    pattern, convention = NAMING_CONVENTIONS[ext]
+    if re.match(pattern, name):
+        return None
+    return (
+        f"WARNING: {ext.upper()} files should use {convention}: {filename}. "
+        f"ACTION: Rename to {convention} and update imports, then retry."
     )
-    if any(filename.startswith(p.split(".")[0]) and p.split(".")[-1] in filename for p in config_patterns):
+
+
+def _check_doc_naming(file_path, filename, name):
+    parent = os.path.basename(os.path.dirname(file_path))
+    if parent in ("agents", "skills", "hooks"):
         return None
-    skip_dirs = (".claude/", ".github/", "node_modules/", ".next/", "__pycache__", ".obsidian/", ".vscode/")
-    if any(d in file_path for d in skip_dirs):
+    if re.match(r"^[A-Z][a-zA-Z0-9]*(-[A-Z][a-zA-Z0-9]*)*$", name):
         return None
-    conventions = {
-        "py": (r"^[a-z][a-z0-9_]*$", "snake_case"),
-        "sh": (r"^[a-z][a-z0-9-]*$", "kebab-case"),
-        "ts": (r"^[a-z][a-zA-Z0-9]*$", "camelCase"),
-        "js": (r"^[a-z][a-zA-Z0-9]*$", "camelCase"),
-        "tsx": (r"^[A-Z][a-zA-Z0-9]*$", "PascalCase"),
-        "jsx": (r"^[A-Z][a-zA-Z0-9]*$", "PascalCase"),
-    }
-    if ext in conventions:
-        pattern, convention = conventions[ext]
-        if not re.match(pattern, name):
-            return (
-                f"WARNING: {ext.upper()} files should use {convention}: {filename}. "
-                f"ACTION: Rename to {convention} and update imports, then retry."
-            )
+    return (
+        f"WARNING: Markdown docs should use Title-Kebab-Case: {filename}. "
+        "ACTION: Rename to Title-Kebab-Case (e.g., My-Document.md), then retry."
+    )
+
+
+def check_naming(file_path, filename, name, ext):
+    if _naming_is_exempt(file_path, filename):
+        return None
     if ext == "md":
-        parent = os.path.basename(os.path.dirname(file_path))
-        if parent not in ("agents", "skills", "hooks"):
-            if not re.match(r"^[A-Z][a-zA-Z0-9]*(-[A-Z][a-zA-Z0-9]*)*$", name):
-                return (
-                    f"WARNING: Markdown docs should use Title-Kebab-Case: {filename}. "
-                    "ACTION: Rename to Title-Kebab-Case (e.g., My-Document.md), then retry."
-                )
-    return None
+        return _check_doc_naming(file_path, filename, name)
+    return _check_code_naming(filename, name, ext)
 
 
-def main():
-    raw, data = read_input()
-    info = get_file_info(data)
-    if info is None:
-        sys.exit(0)
-    file_path, filename, name, ext, dirname = info
-    content = get_content(data)
-
-    blockers = [
+def _blockers(raw, file_path, filename, name, ext, dirname, content):
+    return [
         check_env_guard(filename, dirname),
         check_localstorage_jwt(raw),
         check_secrets_in_files(raw),
@@ -368,12 +413,10 @@ def main():
         check_tkinter(ext, content),
         check_bare_except(ext, content, file_path),
     ]
-    for msg in blockers:
-        if msg:
-            print(msg, file=sys.stderr)
-            sys.exit(2)
 
-    warnings = [
+
+def _warnings(file_path, filename, name, ext, content):
+    return [
         check_stack_versions(filename, content),
         check_i18n_hardcoded(file_path, ext, content),
         check_naming(file_path, filename, name, ext),
@@ -381,7 +424,22 @@ def main():
         check_uuidv7(file_path, content),
         check_type_suppression(ext, content),
     ]
-    for msg in warnings:
+
+
+def main():
+    raw, data = read_input()
+    info = get_file_info(data)
+    if info is None:
+        sys.exit(0)
+    file_path, filename, name, ext, dirname = info
+    content = get_content(data)
+
+    for msg in _blockers(raw, file_path, filename, name, ext, dirname, content):
+        if msg:
+            print(msg, file=sys.stderr)
+            sys.exit(2)
+
+    for msg in _warnings(file_path, filename, name, ext, content):
         if msg:
             print(msg, file=sys.stderr)
 
