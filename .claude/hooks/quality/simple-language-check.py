@@ -15,6 +15,9 @@ Jay just read) and flags violations:
   6. Accumulation of file names in chat (Jay 2026-07-18) — 3+ distinct file
      names, even inside inline `code`. A lone file name passes; folder and repo
      names are always allowed. Only fenced ``` blocks stay exempt.
+  7. Bare reference in chat (Jay 2026-08-10) — a brick / cause / decision /
+     section / commit identifier Jay does not have in front of him. Name the
+     thing, not its number; the number belongs in the commit or the report.
 
 Code blocks (``` and `inline`) are stripped before analysis —
 jargon inside code is allowed (variable names, error messages).
@@ -220,6 +223,73 @@ def _check_code_artifacts(text: str) -> list[str]:
     ]
 
 
+# Bare references (Jay 2026-08-10): an identifier Jay does not have in front of
+# him — brick, cause, decision, section, commit. The rule existed since 2026-07-17
+# and never bit, because the hook counted acronyms and never identifiers.
+_NAMED_REF_RE = re.compile(
+    r"\b(?:brique|bloc|cause|correctif|d[ée]cision|section|[ée]tape|phase|porte|gate|"
+    r"ticket|issue|PR)\s*#?\s*[A-Z]{0,4}-?\d{1,4}(?:\.\d+)?\b",
+    re.IGNORECASE,
+)
+# A commit hash: hex, 7+ chars, letters AND digits (so "facade" and "decade" are safe).
+_HASH_RE = re.compile(
+    r"\b(?=[0-9a-fA-F]*[a-fA-F])(?=[0-9a-fA-F]*[0-9])[0-9a-fA-F]{7,40}\b"
+)
+_SECTION_SIGN_RE = re.compile(r"§\s*\d+")
+# A lone `B1` / `D24` is ambiguous: it is also a paper size, a race, a chess square.
+# It only reads as one of OUR identifiers when the response talks about our work.
+_LONE_ID_RE = re.compile(r"\b[A-F]-?\d{1,3}(?:\.\d+)?\b")
+# "test" alone was too common — it fired on a race report ("un vrai test de
+# vitesse") and flagged F1 (independent review, 2026-08-10).
+_WORK_CONTEXT_RE = re.compile(
+    r"\b(correctif|d[ée]cision|cause racine|commit|hook|garde-fou|propagation|"
+    r"relecture|d[ée]ploiement|bug|r[ée]gression|erreur|probl[èe]me|"
+    r"tests? (?:verts?|rouges?|unitaires?))\w*\b",
+    re.IGNORECASE,
+)
+
+
+def _collect_bare_references(text: str) -> list[str]:
+    """Identifiers leaked into chat. Fenced blocks exempt, inline `code` is not."""
+    scanned = _CODE_BLOCK_RE.sub("", text)
+    regexes = [_NAMED_REF_RE, _SECTION_SIGN_RE, _HASH_RE]
+    # A lone identifier counts when the response is about our work, or when
+    # several pile up — "B1 puis B2" is never a paper size.
+    lone = {m.group(0).lower() for m in _LONE_ID_RE.finditer(scanned)}
+    if _WORK_CONTEXT_RE.search(scanned) or len(lone) > 1:
+        regexes.append(_LONE_ID_RE)
+
+    found: list[str] = []
+    seen: set[str] = set()
+    for regex in regexes:
+        for match in regex.finditer(scanned):
+            token = match.group(0).strip()
+            if token.lower() not in seen:
+                seen.add(token.lower())
+                found.append(token)
+    return found
+
+
+def _check_bare_references(text: str) -> list[str]:
+    """Constraint (Jay 2026-08-10) — name the thing, never its number.
+
+    Jay: "Takumi me parle de choses en faisant reference a leur numero
+    d'identification. Je ne sais pas a quoi cela fait reference." The number
+    belongs in the commit or the report, never in the conversation.
+    """
+    found = _collect_bare_references(text)
+    if not found:
+        return []
+    preview = ", ".join(found[:6])
+    extra = f" (+{len(found) - 6})" if len(found) > 6 else ""
+    return [
+        f"Reference nue dans la conversation: {preview}{extra}. Jay n'a pas ces "
+        f"identifiants sous les yeux (Jay 2026-08-10). Nommer la chose "
+        f"(\"le test rouge sur le hook memoire\"), pas son numero. Le numero va "
+        f"dans le commit ou le rapport."
+    ]
+
+
 def _jargon_in(sentence: str) -> list[str]:
     """Return bare lowercase dev-jargon tokens present in the sentence."""
     tokens = set(re.findall(r"[a-zA-Z]+", sentence.lower()))
@@ -279,6 +349,7 @@ def _analyze(text: str) -> list[str]:
     violations.extend(_check_bluf(clean))
     violations.extend(_check_condescendance(clean))
     violations.extend(_check_code_artifacts(text))  # raw text: inline code kept
+    violations.extend(_check_bare_references(text))  # same reason: inline code kept
 
     prose_count = 0
     for i, para in enumerate(_split_paragraphs(clean), 1):

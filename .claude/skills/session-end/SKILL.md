@@ -28,7 +28,7 @@ Execute these steps IN ORDER. Gate 8 must pass.
    - `[SHINZO]/02-Projets/Contenu.md` — only if visibility candidates identified (step 8)
    - **`[SHINZO]`** = `D:/30-Dev-Projects/Shinzo` (local) · `~/Shinzo` (VPS).
    - **DO NOT read or write all project files.** Only touch files where you have changes to write.
-   - **After writing**: commit + push Shinzo (or the memory hook does it automatically on Write/Edit).
+   - **After writing**: stage **only the files this session wrote**, by explicit path (`git add -- <path> <path>`) — never `git add -A`, `git add .`, or a whole directory. Another session may be writing Shinzo at the same time; a broad stage carries its work away under your commit message (observed 2026-08-10). Then commit + push. **Proof**: `git show --name-only HEAD` lists only paths this session wrote. (Memory files under `05-Memoire/` need nothing — the memory hook commits each one on its own, scoped to its path.)
 4. **TRIM CHECK**: Verify each updated `[SHINZO]/02-Projets/[project].md` stays under **~5 KB / ~150 lines**. If over, apply the 4 trimming rules (see `mnk/05-Workflows-Session.md` "Obsidian Project File Hygiene") before saving:
    1. Session reports → max 1-liner in project file (`| date | scope | score |`). Full detail stays in `docs/Sessions/`.
    2. Superseded decisions → remove from file. Git history preserves them. Keep only ACTIVE decisions.

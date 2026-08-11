@@ -121,3 +121,106 @@ def test_more_than_three_prose_paragraphs_flagged():
 def test_clean_short_french_passes_clean():
     text = "Le hook est prêt. Je lance les tests."
     assert slc._analyze(text) == []
+
+
+# --- bare references (Jay 2026-08-10) ---------------------------------------
+#
+# "Takumi me parle en numeros d'identification, je ne sais pas de quoi il parle."
+# The written rule ("zero bare reference", 2026-07-17) never bit: the hook counted
+# acronyms but never identifiers. Say the thing, not its number — the number lives
+# in the commit, not in the conversation.
+
+
+def test_brick_identifier_is_flagged():
+    assert "reference" in _joined("J'attaque B1 puis B2 dans la foulee.").lower()
+
+
+def test_cause_identifier_is_flagged():
+    assert "reference" in _joined("La cause C2 est fermee, reste C1.").lower()
+
+
+def test_decision_identifier_is_flagged():
+    assert "reference" in _joined("Conforme a la decision D24 pour le backend.").lower()
+
+
+def test_section_sign_is_flagged():
+    assert "reference" in _joined("Voir §7 du cahier des charges.").lower()
+
+
+def test_commit_sha_is_flagged():
+    assert "reference" in _joined("C'est pousse dans 9db168e sur la branche.").lower()
+
+
+def test_identifier_hidden_in_inline_code_is_flagged():
+    assert "reference" in _joined("Le correctif `F1` est applique.").lower()
+
+
+def test_identifier_in_fenced_block_is_allowed():
+    text = "Le message de commit:\n\n```\nPorte: ferme C2, reste C1 et B4.\n```\n"
+    assert "reference" not in _joined(text).lower()
+
+
+def test_version_number_is_not_a_bare_reference():
+    assert "reference" not in _joined("On passe en v6.1.0 aujourd'hui.").lower()
+
+
+def test_plain_french_word_is_not_read_as_a_sha():
+    assert "reference" not in _joined("La facade decade et efface tout.").lower()
+
+
+def test_naming_the_thing_instead_of_its_number_passes():
+    text = "Le test rouge sur le hook memoire est vert. Je passe au garde-fou."
+    assert "reference" not in _joined(text).lower()
+
+
+# --- bare references, 2nd pass (independent review 2026-08-10) ---------------
+#
+# The first pattern flagged A4, F1, D4 in ordinary French, and missed the plain
+# spellings ("brique 3", "section 7") that are the most natural way to say it.
+
+
+def test_paper_format_is_not_a_bare_reference():
+    assert "reference" not in _joined("Le document est au format A4.").lower()
+
+
+def test_motor_racing_is_not_a_bare_reference():
+    assert "reference" not in _joined("La F1 a gagne hier soir.").lower()
+
+
+def test_chessboard_square_is_not_a_bare_reference():
+    assert "reference" not in _joined("Le cavalier va en D4.").lower()
+
+
+def test_identifier_in_a_methodology_sentence_is_flagged():
+    text = "La brique B1 est verte, je passe au correctif suivant."
+    assert "reference" in _joined(text).lower()
+
+
+def test_spelled_out_brick_number_is_flagged():
+    assert "reference" in _joined("On attaque la brique 3 maintenant.").lower()
+
+
+def test_spelled_out_section_is_flagged():
+    assert "reference" in _joined("Voir section 7 du cahier des charges.").lower()
+
+
+def test_pull_request_number_is_flagged():
+    assert "reference" in _joined("La PR #42 est ouverte depuis hier.").lower()
+
+
+def test_ticket_identifier_is_flagged():
+    assert "reference" in _joined("Le ticket ABC-123 est ferme.").lower()
+
+
+def test_uppercase_commit_hash_is_flagged():
+    assert "reference" in _joined("C'est pousse dans 9DB168E sur main.").lower()
+
+
+def test_the_word_test_alone_does_not_turn_a_race_into_an_identifier():
+    text = "Le pilote a fait un tour en F1 pendant les essais, un vrai test de vitesse."
+    assert "reference" not in _joined(text).lower()
+
+
+def test_a_bug_sentence_still_reveals_a_bare_identifier():
+    text = "On a repere le bug en D4, il faut corriger avant la suite."
+    assert "reference" in _joined(text).lower()

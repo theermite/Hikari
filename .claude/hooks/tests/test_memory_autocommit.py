@@ -136,6 +136,106 @@ def test_silent_on_non_markdown(tmp_path):
     assert r.stderr == b""
 
 
+# --- multi-session isolation -------------------------------------------------
+#
+# Two sessions can write Shinzo at the same time. The hook must commit ONLY the
+# memory file it was given, and leave every other staged file where it is —
+# otherwise the first session to commit carries away the other one's work under
+# its own message (observed 2026-08-10, see docs/Briefs/Isolation-Commits-
+# Shinzo-Multi-Sessions-2026-08-10.md).
+
+
+def _staged_paths(root: Path) -> set[str]:
+    out = _git(root, "diff", "--cached", "--name-only").stdout
+    return {line.strip() for line in out.splitlines() if line.strip()}
+
+
+def _paths_in_head(root: Path) -> set[str]:
+    out = _git(root, "show", "--pretty=", "--name-only", "HEAD").stdout
+    return {line.strip() for line in out.splitlines() if line.strip()}
+
+
+def test_commit_excludes_a_file_staged_by_another_session(tmp_path):
+    root = _init_repo(tmp_path, with_remote=True)
+    # another session stages its own work
+    other = root / "02-Projets"
+    other.mkdir()
+    (other / "Takumi.md").write_text("work from the other session", encoding="utf-8")
+    _git(root, "add", "--", "02-Projets/Takumi.md")
+
+    f = _write_memory(root, "feedback-isolation.md")
+    r = _run({"tool_name": "Write", "tool_input": {"file_path": str(f)}}, root)
+
+    assert r.returncode == 0
+    assert _paths_in_head(root) == {"05-Memoire/feedback-isolation.md"}, (
+        "the memory commit must carry the memory file and nothing else"
+    )
+    assert "02-Projets/Takumi.md" in _staged_paths(root), (
+        "the other session's file must stay staged, available to its owner"
+    )
+
+
+def test_no_commit_when_memory_unchanged_even_if_another_file_is_staged(tmp_path):
+    root = _init_repo(tmp_path, with_remote=True)
+    f = _write_memory(root, "feedback-stable.md")
+    _run({"tool_name": "Write", "tool_input": {"file_path": str(f)}}, root)
+    before = _commit_count(root)
+
+    # another session stages work; the memory itself did not change
+    other = root / "02-Projets"
+    other.mkdir()
+    (other / "Boken.md").write_text("unrelated work", encoding="utf-8")
+    _git(root, "add", "--", "02-Projets/Boken.md")
+
+    r = _run({"tool_name": "Write", "tool_input": {"file_path": str(f)}}, root)
+
+    assert r.returncode == 0
+    assert _commit_count(root) == before, (
+        "an unchanged memory must not produce a commit just because the index is dirty"
+    )
+    assert "02-Projets/Boken.md" in _staged_paths(root), (
+        "the other session's file must stay staged"
+    )
+
+
+def test_working_tree_version_wins_over_a_stale_staged_version(tmp_path):
+    """`git commit -- <path>` bypasses the index and takes the working tree.
+
+    That is the behavior we want — the memory was just written — but it is a
+    consequence of the pathspec, so it is pinned here rather than assumed.
+    """
+    root = _init_repo(tmp_path, with_remote=True)
+    f = _write_memory(root, "feedback-stale-index.md", "old version")
+    _git(root, "add", "--", "05-Memoire/feedback-stale-index.md")
+    f.write_text("new version", encoding="utf-8")  # written after staging
+
+    r = _run({"tool_name": "Write", "tool_input": {"file_path": str(f)}}, root)
+
+    assert r.returncode == 0
+    committed = _git(
+        root, "show", "HEAD:05-Memoire/feedback-stale-index.md"
+    ).stdout.strip()
+    assert committed == "new version", "the freshly written version must be committed"
+
+
+def test_commits_a_brand_new_memory_never_tracked_by_git(tmp_path):
+    """Guard: `git commit -- <path>` fails on a path git does not know yet.
+
+    The hook stages before committing, so it is safe — but a brand-new memory is
+    the most common case, so it is proven here rather than assumed.
+    """
+    root = _init_repo(tmp_path, with_remote=True)
+    before = _commit_count(root)
+    f = _write_memory(root, "feedback-brand-new.md")
+
+    r = _run({"tool_name": "Write", "tool_input": {"file_path": str(f)}}, root)
+
+    assert r.returncode == 0
+    assert _commit_count(root) == before + 1, "a brand-new memory must be committed"
+    assert "05-Memoire/feedback-brand-new.md" in _paths_in_head(root)
+    assert b"WARNING" not in r.stderr
+
+
 def test_silent_on_empty_stdin(tmp_path):
     root = _init_repo(tmp_path, with_remote=True)
     r = subprocess.run(

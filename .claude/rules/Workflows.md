@@ -67,6 +67,14 @@ never from internal knowledge.
 - **Sync Shinzo (BLOCKING)**: Read 4 files from `Shinzo/02-Projets/` via `Read` tool
   (_Cross-Project + _Index + current project + [project]-Notes-Jay). No MCP needed.
   Shinzo not cloned → STOP and clone (`git clone git@github.com:theermite/Shinzo.git`).
+  **Writing back (BLOCKING)**: stage only the files this session wrote, by explicit path
+  (`git add -- <path>`) — never `git add -A`, `git add .`, or a directory. Why: another
+  session may be writing Shinzo at the same time, and a broad stage commits its work under
+  your message (observed 2026-08-10, `docs/Briefs/Isolation-Commits-Shinzo-Multi-Sessions-2026-08-10.md`).
+  **Proof**: `git show --name-only HEAD` lists only paths this session wrote.
+  `bash-guard` already blocks `-A` / `.` / `--all`; a bare directory pathspec
+  (`git add 02-Projets/`) is NOT blocked — that one is on you.
+  Same rule for any shared repo written by more than one session.
 - **Notes-Jay processing (BLOCKING)**: count unseen items at start ; update the markers
   (👀 Lu / 🔧 En cours / ✅ date — résumé) when handled.
 - **Docs: CDC/PET → the project repo (`docs/`) ; knowledge/vision/decisions/archi/infra/

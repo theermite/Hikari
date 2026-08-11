@@ -68,14 +68,21 @@ def _rel_path(abs_path: Path, root: Path) -> str:
 
 
 def _commit_and_push(root: Path, abs_path: Path) -> str | None:
-    """Stage, commit and push the memory file. Return a stderr line, or None."""
-    _git(root, "add", "--", _rel_path(abs_path, root))
-    if _git(root, "diff", "--cached", "--quiet").returncode == 0:
-        return None  # nothing actually changed → no empty commit
+    """Stage, commit and push the memory file. Return a stderr line, or None.
+
+    Every git call is scoped to this one file. Another session may be writing the
+    same repo at the same time: an unscoped `diff --cached` would read its staged
+    work as "something changed", and an unscoped `commit` would carry that work
+    away under a `chore(memory)` message (observed 2026-08-10).
+    """
+    rel = _rel_path(abs_path, root)
+    _git(root, "add", "--", rel)
+    if _git(root, "diff", "--cached", "--quiet", "--", rel).returncode == 0:
+        return None  # this memory did not change → no empty commit
 
     basename = abs_path.name
     message = f'chore(memory): {basename}\n\nCo-Authored-By: Takumi "IA Dev Partner"'
-    commit = _git(root, "commit", "-m", message)
+    commit = _git(root, "commit", "-m", message, "--", rel)
     if commit.returncode != 0:
         return f"WARNING: memory auto-commit failed. ACTION: commit Shinzo manually. {commit.stderr.strip()}"
 

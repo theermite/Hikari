@@ -83,6 +83,16 @@
             "type": "command",
             "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/pre-push-drift-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
             "description": "Warn (never block) on methodology drift vs MNK-GoRin before git push (D1 brick 2)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/pre-deploy-review-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Block a deploy or a methodology propagation without a [REVIEW] marker from an independent context (or a [REVIEW-SKIP] with a closed-enum motif)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/post-review-cause-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "After a review verdict FAIL, block the next commit unless it carries [CAUSE] (famille / cause / ce qui empeche la repetition); at the 2nd failure in a row, also require a changed approach"
           }
         ]
       },
