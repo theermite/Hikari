@@ -89,3 +89,40 @@ def test_a_payload_without_a_path_exits_cleanly():
     )
     assert result.returncode == 0, result.stderr
     assert "ValueError" not in result.stderr
+
+
+# --- showing a forbidden pattern is not doing it ----------------------------
+#
+# Found by an independent review on 2026-08-11, the day this guard came back to
+# life: a security test asserting on a fake key, and a doc showing the
+# anti-pattern as a counter-example, were both blocked. Those are exactly the
+# files that document the rule. The strings are built at runtime so this test
+# file does not trip the guard it tests.
+
+_JWT_IN_STORAGE = "localStorage.set" + "Item('jwt', token)"
+_FAKE_KEY = "sk_live_" + "A" * 24
+
+
+def test_a_test_file_may_show_the_forbidden_storage():
+    assert _run("D:/p/src/auth.test.ts", _JWT_IN_STORAGE).returncode == 0
+
+
+def test_a_doc_may_teach_the_counter_example():
+    assert _run("D:/p/docs/Security-Examples.md", _JWT_IN_STORAGE).returncode == 0
+
+
+def test_a_test_fixture_may_hold_a_fake_key():
+    assert _run("D:/p/src/billing.test.ts", _FAKE_KEY).returncode == 0
+
+
+def test_real_code_still_cannot_store_a_token_there():
+    assert _run("D:/p/src/auth.ts", _JWT_IN_STORAGE).returncode == 2
+
+
+def test_real_code_still_cannot_hold_a_key():
+    assert _run("D:/p/src/config.ts", _FAKE_KEY).returncode == 2
+
+
+def test_a_document_stays_watched_for_real_secrets():
+    """A doc may quote an anti-pattern, but a pasted key is still a leak."""
+    assert _run("D:/p/docs/Notes.md", _FAKE_KEY).returncode == 2

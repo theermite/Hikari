@@ -77,6 +77,24 @@ UI_SKIP_PATTERNS = (
     ".stories.", "__tests__", ".claude/",
 )
 
+# A file that SHOWS a forbidden pattern is not doing it: a security test asserts
+# on a fake key, a doc teaches the counter-example. Blocking those blocks exactly
+# the files that document the rule (independent review, 2026-08-11 — the day this
+# guard came back to life and blocked its own test file).
+EXAMPLE_PATTERNS = (".test.", ".spec.", "__tests__", "/tests/", ".stories.")
+DOC_PATTERNS = (".md", "/docs/")
+
+
+def _is_example_file(file_path):
+    return any(p in file_path.lower() for p in EXAMPLE_PATTERNS)
+
+
+def _teaches_rather_than_runs(file_path):
+    """Test fixtures AND documentation: both quote patterns to explain them."""
+    lowered = file_path.lower()
+    return _is_example_file(file_path) or any(p in lowered for p in DOC_PATTERNS)
+
+
 NAMING_EXCEPTIONS = {
     "README.md", "LICENSE", "CHANGELOG.md", "CLAUDE.md", "SKILL.md",
     "MEMORY.md", "Makefile", ".gitignore", ".gitkeep",
@@ -159,7 +177,9 @@ def check_env_guard(filename, dirname):
     return None
 
 
-def check_localstorage_jwt(raw):
+def check_localstorage_jwt(raw, file_path=""):
+    if _teaches_rather_than_runs(file_path):
+        return None  # a doc or a test showing the anti-pattern is not doing it
     if re.search(r"localStorage\.(set|get)Item.*(token|jwt|auth|session)", raw, re.IGNORECASE):
         return (
             "BLOCKED: JWT tokens must use httpOnly cookies, not localStorage. "
@@ -169,7 +189,11 @@ def check_localstorage_jwt(raw):
     return None
 
 
-def check_secrets_in_files(raw):
+def check_secrets_in_files(raw, file_path=""):
+    # A test fixture invents keys; a doc may quote a REAL one by accident, so a
+    # document stays under watch — only test files are excused.
+    if _is_example_file(file_path):
+        return None
     for pattern, name in SECRET_PATTERNS:
         if re.search(pattern, raw):
             return (
@@ -404,8 +428,8 @@ def check_naming(file_path, filename, name, ext):
 def _blockers(raw, file_path, filename, name, ext, dirname, content):
     return [
         check_env_guard(filename, dirname),
-        check_localstorage_jwt(raw),
-        check_secrets_in_files(raw),
+        check_localstorage_jwt(raw, file_path),
+        check_secrets_in_files(raw, file_path),
         check_github_actions_sha(file_path, raw),
         check_lego_library(file_path, ext, content),
         check_hs256(ext, content, file_path),
