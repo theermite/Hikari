@@ -9,19 +9,25 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+import common  # noqa: E402
 
 
 def read_input():
-    raw = sys.stdin.read()
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        data = {}
+    _, data = common.read_hook_input()
     return data
 
 
 def get_file_path(data):
-    file_path = data.get("file_path", "")
+    """`data["file_path"]` was read at the top level here, while the harness
+    nests it under `tool_input` — so this always returned None on a real
+    invocation, and every check below (the 500-line BLOCKING ceiling, empty
+    tests, UTF-8/BOM) never fired. Found 2026-08-16 via a 770-file inventory
+    of files over 500 lines across the workspace. Now backed by the same
+    nested-aware reader as every other guard (lib/common.py)."""
+    file_path = common.get_file_path(data)
     if not file_path:
         return None
     return file_path.replace("\\\\", "/").replace("\\", "/")

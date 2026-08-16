@@ -59,6 +59,60 @@ def test_pour_faire_simple_is_flagged():
     assert "condescendance" in _joined(text).lower()
 
 
+# --- TECHNICAL CHALLENGE readability (Jay 2026-08-16 — "un pave illisible") --
+#
+# The template lived inside a fenced ``` block. Fenced blocks are exempt from
+# every readability check (jargon, sentence length, paragraph cap) — the one
+# place Jay called illegible was the one place this hook never looked.
+# Fixed in Honesty.md: the template is now a Markdown table, never fenced.
+
+
+def test_challenge_in_fenced_block_hides_violations():
+    """Documents the bug: dense unglossed content inside ``` produces zero
+    warnings, because _strip_code() removes fenced blocks before analysis."""
+    text = (
+        "```\n"
+        "Risk: le hook lit data.get(file_path) a plat au lieu de tool_input, "
+        "donc le plafond de lignes, les tests vides et l'UTF-8 ne bloquent rien.\n"
+        "```\n"
+    )
+    assert _joined(text) == ""
+
+
+def test_technical_challenge_marker_is_not_flagged_as_acronyms():
+    """The fixed marker 'TECHNICAL CHALLENGE' is a literal template header
+    (Conventions.md: literal artifacts stay in English), not jargon to gloss.
+    Before the allowlist fix, two all-caps words in one sentence tripped the
+    density check — a real incentive to hide the marker inside a fence."""
+    text = "TECHNICAL CHALLENGE\nLe systeme de nettoyage ignorait les lignes vides."
+    out = _joined(text).lower()
+    assert "acronyme" not in out
+
+
+def test_other_fixed_markers_are_not_flagged_as_acronyms():
+    """Same false-positive family for the other literal markers a session
+    emits verbatim (Conventions.md): VEILLE, SKB, ROBUSTNESS, REVIEW, CAUSE."""
+    text = "VEILLE et SKB consultes. ROBUSTNESS et REVIEW et CAUSE documentes."
+    out = _joined(text).lower()
+    assert "acronyme" not in out
+
+
+def test_challenge_as_table_is_not_miscounted_as_prose():
+    """The fix: a real table is structural (Honesty.md constraint 3), so it
+    never inflates the 3-paragraph prose cap even with 5 rows."""
+    text = (
+        "Le systeme de nettoyage ignorait les lignes vides.\n\n"
+        "| Champ | Contenu |\n"
+        "|---|---|\n"
+        "| Risk | le controle ne bloque rien |\n"
+        "| Evidence | test rouge avant correction |\n"
+        "| Impact | fichiers trop longs jamais arretes |\n"
+        "| Alternative | lecteur partage deja teste ailleurs |\n"
+    )
+    out = _joined(text)
+    assert "paragraphes de prose" not in out
+
+
 def test_no_condescendance_marker_passes():
     text = "Le système range chaque fichier à sa place."
     assert "condescendance" not in _joined(text).lower()

@@ -5,7 +5,6 @@ RECOVERY PRINCIPLE: Every BLOCKED/WARNING message MUST include
 a concrete recovery action so Takumi knows what to do next.
 """
 
-import json
 import re
 import subprocess
 import sys
@@ -13,16 +12,28 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
-from shell_parse import simple_commands  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import common  # noqa: E402
+from git_push_guard import (  # noqa: E402
+    check_force_push_main,
+    check_force_push_warn,
+    check_git_add_broad,
+)
 
 
 def read_input():
-    raw = sys.stdin.read()
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        data = {}
-    command = data.get("command", "")
+    """Return (raw stdin text, command). `command` comes from the shared,
+    nested-aware reader (lib/common.py) — this file's own copy read
+    `data["command"]` at the top level, so it was always "" on a real
+    invocation (the harness nests it under `tool_input`), and every check
+    below that used `command` never fired: --no-verify, git add -A/--all/.,
+    force-push to main, Co-Authored-By, vitest OOM. `check_secrets`/
+    `check_destructive` scan `raw` (the full JSON text) and kept working by
+    accident. Found 2026-08-16 while investigating the same defect family in
+    post-write-guard.py.
+    """
+    raw, data = common.read_hook_input()
+    command = common.get_command(data)
     return raw, command
 
 
@@ -158,147 +169,9 @@ def check_no_verify(command):
     return None
 
 
-# `git add` is read from SHELL TOKENS, not from a regex over the raw line. A regex
-# missed `git -C "path with space" add -A`, missed `git -c k=v add -A`, and blocked a
-# commit message that merely quoted the forbidden command (all found 2026-08-10).
-# Tokenising solves the three at once: a quoted message is ONE token, never a command.
-BROAD_ADD_ARGS = {"-A", "--all", "."}
-
-# Repos written by several sessions at the same time. There, staging a whole
-# directory carries away another session's work under your commit message
-# (observed 2026-08-10). Elsewhere `git add src/` is legitimate daily work.
-SHARED_REPOS = {"shinzo"}
-
-
-# Parsing lives in lib/shell_parse.py — one reader for every Bash guard. Two
-# private copies diverged within a day and each correction reopened a hole in the
-# other (three independent reviews, 2026-08-10).
-_simple_commands = simple_commands
-
-
-def _is_shared(path):
-    parts = Path(path.strip("\"'")).parts
-    return any(part.lower() in SHARED_REPOS for part in parts)
-
-
-def _skip_git_options(segment):
-    """Walk git's own options. Return (repo path or None, index of subcommand)."""
-    repo, i = None, 1
-    while i < len(segment) and segment[i].startswith("-"):
-        option = segment[i]
-        takes_value = option in ("-C", "-c") and i + 1 < len(segment)
-        if option == "-C" and takes_value:
-            repo = segment[i + 1]
-        elif option.startswith("--git-dir="):
-            repo = option.split("=", 1)[1]
-        i += 2 if takes_value else 1
-    return repo, i
-
-
-def _parse_git_add(segment):
-    """Return (repo path or None, pathspecs) when the segment is a `git add`."""
-    if not segment or Path(segment[0]).name not in ("git", "git.exe"):
-        return None
-    repo, i = _skip_git_options(segment)
-    if i >= len(segment) or segment[i] != "add":
-        return None
-    return repo, [a for a in segment[i + 1 :] if a != "--"]
-
-
-def _looks_like_a_directory(pathspec, repo):
-    """The disk decides BOTH ways when the path resolves.
-
-    Guessing from the name alone reads `LICENSE`, `Dockerfile` and `.gitignore` as
-    directories. So: ask the filesystem first, and when it cannot answer, trust
-    only the trailing slash — an explicit mark, not a guess.
-    """
-    candidate = Path(repo).expanduser() / pathspec if repo else Path(pathspec)
-    try:
-        candidate = candidate.expanduser()
-        if candidate.exists():
-            return candidate.is_dir()
-    except OSError:
-        pass
-    return pathspec.endswith("/")
-
-
-def _broad_add_message():
-    return (
-        "BLOCKED: Broad git add detected. "
-        "RECOVERY: Use 'git add <specific files>' instead. "
-        "List the files you intend to commit and add them by name. "
-        "This prevents accidentally staging .env, credentials, or large binaries."
-    )
-
-
-def _shared_directory_message(pathspec):
-    return (
-        f"BLOCKED: staging the directory '{pathspec}' in a shared repo. "
-        "RECOVERY: name each file this session wrote — 'git add -- <path> <path>'. "
-        "Another session may be writing the same repo right now; a whole directory "
-        "carries its work away under your commit message (observed 2026-08-10). "
-        "Verify after with 'git show --name-only HEAD'."
-    )
-
-
-def _git_add_violation(repo, pathspecs):
-    if any(arg in BROAD_ADD_ARGS for arg in pathspecs):
-        return _broad_add_message()
-    if not (repo and _is_shared(repo)):
-        return None
-    for pathspec in pathspecs:
-        if not pathspec.startswith("-") and _looks_like_a_directory(pathspec, repo):
-            return _shared_directory_message(pathspec)
-    return None
-
-
-# Last resort when the line cannot be tokenised (unbalanced quote, exotic syntax).
-# A guard that cannot read a command must still refuse the obvious broad forms —
-# failing open would let a typo disable it entirely.
-_BROAD_ADD_FALLBACK = re.compile(r"git add (\.|--all|-A)(\s|\"|\;|&&|\||\)|$)")
-
-
-def check_git_add_broad(command):
-    try:
-        segments = _simple_commands(command)
-    except ValueError:
-        return _broad_add_message() if _BROAD_ADD_FALLBACK.search(command) else None
-
-    cwd_target = None
-    for segment in segments:
-        if segment[0] == "cd" and len(segment) > 1:
-            cwd_target = segment[1]
-        parsed = _parse_git_add(segment)
-        if parsed is None:
-            continue
-        repo, pathspecs = parsed
-        message = _git_add_violation(repo or cwd_target, pathspecs)
-        if message:
-            return message
-    return None
-
-
-def check_force_push_main(command):
-    if not re.search(r"git push.*(--force|--force-with-lease|-f\b)", command):
-        return None
-    if re.search(r"\b(main|master)\b", command):
-        return (
-            "BLOCKED: Force push to main/master is forbidden. "
-            "RECOVERY: Use a feature branch. "
-            "Update main via regular merge or rebase workflow."
-        )
-    return None
-
-
-def check_force_push_warn(command):
-    if not re.search(r"git push.*(--force|--force-with-lease|-f\b)", command):
-        return None
-    if re.search(r"\b(main|master)\b", command):
-        return None
-    return (
-        "WARNING: Force push on non-main branch. "
-        "ACTION: Verify the remote branch can be safely overwritten."
-    )
+# `git add`/`git push` tokenising and the broad-stage / force-push-to-main checks
+# now live in git_push_guard.py (imported above) — moved 2026-08-16 to keep this
+# file under the 500-line BLOCKING ceiling (rules/Quality.md).
 
 
 def check_conventional_commit(command, raw):

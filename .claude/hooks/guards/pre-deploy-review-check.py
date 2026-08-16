@@ -67,11 +67,35 @@ _SKIP = re.compile(r"\[REVIEW-SKIP\]\s+motif\s*:\s*(?P<motif>[a-z0-9-]+)", re.IG
 # reversible, and gating every push would cost a review several times a day —
 # the friction would kill the rule. What stays gated cannot be taken back.
 _PROPAGATION = re.compile(
-    r"propagate-methodology|sync-repo|"
     r"npm\s+publish|pnpm\s+publish|yarn\s+publish|twine\s+upload|"
     r"cargo\s+publish|mix\s+hex\.publish",
     re.IGNORECASE,
 )
+
+# The propagation script counts when it is RUN, never when it is read. A token
+# that ENDS with the script name is a path being executed; a `python -c` blob
+# merely quoting the name is not (false stop, 2026-08-11).
+_PROPAGATION_SCRIPTS = ("propagate-methodology.py", "sync-repo.sh", "sync-repo.py")
+
+
+_EXECUTORS = {"python", "python3", "py", "bash", "sh", "zsh"}
+
+
+def _names_a_propagation_script(token):
+    cleaned = token.replace("\\", "/")
+    return any(cleaned.endswith(script) for script in _PROPAGATION_SCRIPTS)
+
+
+def _runs_a_propagation(segment):
+    """The script is RUN, not merely named. `ruff check <script>` reads it."""
+    program = _program_name(segment[0])
+    if program not in _EXECUTORS and not _names_a_propagation_script(segment[0]):
+        return False
+    # `python -m ruff <script>` runs ruff; `python -c <code>` runs the code. In
+    # both, the script named after is an argument being read, not executed.
+    if "-m" in segment or "-c" in segment:
+        return False
+    return any(_names_a_propagation_script(token) for token in segment)
 
 _FORCE_FLAGS = {"--force", "--force-with-lease", "-f"}
 
@@ -117,18 +141,50 @@ def find_skip(text):
 
 # A heredoc delimiter always carries a letter (EOF, PY, SQL). Requiring one keeps
 # an arithmetic shift — `$((5 << 2))` — from being read as a heredoc.
-# These print their argument; they never run it. Everything else that carries a
-# quoted command — `bash -c`, `sh -c`, `ssh <host>` — does run it.
-_PRINTERS = {"echo", "print", "printf"}
+# These read a file or print an argument; they never run it. Everything else that
+# carries a quoted command — `bash -c`, `sh -c`, `ssh <host>` — does run it.
+# Blocking a `grep` over the propagation script is a false stop (2026-08-11), and
+# a guard that fires on reading is a guard people learn to work around.
+_PRINTERS = {
+    "echo", "print", "printf",
+    "cat", "grep", "rg", "head", "tail", "less", "more", "sed", "awk", "nl",
+    "sort", "uniq", "cut", "tr", "jq", "ls", "wc", "diff", "find", "stat",
+    "file", "basename", "dirname", "realpath",
+}
 
 
 _SUBSTITUTION = re.compile(r"\$\(|`")
 
 
+# `find -exec <command>` runs whatever follows. A reader that can execute is not
+# a reader (independent review, 2026-08-11).
+_RUNS_WHAT_FOLLOWS = {"-exec", "-execdir", "-ok", "-okdir"}
+
+
+def _after_exec_flag(segment):
+    """The command `find -exec` hands to the shell, as its own segment.
+
+    `{}` stands for the matched files, so the search terms travel with it —
+    otherwise `find -name deploy.sh -exec bash {} ;` looks like a bare `bash`.
+    """
+    for i, token in enumerate(segment):
+        if token in _RUNS_WHAT_FOLLOWS and i + 1 < len(segment):
+            command = [t for t in segment[i + 1 :] if t not in ("{}", ";", "\\", "+")]
+            matched = [t for t in segment[:i] if not t.startswith("-")]
+            return command + matched
+    return None
+
+
 def _ships(segment, printers_are_safe=True):
+    nested = _after_exec_flag(segment)
+    if nested is not None:
+        # The search itself ships nothing; only what it runs can. Judging the raw
+        # line as well would block `find -name deploy.sh -exec cat {} ;` — reading
+        # a file is not running it (independent review, 2026-08-11).
+        return _ships(nested, printers_are_safe)
     if segment[0] in _PRINTERS and printers_are_safe:
         return False
-    if _is_forced_push(segment):
+    if _is_forced_push(segment) or _runs_a_propagation(segment):
         return True
     text = " ".join(segment)
     return looks_like_deploy(text) or bool(_PROPAGATION.search(text))

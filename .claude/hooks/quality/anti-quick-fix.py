@@ -70,6 +70,7 @@ from common import (  # noqa: E402
     read_hook_input,
 )
 from session_state import read_state, write_state  # noqa: E402
+from transcript_reader import iter_assistant_text  # noqa: E402
 
 
 # --- Configuration -----------------------------------------------------------
@@ -239,19 +240,20 @@ def _marker_from_text(text: str) -> tuple[str, str, str] | None:
 
 
 def latest_marker(transcript_path: str) -> tuple[str, str, str] | None:
-    """Return (marker_type, block_text, hash) of the most recent marker, or None."""
+    """Return (marker_type, block_text, hash) of the most recent marker, or None.
+
+    Reads TAKUMI'S OWN TEXT only, via the shared transcript reader — never the
+    whole entry. The private walk-every-string version locked the repo on
+    2026-08-16: this guard's own recovery message quotes the SKIP marker as an
+    EXAMPLE, that message landed in the transcript, and the next scan read the
+    example back as evidence with an empty motif. Every following fix commit
+    was refused. One shared reader, the same lesson that closed the hand-rolled
+    shell parsing family on 2026-08-10.
+    """
     if not transcript_path or not os.path.isfile(transcript_path):
         return None
-    try:
-        with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-    except OSError:
-        return None
-    for raw in reversed(lines[-TRANSCRIPT_SCAN_LIMIT:]):
-        raw = raw.strip()
-        if not raw:
-            continue
-        found = _marker_from_text(_raw_entry_text(raw))
+    for text in iter_assistant_text(transcript_path, limit=TRANSCRIPT_SCAN_LIMIT):
+        found = _marker_from_text(text)
         if found:
             return found
     return None

@@ -93,6 +93,11 @@ _SENTENCE_SPLIT_RE = re.compile(r"[.!?]+(?:\s+|$)")
 _ACRONYM_ALLOWLIST = {
     "OK", "URL", "API", "CLI", "UI", "UX", "ID", "OS", "FAQ",
     "PDF", "HTML", "CSS", "JSON", "YAML", "TIME",
+    # Fixed markers a session emits verbatim (Conventions.md: literal
+    # artifacts stay in English). Not jargon to gloss — before this
+    # allowlist, "TECHNICAL CHALLENGE" itself tripped the density check,
+    # which is why the template got hidden inside a fence (Jay 2026-08-16).
+    "TECHNICAL", "CHALLENGE", "VEILLE", "SKB", "ROBUSTNESS", "REVIEW", "CAUSE",
 }
 
 # Constraint 1 (BLUF) — staging openers that bury the conclusion.

@@ -289,3 +289,92 @@ def test_a_forced_push_split_by_a_line_continuation_is_caught():
 
 def test_printing_a_file_is_not_shipping():
     assert gate.verdict("cat notes.txt", []) is None
+
+
+# --- reading a script is not running it (2026-08-11) -------------------------
+#
+# The gate blocked a plain `grep` over the propagation script, because the
+# command merely NAMED it. Reading a file never ships anything.
+
+
+def test_grepping_the_propagation_script_is_not_a_propagation():
+    command = "grep -n 'rsync' scripts/propagate-methodology.py"
+    assert gate.verdict(command, []) is None
+
+
+def test_reading_the_propagation_script_is_not_a_propagation():
+    assert gate.verdict("cat scripts/propagate-methodology.py", []) is None
+
+
+def test_listing_a_deploy_script_is_not_a_deploy():
+    assert gate.verdict("ls -la deploy.sh", []) is None
+
+
+def test_reading_a_slice_of_the_propagation_script_is_not_a_propagation():
+    command = 'sed -n "1330,1340p" scripts/propagate-methodology.py'
+    assert gate.verdict(command, []) is None
+
+
+def test_a_pipeline_of_readers_over_a_deploy_script_is_free():
+    command = "grep -n run scripts/propagate-methodology.py | head -6"
+    assert gate.verdict(command, []) is None
+
+
+def test_actually_running_the_propagation_is_still_gated():
+    assert gate.verdict("python scripts/propagate-methodology.py --apply", []) is not None
+
+
+def test_a_reader_does_not_excuse_a_real_deploy_later_on_the_line():
+    command = "cat notes.txt && docker compose up -d"
+    assert gate.verdict(command, []) is not None
+
+
+def test_python_reading_the_propagation_script_is_not_a_propagation():
+    """`python -c` inspecting the file is reading, not running it."""
+    command = "python -c \"import ast; ast.parse(open('scripts/propagate-methodology.py').read())\""
+    assert gate.verdict(command, []) is None
+
+
+def test_running_the_propagation_script_by_path_is_gated():
+    assert gate.verdict("python scripts/propagate-methodology.py Kobo", []) is not None
+
+
+def test_linting_the_propagation_script_is_not_running_it():
+    assert gate.verdict("ruff check scripts/propagate-methodology.py", []) is None
+
+
+def test_linting_it_through_python_module_is_not_running_it():
+    command = "python -m ruff check scripts/propagate-methodology.py"
+    assert gate.verdict(command, []) is None
+
+
+def test_find_with_exec_is_not_a_reader():
+    """`find -exec` runs whatever follows — it only reads without that flag."""
+    command = "find . -name propagate-methodology.py -exec python {} --apply \\;"
+    assert gate.verdict(command, []) is not None
+
+
+def test_find_exec_of_a_deploy_is_caught():
+    assert gate.verdict("find . -exec docker compose up -d \\;", []) is not None
+
+
+def test_plain_find_is_still_a_reader():
+    assert gate.verdict("find . -name scripts/propagate-methodology.py", []) is None
+
+
+def test_find_exec_of_a_reader_on_a_deploy_script_is_free():
+    """Reading a file named deploy.sh is not running it."""
+    assert gate.verdict("find . -name deploy.sh -exec cat {} \\;", []) is None
+
+
+def test_find_exec_grep_on_a_deploy_script_is_free():
+    assert gate.verdict("find . -name deploy.sh -exec grep foo {} \\;", []) is None
+
+
+def test_find_exec_running_a_deploy_script_is_caught():
+    assert gate.verdict("find . -name deploy.sh -exec bash {} \\;", []) is not None
+
+
+def test_testing_the_propagation_script_is_not_running_it():
+    command = "python -m pytest tests/test_propagate.py"
+    assert gate.verdict(command, []) is None

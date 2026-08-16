@@ -30,14 +30,41 @@ HOOK = Path(__file__).resolve().parents[1] / "quality" / "anti-quick-fix.py"
 
 
 def _make_transcript(tmp_path: Path, *texts: str) -> Path:
-    """Write a JSONL transcript whose entries contain the given text blocks."""
+    """Write a JSONL transcript in the REAL Claude Code shape.
+
+    The shape matters (2026-08-16): the hook used to walk every string in the
+    entry, so a simplified `{"role":..., "content": "<text>"}` passed the tests
+    while production failed. Real entries nest the message and carry a LIST of
+    typed blocks — assistant text is one of them, tool results are others.
+    """
     tmp_path.mkdir(parents=True, exist_ok=True)
     transcript = tmp_path / "transcript.jsonl"
     lines: list[str] = []
     for text in texts:
-        lines.append(json.dumps({"role": "assistant", "content": text}))
+        lines.append(json.dumps({
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": text}],
+            }
+        }))
     transcript.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return transcript
+
+
+def _append_hook_output(transcript: Path, text: str) -> None:
+    """Append a tool RESULT entry — what a blocking hook prints back.
+
+    This is not Takumi speaking: a marker quoted inside a guard's own recovery
+    message is an EXAMPLE, never evidence that the reflection happened.
+    """
+    entry = json.dumps({
+        "message": {
+            "role": "user",
+            "content": [{"type": "tool_result", "content": text}],
+        }
+    })
+    with transcript.open("a", encoding="utf-8") as f:
+        f.write(entry + "\n")
 
 
 def _run(cmd: str, *, transcript: Path | None = None,
@@ -293,3 +320,38 @@ def test_full_marker_resets_skip_counter(tmp_path):
     t3 = _make_transcript(tmp_path / "s3", "[ROBUSTNESS-SKIP] motif: comment-only")
     r3 = _run("git commit -m 'fix: c'", transcript=t3, session_id=sid)
     assert r3.returncode == 0, f"skip after reset should pass: {r3.stderr!r}"
+
+
+# --- Self-poisoning by the guard's own output (2026-08-16) -------------------
+#
+# Found live: after this hook blocked once, its own recovery message — which
+# quotes the SKIP marker as an EXAMPLE — landed in the transcript. The next
+# scan read that example as if Takumi had emitted it, and blocked every
+# following fix commit. The guard locked itself out of the repo. Cure: read
+# assistant text only, through the shared reader (lib/transcript_reader.py) —
+# the same "one shared reader" lesson that closed the hand-rolled shell
+# parsing family on 2026-08-10.
+
+
+def test_guard_own_block_message_is_not_read_as_evidence(tmp_path):
+    """A marker quoted inside the guard's own output must not count."""
+    transcript = _make_transcript(tmp_path, _full_marker())
+    _append_hook_output(
+        transcript,
+        "BLOCKED: fix commit without the marker. RECOVERY: emit "
+        "[ROBUSTNESS-SKIP] motif: <one of ['typo', 'revert', 'lint-fix']>",
+    )
+    r = _run("git commit -m 'fix: real work'",
+             transcript=transcript, session_id=_sid())
+    assert r.returncode == 0, (
+        f"the guard read its own example back as a marker: {r.stderr!r}"
+    )
+
+
+def test_tool_result_marker_never_substitutes_for_takumis_own(tmp_path):
+    """Evidence must come from Takumi, never from a tool result."""
+    transcript = _make_transcript(tmp_path, "no marker here")
+    _append_hook_output(transcript, _full_marker())
+    r = _run("git commit -m 'fix: sneaky'",
+             transcript=transcript, session_id=_sid())
+    assert r.returncode == 2, "a marker inside a tool result is not evidence"
