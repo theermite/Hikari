@@ -31,6 +31,13 @@ Markers (case-sensitive, line-start or whitespace prefix):
   [SKB] consulte: <paths>
   [VEILLE-SKIP] motif: <enum>
 
+Layout (split 2026-08-18, the file had passed the 500-line BLOCKING limit it
+helps enforce — and it ships to every Shinkofa repo, so it counted 33 times):
+  lib/veille_config.py   — constants, regexes, closed enums
+  lib/veille_detect.py   — needs_evidence + Layer B sensitivity
+  lib/veille_markers.py  — transcript marker scan + web-call proof
+  this file              — decision, state, block messages
+
 Hook exit codes:
   0 = pass
   2 = block (stderr message printed)
@@ -38,10 +45,8 @@ Hook exit codes:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -51,128 +56,17 @@ sys.path.insert(0, str(LIB_DIR))
 
 from common import find_repo_root  # noqa: E402
 from session_state import read_state, write_state  # noqa: E402
-from transcript_reader import iter_tool_calls  # noqa: E402
-
-
-# --- Configuration -----------------------------------------------------------
-
-CODE_EXT = {"ts", "tsx", "js", "jsx", "py", "ex", "exs", "rs", "go"}
-
-# Paths that do NOT require veille evidence
-SKIP_PATH_PARTS = (
-    "/.claude/",
-    "/node_modules/",
-    "/dist/",
-    "/build/",
-    "/.next/",
-    "/__pycache__/",
-    "/coverage/",
-    "/.venv/",
-    "/venv/",
-    "/target/",
-    "/_build/",
-    "/deps/",
-    "/docs/",
-    "/mnk/",
-    "/rules/",
-    "/__tests__/",
+from veille_config import (  # noqa: E402
+    ALLOWED_SKIP_MOTIFS,
+    SKIP_COUNT_THRESHOLD,
+    SKIP_MOTIF_RE,
 )
-
-# Filename patterns that do NOT require veille evidence.
-# Test files legitimately import the framework (pytest, vitest) and the module
-# under test — both may be external — so they are exempt by design, like a
-# `[VEILLE-SKIP] motif: test-only`. Covers .test./.spec. plus the pytest naming
-# conventions test_*.py / test-*.py / *_test.py (Jay 2026-06-24 friction).
-SKIP_FILENAME_PATTERNS = (
-    r"\.test\.",
-    r"\.spec\.",
-    r"\.stories\.",
-    r"__tests__",
-    r"conftest\.py",
-    r"setup\.py",
-    r"setup\.cfg",
-    r"^test_",
-    r"^test-",
-    r"_test\.py$",
+from veille_detect import (  # noqa: E402
+    file_is_dep_manifest,
+    needs_evidence,
+    sensitive_change,
 )
-
-# Layer A — closed enum of acceptable SKIP motifs
-ALLOWED_SKIP_MOTIFS = {
-    "typo",
-    "internal-refactor-no-new-deps",
-    "hotfix-known-root-cause",
-    "test-only",
-    "methodology-edit",
-    "generated-artifact",
-}
-
-# Layer B — dependency manifest filenames
-DEPENDENCY_MANIFESTS = {
-    "package.json",
-    "package-lock.json",
-    "pnpm-lock.yaml",
-    "yarn.lock",
-    "pyproject.toml",
-    "uv.lock",
-    "poetry.lock",
-    "requirements.txt",
-    "requirements-dev.txt",
-    "Pipfile",
-    "Pipfile.lock",
-    "mix.exs",
-    "mix.lock",
-    "Cargo.toml",
-    "Cargo.lock",
-    "go.mod",
-    "go.sum",
-    "Gemfile",
-    "Gemfile.lock",
-    "composer.json",
-    "composer.lock",
-}
-
-# Layer B — version pin patterns (caught on new diff lines)
-VERSION_PIN_RE = re.compile(
-    r"""
-    (?: @ \d+\.\d+(?:\.\d+)? )            # @1.2.3 npm scoped
-  | (?: \^ \d+\.\d+ )                     # ^1.2
-  | (?: ~= ?\d+\.\d+ )                    # ~= 1.2
-  | (?: ~> ?\d+\.\d+ )                    # ~> 1.2 (mix.exs)
-  | (?: >= ?\d+\.\d+(?:,\s*<\s*\d+)? )    # >=1.2,<2 (Python)
-    """,
-    re.VERBOSE,
-)
-
-# Python stdlib names (3.10+ exposes sys.stdlib_module_names)
-PY_STDLIB = set(getattr(sys, "stdlib_module_names", ()))
-
-# Marker scan. The prefix class accepts a backtick so a marker wrapped in
-# markdown code-span backticks (`[VEILLE-SKIP] motif: typo`) is still detected
-# (Jay 2026-06-13, session 004 — backtick-wrapped marker silently missed).
-MARKER_RE = re.compile(
-    r"(?:^|[\s`])\[(VEILLE|SKB|VEILLE-SKIP)\][^\n]+",
-    re.MULTILINE,
-)
-SKIP_MOTIF_RE = re.compile(
-    r"\[VEILLE-SKIP\]\s+motif\s*:\s*([a-zA-Z0-9_\-]+)",
-)
-TRANSCRIPT_SCAN_LIMIT = 200
-SKIP_COUNT_THRESHOLD = 3
-
-# Lines that are clearly our own recovery / block messages — never scan them
-# for markers (otherwise the hook re-matches its own template strings and
-# produces cascading false blocks). Jay 2026-05-31 bug report.
-RECOVERY_LINE_HINTS = ("BLOCKED:", "RECOVERY:")
-
-# Chantier D — proof of web veille. A [VEILLE] marker on a SENSITIVE change
-# must be backed by a REAL web tool call in the session, not just the text.
-# Match known web tools by exact name + substring (alias-tolerant per the
-# 2026-06-08 cross-project lesson: never bind to a single literal tool name).
-WEB_TOOL_NAMES_EXACT = {"WebSearch", "WebFetch"}
-WEB_TOOL_SUBSTRINGS = (
-    "websearch", "web_search", "webfetch", "web_fetch",
-    "searxng", "tavily", "brave",
-)
+from veille_markers import DIGEST_ALGO, has_web_veille_call, latest_marker  # noqa: E402
 
 
 # --- Input -------------------------------------------------------------------
@@ -207,254 +101,6 @@ def get_old_content(data: dict) -> str:
     return ti.get("old_string") or ""
 
 
-# --- needs_evidence (path-based skip) ---------------------------------------
-
-
-def needs_evidence(file_path: str, filename: str, ext: str) -> bool:
-    """Source code in a non-skip path requires evidence."""
-    if ext not in CODE_EXT:
-        return False
-    path_norm = file_path.lower()
-    for part in SKIP_PATH_PARTS:
-        if part in path_norm:
-            return False
-    for pat in SKIP_FILENAME_PATTERNS:
-        if re.search(pat, filename, re.IGNORECASE):
-            return False
-    return True
-
-
-# --- Layer B detection -------------------------------------------------------
-
-
-def file_is_dep_manifest(filename: str) -> bool:
-    return filename in DEPENDENCY_MANIFESTS
-
-
-def new_lines(old: str, new: str) -> list[str]:
-    """Return lines present in `new` but not in `old`. Naive but sufficient
-    for our purpose (we don't need true line-level diff)."""
-    old_set = set(old.splitlines())
-    return [line for line in new.splitlines() if line not in old_set]
-
-
-PY_IMPORT_RE = re.compile(r"^\s*(?:from\s+([a-zA-Z_][\w.]*)|import\s+([a-zA-Z_][\w.]*))")
-JS_IMPORT_RE = re.compile(r"""(?:^|;)\s*import\s+(?:[^;'"]+\s+from\s+)?['"]([^'"]+)['"]""")
-JS_REQUIRE_RE = re.compile(r"""require\(\s*['"]([^'"]+)['"]\s*\)""")
-
-
-def _py_line_has_external_import(line: str) -> bool:
-    m = PY_IMPORT_RE.match(line)
-    if not m:
-        return False
-    mod = (m.group(1) or m.group(2) or "").split(".")[0]
-    if not mod or mod.startswith("_"):
-        return False
-    return not (PY_STDLIB and mod in PY_STDLIB)
-
-
-def _js_line_has_external_import(line: str) -> bool:
-    specs = [m.group(1) for m in JS_IMPORT_RE.finditer(line)]
-    specs += [m.group(1) for m in JS_REQUIRE_RE.finditer(line)]
-    return any(not s.startswith((".", "/", "~", "@/")) for s in specs)
-
-
-def _py_module(line: str) -> str:
-    m = PY_IMPORT_RE.match(line)
-    return (m.group(1) or m.group(2) or "").split(".")[0] if m else ""
-
-
-def _js_specs(line: str) -> list[str]:
-    specs = [m.group(1) for m in JS_IMPORT_RE.finditer(line)]
-    specs += [m.group(1) for m in JS_REQUIRE_RE.finditer(line)]
-    return [s for s in specs if not s.startswith((".", "/", "~", "@/"))]
-
-
-def external_imports(text: str, ext: str) -> set[str]:
-    """Set of external (non-stdlib, non-relative) imported modules/specs in text.
-
-    Module-aware (not raw-line): re-indenting or moving an import that already
-    exists yields the same set, so it is NOT seen as a new dependency.
-    """
-    mods: set[str] = set()
-    for line in text.splitlines():
-        if ext == "py" and _py_line_has_external_import(line):
-            mods.add(_py_module(line))
-        elif ext in {"ts", "tsx", "js", "jsx"} and _js_line_has_external_import(line):
-            mods.update(_js_specs(line))
-    mods.discard("")
-    return mods
-
-
-def has_version_pin(diff_lines: list[str]) -> bool:
-    return any(VERSION_PIN_RE.search(line) for line in diff_lines)
-
-
-NPM_DEP_KEYS = ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies")
-
-
-def _read_disk(file_path: str) -> str | None:
-    try:
-        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except OSError:
-        return None
-
-
-def _full_old_new(file_path: str, old_string: str, new_content: str) -> tuple[str | None, str | None]:
-    """Reconstruct full OLD + NEW file content.
-
-    Edit: old_string/new_content are fragments; the file on disk still holds the
-    OLD full content (PreToolUse runs before the edit applies). Write: new_content
-    is already the full file. Returns new=None when reconstruction is impossible.
-    """
-    disk = _read_disk(file_path)
-    if old_string:  # Edit
-        if disk is None or old_string not in disk:
-            return disk, None
-        return disk, disk.replace(old_string, new_content, 1)
-    return disk, new_content  # Write
-
-
-def _npm_dep_sections(content: str) -> dict | None:
-    try:
-        obj = json.loads(content)
-    except (ValueError, TypeError):
-        return None
-    if not isinstance(obj, dict):
-        return None
-    return {k: obj.get(k) for k in NPM_DEP_KEYS}
-
-
-def _pyproject_dep_sections(content: str) -> dict | None:
-    try:
-        import tomllib
-    except ImportError:
-        return None
-    try:
-        obj = tomllib.loads(content)
-    except (ValueError, TypeError):
-        return None
-    project = obj.get("project") if isinstance(obj.get("project"), dict) else {}
-    tool = obj.get("tool") if isinstance(obj.get("tool"), dict) else {}
-    poetry = tool.get("poetry") if isinstance(tool.get("poetry"), dict) else {}
-    return {
-        "dependencies": project.get("dependencies"),
-        "optional-dependencies": project.get("optional-dependencies"),
-        "poetry.dependencies": poetry.get("dependencies"),
-        "poetry.dev-dependencies": poetry.get("dev-dependencies"),
-        "poetry.group": poetry.get("group"),
-    }
-
-
-def _requirements_dep_lines(content: str) -> list[str]:
-    return [s for s in (ln.strip() for ln in content.splitlines()) if s and not s.startswith("#")]
-
-
-def _sections_changed(old_sec: dict | None, new_sec: dict | None) -> bool | None:
-    if old_sec is None or new_sec is None:
-        return None
-    return old_sec != new_sec
-
-
-def manifest_dependencies_changed(file_path: str, filename: str, old_string: str, new_content: str) -> bool | None:
-    """True if a dependency key changed, False if not, None if undetermined.
-
-    Only npm (package.json), pyproject.toml and requirements*.txt are parsed.
-    Other manifests / lockfiles return None (conservative — caller keeps the
-    'sensitive' default so a real add/bump still requires veille).
-    """
-    old_full, new_full = _full_old_new(file_path, old_string, new_content)
-    if old_full is None or new_full is None:
-        return None
-    if filename == "package.json":
-        return _sections_changed(_npm_dep_sections(old_full), _npm_dep_sections(new_full))
-    if filename == "pyproject.toml":
-        return _sections_changed(_pyproject_dep_sections(old_full), _pyproject_dep_sections(new_full))
-    if filename.startswith("requirements") and filename.endswith(".txt"):
-        return _requirements_dep_lines(old_full) != _requirements_dep_lines(new_full)
-    return None
-
-
-def sensitive_change(file_path: str, filename: str, ext: str, old: str, new: str) -> str | None:
-    """Return a short reason string if Layer B is triggered, else None."""
-    if file_is_dep_manifest(filename):
-        changed = manifest_dependencies_changed(file_path, filename, old, new)
-        if changed is False:
-            return None  # manifest edited but no dependency changed -> not sensitive
-        if changed is True:
-            return f"dependency change in manifest ({filename})"
-        return f"target is dependency manifest ({filename})"  # undetermined -> conservative
-    diff = new_lines(old, new) if old else new.splitlines()
-    if has_version_pin(diff):
-        return "version pin pattern in diff"
-    if ext in {"py", "ts", "tsx", "js", "jsx"}:
-        added = external_imports(new, ext) - external_imports(old, ext)
-        if added:
-            return f"new external import detected ({ext}: {', '.join(sorted(added))})"
-    return None
-
-
-# --- Transcript scan ---------------------------------------------------------
-
-
-def extract_text(entry) -> str:
-    chunks: list[str] = []
-
-    def walk(node):
-        if isinstance(node, str):
-            chunks.append(node)
-        elif isinstance(node, dict):
-            for _, v in node.items():
-                walk(v)
-        elif isinstance(node, list):
-            for item in node:
-                walk(item)
-
-    walk(entry)
-    return "\n".join(chunks)
-
-
-def _entry_text(raw: str) -> str:
-    """Plain text of a transcript line, with our own recovery/block lines removed
-    (they contain literal marker templates that would otherwise be re-matched)."""
-    try:
-        text = extract_text(json.loads(raw))
-    except (json.JSONDecodeError, ValueError):
-        text = raw
-    kept = [ln for ln in text.splitlines()
-            if not any(h in ln for h in RECOVERY_LINE_HINTS)]
-    return "\n".join(kept)
-
-
-def _concrete_markers(text: str) -> list:
-    """MARKER_RE matches that are real, not angle-bracket / set-repr templates
-    (e.g. the literal "[VEILLE] <techno>@<version> ..." in a recovery message)."""
-    return [m for m in MARKER_RE.finditer(text)
-            if "<" not in m.group(0) and "{" not in m.group(0)]
-
-
-def latest_marker(transcript_path: str) -> tuple[str, str, str] | None:
-    """Return (marker_type, marker_line, hash) of the most recent marker, or None."""
-    if not transcript_path or not os.path.isfile(transcript_path):
-        return None
-    try:
-        with open(transcript_path, "r", encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-    except OSError:
-        return None
-    for raw in reversed(lines[-TRANSCRIPT_SCAN_LIMIT:]):
-        raw = raw.strip()
-        if not raw:
-            continue
-        matches = _concrete_markers(_entry_text(raw))
-        if matches:
-            line = matches[-1].group(0).strip()
-            digest = hashlib.sha1(line.encode("utf-8")).hexdigest()[:16]
-            return matches[-1].group(1), line, digest
-    return None
-
-
 # --- Counter state -----------------------------------------------------------
 
 
@@ -462,11 +108,22 @@ STATE_NAME = "veille-skips"
 
 
 def load_counter(session_id: str | None, repo_root: Path) -> dict:
+    """Read the session counter, flagging a state written before the digest change.
+
+    `legacy_digest` is True when a stored fingerprint exists but was produced by
+    another algorithm. Its value cannot be recomputed, so comparing it to a fresh
+    digest would read an UNCHANGED marker as a new one and cost a false block
+    (independent review, 2026-08-18). The caller grants one free pass, then the
+    state is rewritten with its algorithm and the counter resumes normally.
+    """
     data = read_state(STATE_NAME, session_id, repo_root)
+    stored_hash = str(data.get("last_marker_hash", ""))
+    stored_algo = str(data.get("digest_algo", ""))
     return {
         "skip_count": int(data.get("skip_count", 0)),
-        "last_marker_hash": str(data.get("last_marker_hash", "")),
+        "last_marker_hash": stored_hash,
         "veille_seen": bool(data.get("veille_seen", False)),
+        "legacy_digest": bool(stored_hash) and stored_algo != DIGEST_ALGO,
     }
 
 
@@ -474,36 +131,18 @@ def _persist(session_id: str | None, repo_root: Path, *, skip_count: int,
              marker_hash: str, veille_seen: bool) -> None:
     write_state(
         STATE_NAME,
-        {"skip_count": skip_count, "last_marker_hash": marker_hash, "veille_seen": veille_seen},
+        {
+            "skip_count": skip_count,
+            "last_marker_hash": marker_hash,
+            "veille_seen": veille_seen,
+            "digest_algo": DIGEST_ALGO,
+        },
         session_id,
         repo_root,
     )
 
 
-# --- Main --------------------------------------------------------------------
-
-
-def has_web_veille_call(transcript_path: str) -> bool:
-    """True if a real web tool call (WebSearch/WebFetch/MCP web) happened.
-
-    Scope is session-wide on purpose: under plan mode (Chantier B) the veille
-    is performed in the plan phase and the code is written in a later turn, so
-    a per-turn scan would false-block legitimate plan execution. A real tool
-    call cannot be fabricated by writing marker text — that is the proof.
-    """
-    if not transcript_path:
-        return False
-    try:
-        for call in iter_tool_calls(transcript_path):
-            name = call.get("name") or ""
-            if name in WEB_TOOL_NAMES_EXACT:
-                return True
-            low = name.lower()
-            if any(sub in low for sub in WEB_TOOL_SUBSTRINGS):
-                return True
-    except Exception:
-        return False
-    return False
+# --- Block messages ----------------------------------------------------------
 
 
 def block(msg: str) -> None:
@@ -521,6 +160,9 @@ def _block_missing_marker(file_path: str) -> None:
         f"  [VEILLE-SKIP] motif: <one of {sorted(ALLOWED_SKIP_MOTIFS)}>\n"
         "See rules/Workflows.md -> 'Veille/SKB Evidence Protocol'."
     )
+
+
+# --- Enforcement -------------------------------------------------------------
 
 
 def _enforce_sensitive(file_path: str, reason: str, marker_type: str, transcript_path: str) -> None:
@@ -562,7 +204,8 @@ def _enforce_skip(file_path: str, marker_line: str, marker_hash: str,
             f"RECOVERY: use one of {sorted(ALLOWED_SKIP_MOTIFS)}\n"
             "Or emit a real [VEILLE] / [SKB] marker instead."
         )
-    if counter["last_marker_hash"] != marker_hash:
+    # A legacy fingerprint is not comparable: never read it as a new marker.
+    if counter["last_marker_hash"] != marker_hash and not counter.get("legacy_digest"):
         counter["skip_count"] += 1
     seen = counter.get("veille_seen", False)
     if counter["skip_count"] >= SKIP_COUNT_THRESHOLD:
@@ -599,6 +242,9 @@ def _record_real_marker(session_id: str | None, repo_root: Path, counter: dict, 
     veille was performed this session."""
     if counter["last_marker_hash"] != marker_hash or not counter.get("veille_seen"):
         _persist(session_id, repo_root, skip_count=0, marker_hash=marker_hash, veille_seen=True)
+
+
+# --- Main --------------------------------------------------------------------
 
 
 def main() -> None:
