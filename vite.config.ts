@@ -32,10 +32,17 @@ export default defineConfig(async () => ({
     // Ne jamais exécuter les tests des worktrees d'agents (branches en cours de revue) :
     // ils embarquent leur propre copie du code et feraient échouer le suite de `main`.
     exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/worktrees/**"],
+    // `node` par défaut (rapide, suffit à toute la logique pure). Un fichier de test de
+    // composant demande jsdom explicitement via `// @vitest-environment jsdom` en tête —
+    // ainsi le socle reste inchangé pour les 142 tests de logique existants (2026-08-19).
     environment: "node",
+    setupFiles: ["./vitest.setup.ts"],
     globals: true,
+    // `poolOptions.forks.maxForks` a fusionné en `maxWorkers` top-level dans Vitest 4 —
+    // dépréciation constatée et corrigée le 2026-08-19 en posant cette configuration
+    // (veille : vitest.dev/guide/migration#pool-rework). Même comportement, syntaxe à plat.
     pool: "forks",
-    poolOptions: { forks: { maxForks: 2 } },
+    maxWorkers: 2,
     isolate: true,
     maxConcurrency: 5,
     testTimeout: 10000,
