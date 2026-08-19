@@ -20,3 +20,19 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     disconnect() {}
   };
 }
+
+// jsdom n'implémente ni `showModal()` ni `close()` sur `<dialog>` (constaté 2026-08-19,
+// jsdom 30.0.1 — `HTMLDialogElement.showModal is not a function`). Modal.tsx s'appuie sur
+// le natif : sans ce palliatif, toute fenêtre modale plante au montage sous jsdom, réel ou
+// non. Le palliatif suit le comportement observable que les tests interrogent (l'attribut
+// `open`), pas la gestion complète de la couche supérieure du navigateur.
+if (typeof HTMLDialogElement !== "undefined") {
+  HTMLDialogElement.prototype.showModal ??= function (
+    this: HTMLDialogElement,
+  ) {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+  };
+}
