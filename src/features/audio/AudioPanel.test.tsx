@@ -11,6 +11,7 @@
 
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { IDockviewPanelProps } from "dockview-react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AudioPanel } from "./AudioPanel";
 import type { AudioEngineMessage, AudioSourceInfo } from "./types";
@@ -63,7 +64,7 @@ afterEach(() => {
 
 describe("AudioPanel", () => {
   it("should_afficher_un_message_d_attente_avant_que_le_moteur_reponde", () => {
-    render(<AudioPanel {...({} as never)} />);
+    render(<AudioPanel {...({} as IDockviewPanelProps)} />);
 
     expect(
       screen.getByText(/Ouvre le panneau Aperçu pour gérer le son/i),
@@ -71,7 +72,7 @@ describe("AudioPanel", () => {
   });
 
   it("should_lister_les_appareils_non_encore_ajoutes_apres_la_reponse_du_moteur", () => {
-    render(<AudioPanel {...({} as never)} />);
+    render(<AudioPanel {...({} as IDockviewPanelProps)} />);
 
     emit({
       type: "audio_devices",
@@ -87,7 +88,7 @@ describe("AudioPanel", () => {
 
   it("should_ajouter_une_source_quand_on_clique_sur_un_appareil", async () => {
     const user = userEvent.setup();
-    render(<AudioPanel {...({} as never)} />);
+    render(<AudioPanel {...({} as IDockviewPanelProps)} />);
     emit({
       type: "audio_devices",
       inputs: [{ name: "Micro USB", device_id: "dev-1" }],
@@ -104,7 +105,7 @@ describe("AudioPanel", () => {
   });
 
   it("should_retirer_un_appareil_deja_ajoute_de_la_liste_a_ajouter", () => {
-    render(<AudioPanel {...({} as never)} />);
+    render(<AudioPanel {...({} as IDockviewPanelProps)} />);
     emit({
       type: "audio_devices",
       inputs: [{ name: "Micro USB", device_id: "dev-1" }],
@@ -118,7 +119,7 @@ describe("AudioPanel", () => {
 
   it("should_couper_puis_retablir_une_source", async () => {
     const user = userEvent.setup();
-    render(<AudioPanel {...({} as never)} />);
+    render(<AudioPanel {...({} as IDockviewPanelProps)} />);
     emit({
       type: "audio_devices",
       inputs: [{ name: "Micro USB", device_id: "dev-1" }],
@@ -136,7 +137,7 @@ describe("AudioPanel", () => {
   });
 
   it("should_afficher_l_etat_coupe_quand_la_source_est_muted", () => {
-    render(<AudioPanel {...({} as never)} />);
+    render(<AudioPanel {...({} as IDockviewPanelProps)} />);
     emit({
       type: "audio_devices",
       inputs: [{ name: "Micro USB", device_id: "dev-1" }],
@@ -150,7 +151,7 @@ describe("AudioPanel", () => {
 
   it("should_retirer_une_source_du_mixeur", async () => {
     const user = userEvent.setup();
-    render(<AudioPanel {...({} as never)} />);
+    render(<AudioPanel {...({} as IDockviewPanelProps)} />);
     emit({
       type: "audio_devices",
       inputs: [{ name: "Micro USB", device_id: "dev-1" }],
@@ -169,7 +170,7 @@ describe("AudioPanel", () => {
 
   it("should_ouvrir_la_fenetre_de_reglages_au_clic_sur_l_icone_dediee", async () => {
     const user = userEvent.setup();
-    render(<AudioPanel {...({} as never)} />);
+    render(<AudioPanel {...({} as IDockviewPanelProps)} />);
     emit({
       type: "audio_devices",
       inputs: [{ name: "Micro USB", device_id: "dev-1" }],
@@ -187,7 +188,7 @@ describe("AudioPanel", () => {
   });
 
   it("should_afficher_le_volume_de_retour_seulement_quand_le_streamer_l_ecoute", () => {
-    render(<AudioPanel {...({} as never)} />);
+    render(<AudioPanel {...({} as IDockviewPanelProps)} />);
     emit({
       type: "audio_devices",
       inputs: [{ name: "Micro USB", device_id: "dev-1" }],
@@ -198,9 +199,7 @@ describe("AudioPanel", () => {
       type: "audio_sources",
       items: [source({ monitoring: "none" })],
     });
-    expect(
-      screen.queryByLabelText(/dans mon casque/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/dans mon casque/i)).not.toBeInTheDocument();
 
     emit({
       type: "audio_sources",
@@ -210,7 +209,7 @@ describe("AudioPanel", () => {
   });
 
   it("should_annoncer_une_saturation_sans_repeter_l_alerte_dans_la_fenetre_de_rappel", () => {
-    render(<AudioPanel {...({} as never)} />);
+    render(<AudioPanel {...({} as IDockviewPanelProps)} />);
     emit({
       type: "audio_devices",
       inputs: [{ name: "Micro USB", device_id: "dev-1" }],
@@ -231,7 +230,7 @@ describe("AudioPanel", () => {
   });
 
   it("should_afficher_le_message_d_erreur_envoye_par_le_moteur", () => {
-    render(<AudioPanel {...({} as never)} />);
+    render(<AudioPanel {...({} as IDockviewPanelProps)} />);
 
     emit({ type: "error", message: "Le périphérique a disparu" });
 
@@ -246,7 +245,7 @@ describe("AudioPanel", () => {
         return Promise.resolve(unlisten);
       },
     );
-    const { unmount } = render(<AudioPanel {...({} as never)} />);
+    const { unmount } = render(<AudioPanel {...({} as IDockviewPanelProps)} />);
 
     unmount();
     await Promise.resolve(); // laisse le microtask du désabonnement s'exécuter

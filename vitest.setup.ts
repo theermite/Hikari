@@ -1,3 +1,5 @@
+/// <reference types="@testing-library/jest-dom" />
+//
 // Chargé pour chaque fichier de test, quel que soit son environnement.
 //
 // `IS_REACT_ACT_ENVIRONMENT` élimine un avertissement connu et sans rapport avec une
