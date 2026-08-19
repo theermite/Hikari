@@ -212,7 +212,95 @@ def _is_test_file(ext, basename):
     return ext == "py" and basename.startswith("test_")
 
 
+def _advance_past_quote(content, i, quote):
+    """content[i] opens a `quote`-delimited string. Return the index just
+    after it closes, or len(content) if it never does."""
+    n = len(content)
+    i += 1
+    while i < n:
+        if content[i] == "\\":
+            i += 2
+            continue
+        if content[i] == quote:
+            return i + 1
+        i += 1
+    return n
+
+
+def _skip_comment(content, i):
+    """content[i:i+2] is '//' or '/*'. Return the index just past the
+    comment (or EOF if unterminated), or None if it is not a comment."""
+    n = len(content)
+    pair = content[i:i + 2]
+    if pair == "//":
+        end = content.find("\n", i)
+        return n if end == -1 else end
+    if pair == "/*":
+        end = content.find("*/", i + 2)
+        return n if end == -1 else end + 2
+    return None
+
+
+def _find_matching_paren(content, open_paren_idx):
+    """Index just after the ')' matching content[open_paren_idx].
+
+    Quote/comment-aware: a paren inside a string never shifts depth, and
+    comments are skipped BEFORE quote-tracking — an apostrophe in
+    `// it's not done` would otherwise open an unterminated "string" that
+    swallows a later test's assertion (independent review, 2026-08-19).
+    """
+    depth = 0
+    i = open_paren_idx
+    n = len(content)
+    while i < n:
+        c = content[i]
+        if c in "'\"`":
+            i = _advance_past_quote(content, i, c)
+            continue
+        if c == "/":
+            skip_to = _skip_comment(content, i)
+            if skip_to is not None:
+                i = skip_to
+                continue
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return n
+
+
+NEXT_TEST_RE = re.compile(r"\b(?:it|test|describe)\s*\(")
+
+
+def _next_test_boundary(content, start):
+    """Index where the NEXT it(/test(/describe( call starts after `start`,
+    or len(content) if there is none.
+
+    Deliberately dumb: a plain textual search with NO comment/quote/regex
+    awareness, so it cannot be fooled by the same input that fools
+    `_find_matching_paren` — a regex literal's doubled slash reads as a
+    comment to the char-by-char scanner, but is invisible to this one
+    (independent review, 2026-08-19, round 2; Jay's option B: two
+    independently-failing techniques must agree to miss an empty test).
+    """
+    m = NEXT_TEST_RE.search(content, start)
+    return m.start() if m else len(content)
+
+
 def _find_empty_ts_tests(content):
+    """Flag `it(...)`/`test(...)` calls with no assertion in their body.
+
+    The body is bounded by whichever ends SOONER of: the real balanced
+    parentheses of the call, or the start of the next test declaration. The
+    parenthesis scan alone can overrun (a fixed 500-char window originally,
+    then a comment/regex artifact) and swallow a neighboring test's
+    assertion; capping by the next test's start makes that overrun
+    structurally unable to leak across a test boundary, regardless of why
+    the scan overran.
+    """
     empty = []
     test_blocks = re.finditer(
         r"(it|test)\s*\(\s*['\"]([^'\"]+)['\"]",
@@ -223,9 +311,12 @@ def _find_empty_ts_tests(content):
         r"toBe\(", r"toMatch", r"toContain", r"rejects",
     )
     for match in test_blocks:
-        start = match.start()
-        # Find the test body (rough heuristic: next 500 chars)
-        body = content[start:start + 500]
+        open_paren = content.find("(", match.start())
+        if open_paren == -1:
+            continue
+        paren_end = _find_matching_paren(content, open_paren)
+        next_boundary = _next_test_boundary(content, match.end())
+        body = content[match.end():min(paren_end, next_boundary)]
         if not any(re.search(p, body) for p in assertion_patterns):
             empty.append(match.group(2))
     return empty
@@ -268,9 +359,11 @@ def check_empty_tests(file_path):
 
     names = ", ".join(empty_tests[:3])
     return (
-        f"BLOCKED: Empty test(s) detected (zero assertions): {names}. "
-        "RECOVERY: Add meaningful assertions to each test. "
-        "A test without assertions gives false confidence."
+        f"WARNING: Empty test(s) suspected (no assertion pattern found): {names}. "
+        "ACTION: Add meaningful assertions to each test, or verify this is a "
+        "false positive (e.g. a member-access call like `.test(` inside the "
+        "body can still confuse this heuristic). A test without assertions "
+        "gives false confidence."
     )
 
 
@@ -350,7 +443,6 @@ def _emit_blockers(file_path):
     blockers = [
         check_utf8_bom(file_path),
         check_utf8_validity(file_path),
-        check_empty_tests(file_path),
     ]
     for msg in blockers:
         if msg:
@@ -362,6 +454,7 @@ def _emit_warnings(file_path, size_msg):
     """Print all non-blocking findings to stderr."""
     warnings = [
         size_msg,
+        check_empty_tests(file_path),
         check_console_log(file_path),
         check_i18n_locales(file_path),
         check_ts_nocheck_header(file_path),

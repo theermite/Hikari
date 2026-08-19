@@ -91,6 +91,45 @@ def test_a_payload_without_a_path_exits_cleanly():
     assert "ValueError" not in result.stderr
 
 
+# --- .claude/state/ is machine-managed, never hand-edited --------------------
+#
+# Brief 2026-08-18 (défaut 2): `.claude/state/veille-skips-*.json` carries the
+# VEILLE-SKIP counter and was protected by nothing — a direct write could zero
+# it out and the 3-consecutive-SKIP threshold would never fire. Only
+# session_state.write_state() (a hook's own code, not the Write/Edit tool) has
+# a legitimate reason to touch this directory.
+
+
+def test_direct_write_to_state_dir_is_blocked():
+    result = _run(".claude/state/veille-skips-abc123.json", '{"skip_count": 0}')
+    assert result.returncode == 2, result.stderr
+    assert "BLOCKED" in result.stderr
+
+
+def test_direct_edit_to_state_dir_is_blocked():
+    payload = json.dumps(
+        {
+            "tool_name": "Edit",
+            "tool_input": {
+                "file_path": ".claude/state/veille-skips-abc123.json",
+                "new_string": '{"skip_count": 0}',
+            },
+        }
+    )
+    result = subprocess.run(
+        [sys.executable, str(HOOK)], input=payload, capture_output=True, text=True
+    )
+    assert result.returncode == 2, result.stderr
+    assert "BLOCKED" in result.stderr
+
+
+def test_a_file_merely_named_state_elsewhere_is_not_blocked():
+    # The block targets the .claude/state/ directory, not any file with
+    # "state" in its name — e.g. a project's own src/state/store.ts.
+    result = _run("src/state/store.ts", "export const store = {};")
+    assert result.returncode == 0, result.stderr
+
+
 # --- showing a forbidden pattern is not doing it ----------------------------
 #
 # Found by an independent review on 2026-08-11, the day this guard came back to

@@ -14,6 +14,7 @@ onto one shared file.
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -91,3 +92,42 @@ def test_read_write_roundtrip_unaffected(tmp_path):
 def test_mark_once_still_fires_exactly_once(tmp_path):
     assert st.mark_once("gate", "k", session_id="sess1", repo_root=tmp_path) is True
     assert st.mark_once("gate", "k", session_id="sess1", repo_root=tmp_path) is False
+
+
+# --- independent review 2026-08-19 (2nd round): the escape check itself races.
+# `state_path` compares `d.resolve()` and `p.resolve()` via `Path.parents`.
+# Under concurrent access, Windows' `_getfinalpathname` intermittently returns
+# the `\\?\`-prefixed extended-length form for one resolve() call and not the
+# other (timing-dependent on whether the directory is freshly created), so two
+# resolutions of the SAME directory compare unequal and a legitimate path is
+# rejected as "escaping" — a false BLOCK on ordinary, safe writes, not a
+# security hole, but a hook that raises where it must pass. Reproduced via
+# pytest at roughly 15% of runs (3/20) with 64 concurrent callers.
+
+
+def test_state_path_does_not_false_positive_under_concurrent_access(tmp_path):
+    # The race needs REPEATED resolve() calls racing on the same freshly-
+    # created directory (a single state_path() lookup per thread did not
+    # reproduce it; repeated write_state() calls, matching real guard
+    # traffic, did) — repeat against a fresh subdirectory each trial.
+    errors: list[BaseException] = []
+    lock = threading.Lock()
+
+    def writer(root, n) -> None:
+        for i in range(5):
+            try:
+                st.write_state("veille-skips", {"n": n, "i": i}, session_id="sessA", repo_root=root)
+            except BaseException as exc:  # noqa: BLE001 — a false escape-block is the defect
+                with lock:
+                    errors.append(exc)
+
+    for trial in range(15):
+        root = tmp_path / f"trial{trial}"
+        threads = [threading.Thread(target=writer, args=(root, n)) for n in range(64)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+    escapes = [e for e in errors if isinstance(e, ValueError)]
+    assert escapes == [], f"state_path raised under concurrent access: {escapes[:3]!r} ({len(escapes)} total)"

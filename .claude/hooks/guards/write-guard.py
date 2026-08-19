@@ -346,6 +346,21 @@ def check_weak_hash(ext, content):
     return None
 
 
+def check_state_protection(file_path):
+    """`.claude/state/` holds guard-owned counters (e.g. the VEILLE-SKIP
+    threshold). Only a hook's own session_state.write_state() has a
+    legitimate reason to touch it; a direct Write/Edit is exactly how the
+    counter gets zeroed out from under the guard it protects (independent
+    review, 2026-08-18 — brief 'Couche-Etat-Hooks-Defauts')."""
+    if "/.claude/state/" in f"/{file_path}":
+        return (
+            "BLOCKED: .claude/state/ is machine-managed guard state, not hand-edited. "
+            "RECOVERY: if a counter is stuck, fix the hook that maintains it "
+            "(lib/session_state.py), never the state file directly."
+        )
+    return None
+
+
 def check_hook_protection(file_path):
     if ".claude/hooks/" in file_path.replace("\\", "/"):
         return (
@@ -427,6 +442,7 @@ def check_naming(file_path, filename, name, ext):
 
 def _blockers(raw, file_path, filename, name, ext, dirname, content):
     return [
+        check_state_protection(file_path),
         check_env_guard(filename, dirname),
         check_localstorage_jwt(raw, file_path),
         check_secrets_in_files(raw, file_path),
