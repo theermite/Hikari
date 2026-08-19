@@ -10,7 +10,6 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useRef, useState } from "react";
-import { Modal } from "../../components/Modal";
 import {
   addAudioSource,
   setAudioMonitoring,
@@ -25,6 +24,7 @@ import {
   setBackgroundRemoval,
   setCircleMask,
 } from "../camera/api";
+import { AddSourceModal, type CaptureTargets } from "./AddSourceModal";
 import {
   addCaptureSource,
   createScene,
@@ -36,6 +36,7 @@ import {
   setSourceTransform,
   switchScene,
 } from "./api";
+import { SceneRow } from "./SceneRow";
 import {
   EMPTY_LAYOUT,
   labelFor,
@@ -49,13 +50,7 @@ import {
   validateLabel,
 } from "./sceneLayout";
 import { buildReplay, toSession } from "./session";
-import {
-  dedupeTargets,
-  FILE_FILTERS,
-  nameFromPath,
-  SOURCE_FAMILIES,
-  searchAll,
-} from "./sourcePicker";
+import { FILE_FILTERS, nameFromPath, SOURCE_FAMILIES } from "./sourcePicker";
 import type {
   CaptureTarget,
   EngineMessage,
@@ -75,38 +70,9 @@ const LABEL_ERRORS = {
 
 /** Un pictogramme par famille de source, pour reconnaître le contenu d'une scène d'un coup
  * d'œil. Clé = identifiant libobs, jamais un nom inventé côté écran. */
-const SOURCE_ICON: Record<string, string> = {
-  game_capture: "🎮",
-  window_capture: "🪟",
-  monitor_capture: "🖥️",
-  dshow_input: "🎥",
-};
 
 /** Le pictogramme d'un résultat de recherche vient de sa famille — un résultat global mêle
  * les familles, il faut donc dire de laquelle il sort. */
-const KIND_TO_LIBOBS: Record<string, string> = {
-  game: "game_capture",
-  window: "window_capture",
-  monitor: "monitor_capture",
-};
-
-interface CaptureTargets {
-  games: CaptureTarget[];
-  windows: CaptureTarget[];
-  monitors: CaptureTarget[];
-}
-
-/** Ce que chaque famille vivante propose. Les familles de fichier n'ont pas de liste : on y
- * ouvre le sélecteur du système. */
-function targetsFor(
-  kind: SourceKind,
-  targets: CaptureTargets,
-): CaptureTarget[] {
-  if (kind === "game") return targets.games;
-  if (kind === "window") return targets.windows;
-  if (kind === "monitor") return targets.monitors;
-  return [];
-}
 
 export function ScenesPanel(_props: IDockviewPanelProps) {
   const [state, setState] = useState<State>({ status: "idle" });
@@ -456,305 +422,55 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
           {ordered.map((scene, index) => {
             const live = scene.name === state.active;
             return (
-              <li
+              <SceneRow
                 key={scene.name}
-                className={`flex flex-col gap-1 rounded-[8px] border px-3 py-2 ${
-                  live
-                    ? "border-hikari-accent bg-hikari-bg-2"
-                    : "border-hikari-line"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  {renaming === scene.name ? (
-                    <input
-                      ref={renameInput}
-                      type="text"
-                      value={draftLabel}
-                      onChange={(event) => setDraftLabel(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter")
-                          submitRename(scene.name, orderedNames);
-                        if (event.key === "Escape") setRenaming(null);
-                      }}
-                      onBlur={() => submitRename(scene.name, orderedNames)}
-                      aria-label={`Nouveau nom pour ${labelFor(scene.name, layout)}`}
-                      className="flex-1 rounded-[6px] border border-hikari-accent bg-hikari-bg px-2 py-1 text-hikari-txt"
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => activate(scene.name)}
-                      onDoubleClick={() => startRename(scene.name)}
-                      disabled={live}
-                      title={
-                        live ? "Scène en direct" : "Basculer sur cette scène"
-                      }
-                      className={`flex-1 text-left ${
-                        live
-                          ? "cursor-default font-medium text-hikari-accent"
-                          : "text-hikari-txt hover:text-hikari-accent"
-                      }`}
-                    >
-                      {labelFor(scene.name, layout)}
-                      {live && " ● en direct"}
-                    </button>
-                  )}
-
-                  <div className="flex shrink-0 items-center gap-1">
-                    <IconButton
-                      label={`Monter ${labelFor(scene.name, layout)}`}
-                      disabled={index === 0}
-                      onClick={() => reorder(orderedNames, scene.name, "up")}
-                    >
-                      ↑
-                    </IconButton>
-                    <IconButton
-                      label={`Descendre ${labelFor(scene.name, layout)}`}
-                      disabled={index === ordered.length - 1}
-                      onClick={() => reorder(orderedNames, scene.name, "down")}
-                    >
-                      ↓
-                    </IconButton>
-                    <IconButton
-                      label={`Renommer ${labelFor(scene.name, layout)}`}
-                      onClick={() => startRename(scene.name)}
-                    >
-                      ✎
-                    </IconButton>
-                    <IconButton
-                      label={`Supprimer ${labelFor(scene.name, layout)}`}
-                      disabled={ordered.length <= 1}
-                      onClick={() => setConfirmingDelete(scene.name)}
-                    >
-                      ✕
-                    </IconButton>
-                  </div>
-                </div>
-
-                <ul className="flex flex-col gap-0.5">
-                  {scene.sources.length === 0 ? (
-                    <li className="text-[11.5px] text-hikari-txt-faint">
-                      Scène vide — ajoute une source ci-dessous.
-                    </li>
-                  ) : (
-                    scene.sources.map((item, position) => (
-                      <li
-                        key={item.name}
-                        className="flex items-center justify-between gap-2 text-[11.5px] text-hikari-txt-faint"
-                      >
-                        <span className="truncate">
-                          {SOURCE_ICON[item.kind] ?? "▪"} {item.name}
-                        </span>
-                        <span className="flex shrink-0 items-center gap-0.5">
-                          <OrderButton
-                            label={`Mettre ${item.name} devant`}
-                            disabled={position === 0}
-                            onClick={() =>
-                              reorderInScene(scene.name, item.name, "front")
-                            }
-                          >
-                            ↑
-                          </OrderButton>
-                          <OrderButton
-                            label={`Mettre ${item.name} derrière`}
-                            disabled={position === scene.sources.length - 1}
-                            onClick={() =>
-                              reorderInScene(scene.name, item.name, "back")
-                            }
-                          >
-                            ↓
-                          </OrderButton>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              toggleLock(scene.name, item.name, !item.locked)
-                            }
-                            aria-label={
-                              item.locked
-                                ? `Libérer ${item.name} dans ${labelFor(scene.name, layout)}`
-                                : `Figer ${item.name} dans ${labelFor(scene.name, layout)}`
-                            }
-                            aria-pressed={item.locked}
-                            title={
-                              item.locked
-                                ? `${item.name} est figée — cliquer pour la libérer`
-                                : `Figer ${item.name} : plus déplaçable à la souris`
-                            }
-                            className={`px-1 transition ${
-                              item.locked
-                                ? "text-hikari-accent"
-                                : "text-hikari-txt-faint hover:text-hikari-txt"
-                            }`}
-                          >
-                            {item.locked ? "🔒" : "🔓"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              removeFromScene(scene.name, item.name)
-                            }
-                            aria-label={`Retirer ${item.name} de ${labelFor(scene.name, layout)}`}
-                            title={`Retirer ${item.name}`}
-                            className="px-1 text-hikari-txt-faint transition hover:text-hikari-red"
-                          >
-                            ✕
-                          </button>
-                        </span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-                <p className="text-[11px] text-hikari-txt-faint">
-                  {describeContent(scene)}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setAddingTo(scene.name)}
-                  className="self-start rounded-[6px] border border-hikari-line px-2 py-0.5 text-[11.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
-                >
-                  + Ajouter une source
-                </button>
-
-                {confirmingDelete === scene.name && (
-                  <div className="flex items-center justify-between gap-2 rounded-[6px] bg-hikari-bg px-2 py-1.5">
-                    <span className="text-[12px] text-hikari-txt-dim">
-                      Supprimer « {labelFor(scene.name, layout)} » ?
-                    </span>
-                    <span className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setConfirmingDelete(null)}
-                        className="text-[12px] text-hikari-txt-dim hover:text-hikari-txt"
-                      >
-                        Annuler
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => confirmDelete(scene.name)}
-                        className="text-[12px] font-medium text-hikari-red hover:brightness-125"
-                      >
-                        Supprimer
-                      </button>
-                    </span>
-                  </div>
-                )}
-              </li>
+                scene={scene}
+                layout={layout}
+                live={live}
+                index={index}
+                totalCount={ordered.length}
+                orderedNames={orderedNames}
+                renaming={renaming}
+                draftLabel={draftLabel}
+                onDraftLabelChange={setDraftLabel}
+                renameInputRef={renameInput}
+                confirmingDelete={confirmingDelete}
+                onActivate={activate}
+                onStartRename={startRename}
+                onSubmitRename={submitRename}
+                onCancelRename={() => setRenaming(null)}
+                onReorder={reorder}
+                onReorderInScene={reorderInScene}
+                onToggleLock={toggleLock}
+                onRemoveFromScene={removeFromScene}
+                onAddSource={setAddingTo}
+                onRequestDelete={setConfirmingDelete}
+                onCancelDelete={() => setConfirmingDelete(null)}
+                onConfirmDelete={confirmDelete}
+              />
             );
           })}
         </ul>
       )}
 
-      <Modal
-        open={addingTo !== null}
-        title={
-          addingTo ? `Ajouter une source — ${labelFor(addingTo, layout)}` : ""
-        }
+      <AddSourceModal
+        addingTo={addingTo}
+        layout={layout}
+        chosenFamily={chosenFamily}
+        chosenIsFile={chosenIsFile}
+        targets={targets}
+        targetsError={targetsError}
+        search={search}
+        searchInputRef={searchInput}
         onClose={() => setAddingTo(null)}
-      >
-        {addingTo && (
-          <>
-            {/* Une seule famille ouverte à la fois : cinq listes dépliées d'un coup
-                redonneraient le mur de choix qu'on vient d'éviter. */}
-            <div className="flex flex-wrap gap-1.5">
-              {SOURCE_FAMILIES.map((family) => (
-                <button
-                  key={family.kind}
-                  type="button"
-                  onClick={() => {
-                    setFamily(family.kind);
-                    setSearch("");
-                  }}
-                  title={family.hint}
-                  aria-pressed={family.kind === chosenFamily}
-                  className={`rounded-[6px] border px-2 py-1 text-[12px] transition ${
-                    family.kind === chosenFamily
-                      ? "border-hikari-accent text-hikari-accent"
-                      : "border-hikari-line text-hikari-txt-dim hover:border-hikari-accent hover:text-hikari-txt"
-                  }`}
-                >
-                  {family.label}
-                </button>
-              ))}
-            </div>
-
-            {chosenIsFile ? (
-              <button
-                type="button"
-                data-autofocus
-                onClick={() => pickFile(addingTo, chosenFamily)}
-                className="self-start rounded-[6px] bg-hikari-accent px-3 py-1.5 text-[12.5px] font-medium text-[#1a1206] transition hover:brightness-110"
-              >
-                Choisir un fichier…
-              </button>
-            ) : targetsError ? (
-              <p className="text-hikari-red">❌ {targetsError}</p>
-            ) : targets === null ? (
-              <p className="text-hikari-txt-faint">Recherche en cours…</p>
-            ) : (
-              <>
-                {/* Le focus est posé ICI et non par la fenêtre : quand elle s'ouvre, ce
-                    champ n'existe pas encore (la liste des cibles arrive après), donc son
-                    autofocus ne trouvait rien à viser. */}
-                <input
-                  ref={searchInput}
-                  type="search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Rechercher…"
-                  aria-label="Rechercher parmi les sources disponibles"
-                  className="rounded-[6px] border border-hikari-line bg-hikari-bg px-2 py-1 text-[12.5px] text-hikari-txt placeholder:text-hikari-txt-faint"
-                />
-                {(() => {
-                  // Dès qu'on tape, on cherche dans TOUTES les familles : quelqu'un qui
-                  // tape un nom cherche CETTE chose, pas « cette chose parmi les jeux ».
-                  const hits = search.trim()
-                    ? searchAll(
-                        targets.games,
-                        targets.windows,
-                        targets.monitors,
-                        search,
-                      )
-                    : dedupeTargets(targetsFor(chosenFamily, targets)).map(
-                        (target) => ({ kind: chosenFamily, target }),
-                      );
-                  if (hits.length === 0) {
-                    return (
-                      <p className="text-[12px] text-hikari-txt-faint">
-                        {search.trim()
-                          ? "Rien ne correspond à cette recherche."
-                          : "Rien à proposer pour l'instant."}
-                      </p>
-                    );
-                  }
-                  return (
-                    <ul className="flex flex-col gap-1">
-                      {/* La position entre dans la clé : Windows expose plusieurs entrées
-                          au MÊME identifiant, et des clés en double empêchaient React de
-                          savoir quelle ligne remplacer — la liste restait figée pendant
-                          la frappe (vécu 2026-08-05). */}
-                      {hits.map((hit, position) => (
-                        // biome-ignore lint/suspicious/noArrayIndexKey: la position départage un identifiant, elle ne le remplace pas — Windows expose jusqu'à 12 entrées au MÊME identifiant, et sans ce départage les clés se dupliquent et la liste se fige pendant la frappe (vécu 2026-08-05).
-                        <li key={`${hit.kind}:${hit.target.id}:${position}`}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              addToScene(addingTo, hit.kind, hit.target)
-                            }
-                            className="w-full truncate rounded-[6px] border border-hikari-line px-2 py-1 text-left text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
-                          >
-                            {SOURCE_ICON[KIND_TO_LIBOBS[hit.kind]] ?? "▪"}{" "}
-                            {hit.target.label}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  );
-                })()}
-              </>
-            )}
-          </>
-        )}
-      </Modal>
+        onFamilyChange={(kind) => {
+          setFamily(kind);
+          setSearch("");
+        }}
+        onSearchChange={setSearch}
+        onPickFile={pickFile}
+        onAddToScene={addToScene}
+      />
 
       {labelError && <p className="text-hikari-red">❌ {labelError}</p>}
       {actionError && <p className="text-hikari-red">❌ {actionError}</p>}
@@ -779,72 +495,5 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       </div>
       {createError && <p className="text-hikari-red">❌ {createError}</p>}
     </div>
-  );
-}
-
-/** One line saying what the scene holds, in plain words — the point of étape 3 point 4:
- * knowing without switching. */
-function describeContent(scene: SceneInfo): string {
-  if (!scene.has_camera) return "Aucune caméra";
-  const filters = [
-    scene.background_removal ? "fond IA" : null,
-    scene.circle_mask ? "masque cercle" : null,
-  ].filter(Boolean);
-  return filters.length
-    ? `Caméra · ${filters.join(" · ")}`
-    : "Caméra · sans filtre";
-}
-
-/** Une flèche d'empilement, plus discrète que les boutons de scène pour ne pas confondre
- * « ordre des scènes » et « ordre des sources DANS une scène ». */
-function OrderButton({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="px-1 text-hikari-txt-faint transition hover:text-hikari-accent disabled:cursor-not-allowed disabled:opacity-30"
-    >
-      {children}
-    </button>
-  );
-}
-
-/** A small square control. `label` is the accessible name (WCAG 2.2 AA: the glyph alone
- * says nothing to a screen reader), also shown as the tooltip. */
-function IconButton({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="h-6 w-6 rounded-[6px] border border-hikari-line text-[12px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt disabled:cursor-not-allowed disabled:opacity-30"
-    >
-      {children}
-    </button>
   );
 }

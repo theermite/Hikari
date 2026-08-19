@@ -11,6 +11,7 @@
 
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { IDockviewPanelProps } from "dockview-react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ScenesPanel } from "./ScenesPanel";
 import type { CaptureTarget, EngineMessage, SceneInfo } from "./types";
@@ -21,8 +22,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 const dialogOpenMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: dialogOpenMock }));
 
-let engineListener: ((event: { payload: EngineMessage }) => void) | null =
-  null;
+let engineListener: ((event: { payload: EngineMessage }) => void) | null = null;
 const listenMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
 
@@ -75,7 +75,7 @@ afterEach(() => {
 
 describe("ScenesPanel", () => {
   it("should_afficher_un_message_d_attente_avant_que_le_moteur_reponde", () => {
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
 
     expect(
       screen.getByText(/Ouvre le panneau Aperçu pour gérer les scènes/i),
@@ -83,7 +83,7 @@ describe("ScenesPanel", () => {
   });
 
   it("should_lister_les_scenes_recues_du_moteur", () => {
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
 
     ready([scene({ name: "main" }), scene({ name: "brb" })]);
 
@@ -92,7 +92,7 @@ describe("ScenesPanel", () => {
   });
 
   it("should_marquer_la_scene_active_comme_en_direct", () => {
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
 
     ready([scene({ name: "main" }), scene({ name: "brb" })], "main");
 
@@ -103,7 +103,7 @@ describe("ScenesPanel", () => {
 
   it("should_basculer_de_scene_au_clic", async () => {
     const user = userEvent.setup();
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([scene({ name: "main" }), scene({ name: "brb" })], "main");
 
     await user.click(screen.getByRole("button", { name: "brb" }));
@@ -113,7 +113,7 @@ describe("ScenesPanel", () => {
 
   it("should_creer_une_scene_quand_le_nom_n_est_pas_vide", async () => {
     const user = userEvent.setup();
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([scene({ name: "main" })]);
 
     await user.type(
@@ -128,7 +128,7 @@ describe("ScenesPanel", () => {
   });
 
   it("should_desactiver_le_bouton_creer_quand_le_nom_est_vide", () => {
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([scene({ name: "main" })]);
 
     expect(screen.getByRole("button", { name: "Créer" })).toBeDisabled();
@@ -136,16 +136,12 @@ describe("ScenesPanel", () => {
 
   it("should_demander_confirmation_avant_de_supprimer_une_scene", async () => {
     const user = userEvent.setup();
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([scene({ name: "main" }), scene({ name: "brb" })]);
 
-    await user.click(
-      screen.getByRole("button", { name: /Supprimer main/ }),
-    );
+    await user.click(screen.getByRole("button", { name: /Supprimer main/ }));
 
-    expect(
-      screen.getByText(/Supprimer « main » \?/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Supprimer « main » \?/)).toBeInTheDocument();
     // Rien n'est encore parti au moteur : la confirmation n'a pas été donnée.
     expect(invokeMock).not.toHaveBeenCalledWith(
       "delete_scene",
@@ -155,7 +151,7 @@ describe("ScenesPanel", () => {
 
   it("should_supprimer_la_scene_apres_confirmation", async () => {
     const user = userEvent.setup();
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([scene({ name: "main" }), scene({ name: "brb" })]);
 
     await user.click(screen.getByRole("button", { name: /Supprimer main/ }));
@@ -165,7 +161,7 @@ describe("ScenesPanel", () => {
   });
 
   it("should_empecher_de_supprimer_la_derniere_scene", () => {
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([scene({ name: "main" })]);
 
     expect(
@@ -174,7 +170,7 @@ describe("ScenesPanel", () => {
   });
 
   it("should_afficher_le_contenu_d_une_scene_sans_camera", () => {
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([scene({ name: "main", has_camera: false })]);
 
     expect(screen.getByText("Aucune caméra")).toBeInTheDocument();
@@ -182,14 +178,19 @@ describe("ScenesPanel", () => {
 
   it("should_ouvrir_le_choix_de_source_et_lister_les_cibles_du_moteur", async () => {
     const user = userEvent.setup();
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([scene({ name: "main" })]);
 
     await user.click(
       screen.getByRole("button", { name: "+ Ajouter une source" }),
     );
     const target: CaptureTarget = { id: "game-1", label: "Dofus 3" };
-    emit({ type: "capture_targets", games: [target], windows: [], monitors: [] });
+    emit({
+      type: "capture_targets",
+      games: [target],
+      windows: [],
+      monitors: [],
+    });
 
     expect(
       within(screen.getByRole("dialog")).getByText(/Dofus 3/),
@@ -198,7 +199,7 @@ describe("ScenesPanel", () => {
 
   it("should_ajouter_une_source_choisie_a_la_scene", async () => {
     const user = userEvent.setup();
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([scene({ name: "main" })]);
 
     await user.click(
@@ -221,7 +222,7 @@ describe("ScenesPanel", () => {
   });
 
   it("should_afficher_le_message_d_erreur_envoye_par_le_moteur", () => {
-    render(<ScenesPanel {...({} as never)} />);
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
 
     emit({ type: "error", message: "La scène existe déjà" });
 
@@ -236,7 +237,9 @@ describe("ScenesPanel", () => {
         return Promise.resolve(unlisten);
       },
     );
-    const { unmount } = render(<ScenesPanel {...({} as never)} />);
+    const { unmount } = render(
+      <ScenesPanel {...({} as IDockviewPanelProps)} />,
+    );
 
     unmount();
     await Promise.resolve();
