@@ -6,7 +6,7 @@ model: opus
 
 # /concevoir — Design a Project or Feature
 
-Execute these steps IN ORDER. No skipping. Wait for Jay's validation at step 12.
+Execute these steps IN ORDER. No skipping. Wait for Jay's validation at the final step.
 
 > **Architecture documents** (depuis v2.0.0) : 2 documents, jamais 3.
 > - `docs/CDC.md` = **intention** (template `templates/docs-structure/CDC.md`)
@@ -45,7 +45,8 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at step 12.
    |-------|---------|-------------|
    | 6.1 | §1 POUR QUOI (L3/L2/L1) | Yes |
    | 6.2 | §2 Utilisateurs cibles (with ND personas if public) | Yes |
-   | 6.3 | §3 Features (with IDs F-XXX) | Yes |
+   | 6.3 | §3 Features (with IDs F-XXX **and the `Briques réutilisées` column filled**) | Yes |
+   | 6.3bis | §3bis **Socle minimal** (BLOCKING — the 15 lines PRINTED, each with ✅ / ⛔+raison / ❓) | Yes |
    | 6.4 | §4 Architecture | Yes |
    | 6.5 | §5 Stack technique (with **veille date** per ligne — BLOCKING) | Yes |
    | 6.6 | §6 Non-functional requirements | Yes |
@@ -58,19 +59,51 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at step 12.
    | 6.13 | §13 Anti-patterns projet | Yes |
 
    - **Dignity gate** : tout écran de collecte, copy, CTA, message d'erreur passe le test `rules/Dignity.md`. Documenté dans §9.
-   - **Deviations**: any deviation from the Universal Project Checklist (`rules/Quality.md`) MUST be documented with explicit justification in the CDC (§10 ou §13). No silent omissions.
+   - **Lego d'abord, à la conception (BLOCKING — Jay 2026-08-30)** : avant d'écrire §3, LIRE l'inventaire généré `Kata/.claude/hooks/lego/ui-inventory.json` (jamais un chiffre de mémoire, jamais la prose d'une règle). Chaque feature nomme les briques qu'elle réutilise, ou écrit « à créer dans la bibliothèque » — jamais « composant local ». **Pourquoi** : mesure du 2026-08-30, 146 fichiers du workspace recodent un composant déjà fourni, et l'inventaire écrit à la main annonçait 79 composants sur 149 réels. La décision « réutiliser ou recoder » se prend ici, pas au clavier.
+   - **Socle affiché, jamais cité (BLOCKING — Jay 2026-08-30)** : §3bis IMPRIME les 15 lignes du socle et demande un état sur chacune. Un renvoi vers la règle produit un oubli silencieux ; une liste visible produit soit une coche, soit une justification écrite. On n'écarte pas ce qu'on n'a pas sous les yeux.
+   - **Deviations**: any deviation from the Universal Project Checklist (`rules/Quality.md`) MUST be documented with explicit justification in the CDC (§3bis, §10 ou §13). No silent omissions.
    - **Path reminder**: at the start AND at the end of step 6, state explicitly: "CDC écrit dans `docs/CDC.md` (repo projet)." Per `rules/Workflows.md` décision 2026-06-27 : CDC/PET → repo projet `docs/`.
+
+6bis. **PROTOTYPE / MOCK-UP** (BLOCKING — **avant le PET depuis 2026-08-30**): Generate a standalone clickable HTML mockup in `docs/` (ex: `docs/Mockups-<Projet>.html`) — a navigable prototype of the platform's key screens. Jay validates ergonomics, navigation and visual identity BEFORE the execution plan and before any code.
+
+   **Pourquoi la maquette passe AVANT le plan** (Jay 2026-08-30) : le modèle d'interaction naît dans la maquette. Tant qu'elle n'existe pas, on planifie l'exécution d'écrans que personne n'a vus — et le plan ignore alors ce qui compte le plus pour l'utilisateur. Jay : « ils ne prennent pas en compte le modèle d'interaction ». La maquette devient une ENTRÉE du plan, plus un après-coup.
+
+   **5 règles BLOCKING du mock-up** :
+   | # | Règle | Pourquoi |
+   |---|-------|----------|
+   | 1 | **Écrans clés depuis CDC §3** | Dashboard + surfaces principales. Une seule navigation, chaque écran réaliste avec données **fictives (ZÉRO donnée personnelle)**. |
+   | 2 | **Charte graphique de la plateforme** | Thème sombre, **plat/moderne (zéro relief 3D ni dégradé façon bouton)**, couleurs d'accent, avatar/marque en illustration. Cette charte devient la référence pour la présentation ET le dev. |
+   | 3 | **Responsive réel** | Desktop **pleine largeur** (contenu non-boxé) + mobile/tablette (menu hamburger). Tester les deux. |
+   | 4 | **Adaptatif au rôle** | Sections liées à un rôle **cachées** sans le rôle (jamais de mur « pas membre »). |
+   | 5 | **Briques réelles, jamais redessinées** | Tout réglage de confort (thème, mouvement, densité, police, daltonisme) est dessiné par `MorphicButton` de `@theermite/morphic-adapter` — chargé par CDN dans une maquette statique. Les autres éléments citent la brique `@shinkofa/ui` correspondante. Un panneau refait à la main est **bloqué à l'écriture** par `hooks/lego/morphic-decoy-check.py`. Audit 2026-08-30 : 4 dépôts avaient dessiné un faux panneau, dont un bouton « Contraste » décoratif signalé comme un bug du vrai module. |
+
+   **Itérer avec Jay** jusqu'à validation du visuel et de l'ergonomie. Commit seulement à l'approbation.
+
+6ter. **INTÉGRATION** (BLOCKING — **nouvelle étape 2026-08-30**): Before writing the PET, step back and fill PET §0 — how this lands in what already exists. Present each block to Jay, plain language first (step 0bis applies), then STOP.
+
+   **Pourquoi cette étape existe** (Jay 2026-08-30) : « le cahier des charges et le plan ne prennent en compte que ce qui a été vu pendant la conception. Ils ne prennent pas de recul pour regarder réellement comment intégrer l'idée dans la plateforme, en prenant en compte le modèle d'interaction, et toutes les dépendances et phases de développement qui ne sont peut-être pas citées. » Une conversation de conception produit une liste de souhaits, jamais une architecture. **Ce qui n'a pas été dit à voix haute n'existait nulle part** — et se découvrait au clavier, trop tard.
+
+   | § | Bloc | Ce qu'il force |
+   |---|------|----------------|
+   | 0.1 | Ce que ça change pour qui utilise déjà | L'utilisateur existant n'a rien demandé. Que voit-il changer, que casse-t-on, doit-il réapprendre ? |
+   | 0.2 | Modèle d'interaction — parcours complet | Écran par écran depuis la maquette validée, y compris AVANT (comment il arrive) et APRÈS (où il repart). Chemin d'échec décrit autant que le chemin heureux ; 3 états sur tout écran alimenté par le serveur. |
+   | 0.3 | Dépendances jamais citées | 13 lignes passées une par une (auth, migration, reprise de données, i18n, morphique, Lego, envois, paiement, clés, ports, sauvegarde, erreurs prod, RGPD). « Sans objet » est valable ; une case vide ne l'est pas. |
+   | 0.4 | Phases implicites | Reprise de données, rétro-compatibilité, déploiement progressif, retour arrière, doc, vérification post-livraison, projets voisins impactés. Chacune devient une brique ou est écartée avec sa raison. |
+   | 0.5 | Ce qu'on a découvert ici | Liste franche. **Une liste vide signale que le recul n'a pas été pris** — sur un projet réel elle ne l'est jamais. |
+
+   Une section §0 incomplète est BLOCKING : ne pas écrire la feuille de route tant qu'elle n'est pas remplie et validée.
 
 7. **PET** (BLOCKING): Write the PET at `docs/PET.md` in the project repo. Use template `templates/docs-structure/PET.md` v2.0.0. State the path explicitly to Jay before writing — the PET is highly technical, so **precede it with its plain-language translation (step 0bis, BLOCKING)**: in 2-3 lines, what the PET is for Jay (« le carnet de bord vivant de l'exécution ») and why it matters, before showing the sections. The PET is the **living execution journal**. It MUST contain ALL of the following sections at creation, then be updated at every brick:
 
    | # | Section | Content |
    |---|---------|---------|
+   | 0 | **Intégration (BLOCKING)** | Rempli à l'étape INTÉGRATION : ce que ça change pour l'utilisateur existant · le parcours complet depuis la maquette · les 13 dépendances jamais citées · les phases implicites · ce qu'on a découvert. Une §0 incomplète bloque la feuille de route. |
    | 1 | Principe d'exécution | Brick-by-brick, TDG, backup cadence (tag every 3-4 commits), trace continue |
    | 2 | Anti-Circular Testing Protocol | 3 layers (PBT + Writer/Reviewer + cross-model) |
    | 3 | Bidirectional Traceability | CDC requirement → bricks → tests |
    | 4 | 5 Test Reliability Metrics | Targets per metric |
    | 5 | Defensive Assertions | List of critical functions + >= 2 assertions each |
-   | 6 | **Roadmap (Bricks)** | Live table — UPDATED AT EVERY BRICK |
+   | 6 | **Roadmap (Bricks)** | Live table — UPDATED AT EVERY BRICK. Colonne **Briques réutilisées** obligatoire : une case vide bloque le démarrage de la brique. |
    | 7 | **Détail par brick** | Per brick: scope, veille préalable, TDG tests, impact analysis, implémentation, **tests post (preuves)**, **erreurs rencontrées**, décisions in-flight, commit SHA |
    | 8 | PII Detection | Configuration: tools, scope, automated vs manual |
    | 9 | Quality Gates pré-commit | Checklist per brick (coverage, lint, tests, security, a11y, cross-browser, veille, confidentiality) |
@@ -80,7 +113,7 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at step 12.
    | 13 | Déviations vs CDC | Tracked here; if permanent → update CDC |
    | 14 | Journal de session | References to session reports |
 
-   A PET missing any of sections 1-9 at creation is BLOCKING — do not proceed to step 8.
+   A PET missing §0 or any of sections 1-9 at creation is BLOCKING — do not proceed to step 8.
 
 8. **VERIFY** (BLOCKING): Cross-check CDC + PET before presenting:
    - [ ] CDC and PET are at `docs/CDC.md` and `docs/PET.md` in the project repo
@@ -89,27 +122,18 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at step 12.
    - [ ] CDC §8 FMEA exists for every Critical module
    - [ ] CDC §9 Human Quality Gates filled (or N/A justified for non-public projects)
    - [ ] PET §3 traceability matrix links every CDC §3 feature to bricks
-   - [ ] PET §6 Roadmap is populated (even if all Pending)
+   - [ ] PET §0 Intégration complete (5 blocks, no empty cell — « sans objet » is a valid answer, an empty cell is not)
+   - [ ] PET §6 Roadmap is populated (even if all Pending), with `Briques réutilisées` filled on every brick that draws an interface
+   - [ ] CDC §3bis Socle minimal: every one of the 15 lines carries a state
+   - [ ] CDC §3 `Briques réutilisées` read from the GENERATED inventory, never from prose
    - [ ] Cross-check against `mnk/06-Quality.md` (Quality Pyramid V2, anti-circular protocol, risk classification, 5 metrics)
    - [ ] Cross-check against `mnk/15-Human-Quality.md` (4 human gates, HECQ, ND-friendly design) — N/A only if project is explicitly non-public AND non-user-facing
    - [ ] Cross-check against `mnk/improvements/004-QE-V2-Composition-Brief.md` (25 decisions)
    - If any gap found: fix CDC or PET, then re-verify. Do not proceed with gaps.
 
-9. **PROTOTYPE / MOCK-UP** (BLOCKING — valide l'ergonomie + fixe la charte graphique AVANT la présentation et le dev): Generate a standalone clickable HTML mockup in `docs/` (ex: `docs/Mockups-<Projet>.html`) — a navigable prototype of the platform's key screens. Jay validates ergonomics, navigation and visual identity BEFORE any code.
+9. **PRESENT** (BLOCKING): Generate a standalone HTML **slide deck** in `docs/` (ex: `docs/Presentation-<Projet>.html`). This presentation is a **magnetic pitch shareable to ANYONE** — not an internal tech sheet. The reader (non-technical) must UNDERSTAND the project AND want to adhere to it.
 
-   **4 règles BLOCKING du mock-up** :
-   | # | Règle | Pourquoi |
-   |---|-------|----------|
-   | 1 | **Écrans clés depuis CDC §3** | Dashboard + surfaces principales. Une seule navigation, chaque écran réaliste avec données **fictives (ZÉRO donnée personnelle)**. |
-   | 2 | **Charte graphique de la plateforme** | Thème sombre, **plat/moderne (zéro relief 3D ni dégradé façon bouton)**, couleurs d'accent, avatar/marque en illustration. Cette charte devient la référence pour la présentation (étape 10) ET le dev. |
-   | 3 | **Responsive réel** | Desktop **pleine largeur** (contenu non-boxé) + mobile/tablette (menu hamburger). Tester les deux. |
-   | 4 | **Adaptatif au rôle** | Sections liées à un rôle **cachées** sans le rôle (jamais de mur « pas membre »). |
-
-   **Itérer avec Jay** jusqu'à validation du visuel et de l'ergonomie. Commit seulement à l'approbation. Le mock-up est un **prototype de présentation** — le rendu final se fera en Lego au dev.
-
-10. **PRESENT** (BLOCKING): Generate a standalone HTML **slide deck** in `docs/` (ex: `docs/Presentation-<Projet>.html`). This presentation is a **magnetic pitch shareable to ANYONE** — not an internal tech sheet. The reader (non-technical) must UNDERSTAND the project AND want to adhere to it.
-
-   **Base obligatoire** : réutiliser la **charte graphique du mock-up** (étape 9) — même palette, même thème, même avatar/marque. Cohérence totale entre présentation, mock-up et écran final. (Le template `.claude/skills/concevoir/presentation-template.html` sert de squelette de secours si aucun mock-up n'existe.)
+   **Base obligatoire** : réutiliser la **charte graphique du mock-up** — même palette, même thème, même avatar/marque. Cohérence totale entre présentation, mock-up et écran final. (Le template `.claude/skills/concevoir/presentation-template.html` sert de squelette de secours si aucun mock-up n'existe.)
 
    **6 règles BLOCKING du rendu** :
    | # | Règle | Pourquoi |
@@ -131,9 +155,9 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at step 12.
 
    **Test avant de présenter** : « Si je partage ce fichier à quelqu'un qui ne connaît rien au projet ni à la tech, est-ce qu'il comprend et a envie ? » Si non → reformuler en plus simple, plus visuel.
 
-11. **SHINZO SYNC**: Create `[SHINZO]/02-Projets/[project].md` with sections: Notes, Décisions, Bugs, Prochaines étapes, Connexions. Add an entry to `[SHINZO]/02-Projets/_Index.md`. Reference `docs/CDC.md` + `docs/PET.md`. Commit + push Shinzo. `[SHINZO]` = `D:/30-Dev-Projects/Shinzo` (local) · `~/Shinzo` (VPS).
+10. **SHINZO SYNC**: Create `[SHINZO]/02-Projets/[project].md` with sections: Notes, Décisions, Bugs, Prochaines étapes, Connexions. Add an entry to `[SHINZO]/02-Projets/_Index.md`. Reference `docs/CDC.md` + `docs/PET.md`. Commit + push Shinzo. `[SHINZO]` = `D:/30-Dev-Projects/Shinzo` (local) · `~/Shinzo` (VPS).
 
-12. **VALIDATE**: Wait for Jay's explicit approval before ANY coding.
+11. **VALIDATE**: Wait for Jay's explicit approval before ANY coding.
 
 ## Questionnaire (6 questions for Jay — asked ONE AT A TIME in step 1 bis)
 
@@ -155,11 +179,14 @@ After Jay validates the recap, suggest ALL technical choices. Jay validates.
 - **CDC = intention** : modifié uniquement quand l'intention change.
 - **PET = exécution** : modifié à chaque brick (avant + après).
 - **Cross-référence asymétrique** : PET référence CDC. CDC ne référence PAS le PET (l'intention est stable, n'a pas besoin de connaître l'exécution).
-- Step 8 (Verify) must pass before the mock-up (step 9), which precedes the presentation (step 10).
-- **Mock-up (step 9) = charte graphique de référence** : la présentation (slides) et le dev réutilisent son design system. Cohérence présentation ↔ prototype ↔ écran final.
+- **Order (changed 2026-08-30)**: CDC -> mock-up -> INTEGRATION -> PET -> Verify -> presentation. The mock-up now comes BEFORE the PET: the interaction model is born in the mock-up, and planning the execution of screens nobody has seen is what made the PET blind to it.
+- **Mock-up = charte graphique de référence** : la présentation (slides) et le dev réutilisent son design system. Cohérence présentation ↔ prototype ↔ écran final.
 - **Présentation = slides, jamais un one-pager à scroller.** Public non-tech, charte de la plateforme.
 - Everything is potentially sellable — visibility-first (CDC §12).
 - Non-tech agents intervene BEFORE coding decisions (step 5), not during.
+- **Lego décidé à la conception, jamais au clavier (BLOCKING — 2026-08-30)** : chaque feature du CDC et chaque brique du PET nomme ce qu'elle réutilise, lu dans l'inventaire GÉNÉRÉ (`Kata/.claude/hooks/lego/ui-inventory.json`). « À créer dans la bibliothèque » est une réponse ; « composant local » n'en est pas une. Mesure : 146 fichiers du workspace recodent un composant déjà fourni.
+- **Le socle est imprimé, jamais cité (BLOCKING — 2026-08-30)** : les 15 lignes vivent dans le CDC avec un état chacune. On n'écarte pas ce qu'on n'a pas sous les yeux.
+- **§0 Intégration précède la feuille de route (BLOCKING — 2026-08-30)** : une conversation de conception produit une liste de souhaits, pas une architecture. Ce qui n'a pas été dit à voix haute n'existait nulle part, et se découvrait au clavier. Une §0 vide dans « ce qu'on a découvert » signale que le recul n'a pas été pris.
 - QE V2 is the floor — never produce a CDC/PET without the mandatory sections.
 - Human Quality Gates apply to ALL public-facing projects. Non-public projects may mark them N/A with justification.
 

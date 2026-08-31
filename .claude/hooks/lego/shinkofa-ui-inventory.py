@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+from ui_inventory import load as load_ui_inventory  # noqa: E402
 from common import (  # noqa: E402
     format_warn,
     get_content,
@@ -26,49 +27,16 @@ from common import (  # noqa: E402
     warn,
 )
 
-# Inventory mirror — kept in sync with rules/Quality.md "@shinkofa/ui"
-UI_COMPONENTS: frozenset[str] = frozenset({
-    # Primitives
-    "Button", "Input", "Textarea", "Badge", "Card", "Skeleton", "Modal", "EmptyState",
-    # Shared interactive
-    "ThemeProvider", "ThemeToggle", "BackToTop", "RevealOnScroll",
-    "LanguageSwitcher", "CookieConsent",
-    # Forms & input
-    "TagInput", "DictationButton", "CollapsibleCard", "CollapsibleSection",
-    "PromptDialog",
-    # Feedback
-    "SaveIndicator", "ConfirmModal",
-    # Media
-    "SafeImage",
-    # BodyGraph
-    "BodyGraph", "BodyGraphCenter", "BodyGraphChannel", "BodyGraphLegend",
-    # SEO
-    "StructuredData", "ArticleSchema", "BreadcrumbSchema", "FAQSchema",
-    "ReviewSchema", "PortfolioSchema", "PortfolioItemSchema",
-    "PortfolioListSchema", "ServiceSchema",
-    # Planner
-    "EnergySlider", "DayScore", "KiGauge", "KiBudgetGauges", "KiCheckIn",
-    "SportTracker", "MealTracker", "TaskCard", "SleepTracker",
-    # Dashboard
-    "KiBudgetMini", "SleepSummaryCard", "EnergyTrendChart", "EnergyPixelMap",
-    "TodayTasksList", "QuickActionGrid", "ProfileChipBar",
-    # Toast
-    "ToastProvider", "Toast",
-    # FilePicker
-    "FilePicker", "FilePickerUploadZone", "FilePickerBrowseGrid",
-    "FilePickerPreview", "ImagePicker", "ImageBrowserModal",
-    # Navigation
-    "NavShell", "NavLink", "NavGroup",
-    # Settings
-    "SettingsSection", "RevealToggle", "PasswordChangeForm",
-    # Avatar
-    "AvatarUpload", "AvatarCropModal",
-    # Questionnaire
-    "QuestionRenderer", "ProgressTracker", "LoadingStepper", "PhaseCard",
-    "LikertOptions", "SingleChoice", "MultiChoice", "OpenText",
-    # Gaming
-    "DodgeMaster", "SkillshotTrainer", "MultiTask", "ImagePairs",
-})
+# The inventory, read from the library's code — never copied by hand.
+#
+# This block used to be a hand-written frozenset of 79 names while @shinkofa/ui
+# exported 149 (measured 2026-08-30). Two thirds of the library were therefore
+# invisible to this guard, which is why 146 files across the workspace redefine a
+# component the library already ships. An inventory copied by hand ages and lies.
+#
+# lib/ui_inventory.py reads the sibling checkout when it is present, and falls
+# back to the snapshot propagated with the methodology otherwise.
+UI_COMPONENTS: frozenset[str] = load_ui_inventory()
 
 # Paths exempt from this check
 SKIP_SEGMENTS: tuple[str, ...] = (

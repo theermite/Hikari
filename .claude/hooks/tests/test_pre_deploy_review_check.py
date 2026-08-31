@@ -74,9 +74,25 @@ def test_deploy_without_review_is_blocked():
     assert gate.verdict("docker compose up -d", ["on a bien avance"]) is not None
 
 
+_BRIEF = "\n".join([
+    "[REVIEW-BRIEF]",
+    "- objectif: aider une personne a suivre son energie sans se sentir jugee",
+    "- perimetre: le diff de la brique, 3 fichiers",
+    "- zones suspectes: la bascule de theme et la persistance du choix",
+    "- consigne: refuter",
+])
+
+
 def test_deploy_with_review_passes():
+    """A PASS also needs its launch traced (contract widened 2026-08-30)."""
     marker = "[REVIEW] par contexte-neuf le 2026-08-10 — verdict: PASS, 0 defaut"
-    assert gate.verdict("docker compose up -d", [marker]) is None
+    assert gate.verdict("docker compose up -d", [marker, _BRIEF]) is None
+
+
+def test_deploy_with_a_review_but_no_launch_brief_is_refused():
+    """The counterpart of the test above: the same PASS, without the brief."""
+    marker = "[REVIEW] par contexte-neuf le 2026-08-10 — verdict: PASS, 0 defaut"
+    assert gate.verdict("docker compose up -d", [marker]) is not None
 
 
 def test_deploy_with_valid_skip_passes():
@@ -100,7 +116,7 @@ def test_methodology_propagation_counts_as_a_deploy():
 def test_methodology_propagation_with_review_passes():
     marker = "[REVIEW] par cross-model le 2026-08-10 — verdict: PASS, 2 defauts corriges"
     command = "python scripts/propagate-methodology.py --all"
-    assert gate.verdict(command, [marker]) is None
+    assert gate.verdict(command, [marker, _BRIEF]) is None
 
 
 def test_sync_repo_propagation_counts_as_a_deploy():
@@ -129,6 +145,7 @@ def test_a_failed_review_followed_by_a_passing_one_unblocks():
     texts = [
         "[REVIEW] par cross-model le 2026-08-10 — verdict: PASS, defauts corriges",
         "[REVIEW] par cross-model le 2026-08-10 — verdict: FAIL, 5 defauts",
+        _BRIEF,
     ]  # most recent first, as the transcript reader yields them
     assert gate.verdict("docker compose up -d", texts) is None
 
@@ -378,3 +395,190 @@ def test_find_exec_running_a_deploy_script_is_caught():
 def test_testing_the_propagation_script_is_not_running_it():
     command = "python -m pytest tests/test_propagate.py"
     assert gate.verdict(command, []) is None
+
+
+# --- what the reviewer was GIVEN, not only what it returned --------------------
+#
+# Jay 2026-08-30: "j'ai l'impression que lorsque l'on lance un agent pour faire
+# les relectures, par moment soit il omet certaines erreurs soit il ne prend pas
+# en compte l'objectif et/ou la vision du projet, ce qui lui donne un point de
+# vue biaise."
+#
+# Audit that day: nothing governed the LAUNCH. The gate checked that a verdict
+# appeared afterwards; the prompt handed to the reviewer was improvised each
+# time. A reviewer with no objective can only check that the code agrees with
+# itself -- which is exactly the bias Jay felt.
+#
+# So a PASS is only evidence when the launch was traced:
+#
+#   [REVIEW-BRIEF]
+#   - objectif: <what the project is FOR, one sentence, in user terms>
+#   - perimetre: <the diff / files handed over>
+#   - zones suspectes: <where to look first>
+#   - consigne: refuter
+
+PASS_MARKER = "[REVIEW] par contexte-neuf le 2026-08-30 — verdict: PASS, 0 defaut retenu"
+
+FULL_BRIEF = (
+    "[REVIEW-BRIEF]\n"
+    "- objectif: aider une personne a suivre son energie sans se sentir jugee\n"
+    "- perimetre: le diff de la brique B-004, 3 fichiers\n"
+    "- zones suspectes: la bascule de theme et la persistance du choix\n"
+    "- consigne: refuter\n"
+)
+
+DEPLOY = "docker compose up -d"
+
+
+def test_should_find_a_complete_launch_brief():
+    assert gate.find_brief(FULL_BRIEF) is not None
+
+
+def test_should_refuse_a_brief_missing_the_objective():
+    partial = FULL_BRIEF.replace(
+        "- objectif: aider une personne a suivre son energie sans se sentir jugee\n", ""
+    )
+    assert gate.find_brief(partial) is None
+
+
+def test_should_refuse_a_brief_whose_objective_is_empty():
+    """An empty field must not borrow the next line as its answer."""
+    empty = FULL_BRIEF.replace(
+        "- objectif: aider une personne a suivre son energie sans se sentir jugee",
+        "- objectif:",
+    )
+    assert gate.find_brief(empty) is None
+
+
+def test_should_refuse_a_brief_that_asks_for_validation():
+    """A reviewer told to check confirms; a reviewer told to refute finds."""
+    soft = FULL_BRIEF.replace("- consigne: refuter", "- consigne: valider le code")
+    assert gate.find_brief(soft) is None
+
+
+def test_should_ignore_a_brief_quoted_as_an_example():
+    quoted = "le gabarit est : ```\n" + FULL_BRIEF + "```"
+    assert gate.find_brief(quoted) is None
+
+
+def test_should_block_a_passing_review_with_no_launch_brief():
+    blocked = gate.verdict(DEPLOY, [PASS_MARKER])
+    assert blocked is not None
+    assert "REVIEW-BRIEF" in blocked
+
+
+def test_should_name_the_missing_fields_in_the_block_message():
+    blocked = gate.verdict(DEPLOY, [PASS_MARKER])
+    for field in ("objectif", "perimetre", "zones suspectes", "consigne"):
+        assert field in blocked, field
+
+
+def test_should_accept_a_passing_review_launched_from_a_brief():
+    assert gate.verdict(DEPLOY, [PASS_MARKER, FULL_BRIEF]) is None
+
+
+def test_should_accept_a_brief_and_a_verdict_in_the_same_message():
+    together = FULL_BRIEF + "\n" + PASS_MARKER
+    assert gate.verdict(DEPLOY, [together]) is None
+
+
+def test_should_still_block_a_failing_review_even_with_a_brief():
+    """A brief does not turn a FAIL into a PASS."""
+    failed = "[REVIEW] par x le 2026-08-30 — verdict: FAIL, famille: bouton decoratif, 1 defaut"
+    blocked = gate.verdict(DEPLOY, [failed, FULL_BRIEF])
+    assert blocked is not None
+    assert "FAIL" in blocked
+
+
+def test_should_not_ask_for_a_brief_when_the_review_is_legitimately_skipped():
+    skipped = "[REVIEW-SKIP] motif: rollback"
+    assert gate.verdict(DEPLOY, [skipped]) is None
+
+
+def test_should_not_ask_for_a_brief_on_a_command_that_ships_nothing():
+    assert gate.verdict("pnpm build", [PASS_MARKER]) is None
+
+
+# --- the brief must belong to THIS review, not to an older one -----------------
+#
+# Found while writing the launch gate: accepting any brief anywhere in the window
+# lets a brief written for review #1 excuse an un-briefed review #2. Texts arrive
+# most recent first, so a brief that came BEFORE the verdict sits AFTER it in the
+# list. Anything earlier in the list happened after the verdict — it cannot have
+# briefed it.
+
+
+def test_should_refuse_a_brief_that_came_after_the_verdict():
+    """A brief written after the fact briefed nothing."""
+    texts = [_BRIEF, PASS_MARKER]  # brief is the MOST recent, verdict is older
+    assert gate.verdict(DEPLOY, texts) is not None
+
+
+def test_should_accept_a_brief_that_came_before_the_verdict():
+    texts = [PASS_MARKER, _BRIEF]  # verdict most recent, brief older = before it
+    assert gate.verdict(DEPLOY, texts) is None
+
+
+def test_should_refuse_when_an_older_review_was_briefed_and_this_one_was_not():
+    """Two reviews: the first briefed, the second improvised. The second is the
+    one that gates this deploy, and it has no brief of its own."""
+    first_pass = "[REVIEW] par x le 2026-08-29 — verdict: PASS, rien"
+    second_pass = "[REVIEW] par y le 2026-08-30 — verdict: PASS, rien"
+    texts = [second_pass, first_pass, _BRIEF]  # most recent first
+    assert gate.verdict(DEPLOY, texts) is not None
+
+
+def test_should_carry_the_brief_across_a_corrective_round():
+    """review -> FAIL -> fix -> re-review -> PASS: one launch, one brief.
+
+    Re-emitting four lines on every corrective round is friction with no added
+    truth: the objective did not change between the two passes.
+    """
+    texts = [
+        "[REVIEW] par x le 2026-08-30 — verdict: PASS, corrige",
+        "[REVIEW] par x le 2026-08-30 — verdict: FAIL, famille: bouton decoratif, 1 defaut",
+        _BRIEF,
+    ]
+    assert gate.verdict(DEPLOY, texts) is None
+
+
+# --- the template the agents are told to emit must be readable by this gate ----
+#
+# Independent review 2026-08-30, family: a template that contradicts its own
+# parser. The agent files were told to answer `VERDICT: PASS` as their first
+# line, while this hook reads `[REVIEW] par <x> le <date> — verdict: PASS`. A
+# reviewer obeying the instruction to the letter produced output INVISIBLE to
+# both gates -- so a real FAIL never opened its [CAUSE] obligation.
+#
+# Same family as 2026-07-30 ("when a written rule does not bite, look for the
+# TEMPLATE that contradicts it"). The test below reads the agent files on disk,
+# so the two can never drift apart again in silence.
+
+AGENTS = (
+    Path(__file__).resolve().parents[2] / "agents" / "code-review-master.md",
+    Path(__file__).resolve().parents[2] / "agents" / "cross-model-reviewer-master.md",
+)
+
+
+def _prescribed_lines(agent_file):
+    """Every `[REVIEW] ...` line the agent file tells the reviewer to emit."""
+    text = agent_file.read_text(encoding="utf-8")
+    return [line.strip() for line in text.splitlines() if line.strip().startswith("[REVIEW]")]
+
+
+def test_should_prescribe_a_marker_in_every_review_agent():
+    for agent in AGENTS:
+        assert _prescribed_lines(agent), f"{agent.name} prescribes no [REVIEW] marker"
+
+
+def test_should_parse_every_marker_the_review_agents_prescribe():
+    """What the agent is told to write is what this gate must be able to read."""
+    for agent in AGENTS:
+        for line in _prescribed_lines(agent):
+            concrete = (
+                line.replace("<relecteur>", "cross-model-sonnet")
+                .replace("<YYYY-MM-DD>", "2026-08-30")
+                .replace("<slug>", "bouton-decoratif")
+                .replace("<ce qui en est sorti>", "1 defaut reel")
+            )
+            assert gate.find_marker(concrete) is not None, f"{agent.name}: {line}"

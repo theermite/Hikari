@@ -104,13 +104,46 @@ relaunching one ; kill at session end. Exact config → Shinzo.
 
 ## Lego Library — Build Once, Reuse Forever (BLOCKING)
 
-Before coding ANY UI element: check the `@shinkofa/ui` inventory (79 components). If it
-exists → import. If not → code it in `Shinkofa-Shared/packages/ui/` first (tests +
-story), then import. All text via `@shinkofa/i18n` (FR/EN/ES, FR source). All shared
-types via `@shinkofa/types`. Coding a duplicate = BLOCKING. Full inventory + i18n
-workflow → Shinzo.
+Before coding ANY UI element: check the `@shinkofa/ui` inventory. If it exists → import.
+If not → code it in `Shinkofa-Shared/packages/ui/` first (tests + story), then import. All
+text via `@shinkofa/i18n` (FR/EN/ES, FR source). All shared types via `@shinkofa/types`.
+Coding a duplicate = BLOCKING. i18n workflow → Shinzo.
+
+**The inventory is generated, never written by hand (BLOCKING — 2026-08-30)**: it lives in
+`hooks/lego/ui-inventory.json`, produced by `scripts/generate-ui-inventory.py` from the
+library's own exports, and read by the guard. Regenerate it after any `@shinkofa/ui`
+release ; `--check` fails when it is stale. **Never state a component count in prose** —
+read the file. Why: three numbers disagreed on the same day (this rule said 79, the
+package blurb said 83, the code exported 149), so two thirds of the library were invisible
+to whoever consulted the rule and the guard could not warn about what it had never heard
+of. Measured that day: **146 files across the workspace redefine a component the library
+already ships** — ThemeProvider 12 times, Skeleton and Input 8 times each, and three repos
+carry 83% of it. An inventory copied by hand ages and lies.
 **A10 — continuous feeding**: as soon as a reusable element is created/spotted, extract
 it via `/extract-lego` BEFORE reusing it.
+
+**Morphic module — the named second library (BLOCKING, hook-enforced)**: any UI that
+offers the user a comfort choice — theme, motion, contrast, density, font size or family,
+colorblind mode, reading guide, WAI symbols — is drawn by
+`MorphicButton` from `@theermite/morphic-adapter/ui`, **or it is not drawn**.
+**Mockups included, with no exception.** A static mockup has no build step, so it loads
+the published package from a CDN or links its stylesheet (`@theermite/morphic-adapter/ui.css`);
+Android uses `com.theermite.morphic`.
+**Why**: on 2026-08-30 an audit found 4 repos drawing a hand-rolled panel. The measured
+cost was not the duplication — it was that Jay reported a decorative "Contraste" button as
+a module bug, and it got debugged against the wrong artefact. One repo's CDC claimed the
+real engine was "réutilisé tel quel" while the code reimplemented nine axes by hand.
+**Why the earlier guard missed it**: it detected a duplicate by NAME, and a hand-rolled
+panel is never named like the original — that is exactly why it got rebuilt. It also read
+`.tsx/.jsx` only, so every HTML mockup escaped. The new guard detects the axis
+VOCABULARY and reads markup of every kind.
+**Proof**: `hooks/lego/morphic-decoy-check.py` — 3+ distinct axes with no module
+reference blocks the write ; 2 axes warns and names the suspect. **A mention is not a
+proof of use**: a comment quoting `MorphicButton` does not count, only the exact package
+specifier or a rendered element does (a decoy names the real module precisely to look
+real — observed on a real artefact the same day).
+**Without hook**: before drawing any comfort setting, state which module draws it and
+where it is imported from. A panel you cannot trace to the package is a decoy.
 
 ## Morphic Adaptation (BLOCKING on public platforms)
 

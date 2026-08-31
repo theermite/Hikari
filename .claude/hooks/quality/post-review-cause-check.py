@@ -23,13 +23,28 @@ After a review came back FAIL, the next commit message carries:
   - cause: <where it comes from>
   - ce qui empeche la repetition: <test, shared component, gate — an artefact>
 
-At the SECOND consecutive FAIL, that is no longer enough: patching the reported
-case is forbidden, and the message must also carry
+At the SECOND consecutive FAIL ON THE SAME FAMILY, that is no longer enough:
+patching the reported case is forbidden, and the message must also carry
 
   - approche changee: oui — <what is structurally different now>
 
 because a family that survives one correction will survive the next one of the
 same shape. Two failures say the approach is wrong, not the line.
+
+The counter counts DEFECTS, not rounds (Jay 2026-08-30)
+-------------------------------------------------------
+The first version counted consecutive FAIL verdicts whatever they were about, so
+two reviews finding two DIFFERENT problems escalated to "change your approach" --
+backwards, since the review was doing its job. Jay: "si la relecture trouve une
+nouvelle erreur ce n'est pas une deuxieme tentative [...] si tu essaies 2 ou 3
+fois de corriger LA MEME erreur et n'y parviens pas, tu dois prendre du recul."
+
+So a FAIL marker names the family it is about:
+
+  [REVIEW] par <x> le <date> — verdict: FAIL, famille: <slug>, <ce qui en sort>
+
+A different family resets the counter. An UNNAMED family counts with the previous
+unnamed one -- omitting the slug must never be the cheap way past the gate.
 
 Honest limits (independent review, 2026-08-10)
 ----------------------------------------------
@@ -77,6 +92,12 @@ SKIP_MOTIFS = (
 _SKIP = re.compile(r"\[CAUSE-SKIP\][^\S\n]*motif[^\S\n]*:[^\S\n]*([a-z0-9-]+)", re.IGNORECASE)
 _VERDICT = re.compile(r"\[REVIEW\][^\n]*?verdict\s*:\s*(PASS|FAIL)", re.IGNORECASE)
 _CODE = re.compile(r"```.*?```|`[^`]*`", re.DOTALL)
+
+# The family a FAIL is about, read from the marker itself:
+#   [REVIEW] par <x> le <date> - verdict: FAIL, famille: <slug>, <ce qui en sort>
+# It ends at a comma or a line break, so the free-text tail stays free.
+_FAMILY = re.compile(r"famille[^\S\n]*:[^\S\n]*([^,\n]+)", re.IGNORECASE)
+_UNNAMED = "<sans famille nommee>"
 
 _FIELDS = ("famille", "cause", "ce qui empeche la repetition")
 _APPROACH = re.compile(r"-\s*approche\s+chang\w+\s*:\s*oui\s*[—-]\s*\S+", re.IGNORECASE)
@@ -166,7 +187,11 @@ def _second_failure_message():
         "Why: a famille that survived one correction survives the next one of the "
         "same shape (Jay 2026-08-10). Two failures say the design is wrong, not the "
         "line. If you believe the approach is right, say so to Jay and let him "
-        "decide — do not spend a third round."
+        "decide — do not spend a third round. "
+        "If this review actually found a DIFFERENT problem, that is progress, not "
+        "persistence — name it in the marker as "
+        "'verdict: FAIL, famille: <slug>, ...' and the counter starts over "
+        "(Jay 2026-08-30: a new defect found is not a second attempt)."
     )
 
 
@@ -185,17 +210,49 @@ def verdict(commit_message, recent_texts, failures):
     return None
 
 
-def _count_failures(recent_texts):
-    """How many FAIL verdicts in a row, most recent first."""
+def _family_of(spoken_text, verdict_match):
+    """The family slug a verdict is about, folded for comparison.
+
+    Anchored on the marker, never on the whole message (independent review
+    2026-08-30). Searching the full text let a sentence mentioning "famille:"
+    BEFORE the marker hijack the capture: two FAILs on the same family then
+    counted as one, and the escalation this hook exists for never fired.
+    The slug lives on the marker's own line, so the search stops at its end.
+    """
+    line_end = spoken_text.find("\n", verdict_match.end())
+    tail = spoken_text[verdict_match.end() : line_end if line_end != -1 else None]
+    match = _FAMILY.search(tail)
+    if not match:
+        return _UNNAMED
+    return " ".join(match.group(1).split()).casefold()
+
+
+def count_failures(recent_texts):
+    """How many times the SAME family failed in a row, most recent first.
+
+    Counting rounds instead of defects was the defect (Jay 2026-08-30): two
+    reviews finding two DIFFERENT problems escalated to "change your approach",
+    when in fact the review was doing its job. The escalation belongs to a family
+    that survives its own correction, never to a review that keeps finding things.
+
+    An unnamed family counts with the previous unnamed one: leaving the slug out
+    must never be the cheap way past the gate.
+    """
     failures = 0
+    family = None
     for text in recent_texts:
-        match = _VERDICT.search(_spoken(text))
+        spoken = _spoken(text)
+        match = _VERDICT.search(spoken)
         if not match:
             continue
-        if match.group(1).upper() == "FAIL":
-            failures += 1
-        else:
+        if match.group(1).upper() != "FAIL":
             break
+        current = _family_of(spoken, match)
+        if family is None:
+            family = current
+        elif current != family:
+            break
+        failures += 1
     return failures
 
 
@@ -207,7 +264,7 @@ def main():
 
     transcript = data.get("transcript_path", "")
     texts = list(iter_assistant_text(transcript, limit=TRANSCRIPT_LOOKBACK)) if transcript else []
-    failures = _count_failures(texts)
+    failures = count_failures(texts)
 
     message = verdict(raw, texts, failures)
     if message:

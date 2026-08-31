@@ -93,6 +93,11 @@
             "type": "command",
             "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/quality/post-review-cause-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
             "description": "After a review verdict FAIL, block the next commit unless it carries [CAUSE] (famille / cause / ce qui empeche la repetition); at the 2nd failure in a row, also require a changed approach"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/pre-bash-secret-mask.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Rewrite suspicious commands (docker exec/compose config, ssh+docker/env, cat .env, printenv) to mask secrets in OUTPUT before it reaches the conversation"
           }
         ]
       },
@@ -151,6 +156,11 @@
           },
           {
             "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lego/morphic-decoy-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Block a hand-drawn comfort-settings panel (3+ adaptation axes, no @theermite/morphic-* reference); warn at 2 axes. Reads HTML mockups too."
+          },
+          {
+            "type": "command",
             "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/lego/i18n-no-hardcode.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
             "description": "Warn on hardcoded UI strings in .tsx/.jsx (use @shinkofa/i18n)"
           },
@@ -195,6 +205,11 @@
             "type": "command",
             "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/post-commit-push-check.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
             "description": "D1 — Warn after git commit when branch is ahead of upstream (unpushed)"
+          },
+          {
+            "type": "command",
+            "command": "HOOK=\"$(git rev-parse --show-toplevel)/.claude/hooks/guards/post-bash-secret-alert.py\"; if [ -f \"$HOOK\" ]; then python3 \"$HOOK\"; else exit 0; fi",
+            "description": "Warn (never block) when a secret survived into a Bash command output the pre-hook did not wrap"
           }
         ]
       }

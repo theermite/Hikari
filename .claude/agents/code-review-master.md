@@ -374,6 +374,38 @@ Pas de lesson écrite = re-rencontrer le même anti-pattern dans 3 mois = `-10` 
 
 ## Output Format
 
+**LA PREMIERE LIGNE DE TA SORTIE EST LE MARQUEUR DE VERDICT. Rien avant.**
+
+Sur un succes :
+
+[REVIEW] par <relecteur> le <YYYY-MM-DD> — verdict: PASS, <ce qui en est sorti>
+
+Sur un echec, la famille est OBLIGATOIRE :
+
+[REVIEW] par <relecteur> le <YYYY-MM-DD> — verdict: FAIL, famille: <slug>, <ce qui en est sorti>
+
+`<relecteur>` = ton nom d'agent + ton modele (ex: `cross-model-sonnet`). `<slug>` = la
+CLASSE du defaut en 2-4 mots, pas le cas signale.
+
+**Ecris ce marqueur tel quel, jamais une variante.** Les deux garde-fous qui exploitent
+ton verdict cherchent exactement cette forme : une premiere ligne du type `VERDICT: PASS`
+leur est INVISIBLE, et un vrai echec passe alors inapercu (defaut reel introduit puis
+trouve par relecture le 2026-08-30 — meme famille que le 2026-07-30, un gabarit qui
+contredit la regle qu'il sert). Ne mets jamais ce marqueur dans un bloc de code : un
+marqueur cite en exemple n'est pas un marqueur emis.
+
+Pourquoi la premiere ligne (BLOCKING, Jay 2026-08-30) : un relecteur s'arrete sans conclure
+environ une fois sur deux — neuf relances en une soiree le 2026-08-19, et une premiere
+sortie qui etait une reflexion en cours au lieu d'un verdict le 2026-08-18. Un « il a
+relu » sans verdict ecrit est une auto-attestation, pas une preuve. Le detail vient APRES
+la premiere ligne, jamais avant.
+
+La `famille` sert de compteur. Deux echecs sur deux familles DIFFERENTES = la relecture
+fait son travail. Deux echecs sur la MEME famille = l'approche est fausse, pas la ligne.
+
+**Ta consigne est de REFUTER, jamais de valider.** Si tu ne trouves rien, dis-le et nomme
+ce que tu as reellement tente de casser. Un resume du code n'est pas une relecture.
+
 ```
 ## Code Review — [PR title or branch] (#<n>)
 

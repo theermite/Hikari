@@ -20,9 +20,12 @@ forgotten*, without invasive notifications ("best tool in a drawer = useless").
 (attract), never PUSH — Jay is a Projector, he waits for invitation.
 **Revenue model (2026-07-03, supersedes "everything is commercializable")**: platforms
 left available as **living proof** (free/accessible — most users lack means) → real
-revenue = **bespoke high-ticket freelance** (via theermite.com + demo portfolio) +
+revenue = ~~bespoke high-ticket freelance~~ (via theermite.com + demo portfolio) +
 targeted commercial tiers (Shizen public · Kakusei gamers · Michi AI-features only,
 self-knowledge free). Hibiki/Uneru/desktop-stream = for Jay, non-commercial. Detail → Shinzo.
+
+**⚠️ To revise (2026-08-22)**: Jay confirms freelance focus is no longer current. L2
+revenue path needs a replacement — decision pending, dedicated session.
 
 **L1 — ACTION (the next step)**: 2 valid axes — revenue (toward the survival floor /
 visibility) OR Jay's personal realignment. Either one qualifies.

@@ -139,6 +139,86 @@ def find_skip(text):
     return None
 
 
+# What the reviewer was GIVEN, not only what it returned (Jay 2026-08-30).
+#
+# The audit of that day found nothing governed the LAUNCH: this gate checked
+# that a verdict appeared afterwards, while the prompt handed to the reviewer was
+# improvised each time. A reviewer with no objective can only check that the code
+# agrees with itself -- exactly the bias Jay reported ("il ne prend pas en compte
+# l'objectif et/ou la vision du projet, ce qui lui donne un point de vue biaise").
+BRIEF_FIELDS = ("objectif", "perimetre", "zones suspectes", "consigne")
+
+# `consigne` is a closed value, not free text: a reviewer told to CHECK confirms,
+# a reviewer told to REFUTE finds. On 2026-08-10, "contredis ce code" produced 8
+# findings where "relis ce code" produced a summary.
+_REFUTE = re.compile(r"r[ée]fut|contredi|refuter", re.IGNORECASE)
+
+
+def _brief_field(text, field):
+    """The value written on the field's own line, or '' when absent/empty."""
+    pattern = re.compile(
+        rf"-[^\S\n]*{re.escape(field)}[^\S\n]*:[^\S\n]*(\S[^\n]*)", re.IGNORECASE
+    )
+    match = pattern.search(text)
+    return match.group(1).strip() if match else ""
+
+
+def find_brief(text):
+    """Return the launch brief when it is complete, else None.
+
+    Complete means the four fields carry a value AND `consigne` asks for
+    refutation. A brief quoted as an example is not a brief that happened, so
+    code samples are stripped first -- same rule as the verdict marker.
+    """
+    spoken = _spoken(text)
+    if "[REVIEW-BRIEF]" not in spoken:
+        return None
+    values = {field: _brief_field(spoken, field) for field in BRIEF_FIELDS}
+    if not all(values.values()):
+        return None
+    if not _REFUTE.search(values["consigne"]):
+        return None
+    return values
+
+
+def _was_briefed(recent_texts, index):
+    """True when the verdict at `index` had a brief of its own.
+
+    Texts arrive most recent first, so a brief written BEFORE the verdict sits
+    AFTER it in the list. Two boundaries make the brief belong to THIS review:
+
+    - the verdict's own message counts, since the brief may sit above it there;
+    - the walk stops at an older PASS, which closed a previous review cycle. A
+      FAIL does not stop it: the same launch is still open, and re-emitting four
+      lines on every corrective round is friction with no added truth.
+
+    Without this, review #1's brief would excuse review #2, improvised.
+    """
+    if find_brief(recent_texts[index]):
+        return True
+    for text in recent_texts[index + 1 :]:
+        if find_brief(text):
+            return True
+        older = find_marker(text)
+        if older and older.group("verdict").upper() == "PASS":
+            return False
+    return False
+
+
+def _missing_brief_message():
+    fields = " · ".join(f"- {name}: <...>" for name in BRIEF_FIELDS)
+    return (
+        "BLOCKED: the review passed, but nothing says what the reviewer was GIVEN. "
+        "RECOVERY: before launching the reviewer, emit '[REVIEW-BRIEF]' then four "
+        f"lines — {fields} — where `consigne` asks to REFUTE, never to validate. "
+        "Then relaunch the review and emit its verdict. "
+        "Why: a reviewer without the project's goal can only check that the code "
+        "agrees with itself, which is the bias Jay reported on 2026-08-30. And "
+        "'contredis ce code' produced 8 findings where 'relis ce code' produced a "
+        "summary (2026-08-10)."
+    )
+
+
 # A heredoc delimiter always carries a letter (EOF, PY, SQL). Requiring one keeps
 # an arithmetic shift — `$((5 << 2))` — from being read as a heredoc.
 # These read a file or print an argument; they never run it. Everything else that
@@ -231,13 +311,15 @@ def verdict(command, recent_texts):
     """
     if not _is_gated(command):
         return None
-    for text in recent_texts:
+    for index, text in enumerate(recent_texts):
         if find_skip(text):
             return None
         marker = find_marker(text)
         if marker:
             if marker.group("verdict").upper() == "PASS":
-                return None
+                if _was_briefed(recent_texts, index):
+                    return None
+                return _missing_brief_message()
             return (
                 "BLOCKED: the last independent review came back FAIL and nothing "
                 "says it was resolved. "
