@@ -34,6 +34,12 @@ dist-ssr/
 .vite/
 *.local
 
+# --- Canal prive de mise a jour ---
+# L'adresse du canal et la surcharge de build qui la porte. Le depot est PUBLIC :
+# un chemin prive ecrit ici ne serait plus prive. Voir scripts/publish_update.py.
+/scripts/publish.local.json
+/src-tauri/tauri.private.conf.json
+
 # --- Secrets : rien de sensible ne doit jamais partir ici ---
 .env
 .env.*
