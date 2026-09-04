@@ -14,6 +14,9 @@ Cargo.lock.bak
 # Les binaires OBS sont récupérés au build/à l'exécution, jamais versionnés (ils pèsent
 # des centaines de Mo et ont leur propre distribution). Voir la brique installation.
 /obs-runtime/
+/src-tauri/obs-runtime/
+# Cache de `cargo obs-build` : l'archive OBS décompressée, re-téléchargeable à volonté.
+/src-tauri/obs-build/
 /libobs/
 *.dll
 *.so

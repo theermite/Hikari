@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check src",
-    "format": "biome format --write src"
+    "format": "biome format --write src",
+    "prepare-bundle": "python scripts/prepare_bundle.py",
+    "bundle": "python scripts/prepare_bundle.py && tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
