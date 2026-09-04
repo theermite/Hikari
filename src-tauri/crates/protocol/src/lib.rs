@@ -20,12 +20,14 @@
 
 pub mod audio;
 pub mod geometry;
+pub mod platform;
 pub mod scenes;
 pub mod sources;
 pub mod wire;
 
 pub use audio::*;
 pub use geometry::*;
+pub use platform::*;
 pub use scenes::*;
 pub use sources::*;
 pub use wire::*;

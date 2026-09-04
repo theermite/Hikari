@@ -1,7 +1,7 @@
 {
   "name": "hikari",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,12 +11,16 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check src",
-    "format": "biome format --write src"
+    "format": "biome format --write src",
+    "prepare-bundle": "python scripts/prepare_bundle.py",
+    "bundle": "python scripts/prepare_bundle.py && tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.2",
+    "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-store": "^2.4.4",
+    "@tauri-apps/plugin-updater": "^2.11.0",
     "dockview-react": "^7.0.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

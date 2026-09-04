@@ -4,13 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The libobs source-kind identifier for a Windows microphone / line-in capture — the id
-/// the real win-wasapi plugin registers (verified 2026-08-04 against obs-studio source).
-pub const AUDIO_INPUT_KIND: &str = "wasapi_input_capture";
-
-/// The libobs source-kind identifier for a Windows speaker / desktop-audio capture. Same
-/// source, same verification.
-pub const AUDIO_OUTPUT_KIND: &str = "wasapi_output_capture";
+use crate::platform::{AUDIO_INPUT_KIND, AUDIO_OUTPUT_KIND};
 
 /// Which side of the sound card an audio source listens to (B6).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

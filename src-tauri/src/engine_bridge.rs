@@ -9,7 +9,7 @@
 
 use std::env;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 
 use anyhow::{Context, Result, bail};
@@ -17,6 +17,35 @@ use hikari_protocol::{CameraDevice, EngineMessage, parse_engine_message};
 
 /// Maximum number of automatic relaunches before the controller gives up (B0.0 policy).
 pub const MAX_RELAUNCH: usize = 1;
+
+/// Windows `CREATE_NO_WINDOW`: run the child without allocating a console.
+///
+/// The engine is a console-subsystem binary — it prints its protocol on stdout — so
+/// Windows opens a black terminal window for it unless told otherwise. In development
+/// that window is a live log; in an installed app it is a second window the user never
+/// asked for, sitting next to the cockpit (reported by Jay, 2026-09-04, with a screenshot
+/// of it listing capture targets).
+///
+/// The flag is set at the SPAWN site rather than by marking the engine
+/// `#![windows_subsystem = "windows"]`, because the binary must stay runnable from a
+/// terminal for debugging — the subsystem attribute would silence it everywhere, forever.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// A `Command` for the engine binary, with no console window on Windows.
+///
+/// Every launch of the engine goes through here — the supervised process, and both
+/// one-shot detection passes. A second spawn site that forgot the flag would put the
+/// terminal back for exactly one code path, which is how this kind of defect survives.
+pub fn engine_command() -> Result<Command> {
+    let mut command = Command::new(engine_path()?);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    Ok(command)
+}
 
 /// What the supervisor should do after the engine process exits — the pure decision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,11 +96,10 @@ fn extract_encoders(stdout: &str) -> Option<Vec<String>> {
 /// process — integration-only, same regime as `supervise` (`extract_encoders` above
 /// carries the part unit-testable without it).
 pub fn run_detect_encoders() -> Result<Vec<String>> {
-    let engine = engine_path()?;
-    let output = Command::new(&engine)
+    let output = engine_command()?
         .arg("--detect-encoders")
         .output()
-        .with_context(|| format!("launching engine at {}", engine.display()))?;
+        .context("launching the engine for encoder detection")?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     extract_encoders(&stdout).context("engine did not report any encoders")
 }
@@ -89,18 +117,17 @@ fn extract_cameras(stdout: &str) -> Option<Vec<CameraDevice>> {
 /// camera devices it reported. Real libobs process — integration-only, same regime as
 /// `run_detect_encoders`.
 pub fn run_detect_cameras() -> Result<Vec<CameraDevice>> {
-    let engine = engine_path()?;
-    let output = Command::new(&engine)
+    let output = engine_command()?
         .arg("--detect-cameras")
         .output()
-        .with_context(|| format!("launching engine at {}", engine.display()))?;
+        .context("launching the engine for camera detection")?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     extract_cameras(&stdout).context("engine did not report any cameras")
 }
 
 /// Spawn the engine as a child process with piped stdout, or fail with context.
-fn spawn_engine(engine: &PathBuf, args: &[String]) -> Result<Child> {
-    Command::new(engine)
+fn spawn_engine(engine: &Path, args: &[String]) -> Result<Child> {
+    engine_command()?
         .args(args)
         .stdout(Stdio::piped())
         .spawn()
@@ -139,7 +166,7 @@ fn relay_output(child: &mut Child) -> Result<()> {
 }
 
 /// Run the engine once: spawn, relay its output, and wait for its exit status.
-fn run_engine_once(engine: &PathBuf, args: &[String]) -> Result<ExitStatus> {
+fn run_engine_once(engine: &Path, args: &[String]) -> Result<ExitStatus> {
     let mut child = spawn_engine(engine, args)?;
     relay_output(&mut child)?;
     child.wait().context("waiting for engine exit")
