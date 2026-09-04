@@ -3,13 +3,9 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The libobs source-kind identifier for a monitor (screen) capture — shared vocabulary
-/// so a deck can render the right icon without guessing.
-pub const MONITOR_CAPTURE_KIND: &str = "monitor_capture";
-
-/// The libobs source-kind identifier for a webcam (DirectShow) source — same id the real
-/// win-dshow OBS plugin registers, never invented (B-cam).
-pub const CAMERA_KIND: &str = "dshow_input";
+use crate::platform::{
+    CAMERA_KIND, GAME_CAPTURE_KIND, MONITOR_CAPTURE_KIND, WINDOW_CAPTURE_KIND,
+};
 
 /// The fixed name the engine gives its webcam source — ONE camera source total, reused by
 /// every scene that shows it (Jay, 2026-07-24: « la caméra est unique »).
@@ -49,14 +45,6 @@ pub struct CameraDevice {
     pub name: String,
     pub device_id: String,
 }
-
-/// The libobs source-kind identifier for a game / fullscreen-application capture — the id
-/// the real win-capture plugin registers (verified 2026-08-05 in `libobs-simple` 8.0.1,
-/// which mirrors obs-studio's own).
-pub const GAME_CAPTURE_KIND: &str = "game_capture";
-
-/// The libobs source-kind identifier for a single-window capture. Same verification.
-pub const WINDOW_CAPTURE_KIND: &str = "window_capture";
 
 /// What a capture source points at (brique Sources).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
