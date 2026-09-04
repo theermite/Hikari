@@ -13,6 +13,7 @@ import { listen } from "@tauri-apps/api/event";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "../../components/Modal";
+import { Panel } from "../../components/ui/Panel";
 import { LevelBar, VolumeSlider } from "./AudioMeters";
 import {
   addAudioSource,
@@ -110,11 +111,7 @@ export function AudioPanel(_props: IDockviewPanelProps) {
   const openSettings = sources.find((s) => s.name === settingsFor) ?? null;
 
   return (
-    <div className="flex h-full flex-col items-stretch justify-start gap-5 overflow-y-auto bg-hikari-bg-3 p-6 text-hikari-txt">
-      <h3 className="text-[12px] uppercase tracking-wider text-hikari-txt-faint">
-        Audio
-      </h3>
-
+    <Panel title="Audio" badge="écoute / diffusion">
       {inputs === null && (
         <p className="text-hikari-txt-faint">
           Ouvre le panneau Aperçu pour gérer le son.
@@ -256,6 +253,6 @@ export function AudioPanel(_props: IDockviewPanelProps) {
           <DeviceSettings source={openSettings} busy={busy} run={run} />
         )}
       </Modal>
-    </div>
+    </Panel>
   );
 }

@@ -6,35 +6,11 @@
  * plafond BLOQUANT de 500 (Quality.md). Repris tels quels.
  */
 
-import type React from "react";
-import type { AudioDevice } from "./types";
+// La piece partagee remplace la copie locale : le meme bouton etait defini ici ET dans
+// scenes/ScenesControls.tsx. Re-exportee pour que les appelants gardent leur import.
+export { IconButton } from "../../components/ui/IconButton";
 
-/** A small square control. `label` is the accessible name (WCAG 2.2 AA: the glyph alone says
- * nothing to a screen reader), also shown as the tooltip. */
-export function IconButton({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="h-6 w-6 shrink-0 rounded-[6px] border border-hikari-line text-[12px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt disabled:cursor-not-allowed disabled:opacity-30"
-    >
-      {children}
-    </button>
-  );
-}
+import type { AudioDevice } from "./types";
 
 /** The devices of one side that are not in the mixer yet, each one click away from being
  * added. An empty list says why it is empty rather than showing nothing at all. */

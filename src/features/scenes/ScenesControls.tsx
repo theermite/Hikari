@@ -8,6 +8,10 @@
 
 import type React from "react";
 
+// La piece partagee remplace la copie locale (deux definitions du meme bouton dans le
+// projet). Re-exportee ici pour que les appelants gardent leur import.
+export { IconButton } from "../../components/ui/IconButton";
+
 export const SOURCE_ICON: Record<string, string> = {
   game_capture: "🎮",
   window_capture: "🪟",
@@ -42,33 +46,6 @@ export function OrderButton({
       disabled={disabled}
       onClick={onClick}
       className="px-1 text-hikari-txt-faint transition hover:text-hikari-accent disabled:cursor-not-allowed disabled:opacity-30"
-    >
-      {children}
-    </button>
-  );
-}
-
-/** A small square control. `label` is the accessible name (WCAG 2.2 AA: the glyph alone
- * says nothing to a screen reader), also shown as the tooltip. */
-export function IconButton({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="h-6 w-6 rounded-[6px] border border-hikari-line text-[12px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt disabled:cursor-not-allowed disabled:opacity-30"
     >
       {children}
     </button>

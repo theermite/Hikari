@@ -79,7 +79,11 @@ describe("IconButton", () => {
   it("should_carry_an_accessible_name_even_though_it_shows_only_an_icon", () => {
     // Les boutons actuels des scènes (↑ ↓ ✎ ✕) n'ont aucun nom : au clavier comme au
     // lecteur d'écran, ce sont quatre boutons identiques et muets.
-    render(<IconButton label="Monter la scène" icon="↑" onClick={() => {}} />);
+    render(
+      <IconButton label="Monter la scène" onClick={() => {}}>
+        ↑
+      </IconButton>,
+    );
 
     expect(
       screen.getByRole("button", { name: "Monter la scène" }),
@@ -88,7 +92,11 @@ describe("IconButton", () => {
 
   it("should_call_its_handler_on_click", async () => {
     const onClick = vi.fn();
-    render(<IconButton label="Supprimer" icon="✕" onClick={onClick} />);
+    render(
+      <IconButton label="Supprimer" onClick={onClick}>
+        ✕
+      </IconButton>,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Supprimer" }));
 
@@ -97,12 +105,9 @@ describe("IconButton", () => {
 
   it("should_announce_a_pressed_state_when_it_is_a_toggle", () => {
     render(
-      <IconButton
-        label="Afficher la source"
-        icon="👁"
-        pressed
-        onClick={() => {}}
-      />,
+      <IconButton label="Afficher la source" pressed onClick={() => {}}>
+        👁
+      </IconButton>,
     );
 
     expect(
@@ -114,7 +119,11 @@ describe("IconButton", () => {
 
   it("should_not_fire_when_disabled", async () => {
     const onClick = vi.fn();
-    render(<IconButton label="Monter" icon="↑" disabled onClick={onClick} />);
+    render(
+      <IconButton label="Monter" disabled onClick={onClick}>
+        ↑
+      </IconButton>,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Monter" }));
 

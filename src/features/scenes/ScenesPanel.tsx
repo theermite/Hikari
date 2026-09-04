@@ -10,6 +10,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useRef, useState } from "react";
+import { Panel } from "../../components/ui/Panel";
 import {
   addAudioSource,
   setAudioMonitoring,
@@ -406,11 +407,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const orderedNames = ordered.map((scene) => scene.name);
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto bg-hikari-bg-3 p-6 text-hikari-txt">
-      <h3 className="text-[12px] uppercase tracking-wider text-hikari-txt-faint">
-        Scènes
-      </h3>
-
+    <Panel title="Scènes" badge="1 clic">
       {state.status === "idle" && (
         <p className="text-hikari-txt-faint">
           Ouvre le panneau Aperçu pour gérer les scènes.
@@ -494,6 +491,6 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         </button>
       </div>
       {createError && <p className="text-hikari-red">❌ {createError}</p>}
-    </div>
+    </Panel>
   );
 }

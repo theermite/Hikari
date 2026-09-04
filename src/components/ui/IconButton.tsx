@@ -1,18 +1,23 @@
 // IconButton — un bouton qui ne montre qu'un pictogramme, mais qui se NOMME.
 //
-// Ce qu'il corrige : les panneaux affichent aujourd'hui des rangées de ↑ ↓ ✎ ✕ sans
-// aucun nom. Au clavier comme au lecteur d'écran, ce sont des boutons identiques et
-// muets ; à la souris, ils font moins de 24 px et se ratent. Le nom est donc obligatoire
-// (`label`), et la zone cliquable ne descend pas sous 28 px — le pictogramme reste petit,
-// la cible ne l'est pas.
+// Ce qu'il remplace : DEUX copies du même bouton, dans `audio/DeviceList.tsx` et
+// `scenes/ScenesControls.tsx`. Toutes deux nommaient déjà correctement leur bouton
+// (`aria-label` + `title`) — ce n'est pas l'accessibilité qui manquait, c'est le
+// partage : deux bordures, deux survols, deux panneaux qui ne se ressemblent pas.
 //
-// `pressed` sert aux bascules (l'œil qui montre ou cache une source) : l'état part dans
-// `aria-pressed`, jamais dans la seule couleur.
+// Ce que cette version ajoute aux deux copies :
+//   - la cible cliquable passe de 24 à 28 px. 24 px se rate à la souris ;
+//   - `pressed` pour les bascules (l'œil qui montre ou cache une source) : l'état part
+//     dans `aria-pressed`, jamais dans la seule couleur ;
+//   - un contour de focus visible au clavier.
+
+import type { ReactNode } from "react";
 
 interface IconButtonProps {
   /** Ce que fait le bouton, en clair. Lu par les lecteurs d'écran, montré au survol. */
   label: string;
-  icon: string;
+  /** Le pictogramme. Passé en enfant pour coller aux appels existants du projet. */
+  children: ReactNode;
   onClick: () => void;
   /** Renseigné uniquement pour une bascule : l'état marche/arrêt du bouton. */
   pressed?: boolean;
@@ -22,7 +27,7 @@ interface IconButtonProps {
 
 export function IconButton({
   label,
-  icon,
+  children,
   onClick,
   pressed,
   disabled = false,
@@ -47,7 +52,7 @@ export function IconButton({
         disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent
         ${pressedClass} ${toneClass}`}
     >
-      <span aria-hidden="true">{icon}</span>
+      <span aria-hidden="true">{children}</span>
     </button>
   );
 }
