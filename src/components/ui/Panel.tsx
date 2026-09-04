@@ -22,15 +22,28 @@ interface PanelProps {
 }
 
 export function Panel({ title, badge, actions, children }: PanelProps) {
+  // L'onglet du cockpit AFFICHE déjà le nom du panneau. Un second titre juste en dessous
+  // répétait le même mot et mangeait une ligne sur chacun des six panneaux (vu à l'écran
+  // 2026-09-04). Le nom part donc dans `aria-label` — un lecteur d'écran nomme toujours la
+  // région, l'œil ne lit plus deux fois. L'en-tête ne s'affiche que s'il porte autre chose.
+  const hasHeader = Boolean(badge || actions);
+
   return (
-    <section className="flex h-full flex-col overflow-hidden bg-hikari-bg-2">
-      <header className="flex flex-shrink-0 items-center gap-2 border-b border-hikari-line px-3 py-2">
-        <h2 className="text-[13px] font-semibold text-hikari-txt">{title}</h2>
-        {badge ? <Badge>{badge}</Badge> : null}
-        {actions ? (
-          <div className="ml-auto flex items-center gap-1">{actions}</div>
-        ) : null}
-      </header>
+    <section
+      aria-label={title}
+      className="flex h-full flex-col overflow-hidden bg-hikari-bg-2"
+    >
+      {hasHeader ? (
+        <header className="flex flex-shrink-0 items-center gap-2 border-b border-hikari-line px-3 py-1.5">
+          {badge ? <Badge>{badge}</Badge> : null}
+          {actions ? (
+            <div className="ml-auto flex items-center gap-1">{actions}</div>
+          ) : null}
+        </header>
+      ) : null}
+      {/* LA carte possède le défilement, et elle est la seule. Un contenu qui défile aussi
+          affiche deux barres côte à côte — vu sur l'écran de Jay le 2026-09-04, dès la
+          première migration. Un panneau migré retire donc son propre `overflow`. */}
       <div className="min-h-0 flex-1 overflow-y-auto p-3">{children}</div>
     </section>
   );

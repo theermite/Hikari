@@ -21,12 +21,14 @@ import { Segmented } from "./Segmented";
 afterEach(cleanup);
 
 describe("Panel", () => {
-  it("should_expose_its_title_as_a_heading", () => {
-    // Un titre de panneau doit être un vrai titre : c'est ce qui permet de naviguer de
-    // panneau en panneau au clavier, et ce que la maquette dessine en haut de chaque carte.
+  it("should_name_its_region_without_repeating_the_tab_title", () => {
+    // L'onglet du cockpit affiche déjà le nom. Le répéter dans la carte mangeait une
+    // ligne sur chaque panneau. Le nom reste porté par la région, pour que la navigation
+    // au lecteur d'écran continue de l'annoncer.
     render(<Panel title="Scènes">contenu</Panel>);
 
-    expect(screen.getByRole("heading", { name: "Scènes" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Scènes" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Scènes" })).toBeNull();
     expect(screen.getByText("contenu")).toBeTruthy();
   });
 

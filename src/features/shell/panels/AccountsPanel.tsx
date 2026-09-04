@@ -102,7 +102,7 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
   return (
     // Même piège flexbox que le panneau Caméra : centrer verticalement rend le haut
     // inatteignable dès que le contenu dépasse (voir `CameraPanel.tsx`, 2026-08-04).
-    <div className="flex h-full flex-col items-center justify-start gap-8 overflow-y-auto bg-hikari-bg-3 p-6 text-hikari-txt">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-4">
         <button
           type="button"
@@ -114,7 +114,7 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
         </button>
 
         {twitch.state.status === "waiting" && (
-          <div className="max-w-md text-center text-sm text-hikari-txt-dim">
+          <div className="text-sm text-hikari-txt-dim">
             <p>Un navigateur s'est ouvert — entre ce code si besoin :</p>
             <p className="mt-2 font-mono text-2xl tracking-widest text-hikari-accent">
               {twitch.state.userCode}
@@ -128,9 +128,7 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
           <p className="text-hikari-green">✅ Compte Twitch connecté.</p>
         )}
         {twitch.state.status === "error" && (
-          <p className="max-w-md text-center text-hikari-red">
-            ❌ {twitch.state.message}
-          </p>
+          <p className="text-hikari-red">❌ {twitch.state.message}</p>
         )}
       </div>
 
@@ -145,7 +143,7 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
         </button>
 
         {youtube.state.status === "waiting" && (
-          <div className="max-w-md text-center text-sm text-hikari-txt-dim">
+          <div className="text-sm text-hikari-txt-dim">
             <p>
               Un navigateur s'est ouvert — s'il ne s'affiche pas, ouvre ce lien
               :
@@ -161,9 +159,7 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
           <p className="text-hikari-green">✅ Compte YouTube connecté.</p>
         )}
         {youtube.state.status === "error" && (
-          <p className="max-w-md text-center text-hikari-red">
-            ❌ {youtube.state.message}
-          </p>
+          <p className="text-hikari-red">❌ {youtube.state.message}</p>
         )}
       </div>
     </div>

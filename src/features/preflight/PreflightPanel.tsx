@@ -6,6 +6,7 @@
 
 import type { IDockviewPanelProps } from "dockview-react";
 import { useState } from "react";
+import { Panel } from "../../components/ui/Panel";
 import { runPreflight } from "./api";
 import type { PreflightOutcome } from "./types";
 
@@ -30,7 +31,7 @@ export function PreflightPanel(_props: IDockviewPanelProps) {
   return (
     // Même piège flexbox que le panneau Caméra : centrer verticalement rend le haut
     // inatteignable dès que le contenu dépasse (voir `CameraPanel.tsx`, 2026-08-04).
-    <div className="flex h-full flex-col items-center justify-start gap-6 overflow-y-auto bg-hikari-bg-3 p-6 text-hikari-txt">
+    <Panel title="Pré-vol">
       <button
         type="button"
         onClick={check}
@@ -43,21 +44,19 @@ export function PreflightPanel(_props: IDockviewPanelProps) {
       </button>
 
       {state.status === "done" && state.outcome.ok && (
-        <p className="max-w-md text-center text-hikari-green">
+        <p className="text-hikari-green">
           ✅ Encodeur détecté : {state.outcome.encoder_name} (
           {state.outcome.hardware ? "matériel" : "logiciel"}). Go Live sûr.
         </p>
       )}
       {state.status === "done" && !state.outcome.ok && (
-        <p className="max-w-md text-center text-hikari-red">
+        <p className="text-hikari-red">
           ❌ Go Live bloqué : {state.outcome.reason}
         </p>
       )}
       {state.status === "error" && (
-        <p className="max-w-md text-center text-hikari-red">
-          ❌ {state.message}
-        </p>
+        <p className="text-hikari-red">❌ {state.message}</p>
       )}
-    </div>
+    </Panel>
   );
 }

@@ -15,6 +15,7 @@
 import { listen } from "@tauri-apps/api/event";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Panel } from "../../components/ui/Panel";
 import type { SceneInfo } from "../scenes/types";
 import {
   addCameraSource,
@@ -210,7 +211,7 @@ export function CameraPanel(_props: IDockviewPanelProps) {
     // centrer un contenu plus haut que le panneau rogne le HAUT et ce haut est
     // inatteignable au défilement (piège flexbox connu). Vécu ici — les réglages sous la
     // caméra étaient invisibles dans un panneau latéral étroit (Jay, 2026-08-04).
-    <div className="flex h-full flex-col items-center justify-start gap-6 overflow-y-auto bg-hikari-bg-3 p-6 text-hikari-txt">
+    <Panel title="Caméra">
       <p className="text-[12px] text-hikari-txt-faint">
         Scène : <span className="text-hikari-accent">{activeScene}</span>
       </p>
@@ -224,7 +225,7 @@ export function CameraPanel(_props: IDockviewPanelProps) {
       </button>
 
       {state.status === "done" && state.devices.length > 0 && (
-        <ul className="flex max-w-md flex-col gap-2">
+        <ul className="flex flex-col gap-2">
           {state.devices.map((device) => (
             <li
               key={device.device_id}
@@ -253,7 +254,7 @@ export function CameraPanel(_props: IDockviewPanelProps) {
         </ul>
       )}
       {addState.status === "added" && (
-        <div className="flex max-w-md flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-2">
           <p className="text-[12px] text-hikari-txt-faint">
             Effets caméra — propres à cette scène
           </p>
@@ -292,12 +293,10 @@ export function CameraPanel(_props: IDockviewPanelProps) {
             </button>
           </div>
           {backgroundState.error && (
-            <p className="text-center text-hikari-red">
-              ❌ {backgroundState.error}
-            </p>
+            <p className="text-hikari-red">❌ {backgroundState.error}</p>
           )}
           {maskState.error && (
-            <p className="text-center text-hikari-red">❌ {maskState.error}</p>
+            <p className="text-hikari-red">❌ {maskState.error}</p>
           )}
           <p className="text-[12px] text-hikari-txt-faint">
             Position et taille dans cette scène
@@ -351,7 +350,7 @@ export function CameraPanel(_props: IDockviewPanelProps) {
             </button>
           </div>
           {transformError && (
-            <p className="text-center text-hikari-red">❌ {transformError}</p>
+            <p className="text-hikari-red">❌ {transformError}</p>
           )}
           <button
             type="button"
@@ -364,27 +363,19 @@ export function CameraPanel(_props: IDockviewPanelProps) {
               : "Retirer la caméra"}
           </button>
           {removeState.status === "error" && (
-            <p className="text-center text-hikari-red">
-              ❌ {removeState.message}
-            </p>
+            <p className="text-hikari-red">❌ {removeState.message}</p>
           )}
         </div>
       )}
       {state.status === "done" && state.devices.length === 0 && (
-        <p className="max-w-md text-center text-hikari-txt-faint">
-          Aucune caméra détectée.
-        </p>
+        <p className="text-hikari-txt-faint">Aucune caméra détectée.</p>
       )}
       {state.status === "error" && (
-        <p className="max-w-md text-center text-hikari-red">
-          ❌ {state.message}
-        </p>
+        <p className="text-hikari-red">❌ {state.message}</p>
       )}
       {addState.status === "error" && (
-        <p className="max-w-md text-center text-hikari-red">
-          ❌ {addState.message}
-        </p>
+        <p className="text-hikari-red">❌ {addState.message}</p>
       )}
-    </div>
+    </Panel>
   );
 }
