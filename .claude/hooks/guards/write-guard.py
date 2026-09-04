@@ -22,6 +22,8 @@ import os
 import re
 import sys
 
+from ui_checks import check_i18n_hardcoded, check_lego_library
+
 
 # Order matters: more specific patterns first so the BLOCKED message names the
 # right provider. Generic `sk-` (OpenAI/DeepSeek) sits AFTER `sk-ant-`
@@ -46,36 +48,6 @@ WEAK_HASH_PATTERNS = [
     (r"hashlib\.md5", "MD5"),
     (r"hashlib\.sha1", "SHA1"),
 ]
-
-LEGO_COMPONENTS = (
-    "Button|Input|Textarea|Badge|Card|Skeleton|Modal|EmptyState|"
-    "ThemeProvider|ThemeToggle|BackToTop|RevealOnScroll|LanguageSwitcher|"
-    "CookieConsent|TagInput|DictationButton|CollapsibleCard|PromptDialog|"
-    "SaveIndicator|ConfirmModal|SafeImage|BodyGraph|BodyGraphCenter|"
-    "BodyGraphChannel|BodyGraphLegend|StructuredData|ArticleSchema|"
-    "BreadcrumbSchema|FAQSchema|ReviewSchema|PortfolioSchema|"
-    "PortfolioItemSchema|PortfolioListSchema|ServiceSchema|"
-    "ToastProvider|Toast|"
-    "FilePicker|FilePickerUploadZone|FilePickerBrowseGrid|"
-    "FilePickerPreview|ImagePicker|ImageBrowserModal|"
-    "NavShell|NavLink|NavGroup|"
-    "SettingsSection|RevealToggle|PasswordChangeForm|"
-    "AvatarUpload|AvatarCropModal|"
-    "EnergySlider|DayScore|KiGauge|KiBudgetGauges|KiCheckIn|"
-    "SportTracker|MealTracker|TaskCard|SleepTracker|"
-    "KiBudgetMini|SleepSummaryCard|EnergyTrendChart|EnergyPixelMap|"
-    "TodayTasksList|QuickActionGrid|ProfileChipBar|"
-    "QuestionRenderer|ProgressTracker|LoadingStepper|PhaseCard|"
-    "CollapsibleSection|LikertOptions|SingleChoice|MultiChoice|OpenText|"
-    "DodgeMaster|SkillshotTrainer|MultiTask|ImagePairs"
-)
-
-# Generated / vendored / test material: a Lego duplicate or a hardcoded string
-# there is not the defect these checks exist to catch.
-UI_SKIP_PATTERNS = (
-    "Shinkofa-Shared/", "node_modules/", ".test.", ".spec.",
-    ".stories.", "__tests__", ".claude/",
-)
 
 # A file that SHOWS a forbidden pattern is not doing it: a security test asserts
 # on a fake key, a doc teaches the counter-example. Blocking those blocks exactly
@@ -229,48 +201,6 @@ def check_stack_versions(filename, content):
                 "ACTION: Verify version via Docker Hub. If already verified, continue."
             )
     return None
-
-
-def _skips_ui_check(file_path, ext):
-    if ext not in ("tsx", "jsx"):
-        return True
-    return any(p in file_path for p in UI_SKIP_PATTERNS)
-
-
-def check_lego_library(file_path, ext, content):
-    if _skips_ui_check(file_path, ext):
-        return None
-    pattern = rf"(export )?(function|const) ({LEGO_COMPONENTS})[^a-zA-Z]"
-    match = re.search(pattern, content)
-    if not match:
-        return None
-    comp_name_match = re.search(rf"({LEGO_COMPONENTS})", match.group(0))
-    if not comp_name_match:
-        return None
-    comp = comp_name_match.group(1)
-    return (
-        f"BLOCKED: '{comp}' already exists in @shinkofa/ui. "
-        "RECOVERY: Import from @shinkofa/ui instead of redefining "
-        "(e.g. `import { " + comp + " } from '@shinkofa/ui'`). "
-        "NEVER duplicate a Lego component. See rules/Quality.md Lego Library."
-    )
-
-
-def check_i18n_hardcoded(file_path, ext, content):
-    if _skips_ui_check(file_path, ext):
-        return None
-    messages = []
-    if re.search(r'(title|placeholder|aria-label|alt)="[A-Z][a-zA-Z ]{3,}"', content):
-        messages.append(
-            "WARNING: Hardcoded user-facing string in JSX attribute. "
-            "ACTION: Replace with @shinkofa/i18n key via labels prop pattern."
-        )
-    if re.search(r">[A-Z][a-zA-Z ]{3,}<", content):
-        messages.append(
-            "WARNING: Hardcoded user-facing text in JSX. "
-            "ACTION: Replace with {t('namespace:key')} from @shinkofa/i18n."
-        )
-    return "\n".join(messages) if messages else None
 
 
 def check_hs256(ext, content, file_path=""):
@@ -441,6 +371,28 @@ def check_naming(file_path, filename, name, ext):
 
 
 def _blockers(raw, file_path, filename, name, ext, dirname, content):
+    # A check that returns a "WARNING:" message is advising, not refusing — it belongs in
+    # the warning stream whatever list it was called from. Without this, a check that
+    # softens for a documented exemption would still stop the write, and the exemption
+    # would exist in the text only (measured 2026-09-04: the Lego exemption printed its
+    # WARNING and still exited 2).
+    return [
+        message
+        for message in _blocker_checks(raw, file_path, filename, name, ext, dirname, content)
+        if message and not message.startswith("WARNING:")
+    ]
+
+
+def _blocker_warnings(raw, file_path, filename, name, ext, dirname, content):
+    """Advisory messages produced by checks that live in the blocker list."""
+    return [
+        message
+        for message in _blocker_checks(raw, file_path, filename, name, ext, dirname, content)
+        if message and message.startswith("WARNING:")
+    ]
+
+
+def _blocker_checks(raw, file_path, filename, name, ext, dirname, content):
     return [
         check_state_protection(file_path),
         check_env_guard(filename, dirname),
@@ -479,7 +431,8 @@ def main():
             print(msg, file=sys.stderr)
             sys.exit(2)
 
-    for msg in _warnings(file_path, filename, name, ext, content):
+    advisories = _blocker_warnings(raw, file_path, filename, name, ext, dirname, content)
+    for msg in advisories + _warnings(file_path, filename, name, ext, content):
         if msg:
             print(msg, file=sys.stderr)
 

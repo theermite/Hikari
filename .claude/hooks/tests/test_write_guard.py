@@ -165,3 +165,32 @@ def test_real_code_still_cannot_hold_a_key():
 def test_a_document_stays_watched_for_real_secrets():
     """A doc may quote an anti-pattern, but a pasted key is still a leak."""
     assert _run("D:/p/docs/Notes.md", _FAKE_KEY).returncode == 2
+
+
+# --- Exemption Lego (Hikari : GPL + depot public) --------------------------------
+# La regle Lego interdit de redefinir un composant de @shinkofa/ui. Hikari en est
+# exempte, parce que dependre d'un paquet proprietaire sur un registre prive
+# casserait a la fois sa licence et la compilation de tout clone public
+# (.claude/rules/Lego-Hikari.md). Ce que ces tests gardent : l'exemption AVERTIT
+# sans bloquer, et elle ne desarme rien d'autre.
+
+_LEGO_DUPLICATE = "export function Badge() { return null; }"
+
+
+def test_an_exempt_project_may_define_a_lego_component():
+    result = _run("D:/p/src/components/ui/Badge.tsx", _LEGO_DUPLICATE)
+    assert result.returncode == 0
+
+
+def test_the_exemption_still_names_the_collision():
+    """Exempte ne veut pas dire silencieux : la collision reste visible, donc
+    attribuable. Un passage muet laisserait recopier la bibliotheque sans trace."""
+    result = _run("D:/p/src/components/ui/Badge.tsx", _LEGO_DUPLICATE)
+    assert "Badge" in result.stderr
+    assert "@shinkofa/ui" in result.stderr
+
+
+def test_the_exemption_does_not_disarm_the_other_blockers():
+    """Le meme fichier, avec un vrai defaut bloquant, doit toujours etre refuse."""
+    result = _run("D:/p/src/components/ui/Badge.tsx", _LEGO_DUPLICATE + _JWT_IN_STORAGE)
+    assert result.returncode == 2
