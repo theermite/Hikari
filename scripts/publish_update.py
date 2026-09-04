@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -41,8 +42,17 @@ PLATFORM_KEY = "windows-x86_64"
 
 
 def run(command: list[str], cwd: Path) -> None:
+    """Run a build/upload step, stopping on failure.
+
+    The executable is resolved through PATH first: on Windows `pnpm` is `pnpm.cmd`, and
+    handing the bare name to the process API raises "cannot find the file specified" — an
+    error that names neither the tool nor the reason.
+    """
+    resolved = shutil.which(command[0])
+    if resolved is None:
+        raise SystemExit(f"{command[0]!r} not found in PATH — cannot continue")
     print(f"\n$ {' '.join(command)}", flush=True)
-    subprocess.run(command, cwd=cwd, check=True)
+    subprocess.run([resolved, *command[1:]], cwd=cwd, check=True)
 
 
 def load_channel() -> dict[str, str]:
@@ -75,22 +85,28 @@ def write_overlay(endpoint: str) -> None:
     )
 
 
-def build_signed() -> tuple[Path, Path]:
+def build_signed(version: str) -> tuple[Path, Path]:
     if not os.environ.get("TAURI_SIGNING_PRIVATE_KEY"):
         raise SystemExit(
             "TAURI_SIGNING_PRIVATE_KEY is not set — the bundler cannot sign the update.\n"
             "Point it at the private key file, e.g. ~/.tauri/hikari-updater.key"
         )
     run([sys.executable, str(REPO_ROOT / "scripts" / "prepare_bundle.py")], cwd=REPO_ROOT)
-    run(
-        ["pnpm", "tauri", "build", "--config", "tauri.private.conf.json"],
-        cwd=REPO_ROOT,
-    )
+    # `--config` is resolved against the CURRENT directory, not against `src-tauri/`
+    # (unlike `resources` and `externalBin` inside the config itself). Passing the path
+    # relative to the repo root is what the CLI actually reads.
+    overlay = OVERLAY_PATH.relative_to(REPO_ROOT).as_posix()
+    run(["pnpm", "tauri", "build", "--config", overlay], cwd=REPO_ROOT)
 
-    installers = sorted(BUNDLE_DIR.glob("*-setup.exe"))
+    # Matched on the VERSION being published, never "the only file present": the bundle
+    # directory keeps every past build, so a glob that demands a single match turns an
+    # ordinary leftover into a failed release — and, worse, a glob that takes the first
+    # match would happily publish yesterday's installer under today's version number.
+    installers = sorted(BUNDLE_DIR.glob(f"*_{version}_*-setup.exe"))
     if len(installers) != 1:
         raise SystemExit(
-            f"expected exactly one installer in {BUNDLE_DIR}, found {len(installers)}"
+            f"expected exactly one installer for {version} in {BUNDLE_DIR}, "
+            f"found {len(installers)}: {[p.name for p in installers]}"
         )
     installer = installers[0]
     signature = installer.with_suffix(installer.suffix + ".sig")
@@ -126,7 +142,7 @@ def main() -> int:
     version = app_version()
     write_overlay(channel["endpoint"])
 
-    installer, signature = build_signed()
+    installer, signature = build_signed(version)
     manifest_path = BUNDLE_DIR / "latest.json"
     manifest_path.write_text(
         build_manifest(version, channel["endpoint"], installer, signature) + "\n",

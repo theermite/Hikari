@@ -10,6 +10,7 @@
 // privée), le cockpit doit démarrer exactement comme d'habitude. Une panne du canal de
 // mise à jour n'est jamais une panne de l'app.
 
+import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import { useEffect, useState } from "react";
@@ -48,6 +49,21 @@ export function UpdateBanner() {
   async function install() {
     if (!update) return;
     setPhase("installing");
+
+    // Fermer le moteur AVANT d'installer. L'installeur ferme l'application, mais le
+    // moteur vidéo est un processus SÉPARÉ (ADR-013) qu'il ne connaît pas : il garde
+    // ouvertes les bibliothèques vidéo, et Windows refuse alors de les remplacer.
+    // Vécu le 2026-09-04 — « Error opening file for writing: avcodec-61.dll ».
+    // L'échec n'interrompt rien : le moteur ne démarre qu'à la demande, donc « rien à
+    // arrêter » est un cas normal, pas une panne.
+    try {
+      await invoke("stop_engine");
+    } catch {
+      console.warn(
+        "[maj] arrêt du moteur impossible — installation poursuivie",
+      );
+    }
+
     try {
       await update.downloadAndInstall();
     } catch {

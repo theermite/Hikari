@@ -13,13 +13,13 @@
 //! problem in practice.
 
 use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, ChildStdin, Command, Stdio};
+use std::process::{Child, ChildStdin, Stdio};
 use std::sync::Mutex;
 
 use hikari_protocol::{ControllerCommand, EngineMessage, parse_engine_message, to_line};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::engine_bridge::engine_path;
+use crate::engine_bridge::engine_command;
 use crate::preview_bridge::{graft_preview_window, hide_preview_window, position_preview_window};
 
 /// The main window's label — the single window Hikari opens today (`tauri.conf.json`
@@ -67,8 +67,11 @@ pub(crate) fn start_engine(app: AppHandle, state: State<EngineState>) -> Result<
         return Ok(());
     }
 
-    let engine = engine_path().map_err(|err| err.to_string())?;
-    let mut child = Command::new(&engine)
+    // `engine_command` and not a bare `Command`: it carries the no-console-window flag on
+    // Windows. Spawning the engine directly here would show a black terminal beside the
+    // cockpit — the exact defect Jay reported on 2026-09-04.
+    let mut child = engine_command()
+        .map_err(|err| err.to_string())?
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
