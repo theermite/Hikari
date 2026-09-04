@@ -23,13 +23,17 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "windows": {
       "nsis": {
         "installMode": "currentUser"
       }
     },
-    "externalBin": ["binaries/hikari-engine"],
+    "externalBin": [
+      "binaries/hikari-engine"
+    ],
     "resources": {
       "obs-runtime/": ""
     },
@@ -39,6 +43,16 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk3RTg1NTM4MEZCRDdFMDgKUldRSWZyMFBPRlhvbDlHSkhGTlNaaEU5anFKb01xZ1MrajE1Y0hiOXVXL2lSUEJnMWpUSVhKOTAK",
+      "endpoints": [],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

@@ -57,6 +57,11 @@ pub fn run() {
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
+        // Mises à jour : le module VÉRIFIE et TÉLÉCHARGE, il ne décide jamais. C'est
+        // l'interface (`UpdateBanner`) qui déclenche, sur un clic — une installation
+        // spontanée pourrait couper un live. `process` fournit le redémarrage qui suit.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application Tauri");
 }

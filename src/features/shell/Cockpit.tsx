@@ -18,6 +18,7 @@ import { DeckPanel } from "../deck/DeckPanel";
 import { PreflightPanel } from "../preflight/PreflightPanel";
 import { PreviewPanel } from "../preview/PreviewPanel";
 import { ScenesPanel } from "../scenes/ScenesPanel";
+import { UpdateBanner } from "../updates/UpdateBanner";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
 import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
@@ -185,6 +186,9 @@ export function Cockpit() {
     <div className="flex h-screen font-hikari bg-hikari-bg text-hikari-txt">
       <Sidebar onOpenPanel={openPanel} />
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* Au-dessus de tout le cockpit : une annonce de mise à jour doit être visible
+            quel que soit le panneau ouvert, sans jamais recouvrir l'aperçu. */}
+        <UpdateBanner />
         <header className="flex h-14 flex-shrink-0 items-center gap-4 border-b border-hikari-line bg-hikari-bg-2 px-4">
           <h1 className="text-[14px] font-semibold tracking-tight">
             Cockpit Live
