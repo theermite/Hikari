@@ -14,6 +14,7 @@ import { useCallback, useRef, useState } from "react";
 import "dockview-react/dist/styles/dockview.css";
 import { AudioPanel } from "../audio/AudioPanel";
 import { CameraPanel } from "../camera/CameraPanel";
+import { ChatPanel } from "../chat/ChatPanel";
 import { DeckPanel } from "../deck/DeckPanel";
 import { PreflightPanel } from "../preflight/PreflightPanel";
 import { PreviewPanel } from "../preview/PreviewPanel";
@@ -43,6 +44,7 @@ const PANEL_COMPONENTS: Record<
   preview: PreviewPanel,
   scenes: ScenesPanel,
   audio: AudioPanel,
+  chat: ChatPanel,
 };
 
 /** Adds panel `id` if a (fresh or restored) layout doesn't already have it — a saved
@@ -62,40 +64,58 @@ function ensurePanel(
  * comptes ne sont plus dans le cockpit live, seulement dans Paramètres, ouvert depuis la
  * barre latérale). */
 function buildDefaultLayout(api: DockviewApi): void {
-  const camera = api.addPanel({
-    id: "camera",
-    component: "camera",
-    title: "Caméra",
+  // Les scènes ouvrent la colonne de gauche : c'est le panneau le plus manipulé, et la
+  // maquette le place là.
+  const scenes = api.addPanel({
+    id: "scenes",
+    component: "scenes",
+    title: "Scènes",
   });
-  const deck = api.addPanel({
-    id: "deck",
-    component: "deck",
-    title: "Deck",
-    position: { referencePanel: camera.id, direction: "right" },
-  });
-  api.addPanel({
+
+  // L'aperçu prend le centre, en grand. Chez Jay il se retrouvait relégué en bas à droite
+  // pendant que la caméra occupait la meilleure place (capture du 2026-09-05).
+  const preview = api.addPanel({
     id: "preview",
     component: "preview",
     title: "Aperçu",
-    position: { referencePanel: deck.id, direction: "below" },
+    position: { referencePanel: scenes.id, direction: "right" },
+  });
+
+  // Le chat ferme la colonne de droite, comme dans la maquette.
+  api.addPanel({
+    id: "chat",
+    component: "chat",
+    title: "Chat",
+    position: { referencePanel: preview.id, direction: "right" },
+  });
+
+  // Sous l'aperçu : le mixeur, puis le deck à côté de lui. La maquette les met côte à côte.
+  const audio = api.addPanel({
+    id: "audio",
+    component: "audio",
+    title: "Audio",
+    position: { referencePanel: preview.id, direction: "below" },
+  });
+  api.addPanel({
+    id: "deck",
+    component: "deck",
+    title: "Deck",
+    position: { referencePanel: audio.id, direction: "right" },
+  });
+
+  // Caméra et Pré-vol partagent la colonne des scènes, en onglets : ils servent à PRÉPARER,
+  // pas à piloter pendant un direct, et la maquette ne leur donne pas de place propre.
+  api.addPanel({
+    id: "camera",
+    component: "camera",
+    title: "Caméra",
+    position: { referencePanel: scenes.id, direction: "below" },
   });
   api.addPanel({
     id: "preflight",
     component: "preflight",
     title: "Pré-vol",
-    position: { referencePanel: camera.id, direction: "below" },
-  });
-  api.addPanel({
-    id: "scenes",
-    component: "scenes",
-    title: "Scènes",
-    position: { referencePanel: camera.id, direction: "below" },
-  });
-  api.addPanel({
-    id: "audio",
-    component: "audio",
-    title: "Audio",
-    position: { referencePanel: camera.id, direction: "below" },
+    position: { referencePanel: "camera" },
   });
 }
 
