@@ -11,8 +11,6 @@ import type { SceneInfo } from "./types";
 const scene = (name: string): SceneInfo => ({
   name,
   has_camera: false,
-  background_removal: false,
-  circle_mask: false,
   sources: [],
 });
 

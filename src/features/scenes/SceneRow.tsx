@@ -25,10 +25,14 @@ import type { SceneInfo, SourceOrder } from "./types";
 /** One line saying what the scene holds, in plain words — the point of étape 3 point 4:
  * knowing without switching. */
 export function describeContent(scene: SceneInfo): string {
-  if (!scene.has_camera) return "Aucune caméra";
+  const cameras = scene.sources.filter((s) => s.source_kind === "camera");
+  if (cameras.length === 0) return "Aucune caméra";
+  // Plusieurs caméras : on annonce le nombre plutôt que d'énumérer des filtres qui ne
+  // s'appliqueraient pas tous à la même — un résumé faux serait pire qu'un résumé court.
+  if (cameras.length > 1) return `${cameras.length} caméras`;
   const filters = [
-    scene.background_removal ? "fond IA" : null,
-    scene.circle_mask ? "masque cercle" : null,
+    cameras[0].background_removal ? "fond IA" : null,
+    cameras[0].circle_mask ? "masque cercle" : null,
   ].filter(Boolean);
   return filters.length
     ? `Caméra · ${filters.join(" · ")}`

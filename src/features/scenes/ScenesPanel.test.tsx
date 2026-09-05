@@ -40,8 +40,6 @@ function scene(overrides: Partial<SceneInfo> = {}): SceneInfo {
   return {
     name: "main",
     has_camera: false,
-    background_removal: false,
-    circle_mask: false,
     sources: [],
     ...overrides,
   };

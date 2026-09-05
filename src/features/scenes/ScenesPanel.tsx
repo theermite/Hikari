@@ -162,8 +162,12 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
             await addCameraSource(step.deviceId, step.scene);
           }
           if (step.do === "cameraFilters") {
-            await setBackgroundRemoval(step.scene, step.background);
-            await setCircleMask(step.scene, step.circle);
+            await setBackgroundRemoval(
+              step.deviceId,
+              step.scene,
+              step.background,
+            );
+            await setCircleMask(step.deviceId, step.scene, step.circle);
           }
           if (step.do === "addAudio") {
             const a = step.audio;

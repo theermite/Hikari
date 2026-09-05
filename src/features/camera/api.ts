@@ -9,9 +9,10 @@ export function listCameras(): Promise<CameraDevice[]> {
   return invoke("list_cameras");
 }
 
-/** Puts `deviceId` (exact value from `listCameras`) into `scene` (`add_camera_source`,
- * `engine_lifecycle.rs`, multi-scene tranche 2) — the ONE physical camera, reused if
- * another scene already shows it. Requires the engine running (the Aperçu panel open). */
+/** Pose la caméra `deviceId` (valeur exacte venue de `listCameras`) dans `scene`.
+ *
+ * Un appareil = une caméra. La source n'est ouverte qu'à la première demande ; toute scène
+ * suivante réutilise la même, avec son propre cadrage. Exige le moteur démarré. */
 export function addCameraSource(
   deviceId: string,
   scene: string,
@@ -19,41 +20,53 @@ export function addCameraSource(
   return invoke("add_camera_source", { deviceId, scene });
 }
 
-/** Sets whether the real NVIDIA background-removal filter is enabled for `scene`
- * (`set_background_removal`) — instant toggle (`obs_source_set_enabled`), independent per
- * scene: each scene remembers its own on/off state. Requires a camera already in `scene`. */
+/** Active ou coupe le fond détouré (NVIDIA) de la caméra `deviceId` DANS `scene`.
+ *
+ * Interrupteur instantané, jamais une reconstruction. L'état est propre à la paire
+ * caméra + scène : deux caméras d'une même scène peuvent avoir deux allures. */
 export function setBackgroundRemoval(
+  deviceId: string,
   scene: string,
   enabled: boolean,
 ): Promise<void> {
-  return invoke("set_background_removal", { scene, enabled });
+  return invoke("set_background_removal", { deviceId, scene, enabled });
 }
 
-/** Sets whether the circular alpha mask filter is enabled for `scene`
- * (`set_circle_mask`). Same per-scene, instant-toggle contract as `setBackgroundRemoval`. */
-export function setCircleMask(scene: string, enabled: boolean): Promise<void> {
-  return invoke("set_circle_mask", { scene, enabled });
+/** Active ou coupe le masque circulaire. Même contrat que `setBackgroundRemoval`. */
+export function setCircleMask(
+  deviceId: string,
+  scene: string,
+  enabled: boolean,
+): Promise<void> {
+  return invoke("set_circle_mask", { deviceId, scene, enabled });
 }
 
-/** Removes the webcam from `scene` only — other scenes keep showing it with their own
- * filter state untouched (`remove_camera_source`). */
-export function removeCameraSource(scene: string): Promise<void> {
-  return invoke("remove_camera_source", { scene });
+/** Retire la caméra `deviceId` de `scene` seulement — les autres caméras de la scène
+ * restent, et les autres scènes gardent celle-ci avec leurs propres filtres. */
+export function removeCameraSource(
+  deviceId: string,
+  scene: string,
+): Promise<void> {
+  return invoke("remove_camera_source", { deviceId, scene });
 }
 
-/** Moves the webcam's placement within `scene` by `(dx, dy)` pixels (`nudge_camera`, B7) —
- * a fixed step per click, never a raw drag delta (dockview's own drag broke silently in
- * this WebView2 build, session 2026-07-23). Requires a camera already in `scene`. */
+/** Déplace la caméra `deviceId` dans `scene` de `(dx, dy)` pixels — un pas fixe par clic,
+ * jamais un glissement brut (celui de la bibliothèque de panneaux casse en silence dans
+ * cette version de la vue web, vécu le 2026-07-23). */
 export function nudgeCamera(
+  deviceId: string,
   scene: string,
   dx: number,
   dy: number,
 ): Promise<void> {
-  return invoke("nudge_camera", { scene, dx, dy });
+  return invoke("nudge_camera", { deviceId, scene, dx, dy });
 }
 
-/** Grows or shrinks the webcam's placement within `scene` by one fixed step
- * (`scale_camera`, B7). Same requirement as `nudgeCamera`. */
-export function scaleCamera(scene: string, grow: boolean): Promise<void> {
-  return invoke("scale_camera", { scene, grow });
+/** Agrandit ou réduit la caméra `deviceId` dans `scene` d'un pas fixe. Même exigence. */
+export function scaleCamera(
+  deviceId: string,
+  scene: string,
+  grow: boolean,
+): Promise<void> {
+  return invoke("scale_camera", { deviceId, scene, grow });
 }

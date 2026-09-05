@@ -33,11 +33,24 @@ export interface SavedSource {
 export interface SavedScene {
   name: string;
   sources: SavedSource[];
+  /** Les caméras de cette scène, depuis le 2026-09-06. */
+  cameras?: SavedCamera[];
+  /** L'unique caméra des sessions écrites AVANT le 2026-09-06.
+   *
+   * Gardé en lecture seule : une session déjà sur le disque de Jay porte ce champ, et le
+   * supprimer lui ferait perdre son cadrage au prochain lancement — sans erreur, sans que
+   * rien ne l'explique. Lu par `camerasOf`, plus jamais écrit. */
   camera?: SavedCamera;
 }
 
-/** La caméra d'une scène : le même appareil partout, mais un cadrage et des filtres propres
- * à chaque scène — c'est exactement le flux que Jay utilise. */
+/** Les caméras d'une scène enregistrée, quel que soit l'âge du fichier. */
+export function camerasOf(scene: SavedScene): SavedCamera[] {
+  if (scene.cameras) return scene.cameras;
+  return scene.camera ? [scene.camera] : [];
+}
+
+/** Une caméra d'une scène : un appareil, avec un cadrage et des filtres propres à CETTE
+ * scène — c'est exactement le flux que Jay utilise. */
 export interface SavedCamera {
   deviceId: string;
   /** Le nom que le moteur donne à la source caméra. Retenu parce que replacer un objet
@@ -53,8 +66,8 @@ export interface SavedCamera {
   locked?: boolean;
 }
 
-/** Le nom que le moteur donne à sa caméra quand une session ancienne ne le porte pas
- * (`CAMERA_SOURCE_NAME`, `crates/protocol/src/lib.rs` — une seule caméra, donc un seul nom
+/** Le nom de repli quand une session ancienne ne porte pas celui de sa caméra
+ * (`CAMERA_SOURCE_NAME`, côté moteur — à l'époque une seule caméra, donc un seul nom
  * possible). Le test `should_keep_the_camera_name_the_session_replay_falls_back_to` casse
  * si l'autre côté de la frontière change cette valeur sans qu'on touche à celle-ci. */
 const DEFAULT_CAMERA_NAME = "Webcam";
@@ -97,7 +110,7 @@ export function toSession(
       name: scene.name,
       // La caméra est retenue à part : elle se recrée par sa propre commande, jamais comme
       // une capture — la poser deux fois ouvrirait l'appareil une seconde fois.
-      camera: cameraOf(scene),
+      cameras: camerasIn(scene),
       sources: scene.sources
         .filter((source) => source.source_kind !== "camera")
         .map((source) => ({
@@ -125,19 +138,21 @@ export function toSession(
   };
 }
 
-function cameraOf(scene: SceneInfo): SavedCamera | undefined {
-  const camera = scene.sources.find((s) => s.source_kind === "camera");
-  if (!camera) return undefined;
-  return {
-    deviceId: camera.target_id,
-    name: camera.name,
-    backgroundRemoval: scene.background_removal,
-    circleMask: scene.circle_mask,
-    x: camera.x,
-    y: camera.y,
-    scalePercent: camera.scale_percent,
-    locked: camera.locked,
-  };
+function camerasIn(scene: SceneInfo): SavedCamera[] {
+  return scene.sources
+    .filter((source) => source.source_kind === "camera")
+    .map((camera) => ({
+      deviceId: camera.target_id,
+      name: camera.name,
+      // Les filtres appartiennent à la caméra depuis le 2026-09-06 : deux caméras d'une
+      // même scène peuvent avoir deux allures, qu'un réglage par scène ne saurait dire.
+      backgroundRemoval: camera.background_removal,
+      circleMask: camera.circle_mask,
+      x: camera.x,
+      y: camera.y,
+      scalePercent: camera.scale_percent,
+      locked: camera.locked,
+    }));
 }
 
 /** Une étape du rejeu. Volontairement décrite en données et non en appels : la liste est
@@ -160,7 +175,13 @@ export type ReplayStep =
       scalePercent: number;
     }
   | { do: "addCamera"; scene: string; deviceId: string }
-  | { do: "cameraFilters"; scene: string; background: boolean; circle: boolean }
+  | {
+      do: "cameraFilters";
+      scene: string;
+      deviceId: string;
+      background: boolean;
+      circle: boolean;
+    }
   | { do: "addAudio"; audio: SavedAudio }
   | { do: "lock"; scene: string; name: string }
   | { do: "switchScene"; scene: string };
@@ -203,23 +224,28 @@ export function buildReplay(
   // La caméra vient APRÈS les captures : elle est une source physique unique, et l'ajouter
   // scène par scène réutilise le même appareil au lieu de le rouvrir.
   for (const scene of saved.scenes) {
-    if (!scene.camera) continue;
-    const already = currentByName
-      .get(scene.name)
-      ?.sources.some((s) => s.source_kind === "camera");
-    if (!already) {
+    const live = currentByName.get(scene.name);
+    for (const camera of camerasOf(scene)) {
+      const already = live?.sources.some(
+        (source) =>
+          source.source_kind === "camera" &&
+          source.target_id === camera.deviceId,
+      );
+      if (!already) {
+        steps.push({
+          do: "addCamera",
+          scene: scene.name,
+          deviceId: camera.deviceId,
+        });
+      }
       steps.push({
-        do: "addCamera",
+        do: "cameraFilters",
         scene: scene.name,
-        deviceId: scene.camera.deviceId,
+        deviceId: camera.deviceId,
+        background: camera.backgroundRemoval,
+        circle: camera.circleMask,
       });
     }
-    steps.push({
-      do: "cameraFilters",
-      scene: scene.name,
-      background: scene.camera.backgroundRemoval,
-      circle: scene.camera.circleMask,
-    });
   }
 
   // Le placement est réappliqué même sur une source déjà présente : la capture d'écran que
@@ -238,14 +264,14 @@ export function buildReplay(
         scalePercent: source.scalePercent,
       });
     }
-    if (scene.camera) {
+    for (const camera of camerasOf(scene)) {
       steps.push({
         do: "transform",
         scene: scene.name,
-        name: scene.camera.name ?? DEFAULT_CAMERA_NAME,
-        x: scene.camera.x,
-        y: scene.camera.y,
-        scalePercent: scene.camera.scalePercent,
+        name: camera.name ?? DEFAULT_CAMERA_NAME,
+        x: camera.x,
+        y: camera.y,
+        scalePercent: camera.scalePercent,
       });
     }
   }
@@ -258,12 +284,14 @@ export function buildReplay(
         steps.push({ do: "lock", scene: scene.name, name: source.name });
       }
     }
-    if (scene.camera?.locked) {
-      steps.push({
-        do: "lock",
-        scene: scene.name,
-        name: scene.camera.name ?? DEFAULT_CAMERA_NAME,
-      });
+    for (const camera of camerasOf(scene)) {
+      if (camera.locked) {
+        steps.push({
+          do: "lock",
+          scene: scene.name,
+          name: camera.name ?? DEFAULT_CAMERA_NAME,
+        });
+      }
     }
   }
 

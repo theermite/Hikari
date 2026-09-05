@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildReplay, toSession } from "./session";
+import { buildReplay, camerasOf, toSession } from "./session";
 import type { SceneInfo, SceneSourceInfo } from "./types";
 
 const source = (over: Partial<SceneSourceInfo> = {}): SceneSourceInfo => ({
@@ -11,15 +11,65 @@ const source = (over: Partial<SceneSourceInfo> = {}): SceneSourceInfo => ({
   y: 20,
   scale_percent: 100,
   locked: false,
+  background_removal: false,
+  circle_mask: false,
   ...over,
 });
 
 const scene = (name: string, sources: SceneSourceInfo[] = []): SceneInfo => ({
   name,
-  has_camera: false,
-  background_removal: false,
-  circle_mask: false,
+  has_camera: sources.some((s) => s.source_kind === "camera"),
   sources,
+});
+
+describe("camerasOf", () => {
+  it("should_read_a_session_saved_before_several_cameras_existed", () => {
+    // Une session déjà sur le disque de Jay porte UNE caméra, sous l'ancien champ. La lire
+    // comme une liste vide lui ferait perdre son cadrage au lancement — sans erreur, sans
+    // que rien ne l'explique.
+    const old = {
+      name: "Bureau",
+      sources: [],
+      camera: {
+        deviceId: "cam:1",
+        name: "Webcam",
+        backgroundRemoval: true,
+        circleMask: false,
+        x: 10,
+        y: 20,
+        scalePercent: 55,
+      },
+    };
+
+    expect(camerasOf(old)).toMatchObject([{ deviceId: "cam:1", x: 10 }]);
+  });
+
+  it("should_prefer_the_new_list_when_a_session_carries_both", () => {
+    const both = {
+      name: "Bureau",
+      sources: [],
+      cameras: [
+        {
+          deviceId: "cam:2",
+          backgroundRemoval: false,
+          circleMask: false,
+          x: 0,
+          y: 0,
+          scalePercent: 100,
+        },
+      ],
+      camera: {
+        deviceId: "cam:1",
+        backgroundRemoval: false,
+        circleMask: false,
+        x: 0,
+        y: 0,
+        scalePercent: 100,
+      },
+    };
+
+    expect(camerasOf(both).map((c) => c.deviceId)).toEqual(["cam:2"]);
+  });
 });
 
 describe("toSession", () => {
@@ -60,7 +110,7 @@ describe("toSession", () => {
     );
 
     expect(doc.scenes[0].sources.map((s) => s.name)).toEqual(["Jeu"]);
-    expect(doc.scenes[0].camera).toMatchObject({
+    expect(doc.scenes[0].cameras?.[0]).toMatchObject({
       deviceId: "cam:1",
       x: 50,
       y: 60,
@@ -68,20 +118,29 @@ describe("toSession", () => {
     });
   });
 
-  it("should_remember_each_scenes_own_camera_filters", () => {
-    // Le flux que Jay utilise : une seule caméra, des filtres propres à chaque scène.
-    const withCamera = scene("Jeu", [
-      source({ name: "Webcam", source_kind: "camera", target_id: "cam:1" }),
+  it("should_remember_each_cameras_own_filters", () => {
+    // Les filtres appartiennent à la caméra : deux caméras d'une scène peuvent différer.
+    const withCameras = scene("Jeu", [
+      source({
+        name: "StreamCam",
+        source_kind: "camera",
+        target_id: "cam:1",
+        background_removal: true,
+      }),
+      source({
+        name: "Brio",
+        source_kind: "camera",
+        target_id: "cam:2",
+        circle_mask: true,
+      }),
     ]);
-    withCamera.background_removal = true;
-    withCamera.circle_mask = false;
 
-    const doc = toSession([withCamera], "Jeu");
+    const doc = toSession([withCameras], "Jeu");
 
-    expect(doc.scenes[0].camera).toMatchObject({
-      backgroundRemoval: true,
-      circleMask: false,
-    });
+    expect(doc.scenes[0].cameras).toMatchObject([
+      { deviceId: "cam:1", backgroundRemoval: true, circleMask: false },
+      { deviceId: "cam:2", backgroundRemoval: false, circleMask: true },
+    ]);
   });
 
   it("should_remember_a_mixer_entry_with_everything_needed_to_rebuild_it", () => {
@@ -130,7 +189,7 @@ describe("toSession", () => {
       "Bureau",
     );
 
-    expect(doc.scenes[0].camera?.name).toBe("Webcam");
+    expect(doc.scenes[0].cameras?.[0].name).toBe("Webcam");
   });
 });
 
@@ -234,7 +293,6 @@ describe("buildReplay", () => {
         scale_percent: 55,
       }),
     ]);
-    bureau.background_removal = true;
     return toSession([bureau], "Bureau");
   };
 

@@ -11,8 +11,8 @@ export type SourceKind =
   | "monitor"
   | "image"
   | "video"
-  /** La webcam — recréée par sa PROPRE commande, jamais comme une capture : c'est une
-   * source physique unique partagée entre scènes. */
+  /** Une webcam — recréée par sa PROPRE commande, jamais comme une capture : un appareil
+   * s'ouvre une fois et se partage entre les scènes qui l'affichent. */
   | "camera";
 
 /** Une chose capturable proposée par le moteur. `id` est la valeur exacte qu'il attend,
@@ -42,13 +42,20 @@ export interface SceneSourceInfo {
    * la décision. Par scène, car la même caméra est cadrée une fois pour toutes ici et libre
    * ailleurs. */
   locked: boolean;
+  /** Pour une CAMÉRA : le fond détouré voulu par cette scène pour CETTE caméra.
+   *
+   * Par caméra depuis le 2026-09-06 — deux caméras d'une même scène peuvent avoir deux
+   * allures. Toujours faux sur une source ordinaire. */
+  background_removal: boolean;
+  /** Pour une CAMÉRA : le masque circulaire voulu par cette scène. Même contrat. */
+  circle_mask: boolean;
 }
 
 export interface SceneInfo {
   name: string;
+  /** Vrai si cette scène montre AU MOINS une caméra. Lesquelles, et comment chacune est
+   * cadrée et filtrée, se lit dans `sources`. */
   has_camera: boolean;
-  background_removal: boolean;
-  circle_mask: boolean;
   sources: SceneSourceInfo[];
 }
 
