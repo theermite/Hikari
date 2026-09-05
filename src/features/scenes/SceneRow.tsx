@@ -106,7 +106,9 @@ export function SceneRow({
     <li
       aria-label={labelFor(scene.name, layout)}
       className={`flex flex-col gap-1 rounded-[8px] border px-3 py-2 ${
-        live ? "border-hikari-accent bg-hikari-bg-2" : "border-hikari-line"
+        live
+          ? "border-hikari-accent bg-hikari-accent/[.07]"
+          : "border-hikari-line"
       }`}
     >
       <div className="flex items-center gap-2">

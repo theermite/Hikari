@@ -113,7 +113,7 @@ export function LiveBar() {
   }
 
   return (
-    <div className="flex flex-shrink-0 items-center gap-3 border-b border-hikari-line bg-hikari-bg-2 px-4 py-2">
+    <div className="flex flex-shrink-0 items-center gap-3 border-b border-hikari-line px-4 py-2.5">
       {/* Le sélecteur de préréglage de la maquette (« LoL du soir ») : un préréglage
           réunit des plateformes, une collection de scènes et un titre de direct. Aucun de
           ces trois concepts n'existe encore côté moteur. */}

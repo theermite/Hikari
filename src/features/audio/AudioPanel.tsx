@@ -19,6 +19,7 @@ import {
   addAudioSource,
   listAudioDevices,
   removeAudioSource,
+  setAudioMonitoring,
   setAudioMuted,
   setAudioVolume,
   setMonitorVolume,
@@ -26,7 +27,7 @@ import {
 import { DeviceList, IconButton } from "./DeviceList";
 import { DeviceSettings } from "./DeviceSettings";
 import { METER_DANGER_DB } from "./meter";
-import { statusLine } from "./noiseSettings";
+import { RouteToggles } from "./RouteToggles";
 import type {
   AudioDevice,
   AudioEngineMessage,
@@ -143,9 +144,14 @@ export function AudioPanel(_props: IDockviewPanelProps) {
 
                 <LevelBar name={source.name} db={db} />
 
-                <p className="text-[11px] text-hikari-txt-faint">
-                  {statusLine(source)}
-                </p>
+                <RouteToggles
+                  source={source.name}
+                  monitoring={source.monitoring}
+                  disabled={busy}
+                  onChange={(monitoring) =>
+                    run(setAudioMonitoring(source.name, monitoring))
+                  }
+                />
 
                 <div className="flex items-center gap-2">
                   <button

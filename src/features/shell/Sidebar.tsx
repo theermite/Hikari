@@ -60,7 +60,7 @@ import { NAV_ICONS, type NavIconName } from "./NavIcons";
 
 export function Sidebar({ onOpenPanel }: SidebarProps) {
   return (
-    <aside className="flex h-screen w-56 flex-shrink-0 flex-col gap-1 border-r border-hikari-line bg-hikari-bg-2 p-3">
+    <aside className="m-2.5 mr-0 flex w-56 flex-shrink-0 flex-col gap-1 rounded-hikari border border-hikari-line bg-hikari-bg-3 p-3">
       <div className="mb-3 flex items-center gap-2.5 px-1 pb-2 pt-1">
         <div className="grid h-8.5 w-8.5 flex-shrink-0 place-items-center rounded-[9px] bg-[radial-gradient(circle_at_30%_30%,_#f5b642,_#c8891f)] text-[19px] font-extrabold text-[#1a1206]">
           光

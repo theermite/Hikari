@@ -3,24 +3,8 @@ import {
   hasLevel,
   levelToStrength,
   NOISE_LEVEL_MIN_DB,
-  statusLine,
   strengthToLevel,
 } from "./noiseSettings";
-import type { AudioSourceInfo } from "./types";
-
-const source = (over: Partial<AudioSourceInfo> = {}): AudioSourceInfo => ({
-  name: "Micro",
-  kind: "input",
-  device_id: "{0.0.1}",
-  volume_percent: 100,
-  monitor_volume_percent: 100,
-  muted: false,
-  monitoring: "none",
-  noise_suppression: false,
-  noise_method: "rnnoise",
-  noise_level_db: -30,
-  ...over,
-});
 
 describe("hasLevel", () => {
   it("should_offer_a_strength_on_the_light_method_only", () => {
@@ -67,26 +51,5 @@ describe("levelToStrength / strengthToLevel", () => {
       expect(level).toBeGreaterThanOrEqual(NOISE_LEVEL_MIN_DB);
       expect(level).toBeLessThanOrEqual(0);
     }
-  });
-});
-
-describe("statusLine", () => {
-  it("should_say_who_hears_the_source", () => {
-    expect(statusLine(source({ monitoring: "none" }))).toBe("Public seul");
-    expect(statusLine(source({ monitoring: "monitor_only" }))).toBe("Moi seul");
-    expect(statusLine(source({ monitoring: "monitor_and_output" }))).toBe(
-      "Public + moi",
-    );
-  });
-
-  it("should_mention_the_noise_filter_only_when_it_is_on", () => {
-    // L'état de routage change ce que le public entend : il reste lisible sans ouvrir
-    // les réglages.
-    expect(statusLine(source({ noise_suppression: true }))).toBe(
-      "Public seul · anti-bruit",
-    );
-    expect(statusLine(source({ noise_suppression: false }))).toBe(
-      "Public seul",
-    );
   });
 });

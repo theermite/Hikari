@@ -4,7 +4,7 @@
 // intensité en décibels où -60 est le plus fort et 0 le plus faible — une échelle inversée
 // que personne ne devine. La conversion vit ici, testée, plutôt que dispersée dans le JSX.
 
-import type { AudioSourceInfo, NoiseMethod } from "./types";
+import type { NoiseMethod } from "./types";
 
 /** Bornes de l'intensité côté moteur (source obs-filters, vérifiée 2026-08-04). */
 export const NOISE_LEVEL_MIN_DB = -60;
@@ -55,15 +55,4 @@ export function levelToStrength(levelDb: number): number {
 export function strengthToLevel(strength: number): number {
   const clamped = Math.min(100, Math.max(0, strength));
   return (clamped / 100) * NOISE_LEVEL_MIN_DB;
-}
-
-/** Le résumé lu sur la ligne du mixeur, sans avoir à ouvrir les réglages. Répond à « qui
- * entend cette source », l'information qui change ce que le public perçoit. */
-export function statusLine(source: AudioSourceInfo): string {
-  const who = {
-    none: "Public seul",
-    monitor_only: "Moi seul",
-    monitor_and_output: "Public + moi",
-  }[source.monitoring];
-  return source.noise_suppression ? `${who} · anti-bruit` : who;
 }
