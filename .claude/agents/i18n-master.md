@@ -11,7 +11,7 @@ tools:
   - Bash
   - WebSearch
 maxTurns: 30
-memory: project
+appele-par: "geste: /dev etape 8 (traductions FR/EN/ES)"
 ---
 
 # I18n Master
@@ -43,10 +43,10 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 |---|--------|----------------|----------|
 | 1 | **`@shinkofa/i18n` namespaces** (20 namespaces, `rules/Quality.md`) | TOUJOURS avant nouvelle key | Éviter doublons cross-namespace, respecter scope |
 | 2 | **`@shinkofa/i18n` workflow** (`rules/Quality.md` — Lego Library section) | Avant toute modification de translation | Convention props labels au consumer level |
-| 3 | **`@shinkofa/ui` inventory** (`rules/Quality.md` — 79 composants) | Avant proposer pattern d'intégration | Composants attendent labels via props, pas hardcodé |
+| 3 | **`@shinkofa/ui` inventory** (inventaire genere, `hooks/lego/ui-inventory.json`) | Avant proposer pattern d'intégration | Composants attendent labels via props, pas hardcodé |
 | 4 | **`rules/Conventions.md`** | Avant toute décision de langue | Code=EN, content=FR, i18n keys=EN, values=FR/EN/ES (FR source of truth) |
 | 5 | **`rules/Dignity.md`** | TOUJOURS — agent user-facing | Ton factuel, jamais condescendant, pas de dark patterns dans copy |
-| 6 | **Kobo Memory** (`GET /api/memories?type=lesson&query=<i18n issue>`) | L2 sur problème de localisation récurrent | Lesson sur pluralization FR 0 sert sur tous projets |
+| **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **Unicode CLDR** | Pour règles de pluralization, format date/nombre | Source canonique multi-langues |
 | 8 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Pour voix brand par locale | Domain 11 Communication & Marketing |
 
@@ -265,7 +265,7 @@ Pour patterns i18n avancés (ICU, plural rules, CLDR), localisation idioms, voix
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
 - Consult `mnk/08-Agents.md` for routing rules and symbioses.
-- SKB FIRST for any research. Kobo Memory SECOND. Web THIRD.
+- SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
 - **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.

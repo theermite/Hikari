@@ -8,6 +8,8 @@ model: opus
 
 > Audit a documentation corpus for coherence, duplicates, stale data, and exclusions BEFORE feeding it to a RAG pipeline. Garbage in = garbage out.
 
+> 🧭 **Expert convoque** : intelligence artificielle et RAG + savoir (SKB) — poubelle en entree, poubelle en sortie
+
 ## Steps
 
 1. **DETECT SCOPE**: Determine what to audit:

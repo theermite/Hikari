@@ -8,6 +8,8 @@ model: opus
 
 Execute these steps IN ORDER. Zero-error tolerance. Every step must PASS with evidence before proceeding to the next. Fix = Deploy.
 
+**Before step 1**: Read `.claude/rules-ondemand/Independent-Review.md` in full — a deploy is one of the trigger classes that rule gates (fresh-context review, `[REVIEW]`/`[REVIEW-SKIP]` marker). It is not auto-loaded at session start; this is where it applies.
+
 ## Pre-Flight (BLOCKING — before ANY step)
 
 Before starting, verify:
@@ -41,7 +43,11 @@ If ANY pre-flight fails → STOP. Do not proceed. Fix the issue first.
 
 2. **VEILLE**: Verify no breaking changes in dependencies. **CRITICAL**: Before building, verify dependency versions are real and current via web. A phantom version in package.json = failed build = failed deploy. If deploying RAG-powered features: verify `/pre-rag-audit` result is < 30 days old (check `docs/Pre-RAG-Audit-*.md`). If absent or stale → run `/pre-rag-audit` first.
 
+   > 🧭 **Expert convoque** : veille + dependances — une version fantome casse la construction
+
 3. **SECURITY**: Full scan. Verify CSP/headers don't break features. No critical/high CVEs.
+
+   > 🧭 **Expert convoque** : securite — zero faille critique avant mise en ligne
    ```bash
    # Python
    pip-audit || echo "FAIL"
@@ -50,6 +56,8 @@ If ANY pre-flight fails → STOP. Do not proceed. Fix the issue first.
    ```
 
 4. **BUILD** (BLOCKING — must succeed with zero errors):
+
+   > 🧭 **Expert convoque** : construction et mise en ligne — il prouve chaque etape, jamais « ca devrait marcher »
    ```bash
    # Docker build with no cache after any fix
    docker compose build --no-cache <service>
@@ -88,6 +96,8 @@ If ANY pre-flight fails → STOP. Do not proceed. Fix the issue first.
    ```
 
 8. **SMOKE TESTS** (BLOCKING):
+
+   > 🧭 **Expert convoque** : supervision — verifier que la supervision recoit vraiment
    - Critical user paths verified (login, core features, payment if applicable)
    - On public platforms: verify Human Quality Gates post-deploy (Cognitive Load, Sensory Comfort, Error Resilience, Adaptation, Dignity)
    - Feedback Widget visible and functional (D25)

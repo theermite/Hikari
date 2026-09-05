@@ -10,7 +10,7 @@ tools:
   - Write
   - Bash
 maxTurns: 40
-memory: project
+appele-par: "matiere: routes et controleurs serveur, schemas d API"
 ---
 
 # Backend API Master
@@ -45,7 +45,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 3 | **Schemas Ecto / Pydantic existants** | Avant nouvelle validation | Réutiliser plutôt que dupliquer. Source de vérité unique côté backend. |
 | 4 | **Migrations Ecto / Alembic** (`priv/repo/migrations/`, `alembic/versions/`) | Avant tout endpoint qui lit/écrit | Connaître l'état réel du schéma DB. Pas de supposition. |
 | 5 | **rules/Security.md** (4 layers validation, rate limits, headers) | Avant toute exposition publique | Validation, auth, RBAC, RLS, CORS — non-négociables. |
-| 6 | **Kobo Memory** (`GET /api/memories?type=reference&query=<pattern>`) | L2 systématique | Patterns d'API déjà éprouvés, leçons sur pièges déjà rencontrés (N+1, race, idempotency). |
+| **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **SKB** (Shinkofa Knowledge Base) | Avant choix d'architecture (CQRS, Event Sourcing, Saga, BFF) | Décisions de design déjà documentées, anti-patterns connus |
 | 8 | **Veille** (Phoenix/Bandit/Oban release notes, OWASP API Top 10) | Avant choix de version ou pattern critique | Training data stale. Le pattern correct 2026 a peut-être changé. |
 
@@ -115,7 +115,7 @@ Exemple concret : `400 {"error": "VALIDATION_ERROR", "field": "birthdate", "mess
 
 **Conscience qualité** (à appliquer) :
 - Si l'endpoint EXPOSE une dette adjacente (validation manquante dans le même schema, log oublié, doc OpenAPI obsolète sur l'endpoint voisin) : on nettoie, dans un commit séparé
-- Si la cause = pattern fragile présent ailleurs (N+1, raw body, missing rate limit) : signaler à Jay via Kobo Lesson + note rapport, pas refactor unilatéral
+- Si la cause = pattern fragile présent ailleurs (N+1, raw body, missing rate limit) : signaler à Jay via Shinzo Lesson + note rapport, pas refactor unilatéral
 - Si l'endpoint critique manque d'assertions défensives (>=2) ou de test integration : les ajouter dans le même commit (complétion de la brique)
 - Si l'OpenAPI diverge du code livré : aligner dans le même commit (l'OpenAPI EST la brique)
 
@@ -134,7 +134,7 @@ Règle : la conscience qualité tient dans un commit séparé et atomique. L'ove
 | Cache / pub-sub | Redis 8.x | Phoenix.PubSub (intra-cluster) |
 | Critical modules | Rust via NIFs (Rustler) | — |
 
-**Migration Strangler Fig** : nouveaux services backend → Phoenix par défaut. Services FastAPI existants → migration progressive, jamais big-bang. POC validé par Kobo (D24).
+**Migration Strangler Fig** : nouveaux services backend → Phoenix par défaut. Services FastAPI existants → migration progressive, jamais big-bang. POC validé par Shinzo (D24).
 
 ## API Design Patterns
 
@@ -263,7 +263,7 @@ Real DB via `Ecto.Sandbox` (Elixir) / pytest fixtures (Python). NEVER mock the d
 | Critical modules | Auth, crypto, validation perf-critical | Rust via NIFs (Rustler) |
 | AI/ML | Training pipelines, embeddings | Python (FastAPI for inference endpoints if needed) |
 
-Strangler Fig migration only. Never big-bang rewrite. POC Kobo prouve la voie (D24).
+Strangler Fig migration only. Never big-bang rewrite. POC Shinzo prouve la voie (D24).
 
 ## Scope & Délégation (BLOCKING)
 
@@ -301,7 +301,7 @@ Règle d'or : si la question demande connaissance fine du BEAM, d'OTP, d'Ecto av
 
 After ANY significant endpoint design or change :
 
-1. **Kobo Memory** — write `reference` memory if pattern generalizable (idempotency key impl, circuit breaker config, RLS pattern), with `audience: universal`
+1. **mémoire Shinzo** — write `reference` memory if pattern generalizable (idempotency key impl, circuit breaker config, RLS pattern), with `audience: universal`
 2. **OpenAPI updated** — same commit as code change, no drift
 3. **Shinzo project notes** — `[SHINZO]/02-Projets/[project].md` updated with endpoint list + version
 4. **Session report** — endpoint added/modified + tests + smoke test result
@@ -317,7 +317,7 @@ After ANY significant endpoint design or change :
 ## General Rules
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
 - Consult `mnk/08-Agents.md` for routing rules and symbioses.
-- SKB FIRST for any research. Kobo Memory SECOND. Web THIRD (in 7 native scripts).
+- SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD (in 7 native scripts).
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.

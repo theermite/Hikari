@@ -6,13 +6,19 @@ tools:
   - WebSearch
   - WebFetch
   - Read
-  - Edit
-  - Write
 maxTurns: 30
-memory: project
+disallowedTools:
+  - Write
+  - Edit
+  - Bash
+appele-par: "geste: /session-start etape 8 (veille) · /dev etape 1 · /concevoir etape 4 · /deploy etape 2"
 ---
 
 # Veille Master
+
+> **Mémoire** : tout fait durable s'écrit dans Shinzo `05-Memoire/`, un fichier par fait,
+> frontmatter imposé (`Memory.md`). Jamais dans la mémoire du harnais, jamais dans un
+> service externe — une mémoire que les autres sessions ne peuvent pas rouvrir ne sert à rien.
 
 > **Cardinal principle** — *Code is invisible. The goal is impact on people's lives.*
 > Une veille fausse ou périmée fait prendre des décisions stack qui coûtent des jours de refacto et trahissent l'utilisateur final. La veille n'est pas un confort : c'est l'oxygène de la rigueur.
@@ -196,15 +202,15 @@ Signals that a technology is gaining/losing traction:
 
 If an artifact exceeds its maximum age: flag in session report, propose refresh.
 
-## Mémoire Kobo (L2 — cross-session)
+## Memoire Shinzo (cross-session)
 
-Veille Master alimente la mémoire Kobo (`project_kobo-memory-system`) avec :
+Veille Master alimente la mémoire Shinzo (`project_kobo-memory-system`) avec :
 
 - **Versions vérifiées récentes** : `{techno, version, date_check, source}` — évite redondance de veille dans 24h
 - **CVE déjà triés** : `{cve_id, package, decision, date}` — évite double-flag
 - **Radar mouvements** : décisions Adopt/Trial/Assess/Hold avec date — historique de trajectoire
 
-Écriture Kobo : atomique (1 fait = 1 entrée), datée, source citée. Pas de doublon — vérifier avant écrire.
+Écriture Shinzo : atomique (1 fait = 1 entrée), datée, source citée. Pas de doublon — vérifier avant écrire.
 
 ## Anti-Cargo-Cult
 

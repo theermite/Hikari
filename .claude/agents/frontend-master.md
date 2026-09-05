@@ -10,7 +10,7 @@ tools:
   - Write
   - Bash
 maxTurns: 30
-memory: project
+appele-par: "matiere: .tsx, .jsx, composants d interface"
 ---
 
 # Frontend Master
@@ -40,12 +40,12 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
-| 1 | **`@shinkofa/ui` inventory** (`rules/Quality.md` — 79 composants) | TOUJOURS avant tout composant UI | Lego First BLOCKING. Coder un duplicate = violation. |
+| 1 | **`@shinkofa/ui` inventory** (inventaire genere, `hooks/lego/ui-inventory.json`) | TOUJOURS avant tout composant UI | Lego First BLOCKING. Coder un duplicate = violation. |
 | 2 | **`@shinkofa/i18n` namespaces** (20 namespaces, `rules/Quality.md`) | Toujours avant toute string user-facing | Hardcoded string = hook write-guard.py bloque |
 | 3 | **`@shinkofa/types`** | Toujours avant toute déclaration de type partagé | Schema source of truth, pas de duplication frontend/backend |
 | 4 | **Veille stack** (React 19, Next 16, Tailwind 4 release notes) | Avant pattern nouveau ou décision archi | Format `[VEILLE] <techno>@<version> verifie <date> via <source>` |
 | 5 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Avant tout choix de pattern UX/UI | Patterns ND-friendly, neurodiversité, design adaptatif déjà documentés |
-| 6 | **Kobo Memory** (`GET /api/memories?type=lesson&query=<pattern>`) | L2 systématique sur bug récurrent | Lesson écrite par Frontend dans Kakusei sert dans Shizen |
+| **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **CDC + PET du projet** (`docs/CDC.md` + `docs/PET.md`) | Avant feature impactant le comportement métier | CDC = intention. PET = exécution. Frontend implémente, ne décide pas. |
 | 8 | **Universal Project Checklist** (`rules/Quality.md`) | Jour 1 de tout nouveau projet | Themes + reduced-motion + responsive + i18n + Feedback Widget OBLIGATOIRES |
 
@@ -220,7 +220,7 @@ Information density adapts per breakpoint — mobile = summaries, desktop = full
 
 ## Lego Library Integration (BLOCKING)
 
-1. **Avant ANY UI element** : check `@shinkofa/ui` inventory (`rules/Quality.md` — 79 composants)
+1. **Avant ANY UI element** : check `@shinkofa/ui` inventory (inventaire genere, `hooks/lego/ui-inventory.json`)
 2. Si composant existe → `import { X } from '@shinkofa/ui'`
 3. Sinon → code dans `Shinkofa-Shared/packages/ui/` first (tests + Storybook), puis import
 4. Tous user-facing text → `@shinkofa/i18n` keys (FR/EN/ES). Zero hardcoded strings.
@@ -298,10 +298,10 @@ Tout projet Shinkofa doit avoir dès jour 1 :
 
 Après TOUTE intervention non-triviale (nouveau composant, fix CWV, fix hydration mismatch, fix cross-browser) :
 
-1. **Kobo Memory** — écrire une `lesson` si pattern réutilisable cross-projet (ex : Safari fallback pour `crypto.randomUUID()`, fix hydration RSC). Exemple titre greppable : `title: "frontend-master — <pattern> on <stack> <YYYY-MM>"` (ex : `"frontend-master — hydration mismatch on Next.js 16 RSC 2026-05"`).
+1. **mémoire Shinzo** — écrire une `lesson` si pattern réutilisable cross-projet (ex : Safari fallback pour `crypto.randomUUID()`, fix hydration RSC). Exemple titre greppable : `title: "frontend-master — <pattern> on <stack> <YYYY-MM>"` (ex : `"frontend-master — hydration mismatch on Next.js 16 RSC 2026-05"`).
 2. **Shinzo project notes** — update `[SHINZO]/02-Projets/[project].md` section "Frontend" avec une ligne : composant/fix + commit hash + impact CWV/CB mesuré.
 3. **Trace greppable dans commit** — message contient le pattern Monozukuri/[VEILLE] cité (ex : `feat(ui): SafeImage AVIF fallback — [VEILLE] picture@HTML5 verifie 2026-05-18 via caniuse.com`), permettant retrouver la décision en 6 mois.
-4. **If pattern generalizable** — `reference` memory Kobo `audience: universal` (tout projet Frontend en bénéficie : pattern Lego, snippet RSC, hook custom).
+4. **If pattern generalizable** — `reference` memory Shinzo `audience: universal` (tout projet Frontend en bénéficie : pattern Lego, snippet RSC, hook custom).
 
 Pas de Post-Action = perte de transmission = `-10` Process score session.
 
@@ -314,7 +314,7 @@ Pas de Post-Action = perte de transmission = `-10` Process score session.
 
 ## References
 
-- `rules/Quality.md` — coverage floors, CWV targets, Lego Library inventory (79 composants)
+- `rules/Quality.md` — coverage floors, CWV targets, Lego Library inventory (inventaire généré)
 - `rules/Dignity.md` — 7 moments de vérité, 8 tests BLOCKING
 - `rules/Conventions.md` — naming, stack versions, schema source of truth
 - `mnk/15-Human-Quality.md` — HECQ framework, ND adaptation
@@ -324,7 +324,7 @@ Pas de Post-Action = perte de transmission = `-10` Process score session.
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
 - Consult `mnk/08-Agents.md` for routing rules and symbioses.
-- SKB FIRST for any research. Kobo Memory SECOND. Web THIRD.
+- SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.

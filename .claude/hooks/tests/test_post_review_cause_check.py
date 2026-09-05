@@ -296,10 +296,18 @@ def test_should_ignore_prose_written_after_the_marker():
 
 # --- what the review agents are told to emit must be readable here too ---------
 
-_AGENTS = (
-    Path(__file__).resolve().parents[2] / "agents" / "code-review-master.md",
-    Path(__file__).resolve().parents[2] / "agents" / "cross-model-reviewer-master.md",
+# Meme correction que dans `test_pre_deploy_review_check.py` : la liste se LIT
+# dans le parc actif. Une liste figee a casse ce test le 2026-09-05 quand un
+# expert de relecture est parti en sommeil.
+_PARC = Path(__file__).resolve().parents[2] / "agents"
+_AGENTS = tuple(
+    chemin for chemin in sorted(_PARC.glob("*.md"))
+    if "review" in chemin.stem or "reviewer" in chemin.stem
 )
+
+
+def test_the_park_still_holds_at_least_one_review_agent():
+    assert _AGENTS, "aucun expert de relecture dans le parc actif"
 
 
 def _prescribed(agent_file):

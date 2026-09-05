@@ -14,18 +14,86 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-import random
 import re
-import threading
+import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from common import find_repo_root  # type: ignore  # lib/ added to sys.path by hook
 
 
 STATE_DIRNAME = ".claude/state"
+
+# Independent review, 2026-09-02: the first version of this lock (below) had
+# no ceiling — a holder frozen inside its `with` block (a deadlock elsewhere,
+# a hung process) left every other writer waiting forever, silently. The
+# mechanism it replaced at least failed loudly after ~10s. A lock is only an
+# improvement if trading a collision for a *bounded, observable* wait; an
+# unbounded one is a worse failure mode, not a better one.
+_LOCK_TIMEOUT_S = 10.0
+
+
+if sys.platform == "win32":
+    import msvcrt
+
+    @contextlib.contextmanager
+    def _file_lock(lock_path: Path, timeout: float = _LOCK_TIMEOUT_S) -> Iterator[None]:
+        """Hold an OS-level advisory lock on `lock_path` for the block's duration.
+
+        Uses `LK_NBLCK` (non-blocking, single attempt) in a tight poll loop
+        instead of `LK_LOCK` — `LK_LOCK` retries internally on its own 1-second
+        cadence (up to 10s before raising), which serializes many short writes
+        at roughly one per second under contention. A short sleep between
+        non-blocking attempts holds the same correctness (still a real,
+        exclusive OS lock — no collision window) without that floor.
+
+        Raises `TimeoutError` past `timeout` instead of waiting forever.
+        """
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(lock_path, "a+b") as fh:
+            deadline = time.monotonic() + timeout
+            while True:
+                try:
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(f"could not acquire lock on {lock_path} within {timeout}s") from None
+                    time.sleep(0.001)
+            try:
+                yield
+            finally:
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+
+else:
+    import fcntl
+
+    @contextlib.contextmanager
+    def _file_lock(lock_path: Path, timeout: float = _LOCK_TIMEOUT_S) -> Iterator[None]:
+        """Hold a real advisory lock (`flock`) on `lock_path` for the block's duration.
+
+        Uses `LOCK_NB` (non-blocking, single attempt) in a tight poll loop —
+        plain blocking `flock` has no ceiling, so a frozen holder would wedge
+        every other writer forever. Raises `TimeoutError` past `timeout`.
+        """
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(lock_path, "a+b") as fh:
+            deadline = time.monotonic() + timeout
+            while True:
+                try:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(f"could not acquire lock on {lock_path} within {timeout}s") from None
+                    time.sleep(0.001)
+            try:
+                yield
+            finally:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
 # session_id arrives from hook stdin and becomes part of a FILE NAME. Kept to a
 # tight allow-list so a value like "../../../x" can never write outside the
@@ -93,9 +161,8 @@ def state_path(name: str, session_id: str | None = None, repo_root: Path | None 
     return p
 
 
-def read_state(name: str, session_id: str | None = None, repo_root: Path | None = None) -> dict[str, Any]:
-    """Read state JSON, return {} if missing or malformed."""
-    p = state_path(name, session_id, repo_root)
+def _read_state_at(p: Path) -> dict[str, Any]:
+    """Read state JSON from an already-resolved path, {} if missing or malformed."""
     if not p.exists():
         return {}
     try:
@@ -104,124 +171,50 @@ def read_state(name: str, session_id: str | None = None, repo_root: Path | None 
         return {}
 
 
-def write_state(name: str, data: dict[str, Any], session_id: str | None = None, repo_root: Path | None = None) -> None:
-    """Write state JSON atomically (write to tmp then replace) with UTF-8 LF.
-
-    The temp name carries the writer's own pid + a random suffix — several
-    guards racing on the same state file (the method allows up to 4 concurrent
-    sub-agents, each spawning its own guard processes) must never target the
-    same temp path, or `replace()` collides on Windows (independent review,
-    2026-08-18: `PermissionError [WinError 32]`, reproduced with 8 concurrent
-    writers).
+def _write_state_at(p: Path, data: dict[str, Any]) -> None:
+    """Write state JSON atomically (write to tmp then replace) to an already-
+    resolved path. Caller must hold `_file_lock` on `p`'s lock file first.
     """
-    p = state_path(name, session_id, repo_root)
     tmp = p.with_name(f"{p.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
     payload = json.dumps(data, indent=2, ensure_ascii=False)
     tmp.write_text(payload + "\n", encoding="utf-8", newline="\n")
-    with _exclusive(p):
-        _replace_with_retry(tmp, p)
+    _replace_with_retry(tmp, p)
 
 
-# One lock object per target path, shared by every thread of this process.
-_THREAD_LOCKS: dict[str, threading.Lock] = {}
-_THREAD_LOCKS_GUARD = threading.Lock()
+def read_state(name: str, session_id: str | None = None, repo_root: Path | None = None) -> dict[str, Any]:
+    """Read state JSON, return {} if missing or malformed."""
+    return _read_state_at(state_path(name, session_id, repo_root))
 
 
-def _thread_lock_for(target: Path) -> threading.Lock:
-    key = os.path.normcase(str(target))
-    with _THREAD_LOCKS_GUARD:
-        lock = _THREAD_LOCKS.get(key)
-        if lock is None:
-            lock = threading.Lock()
-            _THREAD_LOCKS[key] = lock
-        return lock
+def write_state(name: str, data: dict[str, Any], session_id: str | None = None, repo_root: Path | None = None) -> None:
+    """Write state JSON atomically (write to tmp then replace) with UTF-8 LF.
 
-
-def _open_sidecar(target: Path) -> int | None:
-    """Open `<target>.lock`, or None when the filesystem refuses it.
-
-    None is not a failure: the thread lock still holds inside this process,
-    and `_replace_with_retry` stays as the net across processes.
+    Third failure of the same family (independent review 2026-08-18, then
+    2026-08-19, then 2026-09-02): concurrent writers colliding on Windows'
+    rename-into-target step. The first two fixes each made the RETRY survive
+    harder contention (unique temp names, then randomized backoff), and each
+    was eventually outrun by more concurrent writers. Per Independent-Review.md,
+    a family that survives two corrections gets a structurally different
+    approach, not a third retry tuning: writers now hold a real OS-level lock
+    (`_file_lock`) for the whole write, so there is no collision left to retry
+    — only one writer ever touches `tmp`/`replace()` at a time.
     """
-    try:
-        return os.open(str(target.with_name(target.name + ".lock")), os.O_RDWR | os.O_CREAT, 0o644)
-    except OSError:
-        return None
+    p = state_path(name, session_id, repo_root)
+    lock_path = p.with_name(f"{p.name}.lock")
+    with _file_lock(lock_path):
+        _write_state_at(p, data)
 
 
-# Why a lock and not a longer retry budget (2026-09-06): the two previous fixes
-# both tuned a budget — fixed exponential backoff (2026-08-18), then randomized
-# jitter (2026-08-19) — and each reopened the same family one load level later.
-# The full 756-test suite still produced one `PermissionError` out of 320
-# concurrent writes. A budget can always be exhausted; that is what a budget IS.
-# Writers now queue instead of colliding, so there is no budget left to exhaust.
-#
-# Two layers, because the collisions come from two places:
-#   - threads of one hook process → `threading.Lock` (a Windows byte-range lock
-#     does NOT exclude two handles owned by the same process) ;
-#   - separate guard processes, up to the method's 4-subagent ceiling → an OS
-#     lock on a sidecar `.lock` file. The OS drops it when the process dies, so
-#     a crashed guard can never leave a lock behind — the reason this is not a
-#     hand-rolled lock file with a stale-entry problem.
-@contextlib.contextmanager
-def _exclusive(target: Path):
-    """Serialize the rename-into-`target` step across threads AND processes."""
-    with _thread_lock_for(target):
-        fd = _open_sidecar(target)
-        try:
-            if fd is not None:
-                _lock_fd(fd)
-            yield
-        finally:
-            if fd is not None:
-                _unlock_fd(fd)
-                os.close(fd)
+def _replace_with_retry(tmp: Path, target: Path, attempts: int = 5) -> None:
+    """`tmp.replace(target)`, retrying on a transient PermissionError.
 
-
-if os.name == "nt":
-    import msvcrt
-
-    def _lock_fd(fd: int) -> None:
-        # LK_LOCK blocks, retrying for ~10 s before raising. Locking one byte
-        # past EOF is legal on Windows and never touches the file's content.
-        with contextlib.suppress(OSError):
-            msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
-
-    def _unlock_fd(fd: int) -> None:
-        with contextlib.suppress(OSError):
-            os.lseek(fd, 0, os.SEEK_SET)
-            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
-
-else:
-    import fcntl
-
-    def _lock_fd(fd: int) -> None:
-        with contextlib.suppress(OSError):
-            fcntl.flock(fd, fcntl.LOCK_EX)
-
-    def _unlock_fd(fd: int) -> None:
-        with contextlib.suppress(OSError):
-            fcntl.flock(fd, fcntl.LOCK_UN)
-
-
-def _replace_with_retry(tmp: Path, target: Path, attempts: int = 30) -> None:
-    """`tmp.replace(target)`, retrying on a transient Windows PermissionError.
-
-    Two writers can each hold a distinct, uniquely-named tmp file and still
-    collide on the shared rename-into-`target` step — Windows briefly denies
-    access to a destination another thread/process is mid-replace on. Each
-    writer holds a distinct final state (it wrote its own tmp), so losing a
-    race and retrying is safe: the last writer to succeed wins, same as an
-    uncontended write.
-
-    The backoff is RANDOMIZED, not fixed-step exponential: a deterministic
-    delay lets every retrying thread wake up at the same instant and collide
-    again, which is exactly what let sustained contention exhaust a 5-attempt
-    fixed-backoff budget (independent review, 2026-08-19 — 64 threads x 5
-    writes each still failed after the first fix). Jitter spreads retries out
-    in time instead of resynchronizing them.
+    `write_state` now holds `_file_lock` for the whole call, so no other writer
+    from this codebase can be touching `target` concurrently — the collision
+    this used to defend against cannot happen anymore. The remaining, much
+    rarer cause is external (an antivirus or search indexer briefly opening
+    the file); a handful of short retries covers that without needing jitter
+    tuned for high contention, because there is no contention left to spread out.
     """
-    ceiling = 0.005
     for attempt in range(attempts):
         try:
             tmp.replace(target)
@@ -229,8 +222,7 @@ def _replace_with_retry(tmp: Path, target: Path, attempts: int = 30) -> None:
         except PermissionError:
             if attempt == attempts - 1:
                 raise
-            time.sleep(random.uniform(0, ceiling))
-            ceiling = min(ceiling * 1.5, 0.08)
+            time.sleep(0.01 * (attempt + 1))
 
 
 def mark_once(name: str, key: str, session_id: str | None = None, repo_root: Path | None = None) -> bool:
@@ -238,12 +230,20 @@ def mark_once(name: str, key: str, session_id: str | None = None, repo_root: Pat
 
     Subsequent calls with the same key return False. Used to throttle one-shot
     hook actions (e.g. "fire context-warning at 60% only once per session").
+
+    Read-then-write is one locked step, not two: two concurrent callers each
+    reading before either writes would both see `key` as new and each write a
+    state missing the other's addition — a lost update, distinct from (but in
+    the same family as) the collision `write_state` alone used to hit.
     """
-    data = read_state(name, session_id, repo_root)
-    seen = set(data.get("seen", []))
-    if key in seen:
-        return False
-    seen.add(key)
-    data["seen"] = sorted(seen)
-    write_state(name, data, session_id, repo_root)
-    return True
+    p = state_path(name, session_id, repo_root)
+    lock_path = p.with_name(f"{p.name}.lock")
+    with _file_lock(lock_path):
+        data = _read_state_at(p)
+        seen = set(data.get("seen", []))
+        if key in seen:
+            return False
+        seen.add(key)
+        data["seen"] = sorted(seen)
+        _write_state_at(p, data)
+        return True

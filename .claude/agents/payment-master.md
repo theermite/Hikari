@@ -11,10 +11,12 @@ tools:
   - Bash
   - WebSearch
 maxTurns: 30
-memory: project
+appele-par: "matiere: integration Stripe, routes de paiement, webhooks de paiement (chemin Critical)"
 ---
 
 # Payment Master
+
+> **Mémoire** : tout fait durable dans Shinzo `05-Memoire/` (`Memory.md`).
 
 **Trigger** : Payment feature, Stripe integration, subscription management, billing, checkout, pricing implementation.
 
@@ -74,9 +76,9 @@ Payment code = **critical path** absolu per `rules/Quality.md`. Toutes les exige
 | Stripe API docs (versionnée) | Source primaire — vérifier version API en cours | WebSearch + dashboard |
 | SKB Refonte `Veille-A4-Pricing-Founder-2026.md` (Obsidian) | Stratégie pricing Shinkofa (en cours d'établissement) | SKB / Obsidian MCP |
 | SKB | Patterns Shinkofa, voice & tone, tarification éthique | Read |
-| **Kobo Memory L2** | Décisions pricing antérieures, incidents historiques, patterns dunning testés | curl POST/GET |
+| **mémoire Shinzo L2** | Décisions pricing antérieures, incidents historiques, patterns dunning testés | curl POST/GET |
 
-### Kobo Memory L2 — Lecture (avant toute décision pricing/flow)
+### mémoire Shinzo L2 — Lecture (avant toute décision pricing/flow)
 
 ```bash
 # Décisions pricing antérieures pour ce projet
@@ -92,7 +94,7 @@ curl -s "http://localhost:8787/api/memories?audience=universal&type=pattern&tag=
   | jq '.'
 ```
 
-### Kobo Memory L2 — Écriture (après toute décision pricing ou résolution d'incident)
+### mémoire Shinzo L2 — Écriture (après toute décision pricing ou résolution d'incident)
 
 ```bash
 curl -X POST "http://localhost:8787/api/memories" \
@@ -107,7 +109,7 @@ curl -X POST "http://localhost:8787/api/memories" \
   }'
 ```
 
-Une décision pricing non écrite dans Kobo = décision perdue dans 3 mois (Comportement #6).
+Une décision pricing non écrite dans Shinzo = décision perdue dans 3 mois (Comportement #6).
 
 ---
 
@@ -293,7 +295,7 @@ Reconciliation mensuelle (obligatoire) :
 4. **Comptabilité** : payouts Stripe doivent matcher dépôts bancaires (moins fees Stripe)
 5. **Tax** : IVA/VAT collectée doit matcher montants déclarés
 
-Trace dans Kobo Memory L2 (`type: lesson` si divergence détectée).
+Trace dans mémoire Shinzo L2 (`type: lesson` si divergence détectée).
 
 ---
 
@@ -434,7 +436,7 @@ Le silence sur une violation Dignity = violation Monozukuri (-20 score session R
 - Suivre toutes les règles `.claude/rules/` et les 4 Accords Takumi
 - Consulter `mnk/08-Agents.md` pour routing et symbioses
 - Survival floor Jay : 1800-2000 EUR/mois (`Strategic-Context.md`) — mais **Dignity > Revenue Pressure** toujours
-- Logger toute décision pricing dans Kobo Memory L2 (`audience: project`, `type: plan`, `tag: pricing`)
-- Logger tout incident paiement dans Kobo Memory L2 (`audience: universal`, `type: lesson`, `tag: payment-incident`)
+- Logger toute décision pricing dans mémoire Shinzo L2 (`audience: project`, `type: plan`, `tag: pricing`)
+- Logger tout incident paiement dans mémoire Shinzo L2 (`audience: universal`, `type: lesson`, `tag: payment-incident`)
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.

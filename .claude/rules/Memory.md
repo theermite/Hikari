@@ -32,8 +32,28 @@ reference. Not conversation-only details.
 
     <the fact, short. Link related memories with [[name]].>
 
-**Index**: the Shinzo memory index is `README.md`, not `MEMORY.md`. Do not create
-a `MEMORY.md`.
+**Index — corrigé 2026-09-05, la règle précédente était fausse.** Elle disait
+« l'index est `README.md`, ne créez pas de `MEMORY.md` ». Or `MEMORY.md` est
+justement le fichier que le harnais CHARGE à chaque session : l'interdire
+revenait à interdire le seul index réellement lu. Mesure du jour : 601 souvenirs,
+28 indexés.
+
+**Les deux existent, produits par `scripts/generate-memory-index.py`, jamais
+écrits à la main** (un sommaire recopié vieillit et ment — famille de l'inventaire
+de composants, 79 annoncés contre 149 réels le même jour) :
+
+| Fichier | Rôle | Contenu |
+|---|---|---|
+| `README.md` | sommaire complet, pour naviguer | les 601, groupés par type |
+| `MEMORY.md` | chargé à chaque session | `user` + `feedback` — ceux qui changent la façon de travailler |
+
+**Proof**: `python scripts/generate-memory-index.py --check` sort en erreur dès
+qu'un souvenir manque à un sommaire.
+
+**Rappel au bon moment** : le sommaire rend les souvenirs visibles ; il ne
+garantit pas qu'on les lise. `hooks/memory/memory-recall.py` remonte le souvenir
+qui parle du sujet avant une commande qui modifie quelque chose. Il ne bloque
+jamais, se tait sur les commandes de lecture, et ne répète pas.
 
 **Confidentiality (overrides)**: never write personal data into a memory file
 (email, name, handle, phone, address, any re-identifying identifier). See

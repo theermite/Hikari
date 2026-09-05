@@ -8,6 +8,8 @@ model: sonnet
 
 Synchronize this project's `.claude/` with the latest MNK-GoRin methodology.
 
+**Before step 6 (PUSH)**: Read `.claude/rules-ondemand/Independent-Review.md` in full — propagating to other repos is one of the trigger classes that rule gates (fresh-context review, `[REVIEW]`/`[REVIEW-SKIP]` marker). It is not auto-loaded at session start; this is where it applies.
+
 ## Steps
 
 1. **FETCH**: Pull latest MNK-GoRin repo (or check local copy).
@@ -20,6 +22,7 @@ Synchronize this project's `.claude/` with the latest MNK-GoRin methodology.
 ## What Syncs
 
 - `.claude/rules/*.md` — always (full update)
+- `.claude/rules-ondemand/*.md` — always (full update) — rules moved out of auto-load, carried by specific skills instead
 - `.claude/skills/` — always (all skills in `.claude/skills/`)
 - Ring 0 hooks in `settings.json` — always
 - Ring 1 hooks — adapted to project stack

@@ -19,16 +19,35 @@ Commands: TS `pnpm run test` · Python `pytest` · Elixir `mix test` · Rust `ca
 "All tests pass" = run the real command, exit code 0.
 Real DB for integration (no DB mock). Tests named `should_[action]_when_[condition]`.
 
-**Coverage Floors (BLOCKING)**:
+**Coverage Floors — et QUI les tient (mesuré 2026-09-05)**
 
-| Scope | Min |
-|-------|-----|
-| Global | 80% |
-| Critical paths | 95% |
-| New features | 90% (commit blocked otherwise) |
-| Lighthouse | 90 |
-| axe violations (AA) | 0 |
-| Critical/High CVEs | 0 |
+Un seuil que rien n'exécute donne une fausse assurance, ce qui coûte plus cher
+qu'une absence de seuil. La colonne de droite dit la vérité mesurée : 60
+garde-fous branchés, 19 peuvent refuser une action, et **aucun ne mesure une
+couverture de tests**.
+
+| Scope | Min | Tenu par |
+|-------|-----|----------|
+| Global | 80% | ✋ personne — à vérifier et déclarer à la main |
+| Critical paths | 95% | ✋ personne |
+| New features | 90% | ✋ personne — « commit bloqué sinon » était faux, retiré |
+| Lighthouse | 90 | ✋ personne |
+| axe violations (AA) | 0 | ⚠️ `deploy/axe-violations.py` — avertit, ne refuse pas |
+| Critical/High CVEs | 0 | ✋ personne |
+
+**✋ = tenu par la discipline.** L'annoncer n'est pas y renoncer : c'est la
+condition pour que le chiffre reste vrai. Sur un chemin Critical, le seuil se
+vérifie en lançant la commande de couverture et en citant sa sortie dans le
+rapport — jamais en cochant. Voir « Jidoka sans hook » plus bas.
+
+**Ce qui EST tenu par du code** (extrait, mesuré le même jour) : fonction ≤ 30
+lignes, complexité ≤ 10, fichier 300/500 lignes, test sans assertion, secret en
+clair, marqueur de veille, relecture avant mise en ligne, `rm -rf` sur du
+travail, contradiction technique après un verdict négatif.
+
+**Poser les vraies portes** (couverture, failles, accessibilité) demande de
+l'outillage dans chaque projet et une exécution côté serveur — chantier distinct,
+point 4 du plan d'action.
 
 **Critical paths** = auth, authentication, authorization, sessions, oauth, jwt,
 passwords, 2fa/mfa · payment, billing, subscription, stripe, invoices, refunds,
@@ -60,12 +79,18 @@ Cognitive Load (≤5 decision points / task) · Sensory Comfort (prefers-reduced
 between sessions) · Dignity (0 datum without UX impact + 0 dark pattern + 0 condescending
 tone). Detail → Dignity.md.
 
-## Performance (BLOCKING) — Core Web Vitals 2026 Shinkofa
+## Performance (BLOCKING sur intention, ✋ tenu par la discipline)
+
+**Aucun garde-fou ne mesure ces chiffres** (mesuré 2026-09-05). Ils se prouvent en
+lançant la mesure et en citant sa sortie dans le rapport, jamais en les affirmant.
 
 LCP <2.0s · INP <100ms · CLS <0.05. Lazy loading · bundle splitting (no JS >200KB gzip)
 · HTTP/3 + Early Hints · `uuidv7()` for PostgreSQL IDs.
 
-## Accessibility (BLOCKING) — WCAG 2.2 AA
+## Accessibility (BLOCKING sur intention, ⚠️ averti seulement)
+
+`deploy/axe-violations.py` avertit avant une mise en ligne ; il ne refuse pas.
+La preuve reste la sortie de l'outil citée dans le rapport.
 
 0 axe-core violation · contrast ≥4.5:1 (text) · everything interactive keyboard-
 accessible · alt on images · visible focus · prefers-reduced-motion respected.
@@ -78,7 +103,7 @@ auto-save), zero timer, minimal distractions, customization.
 Readability > size. Function ≤30 lines (excl. tests) · cyclomatic complexity ≤10 (hard
 block >10 — pre-commit hook AND CI: Radon/Biome/Credo, see `docs/Static-Analysis.md`) · file
 WARNING 300 / BLOCKING 500 lines (source code ; exempt: .md, .json i18n, schemas,
-configs) · ≤4 parameters per function (else an object).
+configs) · ≤4 parameters per function (else an object — ✋ non tenu par du code).
 
 ## Observability (BLOCKING)
 
@@ -88,7 +113,12 @@ critical paths, WARNING elsewhere. Every caught exception logged at the right le
 **The Knob Footgun**: an option with only one correct value = a constant, not a knob.
 Expose a setting only when several values are legitimate.
 
-## Static Analysis (BLOCKING)
+## Static Analysis (BLOCKING sur intention — ✋ 4 outils sur 21 installes, 0 automatise)
+
+Mesure de l'audit, confirmee le 2026-09-05 : la liste ci-dessous decrit un ideal,
+pas un etat. **Ce qui n'est pas installe ne garde rien.** Deux sorties possibles,
+a trancher au point 4 du plan : installer, ou retirer de la liste. En attendant,
+citer l'outil REELLEMENT lance et sa sortie — jamais la liste.
 
 One linter is never enough. Pre-commit (<5s): Ruff (Python), Biome (TS), ShellCheck
 (Bash). CI: Pylint, Bandit, Vulture, Radon, mypy, Madge, Knip, Trivy, Semgrep, Gitleaks.

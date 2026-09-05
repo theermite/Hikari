@@ -152,8 +152,42 @@ def _check_destructive_sql(raw):
     return None
 
 
+# Interpretes qui EXECUTENT le corps d'un heredoc : la, le corps est du code et
+# reste analyse. Partout ailleurs, un heredoc est une DONNEE (message de commit,
+# fichier ecrit, requete envoyee) — citer n'est pas executer.
+_SHELLS_HEREDOC = re.compile(r"\b(bash|sh|zsh|dash|ksh|ssh|python3?|node|perl|ruby)\b")
+
+
+def _sans_corps_heredoc(commande: str) -> str:
+    """Retire le CORPS des heredocs qui n'alimentent pas un interprete.
+
+    Friction notee par Jay le 2026-08-16, rencontree trois fois le 2026-09-05 :
+    un message de commit qui CITE une commande dangereuse etait bloque comme s'il
+    l'executait — jusqu'a empecher d'ecrire le test qui prouve ce defaut.
+    """
+    lignes = (commande or "").splitlines()
+    sortie, delimiteur, corps_est_du_code = [], None, False
+    for ligne in lignes:
+        if delimiteur is None:
+            sortie.append(ligne)
+            ouverture = re.search(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?", ligne)
+            if ouverture:
+                delimiteur = ouverture.group(1)
+                # `bash <<EOF` execute son corps ; `git commit -F - <<EOF` non.
+                corps_est_du_code = bool(_SHELLS_HEREDOC.search(ligne.split("<<")[0]))
+            continue
+        if ligne.strip() == delimiteur:
+            delimiteur = None
+            continue
+        if corps_est_du_code:
+            sortie.append(ligne)
+    return "\n".join(sortie)
+
+
 def check_destructive(raw):
-    return _check_rm(raw) or _check_destructive_sql(raw)
+    # On analyse ce qui sera EXECUTE, pas la charge utile transportee.
+    executable = _sans_corps_heredoc(raw)
+    return _check_rm(executable) or _check_destructive_sql(executable)
 
 
 def check_no_verify(command):

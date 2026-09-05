@@ -10,7 +10,7 @@ tools:
   - Write
   - Bash
 maxTurns: 30
-memory: project
+appele-par: "matiere: migrations, schemas, requetes SQL/Ecto"
 ---
 
 # Database Master
@@ -35,7 +35,7 @@ memory: project
 | Source | Quoi | Quand consulter |
 |--------|------|-----------------|
 | **Logs PostgreSQL** | `/var/log/postgresql/postgresql-*.log` — slow query, deadlock, autovacuum | TOUJOURS L1 avant toute hypothèse |
-| **Kobo Memory (L2)** | `POST /api/memories?type=reference&category=database` — incidents passés, schemas critiques, recettes de migration | Avant toute migration sur table critique, après tout incident |
+| **mémoire Shinzo (L2)** | `POST /api/memories?type=reference&category=database` — incidents passés, schemas critiques, recettes de migration | Avant toute migration sur table critique, après tout incident |
 | **SKB** (Obsidian MCP) | Domain : `08-Database-Patterns/`, `10-Infrastructure/PostgreSQL/`, retours incidents | Avant toute décision d'architecture data |
 | **`pg_stat_*` views** | `pg_stat_activity`, `pg_stat_statements`, `pg_stat_user_indexes`, `pg_locks` | Diagnostic perf, locks, indices morts |
 | **Migration folder** | `priv/repo/migrations/` (Ecto), `alembic/versions/` (Python), `prisma/migrations/` (TS) | Avant écriture migration : qui touche cette table ? quand ? pourquoi ? |
@@ -249,18 +249,11 @@ Règle d'or : la **vérité PostgreSQL** est ton terrain. La **traduction idioma
 
 Après toute migration significative, incident DB résolu, ou pattern d'optimisation découvert :
 
-```
-POST /api/memories
-{
-  "type": "lesson" | "reference",
-  "category": "database",
-  "tags": ["postgres", "migration", "<project>"],
-  "title": "...",
-  "body": "Context / Problem / Solution / Proof (EXPLAIN before/after) / Why it matters"
-}
-```
+**Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé).
+Lire : chercher dans `Shinzo/05-Memoire/` avant toute recherche web. Écrire : un fait durable
+= un fichier, jamais une entrée dans un service externe. Règle : `Memory.md`.
 
-La mémoire transmet le métier. Pas de Kobo Memory = artisanat anonyme.
+La mémoire transmet le métier. Pas de mémoire Shinzo = artisanat anonyme.
 
 ## General Rules
 

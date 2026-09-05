@@ -554,10 +554,22 @@ def test_should_carry_the_brief_across_a_corrective_round():
 # TEMPLATE that contradicts it"). The test below reads the agent files on disk,
 # so the two can never drift apart again in silence.
 
-AGENTS = (
-    Path(__file__).resolve().parents[2] / "agents" / "code-review-master.md",
-    Path(__file__).resolve().parents[2] / "agents" / "cross-model-reviewer-master.md",
+# La liste se LIT dans le parc actif, elle ne se recopie pas. Une liste figee
+# a casse ces deux tests le 2026-09-05, quand `code-review-master` est parti en
+# sommeil : le test cherchait un fichier que le parc ne contient plus. Un expert
+# endormi n'emet plus de marqueur, donc il n'a rien a prescrire — mais une liste
+# ecrite a la main ne le sait jamais.
+_PARC = Path(__file__).resolve().parents[2] / "agents"
+AGENTS = tuple(
+    chemin for chemin in sorted(_PARC.glob("*.md"))
+    if "review" in chemin.stem or "reviewer" in chemin.stem
 )
+
+
+def test_the_park_still_holds_at_least_one_review_agent():
+    """Si le parc n'en contient plus aucun, les deux tests suivants passeraient
+    a vide — un test qui ne teste rien est pire qu'un test rouge."""
+    assert AGENTS, "aucun expert de relecture dans le parc actif"
 
 
 def _prescribed_lines(agent_file):

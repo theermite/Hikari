@@ -14,12 +14,22 @@ Modes: `--audit` (diagnostic only), default (audit + plan), `--fix` (audit + aut
 2. **3-LAYER ALIGNMENT**: Does this project serve L3 (Shinkofa vision — individuality, adaptation, invisible quality)? Is L2 (presentation/visibility) addressed? Is L1 (next action) clear? Consult SKB MasterPlan for alignment.
 3. **VEILLE**: State-of-art freshness (< 14 days). Verify dependency versions via npm/pypi/web. **CRITICAL**: Also verify that quality standards (WCAG, OWASP, CWV criteria), best practices, and architecture patterns referenced in this audit are current — training data is months stale.
 4. **QUALITY**: All BLOCKING gates from `rules/Quality.md` verified. Verify current testing framework recommendations via web. Audit Quality Pyramid V2 compliance: are L0-L2 (technical) gates met? For public platforms: are L3-L5 (human) gates addressed? Verify Anti-Circular Testing: on critical paths, is PBT used? Is mutation testing configured? Are there `__holdout__/` tests? Check Risk Classification: are modules classified (Critical/Sensitive/Standard/Tooling)? Is coverage aligned with classification? Check 5 Test Reliability Metrics: empty tests (0), trivial tests (<10%), mock:assert ratio (<3:1), type coverage (100% new code). **Enriched gates check**: verify FMEA exists for Critical modules (Gate 1), bidirectional traceability present (Gate 3), defensive assertions >= 2 per critical function (Gate 4). See `mnk/06-Quality.md`.
+
+   > 🧭 **Expert convoque** : audit des tests — il cherche les trous, pas la couverture affichee
 5. **SECURITY**: OWASP scan, dependencies, secrets, headers. CSP tested against features. Verify current OWASP Top 10 list via web (it changes). Security IS quality (D6) — verify security is treated as integral to quality, not a separate process. **PII detection** (Gate 7 enrichment): verify automated PII scanning is configured on API responses, logs, and error messages.
+
+   > 🧭 **Expert convoque** : securite — OWASP, secrets, en-tetes, chaine d approvisionnement
 6. **PERFORMANCE**: Core Web Vitals targets. Verify current Google thresholds via web (they evolve).
+
+   > 🧭 **Expert convoque** : performance — les seuils sont declares bloquants, quelqu un doit les tenir
 7. **ACCESSIBILITY**: axe-core, WCAG compliance. Verify current WCAG version and criteria via web.
+
+   > 🧭 **Expert convoque** : accessibilite — WCAG est le plancher, pas le plafond
 8. **HUMAN QUALITY** (public platforms only): Verify 5 Human Quality Gates: Cognitive Load (≤ 5 decision points per common task), Sensory Comfort (`prefers-reduced-motion` 100%), Error Resilience (auto-save on forms > 3 fields), Adaptation (preference persistence), Dignity (0 dark patterns / condescension / data without visible UX impact — see `rules/Dignity.md`). Verify **Feedback Widget** is present, functional, 2 clicks max (D25 — BLOCKING on public platforms). Reference: `mnk/15-Human-Quality.md`.
 9. **VISIBILITY**: SEO meta, structured data, GEO signals (if public-facing).
 10. **DOCS CHECK**: Blueprint, CDC, PET match current reality. Verify **deviations** from Universal Project Checklist are documented with justification. **QE V2 retroactive** (per `rules/QE-V2-Retroactive.md`): cross-check artefacts against QE V2 standards — signal gaps for pre-4.0.0 projects.
+
+   > 🧭 **Expert convoque** : conformite — RGPD, echeances UE, inventaire des composants
 11. **PLAN**: Generate structured execution plan for fixes with priorities.
 
 ## Visibility Audit Mode (`--visibility`)

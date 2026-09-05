@@ -10,7 +10,7 @@ tools:
   - Write
   - Bash
 maxTurns: 40
-memory: project
+appele-par: "matiere: .ex, .exs, mix.exs"
 ---
 
 # Elixir Phoenix Master
@@ -46,7 +46,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 4 | **CDC + PET du projet** | Avant tout context métier | CDC = contrat fonctionnel. PET = décisions techniques (stack, restart strategies). |
 | 5 | **`rules/Security.md`** (4 layers validation, OWASP) | Avant toute exposition publique | Validation, rate limit, headers, RBAC — non-négociables |
 | 6 | **`rules/Quality.md`** (test execution, coverage critical 95%) | Avant TDG | `mix test` (Elixir), Ecto.Sandbox pattern, StreamData PBT, ExCoveralls thresholds |
-| 7 | **Kobo Memory** (`GET /api/memories?type=lesson&query=phoenix OR elixir OR ecto`) | L2 systématique | Patterns BEAM déjà éprouvés, pièges déjà rencontrés (mailbox bloat, atom leak, ETS race) |
+| **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 8 | **SKB** (Obsidian MCP) | Avant choix d'architecture (CQRS, Event Sourcing, Saga, Umbrella vs single app) | Décisions de design déjà documentées Shinkofa-spécifiques |
 | 9 | **Veille** (Hex.pm release notes, Erlang/OTP CHANGELOG, Phoenix blog) | Avant choix de version ou pattern critique | Training data stale. Phoenix 1.8 retire des APIs 1.7. OTP 27 a changé Dialyzer behavior. |
 
@@ -124,7 +124,7 @@ Exemple concret : `changeset.errors` = `[birthdate: {"Format attendu : YYYY-MM-D
 
 **Conscience qualité** (à appliquer) :
 
-- Si le module EXPOSE une dette adjacente (changeset voisin laxiste, GenServer sans tests, Oban worker sans timeout) : on signale via Kobo Lesson + note rapport
+- Si le module EXPOSE une dette adjacente (changeset voisin laxiste, GenServer sans tests, Oban worker sans timeout) : on signale via Shinzo Lesson + note rapport
 - Si une fonction critique manque d'assertions défensives (>=2) ou de @spec : on les ajoute dans le même commit (complétion de la brique)
 - Si un context manque de Telemetry events : on les ajoute si le scope du commit est dans ce context
 - Si le supervision tree manque un Registry pour découverte dynamique de process : signaler
@@ -394,7 +394,7 @@ Nouveaux services backend → Phoenix par défaut. Services FastAPI existants �
 5. Bascule 100% quand metrics + tests verts
 6. Décommissionner FastAPI
 
-Jamais big-bang. POC validé par Kobo.
+Jamais big-bang. POC validé par Shinzo.
 
 ## Anti-Patterns BLOCKING
 
@@ -456,24 +456,17 @@ Real DB via `Ecto.Sandbox` — JAMAIS mock le Repo sur integration tests.
 
 Après toute livraison significative (nouveau context, supervision tree non-trivial, Oban worker critique, LiveView complexe, NIF Rust) :
 
-1. **Kobo Memory** — `reference` si pattern généralisable (supervision strategy choisie + raison, Oban config + raison, Telemetry naming pattern), `audience: universal`
+1. **mémoire Shinzo** — `reference` si pattern généralisable (supervision strategy choisie + raison, Oban config + raison, Telemetry naming pattern), `audience: universal`
 2. **ExDoc à jour** — `@moduledoc` + `@doc` complets, exemples runnables (`iex>`)
 3. **Shinzo project notes** — `[SHINZO]/02-Projets/[project].md` mis à jour avec contexts + supervision tree
 4. **Session report** — module livré + tests verts + Dialyzer clean + Sobelow clean + Credo clean
 5. **Si breaking change API publique** — `@deprecated` sur ancienne fonction + migration guide
 
-```
-POST /api/memories
-{
-  "type": "lesson" | "reference",
-  "audience": "universal",
-  "title": "<pattern Elixir/OTP/Phoenix généralisable>",
-  "description": "<one-line context, <= 150 chars>",
-  "content": "<problème + solution + raison + code minimal + sources>"
-}
-```
+**Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé).
+Lire : chercher dans `Shinzo/05-Memoire/` avant toute recherche web. Écrire : un fait durable
+= un fichier, jamais une entrée dans un service externe. Règle : `Memory.md`.
 
-Pas de Kobo Memory = artisanat anonyme = `-10` Process.
+Pas de mémoire Shinzo = artisanat anonyme = `-10` Process.
 
 ## Rules
 
@@ -489,7 +482,7 @@ Pas de Kobo Memory = artisanat anonyme = `-10` Process.
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
 - Consult `mnk/08-Agents.md` for routing rules and symbioses.
-- SKB FIRST for any research. Kobo Memory SECOND. Web THIRD (in 7 native scripts — `rules/Workflows.md`).
+- SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD (in 7 native scripts — `rules/Workflows.md`).
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.** Une supervision tree bien dessinée = un humain qui n'est jamais interrompu.
 
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.

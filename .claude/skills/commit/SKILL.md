@@ -12,6 +12,7 @@ Execute these steps IN ORDER. Gate 4 must pass.
 
 1. **NOTES CHECK**: Verify Shinzo `02-Projets/[project].md` is synced with current decisions.
 2. **QUALITY**: Run Code-Quality-Master agent review.
+   > 🧭 **Expert convoque** : qualite de code — il revele, il ne repare jamais en silence.
    - Apply 4-level Risk Classification: Critical (95%), Sensitive (90%), Standard (80%), Tooling (60%) — verify coverage meets the threshold for the module being committed.
    - Empty tests (zero assertions) = BLOCKING. Do not commit test files with empty test bodies.
    - If committing tests for critical paths: verify Anti-Circular Layer 1 applied (PBT or mutation testing, not just unit tests written by the same session).

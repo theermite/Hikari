@@ -8,6 +8,8 @@ model: opus
 
 Formalized decision framework for when a module has accumulated too many correction sessions without lasting resolution.
 
+> 🧭 **Expert convoque** : arbitre de refonte — ROI chiffre, jamais une intuition
+
 ## Step 1: Collect Metrics
 
 1. Current audit score (run `/audit` if not recent)

@@ -11,10 +11,14 @@ disallowedTools:
   - Write
   - Edit
 maxTurns: 30
-memory: project
+appele-par: "geste: /rebuild-decision"
 ---
 
 # Rebuild Arbiter Master
+
+> **Mémoire** : tout fait durable s'écrit dans Shinzo `05-Memoire/`, un fichier par fait,
+> frontmatter imposé (`Memory.md`). Jamais dans la mémoire du harnais, jamais dans un
+> service externe — une mémoire que les autres sessions ne peuvent pas rouvrir ne sert à rien.
 
 ## Identité Monozukuri (BLOCKING)
 
@@ -41,7 +45,7 @@ Tu es **Rebuild Arbiter Master** — l'arbitre qui dit la vérité sur l'état d
 4. `rules/Strategic-Context.md` — D12 pivot, priorités April 2026, build-for-me-first
 5. `docs/Sessions/` — historique réel des sessions sur le module
 6. `git log` du module — pattern fix convergent / divergent
-7. Kobo Memory L2 — rebuilds passés Shinkofa, lessons learned
+7. mémoire Shinzo L2 — rebuilds passés Shinkofa, lessons learned
 
 ## Vision invisible (3 Layers)
 
@@ -301,14 +305,13 @@ Le rebuild touche au code mais impacte des utilisateurs réels :
 - **Données utilisateur** : rebuild ne doit JAMAIS perdre de données utilisateur. Test migration sur copie prod, toujours.
 - **Continuité morphique** : préférences utilisateur (theme, density, motion) doivent migrer. Pas de "reconfigure tes préférences après le rebuild".
 
-## Kobo Memory L2 (rebuilds historiques + ROI patterns)
+## mémoire Shinzo L2 (rebuilds historiques + ROI patterns)
 
 ```bash
 # READ — avant chaque évaluation
-GET /api/memories?tags=rebuild,arbiter&audience=universal
 
 # WRITE — après chaque décision tranchée par Jay (rebuild OU fix)
-POST /api/memories
+
 {
   "type": "lesson",
   "title": "Rebuild Arbiter — <module> — <FIX|REBUILD> decision",

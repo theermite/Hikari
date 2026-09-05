@@ -35,9 +35,17 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at the fina
    - After the 6th answer, summarize Jay's choices in a compact recap, then STOP and wait for "ok / go / validé" before continuing to step 2.
 
 2. **SKB (our brain)**: Search SKB (Shinkofa Knowledge Base) for ALL relevant domains — vision (MasterPlan), coaching, neurodiversity, marketing, gaming. Not just technical knowledge. SKB IS our collective brain.
+
+   > 🧭 **Expert convoque** : savoir (SKB) — tous domaines, pas seulement la technique
 3. **POUR QUOI (3 Layers)**: Define the WHY through all 3 layers: L3 — Does this serve Shinkofa's vision (invisible ecosystem respecting individuality)? L2 — How will this be PRESENTED to create magnetic visibility? L1 — What's the first step given current energy? All 3 must be documented. They land in CDC §1.
 4. **RESEARCH + VEILLE**: Search in 7 languages (EN, FR, ZH, JA, KO, DE, RU). State-of-art < 14 days. When evaluating architecture: consider the tri-layer direction (TypeScript visible + Elixir/Phoenix backend + Rust critical modules) as validated direction, POC pending. **CRITICAL**: Verify ALL technology recommendations, architecture patterns, and best practices via web. Training data is months stale. Veille dates land in `docs/CDC.md` §5 (Stack technique).
-5. **NON-TECH AGENTS (PREPARE)**: Invoke UX, Brand, Pedagogy, Content, Gaming agents to review the concept BEFORE coding decisions.
+
+   > 🧭 **Expert convoque** : veille + recherche approfondie — etat de l art date et source, jamais de memoire
+5. **NON-TECH AGENTS (PREPARE)**: Invoke the UX and Brand experts to review the concept BEFORE coding decisions.
+   > 🧭 **Experts convoques** : experience utilisateur + marque.
+   > Pedagogie, contenu et gaming etaient nommes ici et **dorment depuis le 2026-09-05**
+   > (`.claude/agents-archive/`). Les reveiller demande d abord la doctrine de conseil non
+   > technique — point 6 du plan. Nommer un expert absent ne convoque personne.
 
 6. **CDC** (BLOCKING — interactive, section by section): Write the CDC at `docs/CDC.md` in the project repo. Use template `templates/docs-structure/CDC.md` v2.0.0. The CDC is built **one section at a time, with a STOP between each** — never as a 13-section monologue. After EACH section below: present the draft to Jay — for a technical section, **preceded by its plain-language translation (step 0bis, BLOCKING)** — STOP, wait for "ok / go / validé" or for substantive correction. Only then proceed to the next section.
 

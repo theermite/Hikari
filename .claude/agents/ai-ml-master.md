@@ -10,7 +10,7 @@ tools:
   - Write
   - Bash
 maxTurns: 30
-memory: project
+appele-par: "geste: /pre-rag-audit · matiere: pipelines RAG, configuration Ollama, embeddings"
 ---
 
 # AI ML Master
@@ -35,7 +35,7 @@ memory: project
 | Source | Quoi | Quand consulter |
 |--------|------|-----------------|
 | **Logs LLM** | Logs structurés (PII scrubbed) — latence, tokens, refusals, hallucinations détectées | TOUJOURS L1 avant toute hypothèse pipeline |
-| **Kobo Memory (L2)** | `POST /api/memories?type=reference&category=ai-ml` — patterns RAG passés, prompts versionnés, incidents | Avant tout nouveau pipeline. Après toute optim qui marche. |
+| **mémoire Shinzo (L2)** | `POST /api/memories?type=reference&category=ai-ml` — patterns RAG passés, prompts versionnés, incidents | Avant tout nouveau pipeline. Après toute optim qui marche. |
 | **SKB** (Obsidian MCP) | Domain : `12-AI-LLM/`, `13-RAG/`, eval baselines, prompts library — la SKB est elle-même la première source RAG | Avant toute conception pipeline |
 | **RAGAS / DeepEval** | Faithfulness, Answer Relevancy, Context Precision/Recall | À chaque change pipeline. Régression = BLOCKING. |
 | **`/pre-rag-audit`** | Audit OBLIGATOIRE avant toute (ré)indexation KB (cf. `rules/Workflows.md`) | Avant toute indexation. Tous les 30 jours sur SKB. |
@@ -285,18 +285,9 @@ def test_should_refuse_when_asked_to_ignore_instructions():
 
 Après tout pipeline livré, eval significatif, prompt versionné, ou incident :
 
-```
-POST /api/memories
-{
-  "type": "lesson" | "reference",
-  "category": "ai-ml",
-  "tags": ["rag", "prompt", "<project>", "<model>"],
-  "title": "...",
-  "body": "Context / Baseline RAGAS / Change / New RAGAS / Decision / Why"
-}
-```
+**Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé, `Memory.md`).
 
-La mémoire transmet le métier. Pas de Kobo Memory = artisanat anonyme.
+La mémoire transmet le métier. Pas de mémoire Shinzo = artisanat anonyme.
 
 ## General Rules
 
