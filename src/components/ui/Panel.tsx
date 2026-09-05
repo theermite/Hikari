@@ -44,7 +44,9 @@ export function Panel({ title, badge, actions, children }: PanelProps) {
       {/* LA carte possède le défilement, et elle est la seule. Un contenu qui défile aussi
           affiche deux barres côte à côte — vu sur l'écran de Jay le 2026-09-04, dès la
           première migration. Un panneau migré retire donc son propre `overflow`. */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">{children}</div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3">
+        {children}
+      </div>
     </section>
   );
 }

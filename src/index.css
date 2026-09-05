@@ -57,7 +57,14 @@
   border: 1px solid var(--color-hikari-line);
   border-radius: var(--radius-hikari);
   overflow: hidden;
+  /* La marge SEULE faisait déborder la carte de 8 px hors de la taille que le système de
+   * panneaux lui impose en dur, et chaque panneau gagnait une barre de défilement
+   * horizontale (vu à l'écran 2026-09-05). La taille est donc réduite d'autant : l'écart
+   * se prend SUR la carte, jamais en plus. */
   margin: 4px;
+  width: calc(100% - 8px);
+  height: calc(100% - 8px);
+  box-sizing: border-box;
 }
 
 /* La poignée de redimensionnement doit rester attrapable malgré les marges. */
@@ -69,4 +76,46 @@
 .dockview-theme-dark .dv-tab {
   font-weight: 600;
   font-size: 12.5px;
+}
+
+/* UNE seule barre de défilement par carte, et discrète.
+ *
+ * Jay, 2026-09-05 : « il y a beaucoup trop de scrollbars ». Trois causes distinctes se
+ * cumulaient, chacune traitée ici :
+ *   1. la marge entre cartes débordait de la taille imposée → barre HORIZONTALE partout
+ *      (corrigée plus haut, par la réduction de taille) ;
+ *   2. le conteneur du système de panneaux défilait EN PLUS de notre carte → deux barres
+ *      verticales côte à côte. La carte possède le défilement, lui ne l'a plus ;
+ *   3. les barres natives de Windows sont épaisses et claires. La maquette n'en montre
+ *      que de fines, dans les tons du fond. */
+.dockview-theme-dark .dv-content-container {
+  overflow: hidden;
+}
+
+.dockview-theme-dark *,
+.hikari-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-hikari-line) transparent;
+}
+
+.dockview-theme-dark *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dockview-theme-dark *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dockview-theme-dark *::-webkit-scrollbar-thumb {
+  background: var(--color-hikari-line);
+  border-radius: 4px;
+}
+
+.dockview-theme-dark *::-webkit-scrollbar-thumb:hover {
+  background: var(--color-hikari-txt-faint);
+}
+
+.dockview-theme-dark *::-webkit-scrollbar-corner {
+  background: transparent;
 }
