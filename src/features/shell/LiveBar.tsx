@@ -123,6 +123,18 @@ export function LiveBar() {
         </span>
       ) : null}
 
+      {/* La case des spectateurs est TOUJOURS là, même sans valeur (Jay, 2026-09-05 :
+          « de cette manière je le vois tout de même et je sais où il est »). Elle affiche
+          « n/a », jamais un zéro : montrer la case renseigne, inventer un chiffre ment.
+          Le titre au survol dit ce qui la remplirait, pour qu'une valeur morte ne soit
+          pas une impasse. Elle se remplira quand les plateformes seront branchées. */}
+      <span
+        className="text-[12.5px] text-hikari-txt-dim"
+        title="Aucun compte connecté — le nombre de spectateurs arrivera avec Twitch ou YouTube"
+      >
+        Spectateurs <span className="text-hikari-txt-faint">n/a</span>
+      </span>
+
       {error ? (
         <span role="alert" className="ml-auto text-[12.5px] text-hikari-red">
           {error}

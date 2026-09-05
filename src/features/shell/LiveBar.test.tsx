@@ -110,6 +110,24 @@ describe("LiveBar", () => {
     expect(screen.getByText(/12/)).toBeTruthy();
   });
 
+  it("should_always_show_the_viewers_slot_so_its_place_is_known", async () => {
+    // Jay, 2026-09-05 : « mets le compteur, mais n/a si aucun compte n'est connecté —
+    // de cette manière je le vois tout de même et je sais où il est ». Montrer la case
+    // renseigne ; inventer un zéro ment. Les deux ne se confondent pas.
+    render(<LiveBar />);
+
+    expect(await screen.findByText(/spectateurs/i)).toBeTruthy();
+    expect(screen.getByText("n/a")).toBeTruthy();
+  });
+
+  it("should_explain_why_the_viewers_count_is_unavailable", async () => {
+    // Une valeur morte sans raison est une impasse. Elle doit dire ce qui la remplirait.
+    render(<LiveBar />);
+
+    const slot = await screen.findByTitle(/aucun compte/i);
+    expect(slot).toBeTruthy();
+  });
+
   it("should_report_an_engine_error_instead_of_failing_silently", async () => {
     // Cas réel attendu tant que la clé de diffusion n'est pas câblée : le moteur refuse,
     // et l'utilisateur doit lire pourquoi plutôt que voir un bouton sans effet.
