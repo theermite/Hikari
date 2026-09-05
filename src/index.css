@@ -61,7 +61,23 @@
  * aucune taille n'est dépassée. La bibliothèque savait faire ce que je bricolais. */
 .dockview-theme-dark .dv-groupview {
   border: 1px solid var(--color-hikari-line);
+  /* L'arrondi est reposé ici : il vivait dans le même bloc que ma marge bricolée et il est
+   * parti avec elle. Jay, 2026-09-05 : « on a perdu le style d'îlots avec les coins
+   * arrondis ». La marge devait disparaître, l'arrondi non. */
+  border-radius: var(--radius-hikari);
   overflow: hidden;
+}
+
+/* L'en-tête d'onglets et le corps suivent l'arrondi de leur carte, sinon leurs angles
+ * carrés dépassent aux quatre coins et l'îlot redevient un rectangle. */
+.dockview-theme-dark .dv-groupview .dv-tabs-and-actions-container {
+  border-top-left-radius: var(--radius-hikari);
+  border-top-right-radius: var(--radius-hikari);
+}
+
+.dockview-theme-dark .dv-groupview .dv-content-container {
+  border-bottom-left-radius: var(--radius-hikari);
+  border-bottom-right-radius: var(--radius-hikari);
 }
 
 /* La poignée de redimensionnement doit rester attrapable malgré les marges. */
