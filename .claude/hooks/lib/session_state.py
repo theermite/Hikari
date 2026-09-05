@@ -11,10 +11,12 @@ The directory is created on demand. Files are LF-encoded UTF-8. Stdlib only.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import random
 import re
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -116,7 +118,90 @@ def write_state(name: str, data: dict[str, Any], session_id: str | None = None, 
     tmp = p.with_name(f"{p.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
     payload = json.dumps(data, indent=2, ensure_ascii=False)
     tmp.write_text(payload + "\n", encoding="utf-8", newline="\n")
-    _replace_with_retry(tmp, p)
+    with _exclusive(p):
+        _replace_with_retry(tmp, p)
+
+
+# One lock object per target path, shared by every thread of this process.
+_THREAD_LOCKS: dict[str, threading.Lock] = {}
+_THREAD_LOCKS_GUARD = threading.Lock()
+
+
+def _thread_lock_for(target: Path) -> threading.Lock:
+    key = os.path.normcase(str(target))
+    with _THREAD_LOCKS_GUARD:
+        lock = _THREAD_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _THREAD_LOCKS[key] = lock
+        return lock
+
+
+def _open_sidecar(target: Path) -> int | None:
+    """Open `<target>.lock`, or None when the filesystem refuses it.
+
+    None is not a failure: the thread lock still holds inside this process,
+    and `_replace_with_retry` stays as the net across processes.
+    """
+    try:
+        return os.open(str(target.with_name(target.name + ".lock")), os.O_RDWR | os.O_CREAT, 0o644)
+    except OSError:
+        return None
+
+
+# Why a lock and not a longer retry budget (2026-09-06): the two previous fixes
+# both tuned a budget — fixed exponential backoff (2026-08-18), then randomized
+# jitter (2026-08-19) — and each reopened the same family one load level later.
+# The full 756-test suite still produced one `PermissionError` out of 320
+# concurrent writes. A budget can always be exhausted; that is what a budget IS.
+# Writers now queue instead of colliding, so there is no budget left to exhaust.
+#
+# Two layers, because the collisions come from two places:
+#   - threads of one hook process → `threading.Lock` (a Windows byte-range lock
+#     does NOT exclude two handles owned by the same process) ;
+#   - separate guard processes, up to the method's 4-subagent ceiling → an OS
+#     lock on a sidecar `.lock` file. The OS drops it when the process dies, so
+#     a crashed guard can never leave a lock behind — the reason this is not a
+#     hand-rolled lock file with a stale-entry problem.
+@contextlib.contextmanager
+def _exclusive(target: Path):
+    """Serialize the rename-into-`target` step across threads AND processes."""
+    with _thread_lock_for(target):
+        fd = _open_sidecar(target)
+        try:
+            if fd is not None:
+                _lock_fd(fd)
+            yield
+        finally:
+            if fd is not None:
+                _unlock_fd(fd)
+                os.close(fd)
+
+
+if os.name == "nt":
+    import msvcrt
+
+    def _lock_fd(fd: int) -> None:
+        # LK_LOCK blocks, retrying for ~10 s before raising. Locking one byte
+        # past EOF is legal on Windows and never touches the file's content.
+        with contextlib.suppress(OSError):
+            msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+
+    def _unlock_fd(fd: int) -> None:
+        with contextlib.suppress(OSError):
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+
+else:
+    import fcntl
+
+    def _lock_fd(fd: int) -> None:
+        with contextlib.suppress(OSError):
+            fcntl.flock(fd, fcntl.LOCK_EX)
+
+    def _unlock_fd(fd: int) -> None:
+        with contextlib.suppress(OSError):
+            fcntl.flock(fd, fcntl.LOCK_UN)
 
 
 def _replace_with_retry(tmp: Path, target: Path, attempts: int = 30) -> None:

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 from pathlib import Path
 
 HOOKS = Path(__file__).resolve().parents[1]
@@ -103,3 +104,50 @@ def test_sustained_concurrent_writers_do_not_exhaust_the_retry_budget(tmp_path):
         t.join()
 
     assert errors == [], f"retry budget exhausted under sustained load: {errors[:3]!r} ({len(errors)} total)"
+
+
+# --- 2026-09-06: SECOND failure of the same family, so the approach changes ---
+# The two previous fixes both tuned a RETRY BUDGET: fixed exponential backoff
+# (2026-08-18), then randomized jitter (2026-08-19). Each closed the reported
+# load level and reopened the family at the next one — the test above failed
+# again inside the full 756-test suite (1 PermissionError out of 320 writes),
+# where real disk contention widens the collision window. A budget can always
+# be exhausted; that is what a budget IS.
+#
+# So the mechanism changes from "collide, then retry" to "never collide": the
+# rename-into-target step is now serialized. The test below states that
+# PROPERTY instead of the absence of a symptom — a symptom test can only ever
+# be flaky, and a flaky test cannot prove a fix.
+
+
+def test_only_one_writer_at_a_time_reaches_the_rename(tmp_path, monkeypatch):
+    real_replace = st._replace_with_retry
+    inside = 0
+    peak = 0
+    counter = threading.Lock()
+
+    def observed(tmp: Path, target: Path, *args, **kwargs):
+        nonlocal inside, peak
+        with counter:
+            inside += 1
+            peak = max(peak, inside)
+        try:
+            # Widen the window an unsynchronized writer would need to overlap.
+            time.sleep(0.002)
+            return real_replace(tmp, target, *args, **kwargs)
+        finally:
+            with counter:
+                inside -= 1
+
+    monkeypatch.setattr(st, "_replace_with_retry", observed)
+
+    def writer(n: int) -> None:
+        st.write_state("veille-skips", {"skip_count": n}, session_id="sessA", repo_root=tmp_path)
+
+    threads = [threading.Thread(target=writer, args=(n,)) for n in range(32)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert peak == 1, f"{peak} writers were inside the rename at once — the step is not serialized"
