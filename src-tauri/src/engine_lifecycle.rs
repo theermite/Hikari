@@ -190,16 +190,19 @@ pub(crate) fn add_camera_source(state: State<EngineState>, device_id: String, sc
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi AddCamera au moteur: {err}"))
 }
 
-/// Removes the webcam from the live scene entirely (its filters go with it) — the real
-/// way to "turn the camera off" today, since individual filters can't be detached (see
-/// `enable_background_removal`'s doc). A no-op if no camera is present.
+/// Retire la caméra `device_id` de `scene` — les autres caméras de la scène restent, et
+/// les autres scènes gardent celle-ci. Sans effet si cette caméra n'y est pas.
 #[tauri::command]
-pub(crate) fn remove_camera_source(state: State<EngineState>, scene: String) -> Result<(), String> {
+pub(crate) fn remove_camera_source(
+    state: State<EngineState>,
+    device_id: String,
+    scene: String,
+) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::RemoveCamera { scene }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::RemoveCamera { device_id, scene }).map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi RemoveCamera au moteur: {err}"))
 }
 
@@ -209,24 +212,34 @@ pub(crate) fn remove_camera_source(state: State<EngineState>, scene: String) -> 
 /// API exists) — a brief camera reinit blip, disclosed to Jay. Requires the engine
 /// running AND a camera already added.
 #[tauri::command]
-pub(crate) fn set_background_removal(state: State<EngineState>, scene: String, enabled: bool) -> Result<(), String> {
+pub(crate) fn set_background_removal(
+    state: State<EngineState>,
+    device_id: String,
+    scene: String,
+    enabled: bool,
+) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::SetBackgroundRemoval { scene, enabled }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::SetBackgroundRemoval { device_id, scene, enabled }).map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi au moteur: {err}"))
 }
 
 /// Sets whether a circular alpha mask is applied to the webcam (B-cam, F-036). Same
 /// rebuild-based toggle and requirements as `set_background_removal`.
 #[tauri::command]
-pub(crate) fn set_circle_mask(state: State<EngineState>, scene: String, enabled: bool) -> Result<(), String> {
+pub(crate) fn set_circle_mask(
+    state: State<EngineState>,
+    device_id: String,
+    scene: String,
+    enabled: bool,
+) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::SetCircleMask { scene, enabled }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::SetCircleMask { device_id, scene, enabled }).map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi au moteur: {err}"))
 }
 
@@ -234,23 +247,34 @@ pub(crate) fn set_circle_mask(state: State<EngineState>, scene: String, enabled:
 /// dockview drag already broke silently in this WebView2 build, session 2026-07-23).
 /// Requires the engine running AND a camera already added.
 #[tauri::command]
-pub(crate) fn nudge_camera(state: State<EngineState>, scene: String, dx: i32, dy: i32) -> Result<(), String> {
+pub(crate) fn nudge_camera(
+    state: State<EngineState>,
+    device_id: String,
+    scene: String,
+    dx: i32,
+    dy: i32,
+) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::NudgeCamera { scene, dx, dy }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::NudgeCamera { device_id, scene, dx, dy }).map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi NudgeCamera au moteur: {err}"))
 }
 
 /// Grows or shrinks the webcam by one fixed step (B7). Same requirements as `nudge_camera`.
 #[tauri::command]
-pub(crate) fn scale_camera(state: State<EngineState>, scene: String, grow: bool) -> Result<(), String> {
+pub(crate) fn scale_camera(
+    state: State<EngineState>,
+    device_id: String,
+    scene: String,
+    grow: bool,
+) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::ScaleCamera { scene, grow }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::ScaleCamera { device_id, scene, grow }).map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi ScaleCamera au moteur: {err}"))
 }
 

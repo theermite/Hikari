@@ -26,9 +26,12 @@ impl App {
                 obs.item_rects.as_deref().unwrap_or(&[])
             });
         }
+        // Les caméras de la scène sont relevées AVANT l'emprunt mutable ci-dessous : leur
+        // lecture passe par `self`, et les deux emprunts ne peuvent pas coexister.
+        let scene = self.obs.as_ref().map(|obs| obs.active_scene.clone()).unwrap_or_default();
+        let cameras = self.camera_names_in_scene(&scene);
         let Some(obs) = &mut self.obs else { return &[] };
         let runtime = obs.context.runtime().clone();
-        let scene = obs.active_scene.clone();
 
         // Camera + captures gathered together: the user sees one stack, not two families.
         //
@@ -48,11 +51,15 @@ impl App {
                     .collect()
             })
             .unwrap_or_default();
-        let camera_locked = obs
-            .locked
-            .contains(&(scene.clone(), camera::CAMERA_SOURCE_NAME.to_string()));
-        if let Some(item) = obs.camera_items.get(&scene).filter(|_| !camera_locked) {
-            items.push((camera::CAMERA_SOURCE_NAME.to_string(), item));
+        // Chaque caméra de la scène entre dans la pile sous son propre nom, avec son propre
+        // verrou : verrouiller l'une ne fige pas les autres.
+        for (name, device_id) in cameras {
+            if obs.locked.contains(&(scene.clone(), name.clone())) {
+                continue;
+            }
+            if let Some(item) = obs.camera_items.get(&(scene.clone(), device_id)) {
+                items.push((name, item));
+            }
         }
 
         let mut measured: Vec<(i32, ItemRect)> = items
@@ -91,8 +98,8 @@ impl App {
     /// The scene item behind a name, in the active scene.
     fn active_item(&self, name: &str) -> Option<&ObsSceneItemRef<ObsSourceRef>> {
         let obs = self.obs.as_ref()?;
-        if name == camera::CAMERA_SOURCE_NAME {
-            return obs.camera_items.get(&obs.active_scene);
+        if let Some(item) = self.camera_item_by_name(&obs.active_scene, name) {
+            return Some(item);
         }
         obs.scene_sources
             .get(&obs.active_scene)?
@@ -239,7 +246,7 @@ impl App {
         let (x, y) = self.snapped(name, x, y);
         let Some(item) = self.active_item(name) else { return };
         let result = camera::set_camera_position(item, x as i32, y as i32);
-        self.report_transform(result);
+        self.report_transform(name, result);
     }
 
     /// La position aimantée d'une source, ou la position brute si le cadre ou la taille de
@@ -292,17 +299,18 @@ impl App {
         );
         let Some(item) = self.active_item(name) else { return };
         let result = camera::set_camera_transform(item, new_x as i32, new_y as i32, scale);
-        self.report_transform(result);
+        self.report_transform(name, result);
     }
 
     /// Shared tail of both gestures: forget the cached rectangles and report what really
     /// happened (the clamped values, never the requested ones).
-    fn report_transform(&mut self, result: Result<(i32, i32, i32)>) {
+    fn report_transform(&mut self, name: &str, result: Result<(i32, i32, i32)>) {
         let scene = self.obs.as_ref().map(|obs| obs.active_scene.clone()).unwrap_or_default();
+        let device_id = self.camera_device_id_by_name(&scene, name);
         match result {
             Ok((x, y, scale_percent)) => {
                 self.scene_layout_changed();
-                emit(&EngineMessage::CameraTransform { scene, x, y, scale_percent })
+                emit(&EngineMessage::CameraTransform { device_id, scene, x, y, scale_percent })
             }
             Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
         }

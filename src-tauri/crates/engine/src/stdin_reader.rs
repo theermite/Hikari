@@ -34,20 +34,20 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::AddCamera { device_id, scene }) => {
                     let _ = proxy.send_event(EngineEvent::AddCamera { device_id, scene });
                 }
-                Ok(ControllerCommand::SetBackgroundRemoval { scene, enabled }) => {
-                    let _ = proxy.send_event(EngineEvent::SetBackgroundRemoval { scene, enabled });
+                Ok(ControllerCommand::SetBackgroundRemoval { device_id, scene, enabled }) => {
+                    let _ = proxy.send_event(EngineEvent::SetBackgroundRemoval { device_id, scene, enabled });
                 }
-                Ok(ControllerCommand::SetCircleMask { scene, enabled }) => {
-                    let _ = proxy.send_event(EngineEvent::SetCircleMask { scene, enabled });
+                Ok(ControllerCommand::SetCircleMask { device_id, scene, enabled }) => {
+                    let _ = proxy.send_event(EngineEvent::SetCircleMask { device_id, scene, enabled });
                 }
-                Ok(ControllerCommand::RemoveCamera { scene }) => {
-                    let _ = proxy.send_event(EngineEvent::RemoveCamera { scene });
+                Ok(ControllerCommand::RemoveCamera { device_id, scene }) => {
+                    let _ = proxy.send_event(EngineEvent::RemoveCamera { device_id, scene });
                 }
-                Ok(ControllerCommand::NudgeCamera { scene, dx, dy }) => {
-                    let _ = proxy.send_event(EngineEvent::NudgeCamera { scene, dx, dy });
+                Ok(ControllerCommand::NudgeCamera { device_id, scene, dx, dy }) => {
+                    let _ = proxy.send_event(EngineEvent::NudgeCamera { device_id, scene, dx, dy });
                 }
-                Ok(ControllerCommand::ScaleCamera { scene, grow }) => {
-                    let _ = proxy.send_event(EngineEvent::ScaleCamera { scene, grow });
+                Ok(ControllerCommand::ScaleCamera { device_id, scene, grow }) => {
+                    let _ = proxy.send_event(EngineEvent::ScaleCamera { device_id, scene, grow });
                 }
                 Ok(ControllerCommand::CreateScene { name }) => {
                     let _ = proxy.send_event(EngineEvent::CreateScene { name });

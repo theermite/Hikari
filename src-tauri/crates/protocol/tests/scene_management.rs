@@ -4,8 +4,8 @@
 
 use hikari_protocol::{
     ControllerCommand, EngineMessage, SceneDeleteError, SceneInfo, SceneNameError,
-    parse_controller_command, parse_engine_message, to_line, validate_scene_deletion,
-    validate_scene_name,
+    SceneSourceInfo, SourceKind, parse_controller_command, parse_engine_message, to_line,
+    validate_scene_deletion, validate_scene_name,
 };
 use proptest::prelude::*;
 
@@ -60,9 +60,20 @@ fn should_carry_each_scene_own_camera_and_filter_state() {
     let jeu = SceneInfo {
         name: "Jeu".to_string(),
         has_camera: true,
-        background_removal: true,
-        circle_mask: false,
-        sources: Vec::new(),
+        sources: vec![SceneSourceInfo {
+            name: "Logitech StreamCam".to_string(),
+            kind: "dshow_input".to_string(),
+            source_kind: SourceKind::Camera,
+            target_id: "usb#vid_046d".to_string(),
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            // Les filtres appartiennent à la CAMÉRA depuis le 2026-09-06 : deux caméras
+            // dans une scène peuvent avoir deux allures différentes.
+            background_removal: true,
+            circle_mask: false,
+        }],
     };
     let msg = EngineMessage::SceneList {
         scenes: vec![SceneInfo::empty("main"), jeu.clone()],

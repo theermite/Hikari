@@ -58,10 +58,10 @@ pub enum EngineMessage {
     PlatformFrames { id: String, dropped: i32, total: i32 },
     /// One multistream target was stopped cleanly.
     PlatformStopped { id: String },
-    /// The camera's current position/scale in `scene` after `NudgeCamera` or `ScaleCamera`
+    /// The position/scale of the camera `device_id` in `scene` after `NudgeCamera` or `ScaleCamera`
     /// (B7) — emitted with the real, clamped values (never presumed), so the panel reflects
     /// what actually happened rather than optimistically applying the requested delta.
-    CameraTransform { scene: String, x: i32, y: i32, scale_percent: i32 },
+    CameraTransform { device_id: String, scene: String, x: i32, y: i32, scale_percent: i32 },
     /// One multistream target failed — recoverable, reported instead of silently dropping
     /// that platform (B3 acceptance: "aucun échec silencieux"). The other targets are
     /// unaffected and keep streaming.
@@ -102,26 +102,30 @@ pub enum ControllerCommand {
     CreateScene { name: String },
     /// Ask the engine to emit the current scene's sources.
     ListSources,
-    /// Puts the ONE physical webcam into `scene` (B-cam, multi-scene tranche 2). The same
-    /// source is reused if it already exists elsewhere — never a 2nd device capture (Jay,
-    /// 2026-07-24: "la caméra est unique"). `device_id` (from `EngineMessage::Cameras`,
-    /// never guessed) matters only the very first time; later calls for a new scene reuse
-    /// whatever device is already open.
+    /// Puts the camera `device_id` into `scene`. One libobs source per DEVICE, created the
+    /// first time that device is asked for anywhere, then reused as its own scene item in
+    /// every later scene — exactly how OBS treats a source shown in several scenes.
+    ///
+    /// `device_id` comes from `EngineMessage::Cameras`, never guessed. Before 2026-09-06 it
+    /// was read only on the very first call and every later one silently reused whatever
+    /// device was already open: picking a second camera gave you the first, with no error.
+    /// It is now the camera's IDENTITY, on this command and on every camera command below.
     AddCamera { device_id: String, scene: String },
-    /// Sets whether the real NVIDIA background-removal filter is enabled for `scene`
-    /// (B-cam, F-036, multi-scene tranche 2). The filter itself is created once per camera
+    /// Sets whether the real NVIDIA background-removal filter is enabled for the camera
+    /// `device_id` in `scene` (B-cam, F-036). The filter itself is created once per camera
     /// and toggled in place (`obs_source_set_enabled`, real OBS per-filter switch — never a
     /// rebuild) — each scene keeps its OWN desired on/off state, applied whenever THAT scene
     /// becomes live (`SwitchScene`), exactly the "scene automation toggles my filters" flow
     /// Jay already uses in OBS today.
-    SetBackgroundRemoval { scene: String, enabled: bool },
-    /// Sets whether the circular alpha mask filter is enabled for `scene`. Same per-scene,
-    /// per-filter toggle contract as `SetBackgroundRemoval`.
-    SetCircleMask { scene: String, enabled: bool },
-    /// Removes the webcam from `scene` only — other scenes keep showing it with their own
-    /// filter state untouched. The physical source (and its filters) is only fully released
-    /// once no scene shows it anymore. A no-op if `scene` doesn't show the camera.
-    RemoveCamera { scene: String },
+    SetBackgroundRemoval { device_id: String, scene: String, enabled: bool },
+    /// Sets whether the circular alpha mask filter is enabled for the camera `device_id` in
+    /// `scene`. Same per-camera, per-scene toggle contract as `SetBackgroundRemoval`.
+    SetCircleMask { device_id: String, scene: String, enabled: bool },
+    /// Removes the camera `device_id` from `scene` only — other scenes keep showing that
+    /// camera with their own filter state untouched, and the other cameras of `scene` are
+    /// left alone. The device (and its filters) is fully released once no scene shows it
+    /// anymore. A no-op if `scene` doesn't show that camera.
+    RemoveCamera { device_id: String, scene: String },
     /// Start streaming to the RTMP target the engine reads from its OWN environment
     /// (`HIKARI_RTMP_SERVER`/`HIKARI_RTMP_KEY`, B2a scope). The wire NEVER carries a key —
     /// account-sourced targets (B2b, OAuth + vault) will replace the env-var mechanism,
@@ -145,13 +149,13 @@ pub enum ControllerCommand {
     Stop,
     /// Moves the webcam's placement WITHIN `scene` by `(dx, dy)` pixels (B7) — a fixed step
     /// decided by the panel's arrow buttons, never a raw drag delta (dockview's own drag
-    /// broke silently in this WebView2 build, session 2026-07-23). Position is per scene
-    /// (the same physical source can sit differently in each scene it appears in). A no-op
-    /// if `scene` doesn't show the camera.
-    NudgeCamera { scene: String, dx: i32, dy: i32 },
-    /// Grows (`true`) or shrinks (`false`) the webcam's placement within `scene` by one
-    /// fixed step (B7). Same per-scene scope as `NudgeCamera`.
-    ScaleCamera { scene: String, grow: bool },
+    /// broke silently in this WebView2 build, session 2026-07-23). Position is per camera
+    /// AND per scene — one device can sit differently in each scene it appears in. A no-op
+    /// if `scene` doesn't show that camera.
+    NudgeCamera { device_id: String, scene: String, dx: i32, dy: i32 },
+    /// Grows (`true`) or shrinks (`false`) the placement of the camera `device_id` within
+    /// `scene` by one fixed step (B7). Same per-camera, per-scene scope as `NudgeCamera`.
+    ScaleCamera { device_id: String, scene: String, grow: bool },
     /// Switches the live scene (multi-scene, tranche 1) — an instant cut on the output
     /// channel (`obs_set_output_source`), never a transition (that's B7's remaining scope).
     SwitchScene { name: String },

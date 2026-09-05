@@ -55,18 +55,30 @@ impl App {
         self.emit_scene_list();
     }
 
-    /// Applies `scene`'s own desired filter state to the shared camera filters (a no-op if
-    /// no camera exists yet, or `scene` has never had one added) — called on `SwitchScene`
-    /// and right after `AddCamera` if the target scene is already the active one.
+    /// Applies the filter state `scene` wants for EACH camera it shows — called on
+    /// `SwitchScene` and right after `AddCamera` when the target scene is already live.
+    ///
+    /// Per camera since 2026-09-06: two cameras can share a scene with different looks (one
+    /// detoured, one framed in a circle), so a single pair of booleans could not describe it.
     pub(crate) fn apply_scene_filter_state(&mut self, scene: &str) {
         let Some(obs) = &mut self.obs else { return };
-        let Some(filters) = &obs.camera_filters else { return };
-        let Some(&(background_removal_on, circle_mask_on)) = obs.scene_filter_state.get(scene) else { return };
-        if let Err(err) = camera::set_filter_enabled(&filters.background_removal, background_removal_on) {
-            emit(&EngineMessage::Error { message: err.to_string() });
-        }
-        if let Err(err) = camera::set_filter_enabled(&filters.circle_mask, circle_mask_on) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+        let wanted: Vec<(String, (bool, bool))> = obs
+            .scene_filter_state
+            .iter()
+            .filter(|((shown_in, _), _)| shown_in == scene)
+            .map(|((_, device_id), state)| (device_id.clone(), *state))
+            .collect();
+        for (device_id, (background_removal_on, circle_mask_on)) in wanted {
+            let Some(opened) = obs.cameras.get(&device_id) else { continue };
+            if let Err(err) =
+                camera::set_filter_enabled(&opened.filters.background_removal, background_removal_on)
+            {
+                emit(&EngineMessage::Error { message: err.to_string() });
+            }
+            if let Err(err) = camera::set_filter_enabled(&opened.filters.circle_mask, circle_mask_on)
+            {
+                emit(&EngineMessage::Error { message: err.to_string() });
+            }
         }
     }
 
@@ -88,9 +100,7 @@ impl App {
         let scenes = names
             .into_iter()
             .map(|name| {
-                let (background_removal, circle_mask) =
-                    obs.scene_filter_state.get(&name).copied().unwrap_or((false, false));
-                let has_camera = obs.camera_items.contains_key(&name);
+                let has_camera = obs.camera_items.keys().any(|(shown_in, _)| shown_in == &name);
                 let mut sources: Vec<hikari_protocol::SceneSourceInfo> = Vec::new();
                 if let Some(added) = obs.scene_sources.get(&name) {
                     sources.extend(added.iter().map(|source| {
@@ -111,31 +121,54 @@ impl App {
                             locked: obs
                                 .locked
                                 .contains(&(name.clone(), source.name.clone())),
+                            // Une capture n'a pas de filtre caméra : la case existe pour
+                            // toutes les sources, elle ne vaut quelque chose que pour une caméra.
+                            background_removal: false,
+                            circle_mask: false,
                         }
                     }));
                 }
-                if let Some(item) = obs.camera_items.get(&name) {
-                    // Même traitement que les autres sources : placement lu depuis libobs, et
-                    // l'appareil retenu comme cible — c'est ce qui rend la caméra rejouable.
+                // Une entrée par caméra posée dans cette scène. Même traitement que les
+                // autres sources : placement lu depuis libobs, et l'appareil retenu comme
+                // cible — c'est ce qui rend chaque caméra rejouable au lancement suivant.
+                let mut shown: Vec<(&String, _)> = obs
+                    .camera_items
+                    .iter()
+                    .filter(|((shown_in, _), _)| shown_in == &name)
+                    .map(|((_, device_id), item)| (device_id, item))
+                    .collect();
+                // Ordre stable : sans tri, une table de hachage renvoie les caméras dans un
+                // ordre différent à chaque lancement, et la liste sauterait sous les yeux.
+                shown.sort_by_key(|(device_id, _)| (*device_id).clone());
+                for (device_id, item) in shown {
+                    let camera_name = obs
+                        .cameras
+                        .get(device_id)
+                        .map(|opened| opened.name.clone())
+                        .unwrap_or_else(|| camera::CAMERA_SOURCE_NAME.to_string());
+                    let (background_removal, circle_mask) = obs
+                        .scene_filter_state
+                        .get(&(name.clone(), device_id.clone()))
+                        .copied()
+                        .unwrap_or((false, false));
                     let position = item.get_source_position().ok();
                     let scale = item.get_source_scale().ok();
                     sources.push(hikari_protocol::SceneSourceInfo {
-                        name: camera::CAMERA_SOURCE_NAME.to_string(),
                         kind: hikari_protocol::CAMERA_KIND.to_string(),
                         source_kind: hikari_protocol::SourceKind::Camera,
-                        target_id: obs.camera_device_id.clone().unwrap_or_default(),
+                        target_id: device_id.clone(),
                         x: position.as_ref().map_or(0, |p| *p.x() as i32),
                         y: position.as_ref().map_or(0, |p| *p.y() as i32),
                         scale_percent: scale
                             .as_ref()
                             .map_or(100, |s| (s.x() * 100.0).round() as i32),
-                        locked: obs.locked.contains(&(
-                            name.clone(),
-                            camera::CAMERA_SOURCE_NAME.to_string(),
-                        )),
+                        locked: obs.locked.contains(&(name.clone(), camera_name.clone())),
+                        background_removal,
+                        circle_mask,
+                        name: camera_name,
                     });
                 }
-                SceneInfo { has_camera, background_removal, circle_mask, sources, name }
+                SceneInfo { has_camera, sources, name }
             })
             .collect();
         emit(&EngineMessage::SceneList { scenes, active: obs.active_scene.clone() });
@@ -190,9 +223,13 @@ impl App {
         }
 
         let Some(obs) = &mut self.obs else { return };
-        obs.camera_items.remove(&name);
-        obs.scene_filter_state.remove(&name);
+        obs.camera_items.retain(|(shown_in, _), _| shown_in != &name);
+        obs.scene_filter_state.retain(|(shown_in, _), _| shown_in != &name);
         obs.item_rects = None;
+        // Une caméra que plus aucune scène ne montre garde l'appareil ouvert : témoin
+        // allumé, et indisponible ailleurs. Elle part avec la dernière scène qui l'affichait.
+        self.release_unused_cameras();
+        let Some(obs) = &mut self.obs else { return };
         // Les captures de cette scène partent avec elle : garder leurs poignées maintiendrait
         // la scène en vie et la suppression ne ferait rien (même piège que l'élément caméra).
         obs.scene_sources.remove(&name);

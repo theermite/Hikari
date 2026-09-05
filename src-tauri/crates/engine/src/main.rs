@@ -99,22 +99,20 @@ struct ObsInner {
     /// here (never re-derived from libobs) so every `Sources` emission reflects the whole
     /// scene, never just the last-added delta.
     sources: Vec<hikari_protocol::SourceInfo>,
-    /// The ONE physical webcam source (Jay, 2026-07-24: "la caméra est unique"), created the
-    /// first time any scene adds a camera. Reused (never rebuilt) for every later scene.
-    camera_source: Option<ObsSourceRef>,
-    /// L'appareil derrière la caméra — retenu pour que l'app puisse la recréer au lancement
-    /// suivant. Une seule caméra physique, donc une seule valeur.
-    camera_device_id: Option<String>,
-    /// The two one-way filters attached to `camera_source`, created once alongside it and
-    /// toggled in place per scene (`camera::set_filter_enabled`) — never removed/rebuilt.
-    camera_filters: Option<CameraFilters>,
-    /// Which scenes currently show the camera, and their own scene item (position/scale
-    /// are per scene — the same source can sit differently in each). Keyed by scene name.
-    camera_items: std::collections::HashMap<String, ObsSceneItemRef<ObsSourceRef>>,
-    /// Each scene's OWN desired filter state (fond IA, masque) — applied to the shared
-    /// filters only when that scene is the one live on the output channel (`SwitchScene`),
-    /// the "scene automation toggles my filters" flow Jay already uses in OBS today.
-    scene_filter_state: std::collections::HashMap<String, (bool, bool)>,
+    /// Every camera currently open, keyed by its device identifier (2026-09-06).
+    ///
+    /// One libobs source per PHYSICAL DEVICE, created the first time that device is asked
+    /// for and reused (never rebuilt) by every later scene. Before this, a single
+    /// `camera_source` held whichever device had been opened first, so choosing a second
+    /// camera silently returned the first — no error, just the wrong picture.
+    cameras: std::collections::HashMap<String, OpenCamera>,
+    /// Which (scene, device) pairs are on screen, and their own scene item. Position and
+    /// scale are per pair: one device can sit differently in each scene that shows it.
+    camera_items: std::collections::HashMap<(String, String), CameraItem>,
+    /// Each (scene, device) pair's OWN desired filter state (fond IA, masque) — applied to
+    /// that camera's filters only when the scene is live on the output channel
+    /// (`SwitchScene`), the "scene automation toggles my filters" flow Jay uses in OBS.
+    scene_filter_state: std::collections::HashMap<(String, String), (bool, bool)>,
     /// The scene currently live on the output channel (multi-scene, tranche 1) — libobs
     /// exposes no "which scene is on this channel" getter, so this is the one piece of
     /// state the engine must track itself rather than read back.
@@ -134,14 +132,14 @@ struct ObsInner {
     /// its place in the panel for its whole life.
     audio: Vec<MixerSource>,
     /// What each scene holds (brique Sources), in the order the user added it. Keyed by
-    /// scene name. The camera lives in `camera_items` instead — it is ONE physical source
-    /// shared across scenes, a rule this generic list would break.
+    /// scene name. Cameras live in `camera_items` instead — a camera source is shared
+    /// across the scenes that show it, a rule this generic list would break.
     scene_sources: std::collections::HashMap<String, Vec<SceneSource>>,
     /// The `(scene, source name)` pairs locked against the mouse (brique Sources).
     ///
-    /// Keyed by the PAIR rather than stored on `SceneSource`, so the camera obeys the same
-    /// lock without being pulled into that list — it is one physical source shared across
-    /// scenes, and its lock is per scene like its placement. Absent from the set = free.
+    /// Keyed by the PAIR rather than stored on `SceneSource`, so a camera obeys the same
+    /// lock without being pulled into that list — a camera source is shared across the
+    /// scenes showing it, and its lock is per scene like its placement. Absent = free.
     locked: std::collections::HashSet<(String, String)>,
 }
 
@@ -238,10 +236,27 @@ enum DragState {
 }
 
 /// The two one-way filters a camera source carries once created — kept together since
-/// they're always created/toggled as a pair alongside `camera_source`.
+/// they're always created and toggled as a pair alongside their camera.
 struct CameraFilters {
     background_removal: libobs_wrapper::sources::ObsFilterRef,
     circle_mask: libobs_wrapper::sources::ObsFilterRef,
+}
+
+/// The scene item of one camera in one scene — its placement, as libobs holds it.
+///
+/// Aliased because the full path appears in every camera helper's signature, and reading
+/// three nested generic types tells nobody what the value IS.
+type CameraItem = ObsSceneItemRef<ObsSourceRef>;
+
+/// One open camera: its libobs source, the display name it answers to, and its filters.
+///
+/// The name is held here rather than re-derived because libobs keys sources BY NAME, and
+/// two identical webcams report the identical device label — the unique name is decided
+/// once, at creation (`hikari_protocol::camera_source_name`), and must not drift after.
+struct OpenCamera {
+    source: ObsSourceRef,
+    name: String,
+    filters: CameraFilters,
 }
 
 /// Commands forwarded from the stdin-reader thread to the event loop (winit's
@@ -254,11 +269,11 @@ enum EngineEvent {
     StartMultistream { targets: Vec<hikari_protocol::StreamTarget> },
     StopMultistream,
     AddCamera { device_id: String, scene: String },
-    SetBackgroundRemoval { scene: String, enabled: bool },
-    SetCircleMask { scene: String, enabled: bool },
-    RemoveCamera { scene: String },
-    NudgeCamera { scene: String, dx: i32, dy: i32 },
-    ScaleCamera { scene: String, grow: bool },
+    SetBackgroundRemoval { device_id: String, scene: String, enabled: bool },
+    SetCircleMask { device_id: String, scene: String, enabled: bool },
+    RemoveCamera { device_id: String, scene: String },
+    NudgeCamera { device_id: String, scene: String, dx: i32, dy: i32 },
+    ScaleCamera { device_id: String, scene: String, grow: bool },
     CreateScene { name: String },
     SwitchScene { name: String },
     DeleteScene { name: String },

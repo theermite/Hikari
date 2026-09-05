@@ -13,31 +13,22 @@ use crate::sources::SceneSourceInfo;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SceneInfo {
     pub name: String,
-    /// Whether the ONE physical webcam is shown in this scene (`AddCamera`/`RemoveCamera`).
+    /// Whether this scene shows AT LEAST ONE camera (`AddCamera`/`RemoveCamera`).
+    ///
+    /// Which cameras, and how each is framed and filtered, is in `sources` — one entry per
+    /// camera since 2026-09-06. This stays as the one-glance answer the scene list needs.
     pub has_camera: bool,
-    /// This scene's OWN desired state for the NVIDIA background-removal filter — the value
-    /// applied to the shared filter whenever this scene becomes live, not the filter's
-    /// current global state (which belongs to whichever scene is live right now).
-    pub background_removal: bool,
-    /// This scene's OWN desired state for the circular mask filter. Same contract.
-    pub circle_mask: bool,
     /// Everything this scene holds, in the order it was added — so the panel shows a
     /// scene's contents without switching to it (switching is a live cut, never a peek).
     pub sources: Vec<SceneSourceInfo>,
 }
 
 impl SceneInfo {
-    /// A scene that holds no camera and no filter preference — the shape every scene has
-    /// the moment `CreateScene` makes it. Pure, so tests and the engine agree on "empty"
-    /// instead of each spelling out four fields.
+    /// A scene that holds nothing — the shape every scene has the moment `CreateScene`
+    /// makes it. Pure, so tests and the engine agree on "empty" instead of each spelling
+    /// out the fields.
     pub fn empty(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            has_camera: false,
-            background_removal: false,
-            circle_mask: false,
-            sources: Vec::new(),
-        }
+        Self { name: name.into(), has_camera: false, sources: Vec::new() }
     }
 }
 

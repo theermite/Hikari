@@ -57,7 +57,12 @@ fn should_pass_through_scale_within_range() {
 
 #[test]
 fn should_roundtrip_nudge_camera_command() {
-    let cmd = ControllerCommand::NudgeCamera { scene: "Jeu".to_string(), dx: 40, dy: -40 };
+    let cmd = ControllerCommand::NudgeCamera {
+        device_id: "usb#vid_046d".to_string(),
+        scene: "Jeu".to_string(),
+        dx: 40,
+        dy: -40,
+    };
     let line = to_line(&cmd).expect("serializes");
     assert!(!line.contains('\n'));
     assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
@@ -65,7 +70,11 @@ fn should_roundtrip_nudge_camera_command() {
 
 #[test]
 fn should_roundtrip_scale_camera_command() {
-    let cmd = ControllerCommand::ScaleCamera { scene: "Jeu".to_string(), grow: true };
+    let cmd = ControllerCommand::ScaleCamera {
+        device_id: "usb#vid_046d".to_string(),
+        scene: "Jeu".to_string(),
+        grow: true,
+    };
     let line = to_line(&cmd).expect("serializes");
     assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
 }
@@ -73,6 +82,7 @@ fn should_roundtrip_scale_camera_command() {
 #[test]
 fn should_roundtrip_camera_transform_message() {
     let msg = EngineMessage::CameraTransform {
+        device_id: "usb#vid_046d".to_string(),
         scene: "Jeu".to_string(),
         x: 100,
         y: -50,
@@ -97,8 +107,8 @@ proptest! {
     }
 
     #[test]
-    fn should_roundtrip_camera_transform_for_any_value(scene in any::<String>(), x in any::<i32>(), y in any::<i32>(), scale_percent in any::<i32>()) {
-        let msg = EngineMessage::CameraTransform { scene, x, y, scale_percent };
+    fn should_roundtrip_camera_transform_for_any_value(device_id in any::<String>(), scene in any::<String>(), x in any::<i32>(), y in any::<i32>(), scale_percent in any::<i32>()) {
+        let msg = EngineMessage::CameraTransform { device_id, scene, x, y, scale_percent };
         let line = to_line(&msg).expect("serializes");
         prop_assert!(!line.contains('\n'));
         prop_assert_eq!(parse_engine_message(&line).expect("parses"), msg);

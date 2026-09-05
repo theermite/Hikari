@@ -7,14 +7,40 @@ use crate::platform::{
     CAMERA_KIND, GAME_CAPTURE_KIND, MONITOR_CAPTURE_KIND, WINDOW_CAPTURE_KIND,
 };
 
-/// The fixed name the engine gives its webcam source — ONE camera source total, reused by
-/// every scene that shows it (Jay, 2026-07-24: « la caméra est unique »).
+/// The historic name of the single webcam source, kept as a FALLBACK (2026-09-06).
 ///
-/// Lives HERE rather than in the engine because both sides of the wire need it: the app
-/// falls back to this name to replace a camera saved before the name was recorded, and the
-/// engine answers to it. The engine binary links libobs and therefore runs no tests
-/// (`test = false`), so a constant kept there could never be pinned by one.
+/// Until then Hikari opened exactly one camera and always called it this (Jay, 2026-07-24:
+/// « la caméra est unique »). Cameras are now named after the device the user picked, but
+/// this value still has two jobs: replaying a session saved before the name was recorded,
+/// and naming a device that reports no usable name of its own.
+///
+/// Lives HERE rather than in the engine because both sides of the wire need it. The engine
+/// binary links libobs and therefore runs no tests (`test = false`), so a constant kept
+/// there could never be pinned by one.
 pub const CAMERA_SOURCE_NAME: &str = "Webcam";
+
+/// The libobs source name to give a camera for `device_name`, unique among `taken`.
+///
+/// libobs keys its sources BY NAME. Two cameras sharing one name are one source, which is
+/// precisely the defect this replaces: every device resolved to `"Webcam"`, so picking a
+/// second one silently returned the first. Two identical webcams also report the identical
+/// device label, so uniqueness cannot come from the device alone — it is decided here,
+/// against the names already in use.
+pub fn camera_source_name(device_name: &str, taken: &[String]) -> String {
+    let trimmed = device_name.trim();
+    let base = if trimmed.is_empty() { CAMERA_SOURCE_NAME } else { trimmed };
+    if !taken.iter().any(|name| name == base) {
+        return base.to_string();
+    }
+    let mut n = 2usize;
+    loop {
+        let candidate = format!("{base} ({n})");
+        if !taken.iter().any(|name| name == &candidate) {
+            return candidate;
+        }
+        n += 1;
+    }
+}
 
 /// One source inside a scene (e.g. a monitor capture). `kind` names the libobs source
 /// family so a deck can render an icon without guessing.
@@ -148,6 +174,19 @@ pub struct SceneSourceInfo {
     /// source that can still be grabbed is not locked, whatever the panel shows.
     #[serde(default)]
     pub locked: bool,
+    /// For a CAMERA source: this scene's OWN desired state for the NVIDIA
+    /// background-removal filter — the value applied to that camera's filter whenever this
+    /// scene becomes live, never the filter's current global state.
+    ///
+    /// Per camera AND per scene since 2026-09-06 (several cameras can share a scene, each
+    /// with its own look). Always `false` on a non-camera source. `serde(default)` because
+    /// a session saved before that date has no such field, and a missing field must replay
+    /// as "filter off" rather than refuse the whole scene.
+    #[serde(default)]
+    pub background_removal: bool,
+    /// Same contract as `background_removal`, for the circular mask filter.
+    #[serde(default)]
+    pub circle_mask: bool,
 }
 
 /// Validates a candidate source name against the sources ALREADY IN THAT SCENE.

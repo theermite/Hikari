@@ -73,21 +73,28 @@ pub fn probe_camera_devices(context: &ObsContext) -> Result<Vec<CameraDevice>> {
         .collect())
 }
 
-/// The fixed name given to the physical webcam source — ONE camera source total (Jay,
-/// 2026-07-24: "la caméra est unique"), reused across every scene it appears in, exactly
-/// like OBS itself (a source added to several scenes is the same source, not a clone).
+/// The naming rule for camera sources, and the historic fallback name.
 ///
 /// Défini dans `hikari-protocol` : l'app s'en sert aussi (repli du rejeu de session), et ce
 /// binaire ne tourne aucun test, donc une constante gardée ici ne serait épinglée par aucun.
 /// Ré-exporté pour que le code caméra garde son propre vocabulaire.
-pub use hikari_protocol::CAMERA_SOURCE_NAME;
+pub use hikari_protocol::{CAMERA_SOURCE_NAME, camera_source_name};
 
-/// Builds the `dshow_input` source for `device_id` — called ONCE, the first time a camera
-/// is added to any scene. Does not add it to a scene itself (see `add_existing_camera_to_scene`,
-/// used both for this first placement and every later scene that reuses the same source).
-pub fn build_camera_source(context: &mut ObsContext, device_id: &str) -> Result<ObsSourceRef> {
+/// Builds the `dshow_input` source for `device_id` under `source_name` — called ONCE per
+/// DEVICE, the first time that device is added to any scene. Does not add it to a scene
+/// (see `add_existing_camera_to_scene`, used for this first placement and every later
+/// scene that reuses the same source).
+///
+/// `source_name` must already be unique among the open cameras
+/// (`hikari_protocol::camera_source_name`): libobs keys its sources by name, so two
+/// cameras sharing one name are one source — the exact defect this replaces.
+pub fn build_camera_source(
+    context: &mut ObsContext,
+    source_name: &str,
+    device_id: &str,
+) -> Result<ObsSourceRef> {
     context
-        .source_builder::<DshowInputSourceBuilder, _>(CAMERA_SOURCE_NAME)
+        .source_builder::<DshowInputSourceBuilder, _>(source_name)
         .context("préparation source caméra")?
         .set_video_device_id(device_id)
         .build()
@@ -95,9 +102,10 @@ pub fn build_camera_source(context: &mut ObsContext, device_id: &str) -> Result<
 }
 
 /// Adds the ALREADY-BUILT camera `source` to `scene_name` as a new scene item — reuses the
-/// one physical source (never builds a second `dshow_input`, which would reopen the device
-/// and risk the driver rejecting a 2nd concurrent capture). Multiple scenes can hold their
-/// own scene item pointing at this same source, each with its own position/scale.
+/// source already open for that device (never builds a second `dshow_input` on the SAME
+/// device, which would reopen it and risk the driver rejecting a 2nd concurrent capture).
+/// Several scenes can hold their own scene item pointing at one source, each with its own
+/// position and scale.
 pub fn add_existing_camera_to_scene(
     context: &mut ObsContext,
     source: ObsSourceRef,

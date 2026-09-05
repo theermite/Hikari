@@ -33,6 +33,8 @@ fn should_carry_everything_needed_to_rebuild_a_source() {
         y: -40,
         scale_percent: 75,
         locked: true,
+        background_removal: false,
+        circle_mask: false,
     };
     let line = to_line(&source).expect("serializes");
     let back: SceneSourceInfo = serde_json::from_str(&line).expect("parses");
@@ -152,7 +154,7 @@ fn should_roundtrip_every_source_command() {
             scene: "main".to_string(),
             name: "Jeu".to_string(),
             locked: true,
-        },
+                },
     ];
     for cmd in commands {
         let line = to_line(&cmd).expect("serializes");
@@ -167,8 +169,6 @@ fn should_carry_each_scenes_own_source_list() {
     let jeu = SceneInfo {
         name: "Jeu".to_string(),
         has_camera: true,
-        background_removal: false,
-        circle_mask: false,
         sources: vec![
             SceneSourceInfo {
                 name: "Jeu".to_string(),
@@ -179,6 +179,8 @@ fn should_carry_each_scenes_own_source_list() {
                 y: 20,
                 scale_percent: 100,
                 locked: false,
+                background_removal: false,
+                circle_mask: false,
             },
             SceneSourceInfo {
                 name: "Webcam".to_string(),
@@ -189,6 +191,8 @@ fn should_carry_each_scenes_own_source_list() {
                 y: 0,
                 scale_percent: 100,
                 locked: true,
+                background_removal: false,
+                circle_mask: false,
             },
         ],
     };
