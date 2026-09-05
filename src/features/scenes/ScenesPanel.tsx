@@ -86,6 +86,10 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const [labelError, setLabelError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
+  /** Les scènes dont les sources sont dépliées. Fermées par défaut : avant, chaque scène
+   * déroulait tout son contenu en permanence et trois scènes remplissaient le panneau.
+   * La scène EN DIRECT s'ouvre d'office — c'est celle qu'on regarde. */
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [targets, setTargets] = useState<CaptureTargets | null>(null);
   const [targetsError, setTargetsError] = useState<string | null>(null);
   const [chosenFamily, setFamily] = useState<SourceKind>("game");
@@ -406,6 +410,17 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     state.status === "ready" ? orderScenes(state.scenes, layout) : [];
   const orderedNames = ordered.map((scene) => scene.name);
 
+  /** Ouvre ou ferme les sources d'une scène. La scène en direct reste ouverte d'office :
+   * la refermer cacherait justement ce qu'on est en train de diffuser. */
+  function toggleExpand(name: string) {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
   return (
     <Panel title="Scènes" badge="1 clic">
       {state.status === "idle" && (
@@ -424,6 +439,8 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                 scene={scene}
                 layout={layout}
                 live={live}
+                expanded={expanded.has(scene.name) || live}
+                onToggleExpand={toggleExpand}
                 index={index}
                 totalCount={ordered.length}
                 orderedNames={orderedNames}

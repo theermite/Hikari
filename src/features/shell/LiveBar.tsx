@@ -14,7 +14,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "../../components/ui/Badge";
 
 /** Les seuls messages moteur que cette barre lit. */
@@ -43,10 +43,14 @@ export function LiveBar() {
    * garderait sinon la valeur du premier rendu, c'est-à-dire `false` pour toujours. */
   const pendingRef = useRef(false);
 
-  function askEngine(next: boolean) {
+  // `useCallback` sans dépendance : la fonction ne touche que la référence et le poseur
+  // d'état, tous deux stables. Sans cela elle serait recréée à chaque rendu, et l'écoute
+  // du moteur — qui s'en sert — devrait se réabonner sans arrêt, ou mentir sur ce dont
+  // elle dépend.
+  const askEngine = useCallback((next: boolean) => {
     pendingRef.current = next;
     setPending(next);
-  }
+  }, []);
 
   useEffect(() => {
     const unlisten = listen<EngineMessage>("engine-message", (event) => {
@@ -79,7 +83,7 @@ export function LiveBar() {
       // aboutir. Une barre d'état ne doit jamais emporter le cockpit avec elle.
       unlisten.then((off) => off()).catch(() => {});
     };
-  }, []);
+  }, [askEngine]);
 
   useEffect(() => {
     if (liveSince === null) {

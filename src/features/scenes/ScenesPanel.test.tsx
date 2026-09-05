@@ -47,12 +47,15 @@ function scene(overrides: Partial<SceneInfo> = {}): SceneInfo {
   };
 }
 
-/** La <li> d une scene precise — jamais confondue avec ses boutons icone, dont le nom
- * accessible contient aussi le nom de la scene (« Renommer main », « Supprimer main »...). */
+/** La <li> d une scene precise, trouvee par son NOM accessible.
+ *
+ * Anciennement : le premier element de liste dont le texte COMMENCE par le nom. Cette
+ * forme cassait des qu on ajoutait quoi que ce soit avant le nom — la vignette du
+ * 2026-09-05 l a fait tomber. Le nom accessible ne depend pas de l ordre du contenu. */
 function sceneRow(name: string) {
   return screen
     .getAllByRole("listitem")
-    .find((li) => li.textContent?.trim().startsWith(name));
+    .find((li) => li.getAttribute("aria-label") === name);
 }
 
 function ready(scenes: SceneInfo[], active = scenes[0]?.name ?? "main") {
