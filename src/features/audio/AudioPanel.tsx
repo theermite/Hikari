@@ -13,7 +13,9 @@ import { listen } from "@tauri-apps/api/event";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "../../components/Modal";
+import { IconButton } from "../../components/ui/IconButton";
 import { Panel } from "../../components/ui/Panel";
+import { AddAudioModal } from "./AddAudioModal";
 import { LevelBar, VolumeSlider } from "./AudioMeters";
 import {
   addAudioSource,
@@ -24,7 +26,6 @@ import {
   setAudioVolume,
   setMonitorVolume,
 } from "./api";
-import { DeviceList, IconButton } from "./DeviceList";
 import { DeviceSettings } from "./DeviceSettings";
 import { METER_DANGER_DB } from "./meter";
 import { RouteToggles } from "./RouteToggles";
@@ -58,6 +59,9 @@ export function AudioPanel(_props: IDockviewPanelProps) {
   const [levels, setLevels] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** La fenêtre de choix d'une piste. Fermée par défaut : le choix se fait une fois par
+   * appareil, l'étaler en permanence remplissait le mixeur (Jay, 2026-09-05). */
+  const [adding, setAdding] = useState(false);
   const [settingsFor, setSettingsFor] = useState<string | null>(null);
   const [clipping, setClipping] = useState<string | null>(null);
   const lastClippingAt = useRef(0);
@@ -112,7 +116,7 @@ export function AudioPanel(_props: IDockviewPanelProps) {
   const openSettings = sources.find((s) => s.name === settingsFor) ?? null;
 
   return (
-    <Panel title="Audio" badge="écoute / diffusion">
+    <Panel title="Audio">
       {inputs === null && (
         <p className="text-hikari-txt-faint">
           Ouvre le panneau Aperçu pour gérer le son.
@@ -226,27 +230,26 @@ export function AudioPanel(_props: IDockviewPanelProps) {
       )}
 
       {inputs !== null && (
-        <div className="flex flex-col gap-3">
-          <DeviceList
-            title="Micros"
-            devices={notYetAdded(inputs)}
-            emptyLabel="Tous tes micros sont déjà dans le mixeur."
-            busy={busy}
-            onAdd={(device) =>
-              run(addAudioSource(device.device_id, "input", device.name))
-            }
-          />
-          <DeviceList
-            title="Sons du bureau"
-            devices={notYetAdded(outputs)}
-            emptyLabel="Toutes tes sorties sont déjà dans le mixeur."
-            busy={busy}
-            onAdd={(device) =>
-              run(addAudioSource(device.device_id, "output", device.name))
-            }
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          disabled={busy}
+          className="self-start rounded-[6px] border border-hikari-line px-2.5 py-1 text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt disabled:opacity-50"
+        >
+          + Ajouter une piste
+        </button>
       )}
+
+      <AddAudioModal
+        open={adding}
+        inputs={notYetAdded(inputs ?? [])}
+        outputs={notYetAdded(outputs ?? [])}
+        busy={busy}
+        onClose={() => setAdding(false)}
+        onAdd={(device, kind) =>
+          run(addAudioSource(device.device_id, kind, device.name))
+        }
+      />
 
       {error && <p className="text-hikari-red">❌ {error}</p>}
 

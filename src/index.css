@@ -62,6 +62,15 @@
  * que le système impose en dur, chaque carte débordait, et une barre horizontale
  * apparaissait partout. Le mode officiel prend l'écart sur les POIGNÉES entre panneaux —
  * aucune taille n'est dépassée. La bibliothèque savait faire ce que je bricolais. */
+/* Le mode « espacé » de la bibliothèque peint TOUT le conteneur avec la couleur des
+ * cartes. Résultat : le gris des modules apparaissait entre elles, à la place du fond
+ * sombre (Jay, 2026-09-05 : « il y a toute une partie où le fond est gris, comme les
+ * modules »). Le conteneur reprend le fond de la page ; seules les cartes sont élevées. */
+.dockview-theme-dark,
+.dockview-theme-dark .dv-dockview {
+  background-color: var(--color-hikari-bg);
+}
+
 .dockview-theme-dark .dv-groupview {
   border: 1px solid var(--color-hikari-line);
   /* L'arrondi est reposé ici : il vivait dans le même bloc que ma marge bricolée et il est

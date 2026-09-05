@@ -9,7 +9,7 @@
 // manque pour le faire.
 
 import type { IDockviewPanelProps } from "dockview-react";
-import { ComingSoonTag } from "../../components/ui/ComingSoon";
+
 import { Panel } from "../../components/ui/Panel";
 import { SectionTitle } from "../../components/ui/SectionTitle";
 
@@ -22,7 +22,7 @@ const PROMESSES = [
 
 export function ChatPanel(_props: IDockviewPanelProps) {
   return (
-    <Panel title="Chat" badge={<ComingSoonTag />}>
+    <Panel title="Chat">
       <div className="flex flex-col gap-4">
         <p className="text-[12.5px] leading-relaxed text-hikari-txt-dim">
           Le chat arrivera ici, à la place que la maquette lui donne. Il attend

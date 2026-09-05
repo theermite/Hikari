@@ -22,6 +22,7 @@ import { ScenesPanel } from "../scenes/ScenesPanel";
 import { UpdateBanner } from "../updates/UpdateBanner";
 import { LiveBar } from "./LiveBar";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
+import { PanelTab } from "./PanelTab";
 import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
 import { SettingsPanel } from "./panels/SettingsPanel";
@@ -279,6 +280,7 @@ export function Cockpit() {
             components={PANEL_COMPONENTS}
             onReady={onReady}
             theme={HIKARI_THEME}
+            defaultTabComponent={PanelTab}
           />
         </div>
       </div>

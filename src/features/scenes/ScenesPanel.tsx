@@ -422,7 +422,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   }
 
   return (
-    <Panel title="Scènes" badge="1 clic">
+    <Panel title="Scènes">
       {state.status === "idle" && (
         <p className="text-hikari-txt-faint">
           Ouvre le panneau Aperçu pour gérer les scènes.

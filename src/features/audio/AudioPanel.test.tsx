@@ -71,7 +71,10 @@ describe("AudioPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("should_lister_les_appareils_non_encore_ajoutes_apres_la_reponse_du_moteur", () => {
+  it("should_offer_to_add_a_track_without_listing_every_device", async () => {
+    // Les appareils ne sont plus etales en permanence : la machine de Jay en expose une
+    // douzaine, et les montrer tous remplissait le mixeur d'un choix qu'on ne fait qu'une
+    // fois par appareil (2026-09-05). Un bouton ouvre la liste, a la demande.
     render(<AudioPanel {...({} as IDockviewPanelProps)} />);
 
     emit({
@@ -80,13 +83,21 @@ describe("AudioPanel", () => {
       outputs: [],
     });
 
-    expect(screen.getByText("+ Micro USB")).toBeInTheDocument();
+    // La liste vit dans une fenetre FERMEE : elle est dans le document (jsdom ne masque
+    // pas un `<dialog>` clos) mais l'utilisateur ne la voit pas. C'est l'etat fermé qui
+    // porte l'assertion, jamais l'absence du texte.
+    // Un `<dialog>` ferme ne porte pas le role « dialog » : on interroge donc l'element
+    // lui-meme. C'est son etat OUVERT qui dit si l'utilisateur voit la liste.
+    expect(document.querySelector("dialog")?.hasAttribute("open")).toBe(false);
+    expect(
+      screen.getByRole("button", { name: /ajouter une piste/i }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByText(/Ouvre le panneau Aperçu/i),
     ).not.toBeInTheDocument();
   });
 
-  it("should_ajouter_une_source_quand_on_clique_sur_un_appareil", async () => {
+  it("should_ajouter_une_source_quand_on_choisit_un_appareil", async () => {
     const user = userEvent.setup();
     render(<AudioPanel {...({} as IDockviewPanelProps)} />);
     emit({
@@ -95,7 +106,10 @@ describe("AudioPanel", () => {
       outputs: [],
     });
 
-    await user.click(screen.getByText("+ Micro USB"));
+    await user.click(
+      screen.getByRole("button", { name: /ajouter une piste/i }),
+    );
+    await user.click(screen.getByRole("button", { name: "Micro USB" }));
 
     expect(invokeMock).toHaveBeenCalledWith("add_audio_source", {
       deviceId: "dev-1",
