@@ -134,6 +134,20 @@ export function Cockpit() {
             referencePanel: "camera",
             direction: "below",
           });
+          // Migration Deck : une disposition écrite avant la livraison du deck (B4, août)
+          // garde un panneau VIDE intitulé « Deck (à venir) ». Chez Jay il occupait le
+          // quart de l'écran pour une phrase, pendant que caméra, audio et scènes se
+          // partageaient une colonne étroite (capture du 2026-09-05). Le vrai panneau
+          // prend sa place exacte, dans le même groupe d'onglets.
+          const deckGhost = event.api.getPanel("deck-placeholder");
+          if (deckGhost) {
+            ensurePanel(event.api, "deck", "Deck");
+            const realDeck = event.api.getPanel("deck");
+            if (realDeck && realDeck.group !== deckGhost.group) {
+              realDeck.api.moveTo({ group: deckGhost.group });
+            }
+            event.api.removePanel(deckGhost);
+          }
           // Migration Comptes → Paramètres (Jay, 2026-07-24) : une disposition sauvegardée
           // avant ce jour a "Comptes" à gauche — la Caméra prend sa place exacte (même
           // groupe d'onglets), et le panneau Comptes du cockpit live disparaît (il reste
