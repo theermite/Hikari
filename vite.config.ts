@@ -36,6 +36,13 @@ export default defineConfig(async () => ({
     // composant demande jsdom explicitement via `// @vitest-environment jsdom` en tête —
     // ainsi le socle reste inchangé pour les 142 tests de logique existants (2026-08-19).
     environment: "node",
+    // React n'expose `act` que dans sa construction de DÉVELOPPEMENT. Quand la variable
+    // NODE_ENV de la machine vaut « production » (vécu 2026-09-06 : elle était posée dans
+    // l'environnement de la session), React résout sa construction de production et 63
+    // tests de composants tombent sur « React.act is not a function » — sans qu'une seule
+    // ligne du dépôt ait changé. On épingle donc la valeur ici : la suite ne dépend plus
+    // de ce que la machine a dans son environnement.
+    env: { NODE_ENV: "test" },
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
     // `poolOptions.forks.maxForks` a fusionné en `maxWorkers` top-level dans Vitest 4 —
