@@ -48,23 +48,20 @@
   --dv-tab-divider-color: transparent;
   --dv-active-sash-color: var(--color-hikari-accent);
   --dv-border-radius: 10px;
-  padding: 8px;
 }
 
 /* L'espace ENTRE les cartes : la maquette les fait respirer, le système de panneaux les
  * colle. La marge se pose sur le groupe, l'arrondi et la bordure sur son contenu. */
+/* L'écart entre cartes vient du mode « espacé » DU SYSTÈME (`dockview-spaced`, posé sur
+ * le conteneur), jamais d'une marge à nous.
+ *
+ * Vécu 2026-09-05 : j'avais marginé les cartes à la main. La marge s'ajoutait à la taille
+ * que le système impose en dur, chaque carte débordait, et une barre horizontale
+ * apparaissait partout. Le mode officiel prend l'écart sur les POIGNÉES entre panneaux —
+ * aucune taille n'est dépassée. La bibliothèque savait faire ce que je bricolais. */
 .dockview-theme-dark .dv-groupview {
   border: 1px solid var(--color-hikari-line);
-  border-radius: var(--radius-hikari);
   overflow: hidden;
-  /* La marge SEULE faisait déborder la carte de 8 px hors de la taille que le système de
-   * panneaux lui impose en dur, et chaque panneau gagnait une barre de défilement
-   * horizontale (vu à l'écran 2026-09-05). La taille est donc réduite d'autant : l'écart
-   * se prend SUR la carte, jamais en plus. */
-  margin: 4px;
-  width: calc(100% - 8px);
-  height: calc(100% - 8px);
-  box-sizing: border-box;
 }
 
 /* La poignée de redimensionnement doit rester attrapable malgré les marges. */

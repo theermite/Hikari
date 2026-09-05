@@ -228,7 +228,7 @@ export function Cockpit() {
             ))}
           </div>
         </header>
-        <div className="dockview-theme-dark flex-1 bg-hikari-bg">
+        <div className="dockview-theme-dark dockview-spaced flex-1 bg-hikari-bg">
           <DockviewReact components={PANEL_COMPONENTS} onReady={onReady} />
         </div>
       </div>

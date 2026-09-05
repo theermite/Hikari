@@ -55,6 +55,7 @@ interface SidebarProps {
 }
 
 import { ComingSoon } from "../../components/ui/ComingSoon";
+import { Flag } from "./Flag";
 import { NAV_ICONS, type NavIconName } from "./NavIcons";
 
 export function Sidebar({ onOpenPanel }: SidebarProps) {
@@ -120,7 +121,7 @@ export function Sidebar({ onOpenPanel }: SidebarProps) {
       <div className="mt-auto flex gap-2 border-t border-hikari-line pt-3">
         <ComingSoon what="choisir la langue de l'interface">
           <span className="flex items-center gap-1.5 rounded-[7px] border border-hikari-line px-2.5 py-1.5 text-[12.5px] text-hikari-txt-dim">
-            🇫🇷 FR ▾
+            <Flag lang="fr" /> FR ▾
           </span>
         </ComingSoon>
         <ComingSoon what="adapter l'affichage à ton confort">
