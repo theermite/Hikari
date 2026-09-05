@@ -54,6 +54,8 @@ pub fn run() {
             engine_lifecycle::reorder_source,
             engine_lifecycle::set_source_transform,
             engine_lifecycle::set_source_locked,
+            engine_lifecycle::start_stream,
+            engine_lifecycle::stop_stream,
         ])
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())

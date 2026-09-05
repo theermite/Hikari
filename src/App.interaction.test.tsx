@@ -6,8 +6,17 @@
 // juste l'affirmation.
 
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+
+// Le cockpit monte `LiveBar`, qui ecoute le moteur des son affichage. Sans bouchon, cette
+// ecoute part vers un pont Tauri absent sous jsdom : la promesse ne se resout jamais, la
+// boucle d'evenements reste vivante, et la suite COMPLETE ne rend plus la main (mesure du
+// 2026-09-04 : delai de 200 s depasse). Un test de coque n'a besoin d'aucun vrai moteur.
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: () => Promise.resolve(() => {}),
+}));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: () => Promise.resolve() }));
 
 afterEach(() => {
   cleanup();

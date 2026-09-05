@@ -19,6 +19,7 @@ import { PreflightPanel } from "../preflight/PreflightPanel";
 import { PreviewPanel } from "../preview/PreviewPanel";
 import { ScenesPanel } from "../scenes/ScenesPanel";
 import { UpdateBanner } from "../updates/UpdateBanner";
+import { LiveBar } from "./LiveBar";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
 import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
@@ -189,6 +190,9 @@ export function Cockpit() {
         {/* Au-dessus de tout le cockpit : une annonce de mise à jour doit être visible
             quel que soit le panneau ouvert, sans jamais recouvrir l'aperçu. */}
         <UpdateBanner />
+        {/* L'état du direct passe AVANT la barre de dispositions : c'est la première
+            chose à savoir en ouvrant le cockpit (« est-ce que je diffuse ? »). */}
+        <LiveBar />
         <header className="flex h-14 flex-shrink-0 items-center gap-4 border-b border-hikari-line bg-hikari-bg-2 px-4">
           <h1 className="text-[14px] font-semibold tracking-tight">
             Cockpit Live

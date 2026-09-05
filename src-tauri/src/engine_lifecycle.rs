@@ -113,6 +113,39 @@ pub(crate) fn stop_engine(state: State<EngineState>) -> Result<(), String> {
     Ok(())
 }
 
+/// Starts the real RTMP stream (B2a). The engine resolves its target from its OWN
+/// environment and never receives a key over this pipe — a secret on the wire is a path
+/// we would have to un-build later (see `ControllerCommand::StartStream`).
+///
+/// A missing target is therefore NOT detectable here: the engine answers with an
+/// `Error` message the interface displays. Better a real refusal from the engine than a
+/// guess from the controller about an environment it does not own.
+#[tauri::command]
+pub(crate) fn start_stream(state: State<EngineState>) -> Result<(), String> {
+    send(state, ControllerCommand::StartStream, "StartStream")
+}
+
+/// Stops the current stream. The engine and its preview stay alive — only the output is
+/// detached, so the cockpit keeps showing the scene it was broadcasting.
+#[tauri::command]
+pub(crate) fn stop_stream(state: State<EngineState>) -> Result<(), String> {
+    send(state, ControllerCommand::StopStream, "StopStream")
+}
+
+/// Sends one command to the running engine, or says why it cannot.
+fn send(
+    state: State<EngineState>,
+    command: ControllerCommand,
+    name: &str,
+) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let Some(handle) = guard.handle.as_mut() else {
+        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
+    };
+    let line = to_line(&command).map_err(|err| err.to_string())?;
+    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi {name} au moteur: {err}"))
+}
+
 /// Records the Aperçu panel's current screen rect and, if the preview is already
 /// grafted, repositions it there immediately (also un-hides it, matching
 /// `preview_bridge::position_preview_window`'s own behavior). Called by the frontend on
