@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal } from "../../components/Modal";
 import { IconButton } from "../../components/ui/IconButton";
 import { Panel } from "../../components/ui/Panel";
+import { onAddRequested } from "../shell/panelActions";
 import { AddAudioModal } from "./AddAudioModal";
 import { LevelBar, VolumeSlider } from "./AudioMeters";
 import {
@@ -62,6 +63,10 @@ export function AudioPanel(_props: IDockviewPanelProps) {
   /** La fenêtre de choix d'une piste. Fermée par défaut : le choix se fait une fois par
    * appareil, l'étaler en permanence remplissait le mixeur (Jay, 2026-09-05). */
   const [adding, setAdding] = useState(false);
+
+  // Le « + » vit dans l'onglet, hors de l'arbre de ce panneau : il ne peut qu'envoyer une
+  // demande, que voici reçue.
+  useEffect(() => onAddRequested("audio", () => setAdding(true)), []);
   const [settingsFor, setSettingsFor] = useState<string | null>(null);
   const [clipping, setClipping] = useState<string | null>(null);
   const lastClippingAt = useRef(0);
@@ -227,17 +232,6 @@ export function AudioPanel(_props: IDockviewPanelProps) {
             );
           })}
         </ul>
-      )}
-
-      {inputs !== null && (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          disabled={busy}
-          className="self-start rounded-[6px] border border-hikari-line px-2.5 py-1 text-[12.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt disabled:opacity-50"
-        >
-          + Ajouter une piste
-        </button>
       )}
 
       <AddAudioModal

@@ -25,6 +25,7 @@ import {
   setBackgroundRemoval,
   setCircleMask,
 } from "../camera/api";
+import { onAddRequested } from "../shell/panelActions";
 import { AddSourceModal, type CaptureTargets } from "./AddSourceModal";
 import {
   addCaptureSource,
@@ -97,6 +98,8 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const chosenIsFile =
     SOURCE_FAMILIES.find((f) => f.kind === chosenFamily)?.isFile ?? false;
   const renameInput = useRef<HTMLInputElement>(null);
+  /** Le champ de creation, pour que le « + » de l'onglet y amene directement le curseur. */
+  const newNameInput = useRef<HTMLInputElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   /** Vrai pendant le rejeu de la session — empêche de réécrire par-dessus ce qu'on restaure. */
   const replaying = useRef(false);
@@ -112,6 +115,13 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   /** La scène en direct, pour que l'écoute du mixeur sache quoi retenir sans dépendre d'un
    * état React déjà périmé au moment où elle s'exécute. */
   const activeRef = useRef("main");
+
+  // Le « + » de l'onglet vit hors de l'arbre de ce panneau : il demande, on repond en
+  // amenant le curseur là où l'on nomme une scène.
+  useEffect(
+    () => onAddRequested("scenes", () => newNameInput.current?.focus()),
+    [],
+  );
 
   useEffect(() => {
     /** Rend au moteur la session d'avant : il repart vierge à chaque lancement.
@@ -492,6 +502,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       <div className="flex gap-2">
         <input
           type="text"
+          ref={newNameInput}
           value={newName}
           onChange={(event) => setNewName(event.target.value)}
           onKeyDown={(event) => event.key === "Enter" && submitCreate()}

@@ -13,6 +13,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { IDockviewPanelProps } from "dockview-react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { requestAdd } from "../shell/panelActions";
 import { AudioPanel } from "./AudioPanel";
 import type { AudioEngineMessage, AudioSourceInfo } from "./types";
 
@@ -84,14 +85,9 @@ describe("AudioPanel", () => {
     });
 
     // La liste vit dans une fenetre FERMEE : elle est dans le document (jsdom ne masque
-    // pas un `<dialog>` clos) mais l'utilisateur ne la voit pas. C'est l'etat fermé qui
-    // porte l'assertion, jamais l'absence du texte.
-    // Un `<dialog>` ferme ne porte pas le role « dialog » : on interroge donc l'element
-    // lui-meme. C'est son etat OUVERT qui dit si l'utilisateur voit la liste.
+    // pas un `<dialog>` clos) mais l'utilisateur ne la voit pas. Un `<dialog>` ferme ne
+    // porte pas le role « dialog » : on interroge donc l'element lui-meme.
     expect(document.querySelector("dialog")?.hasAttribute("open")).toBe(false);
-    expect(
-      screen.getByRole("button", { name: /ajouter une piste/i }),
-    ).toBeInTheDocument();
     expect(
       screen.queryByText(/Ouvre le panneau Aperçu/i),
     ).not.toBeInTheDocument();
@@ -106,9 +102,9 @@ describe("AudioPanel", () => {
       outputs: [],
     });
 
-    await user.click(
-      screen.getByRole("button", { name: /ajouter une piste/i }),
-    );
+    // Le « + » vit dans l'ONGLET, dessine hors de ce panneau : le test emprunte donc le
+    // meme chemin que lui, la demande d'ajout.
+    act(() => requestAdd("audio"));
     await user.click(screen.getByRole("button", { name: "Micro USB" }));
 
     expect(invokeMock).toHaveBeenCalledWith("add_audio_source", {

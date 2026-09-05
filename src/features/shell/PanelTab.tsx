@@ -12,6 +12,14 @@ import type { IDockviewPanelHeaderProps } from "dockview-react";
 import type { ReactNode } from "react";
 import { Badge } from "../../components/ui/Badge";
 import { ComingSoonTag } from "../../components/ui/ComingSoon";
+import { IconButton } from "../../components/ui/IconButton";
+import { requestAdd } from "./panelActions";
+
+/** Ce que le « + » d'une carte ajoute, en clair. Absent = pas de « + ». */
+const ADD_LABELS: Record<string, string> = {
+  scenes: "Ajouter une scène",
+  audio: "Ajouter une piste au mixeur",
+};
 
 /** Ce que chaque carte annonce à côté de son nom. Absente = pas de pastille. */
 const PANEL_BADGES: Record<string, ReactNode> = {
@@ -21,12 +29,26 @@ const PANEL_BADGES: Record<string, ReactNode> = {
 };
 
 export function PanelTab({ api }: IDockviewPanelHeaderProps) {
+  const addLabel = ADD_LABELS[api.id];
   return (
     <div className="flex items-center gap-2 px-2.5 py-1">
       <span className="text-[12.5px] font-semibold text-hikari-txt">
         {api.title}
       </span>
       {PANEL_BADGES[api.id]}
+      {addLabel ? (
+        <IconButton
+          label={addLabel}
+          onClick={() => {
+            // L'onglet ne peut pas ouvrir la fenêtre lui-même : il est dessiné hors de
+            // l'arbre du panneau. Il DEMANDE, le panneau décide.
+            api.setActive();
+            requestAdd(api.id);
+          }}
+        >
+          +
+        </IconButton>
+      ) : null}
     </div>
   );
 }
