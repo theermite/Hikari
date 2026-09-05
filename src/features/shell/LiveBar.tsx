@@ -16,6 +16,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "../../components/ui/Badge";
+import { ComingSoon } from "../../components/ui/ComingSoon";
 
 /** Les seuls messages moteur que cette barre lit. */
 type EngineMessage =
@@ -113,6 +114,15 @@ export function LiveBar() {
 
   return (
     <div className="flex flex-shrink-0 items-center gap-3 border-b border-hikari-line bg-hikari-bg-2 px-4 py-2">
+      {/* Le sélecteur de préréglage de la maquette (« LoL du soir ») : un préréglage
+          réunit des plateformes, une collection de scènes et un titre de direct. Aucun de
+          ces trois concepts n'existe encore côté moteur. */}
+      <ComingSoon what="choisir un préréglage de direct (plateformes, scènes, titre)">
+        <span className="flex items-center gap-1.5 rounded-full border border-hikari-line px-3 py-1.5 text-[12.5px] text-hikari-txt-dim">
+          Préréglage <span className="font-medium text-hikari-txt">—</span> ▾
+        </span>
+      </ComingSoon>
+
       <button
         type="button"
         onClick={toggle}
@@ -150,6 +160,18 @@ export function LiveBar() {
       >
         Spectateurs <span className="text-hikari-txt-faint">n/a</span>
       </span>
+
+      {/* Les emplacements que la maquette prévoit et que rien n'alimente encore. Dessinés
+          et marqués, jamais absents : Jay veut voir ce qui arrive et garder un squelette
+          cohérent (2026-09-05). Ils s'allumeront quand leur brique existera. */}
+      <ComingSoon what="le débit réel de la diffusion">
+        <span className="text-[12.5px] text-hikari-txt-dim">— Mb/s</span>
+      </ComingSoon>
+      <ComingSoon what="couper les alertes pendant un moment délicat">
+        <span className="rounded-full border border-hikari-line px-2.5 py-1 text-[12.5px] text-hikari-txt-dim">
+          🔔 Silence alertes
+        </span>
+      </ComingSoon>
 
       {error ? (
         <span role="alert" className="ml-auto text-[12.5px] text-hikari-red">

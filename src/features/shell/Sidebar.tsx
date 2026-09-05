@@ -8,6 +8,7 @@ interface NavItem {
   label: string;
   built: boolean;
   panelId?: string;
+  icon: NavIconName;
 }
 
 interface NavGroup {
@@ -16,27 +17,34 @@ interface NavGroup {
 }
 
 const NAV_GROUPS: NavGroup[] = [
-  { label: "", items: [{ label: "Accueil", built: false }] },
+  { label: "", items: [{ label: "Accueil", built: false, icon: "home" }] },
   {
     label: "Diffuser",
     items: [
-      { label: "Pré-vol", built: true, panelId: "preflight" },
-      { label: "Cockpit Live", built: true },
+      { label: "Pré-vol", built: true, panelId: "preflight", icon: "prevol" },
+      { label: "Cockpit Live", built: true, icon: "cockpit" },
     ],
   },
   {
     label: "Produire",
     items: [
-      { label: "Édition", built: false },
-      { label: "Publication", built: false },
-      { label: "Deck mobile", built: false },
-      { label: "Automations", built: false },
+      { label: "Édition", built: false, icon: "edition" },
+      { label: "Publication", built: false, icon: "publication" },
+      { label: "Deck mobile", built: false, icon: "deck" },
+      { label: "Automations", built: false, icon: "automations" },
     ],
   },
-  { label: "Suivre", items: [{ label: "Suivi", built: false }] },
+  { label: "Suivre", items: [{ label: "Suivi", built: false, icon: "suivi" }] },
   {
     label: "Système",
-    items: [{ label: "Paramètres", built: true, panelId: "settings" }],
+    items: [
+      {
+        label: "Paramètres",
+        built: true,
+        panelId: "settings",
+        icon: "parametres",
+      },
+    ],
   },
 ];
 
@@ -45,6 +53,9 @@ interface SidebarProps {
    * `Cockpit.tsx`, qui seul possède l'API dockview. */
   onOpenPanel?: (panelId: string, title: string) => void;
 }
+
+import { ComingSoon } from "../../components/ui/ComingSoon";
+import { NAV_ICONS, type NavIconName } from "./NavIcons";
 
 export function Sidebar({ onOpenPanel }: SidebarProps) {
   return (
@@ -71,33 +82,53 @@ export function Sidebar({ onOpenPanel }: SidebarProps) {
                 {group.label}
               </div>
             )}
-            {group.items.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                disabled={!item.built}
-                onClick={
-                  item.built && item.panelId
-                    ? () => onOpenPanel?.(item.panelId as string, item.label)
-                    : undefined
-                }
-                className={`flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2.5 text-left text-[13.5px] font-medium transition ${
-                  item.built
-                    ? "bg-hikari-accent/[.14] text-hikari-accent"
-                    : "cursor-not-allowed text-hikari-txt-faint"
-                }`}
-              >
-                <span>{item.label}</span>
-                {!item.built && (
-                  <span className="ml-auto text-[10px] text-hikari-txt-faint">
-                    bientôt
-                  </span>
-                )}
-              </button>
-            ))}
+            {group.items.map((item) => {
+              const Icon = NAV_ICONS[item.icon];
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  disabled={!item.built}
+                  onClick={
+                    item.built && item.panelId
+                      ? () => onOpenPanel?.(item.panelId as string, item.label)
+                      : undefined
+                  }
+                  className={`flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2.5 text-left text-[13.5px] font-medium transition ${
+                    item.built
+                      ? "bg-hikari-accent/[.14] text-hikari-accent"
+                      : "cursor-not-allowed text-hikari-txt-faint"
+                  }`}
+                >
+                  <Icon />
+                  <span>{item.label}</span>
+                  {!item.built && (
+                    <span className="ml-auto text-[10px] text-hikari-txt-faint">
+                      bientôt
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         ))}
       </nav>
+
+      {/* Le pied de la maquette : langue et Adaptation. Dessinés et MARQUÉS « à venir »
+          plutôt qu'absents (Jay, 2026-09-05) — on voit ce qui arrive, et le squelette est
+          complet au lieu d'être rapiécé plus tard. */}
+      <div className="mt-auto flex gap-2 border-t border-hikari-line pt-3">
+        <ComingSoon what="choisir la langue de l'interface">
+          <span className="flex items-center gap-1.5 rounded-[7px] border border-hikari-line px-2.5 py-1.5 text-[12.5px] text-hikari-txt-dim">
+            🇫🇷 FR ▾
+          </span>
+        </ComingSoon>
+        <ComingSoon what="adapter l'affichage à ton confort">
+          <span className="flex flex-1 items-center gap-1.5 rounded-[7px] border border-hikari-line px-2.5 py-1.5 text-[12.5px] text-hikari-txt-dim">
+            ✨ Adaptation
+          </span>
+        </ComingSoon>
+      </div>
     </aside>
   );
 }
