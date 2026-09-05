@@ -30,9 +30,12 @@
  * variables d'apparence (vérifié dans sa feuille de style), et le plan d'exécution interdit
  * un moteur de panneaux maison — l'ancien dépôt en portait 6720 lignes jamais branchées. */
 .dockview-theme-dark {
+  /* Le FOND se voit entre les cartes, et c'est cette différence de teinte qui les détache
+   * (Jay, 2026-09-05 : « on a de l'espace ET une différence de couleur entre le fond et
+   * chaque bloc »). Le fond est le plus sombre de la charte, les cartes montent d'un cran. */
   --dv-background-color: var(--color-hikari-bg);
-  --dv-group-view-background-color: var(--color-hikari-bg-2);
-  --dv-tabs-and-actions-container-background-color: var(--color-hikari-bg-2);
+  --dv-group-view-background-color: var(--color-hikari-bg-3);
+  --dv-tabs-and-actions-container-background-color: var(--color-hikari-bg-3);
   --dv-activegroup-visiblepanel-tab-background-color: var(--color-hikari-bg-2);
   --dv-activegroup-hiddenpanel-tab-background-color: var(--color-hikari-bg-2);
   --dv-inactivegroup-visiblepanel-tab-background-color: var(

@@ -31,7 +31,7 @@ export function Panel({ title, badge, actions, children }: PanelProps) {
   return (
     <section
       aria-label={title}
-      className="flex h-full flex-col overflow-hidden bg-hikari-bg-2"
+      className="flex h-full flex-col overflow-hidden bg-hikari-bg-3"
     >
       {hasHeader ? (
         <header className="flex flex-shrink-0 items-center gap-2 border-b border-hikari-line px-3 py-1.5">

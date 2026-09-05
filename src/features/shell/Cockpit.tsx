@@ -28,6 +28,23 @@ import { SettingsPanel } from "./panels/SettingsPanel";
 import { PRESETS, type PresetId, resolvePreset } from "./presets";
 import { Sidebar } from "./Sidebar";
 
+/** Le thème passé au système de panneaux.
+ *
+ * `gap` est une OPTION du composant, jamais du CSS : le système positionne ses panneaux
+ * par des coordonnées calculées en JavaScript, et une marge écrite en feuille de style ne
+ * peut donc pas créer d'écart entre eux. C'est ce qui a fait échouer trois tentatives
+ * successives (2026-09-05) — la maquette montre des îlots séparés, mes marges ne
+ * produisaient qu'un débordement.
+ *
+ * `className` porte nos couleurs ; `gap` porte l'espace ; le fond du conteneur se voit
+ * entre les cartes, et c'est cette différence de teinte qui les détache. */
+const HIKARI_THEME = {
+  name: "hikari",
+  className: "dockview-theme-dark dockview-spaced",
+  colorScheme: "dark" as const,
+  gap: 10,
+};
+
 const PANEL_COMPONENTS: Record<
   string,
   React.FunctionComponent<IDockviewPanelProps>
@@ -248,8 +265,12 @@ export function Cockpit() {
             ))}
           </div>
         </header>
-        <div className="dockview-theme-dark dockview-spaced flex-1 bg-hikari-bg">
-          <DockviewReact components={PANEL_COMPONENTS} onReady={onReady} />
+        <div className="flex-1 bg-hikari-bg">
+          <DockviewReact
+            components={PANEL_COMPONENTS}
+            onReady={onReady}
+            theme={HIKARI_THEME}
+          />
         </div>
       </div>
     </div>
