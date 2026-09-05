@@ -128,16 +128,33 @@ describe("LiveBar", () => {
     expect(slot).toBeTruthy();
   });
 
-  it("should_report_an_engine_error_instead_of_failing_silently", async () => {
-    // Cas réel attendu tant que la clé de diffusion n'est pas câblée : le moteur refuse,
-    // et l'utilisateur doit lire pourquoi plutôt que voir un bouton sans effet.
+  it("should_report_an_engine_error_that_answers_its_own_request", async () => {
+    // Cas réel attendu tant que la clé de diffusion n'est pas câblée : le moteur refuse
+    // le démarrage, et l'utilisateur doit lire pourquoi plutôt que voir un bouton sans effet.
     render(<LiveBar />);
     await waitFor(() => expect(listenMock).toHaveBeenCalled());
 
+    await userEvent.click(screen.getByRole("button", { name: /démarrer/i }));
     emit({ type: "error", message: "cible RTMP absente" });
 
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.getByText(/cible RTMP absente/)).toBeTruthy();
+  });
+
+  it("should_ignore_engine_errors_it_never_asked_for", async () => {
+    // Vécu 2026-09-05 : « Monitor Capture existe déjà dans cette scène » s'affichait dans
+    // la barre du direct. Le moteur émet ses erreurs sur UN seul canal ; c'est à chaque
+    // écran de ne montrer que les réponses à SES propres demandes. Sinon la barre du
+    // direct devient le dépotoir des erreurs de tout le cockpit.
+    render(<LiveBar />);
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+
+    emit({
+      type: "error",
+      message: "« Monitor Capture » existe déjà dans cette scène",
+    });
+
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("should_report_a_refused_command_from_the_controller", async () => {

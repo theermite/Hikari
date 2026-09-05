@@ -14,7 +14,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "../../components/ui/Badge";
 
 /** Les seuls messages moteur que cette barre lit. */
@@ -39,6 +39,14 @@ export function LiveBar() {
   const [dropped, setDropped] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  /** Une référence et non l'état : l'écoute du moteur est posée une seule fois et
+   * garderait sinon la valeur du premier rendu, c'est-à-dire `false` pour toujours. */
+  const pendingRef = useRef(false);
+
+  function askEngine(next: boolean) {
+    pendingRef.current = next;
+    setPending(next);
+  }
 
   useEffect(() => {
     const unlisten = listen<EngineMessage>("engine-message", (event) => {
@@ -47,18 +55,22 @@ export function LiveBar() {
         setLiveSince(Date.now());
         setDropped(null);
         setError(null);
-        setPending(false);
+        askEngine(false);
       }
       if (msg.type === "stream_stopped") {
         setLiveSince(null);
-        setPending(false);
+        askEngine(false);
       }
       if (msg.type === "frames" && "dropped" in msg) {
         setDropped(msg.dropped);
       }
-      if (msg.type === "error" && "message" in msg) {
+      // Seulement quand CETTE barre attend une réponse. Le moteur émet toutes ses
+      // erreurs sur un canal unique : sans ce filtre, la barre du direct affiche les
+      // erreurs de scène des autres panneaux. Vécu 2026-09-05 — « Monitor Capture
+      // existe déjà dans cette scène » trônait à côté du bouton Démarrer.
+      if (msg.type === "error" && "message" in msg && pendingRef.current) {
         setError(msg.message);
-        setPending(false);
+        askEngine(false);
       }
     });
     return () => {
@@ -84,14 +96,14 @@ export function LiveBar() {
 
   async function toggle() {
     setError(null);
-    setPending(true);
+    askEngine(true);
     try {
       await invoke(live ? "stop_stream" : "start_stream");
     } catch (cause: unknown) {
       // Le refus du contrôleur (moteur éteint) et celui du moteur (cible absente)
       // arrivent par deux chemins différents ; les deux doivent se lire au même endroit.
       setError(String(cause));
-      setPending(false);
+      askEngine(false);
     }
   }
 
