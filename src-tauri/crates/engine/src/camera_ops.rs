@@ -139,6 +139,10 @@ impl App {
                 emit(&EngineMessage::Sources { items: obs.sources.clone() });
             }
         }
+        // La scène ne porte plus cette caméra : le dire. Sans ça l'écran gardait la caméra
+        // dans la liste de la scène jusqu'au prochain changement — l'interface montrait une
+        // source que le moteur avait déjà retirée (trouvé le 2026-09-06).
+        self.emit_scene_list();
     }
 
     /// Les caméras posées dans `scene`, chacune sous son nom — triées, pour que la pile de

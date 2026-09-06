@@ -184,6 +184,17 @@ impl App {
 
     /// Removes a capture from ONE scene. Other scenes keep theirs.
     pub(crate) fn handle_remove_source(&mut self, scene: String, name: String) {
+        // Une caméra est une source ordinaire (Jay, 2026-09-06) : le « retirer » de la
+        // liste des sources doit marcher pour elle aussi. Elle ne vit pas dans
+        // `scene_sources` — un appareil partagé entre scènes est rangé à part — donc ce
+        // « retirer » la refusait, et le clic ne faisait rien du tout : le refus n'était
+        // affiché nulle part. La porte devient unique ; le geste derrière reste le bon
+        // (libérer l'appareil quand plus aucune scène ne le montre).
+        let device_id = self.camera_device_id_by_name(&scene, &name);
+        if !device_id.is_empty() {
+            self.handle_remove_camera(device_id, scene);
+            return;
+        }
         let Some(obs) = &mut self.obs else { return };
         let Some(list) = obs.scene_sources.get_mut(&scene) else {
             emit(&EngineMessage::Error {
