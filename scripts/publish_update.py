@@ -41,18 +41,21 @@ BUNDLE_DIR = SRC_TAURI / "target" / "release" / "bundle" / "nsis"
 PLATFORM_KEY = "windows-x86_64"
 
 
-def run(command: list[str], cwd: Path) -> None:
+def run(command: list[str], cwd: Path, env: dict[str, str] | None = None) -> None:
     """Run a build/upload step, stopping on failure.
 
     The executable is resolved through PATH first: on Windows `pnpm` is `pnpm.cmd`, and
     handing the bare name to the process API raises "cannot find the file specified" — an
     error that names neither the tool nor the reason.
+
+    `env` replaces the child's environment when given — used to build WITHOUT the signing
+    key, so the bundler never reaches for a console password prompt.
     """
     resolved = shutil.which(command[0])
     if resolved is None:
         raise SystemExit(f"{command[0]!r} not found in PATH — cannot continue")
     print(f"\n$ {' '.join(command)}", flush=True)
-    subprocess.run([resolved, *command[1:]], cwd=cwd, check=True)
+    subprocess.run([resolved, *command[1:]], cwd=cwd, check=True, env=env)
 
 
 def load_channel() -> dict[str, str]:
@@ -78,9 +81,27 @@ def app_version() -> str:
 
 
 def write_overlay(endpoint: str) -> None:
-    """The build-time config overlay carrying the private endpoint (never committed)."""
+    """The build-time config overlay carrying the private endpoint (never committed).
+
+    It also turns OFF `createUpdaterArtifacts` for this build. That flag is what makes the
+    bundler sign the installer itself — and to do that it asks for the key's password on
+    the CONSOLE, not on standard input. An unattended run then stops dead at a prompt
+    nobody can see, after building everything (three failed releases on 2026-09-06, the
+    first waiting ten hours). Signing moves to its own step in `build_signed`, where the
+    password is an argument and nothing can be asked.
+
+    The public key stays in the app: it is what the installed cockpit uses to verify the
+    NEXT update, and removing it would silently disarm that check.
+    """
     OVERLAY_PATH.write_text(
-        json.dumps({"plugins": {"updater": {"endpoints": [endpoint]}}}, indent=2) + "\n",
+        json.dumps(
+            {
+                "bundle": {"createUpdaterArtifacts": False},
+                "plugins": {"updater": {"endpoints": [endpoint]}},
+            },
+            indent=2,
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -96,6 +117,8 @@ def build_signed(version: str) -> tuple[Path, Path]:
     # (unlike `resources` and `externalBin` inside the config itself). Passing the path
     # relative to the repo root is what the CLI actually reads.
     overlay = OVERLAY_PATH.relative_to(REPO_ROOT).as_posix()
+    # The overlay disables the bundler's own signing (see `write_overlay`); the signature
+    # is produced below, by a command that takes the password as an argument.
     run(["pnpm", "tauri", "build", "--config", overlay], cwd=REPO_ROOT)
 
     # Matched on the VERSION being published, never "the only file present": the bundle
@@ -110,10 +133,23 @@ def build_signed(version: str) -> tuple[Path, Path]:
         )
     installer = installers[0]
     signature = installer.with_suffix(installer.suffix + ".sig")
+    # A signature left over from a previous run must never pass for this one: it would
+    # publish a manifest whose signature belongs to another file, and every client would
+    # reject the update with nothing explaining why.
+    signature.unlink(missing_ok=True)
+    key_path = os.environ["TAURI_SIGNING_PRIVATE_KEY"]
+    password = os.environ.get("TAURI_SIGNING_PRIVATE_KEY_PASSWORD", "")
+    # The signer reads the SAME variable as an inline key, and refuses a run that names the
+    # key twice ("--private-key-path cannot be used with --private-key"). So it gets the
+    # path as an argument and an environment without that variable — one source, not two.
+    signer_env = {k: v for k, v in os.environ.items() if k != "TAURI_SIGNING_PRIVATE_KEY"}
+    run(
+        ["pnpm", "tauri", "signer", "sign", "-f", key_path, "-p", password, str(installer)],
+        cwd=REPO_ROOT,
+        env=signer_env,
+    )
     if not signature.is_file():
-        raise SystemExit(
-            f"no signature next to {installer.name} — the build did not sign the update"
-        )
+        raise SystemExit(f"no signature next to {installer.name} — signing produced nothing")
     return installer, signature
 
 
