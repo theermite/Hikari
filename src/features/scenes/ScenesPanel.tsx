@@ -22,6 +22,7 @@ import {
 import type { AudioEngineMessage, AudioSourceInfo } from "../audio/types";
 import {
   addCameraSource,
+  listCameras,
   setBackgroundRemoval,
   setCircleMask,
 } from "../camera/api";
@@ -91,7 +92,17 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
    * déroulait tout son contenu en permanence et trois scènes remplissaient le panneau.
    * La scène EN DIRECT s'ouvre d'office — c'est celle qu'on regarde. */
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [targets, setTargets] = useState<CaptureTargets | null>(null);
+  /** Ce que le MOTEUR diffuse : les captures vivantes, sans les caméras (il les détecte
+   * par une commande à part). Garder ici sa forme exacte évite d'inventer un champ vide
+   * que rien ne remplit. */
+  const [targets, setTargets] = useState<Omit<
+    CaptureTargets,
+    "cameras"
+  > | null>(null);
+  /** Les caméras branchées, telles que la machine les rapporte. Elles arrivent par une
+   * commande à part (le moteur les DÉTECTE, il ne les diffuse pas avec les captures), d'où
+   * cet état distinct recomposé avec le reste juste avant l'affichage. */
+  const [cameras, setCameras] = useState<CaptureTarget[]>([]);
   const [targetsError, setTargetsError] = useState<string | null>(null);
   const [chosenFamily, setFamily] = useState<SourceKind>("game");
   const [search, setSearch] = useState("");
@@ -324,7 +335,36 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         "Le moteur n'est pas démarré — ouvre le panneau Aperçu, la liste apparaîtra toute seule.",
       ),
     );
+    // Redemandées à chaque ouverture, comme les captures : une webcam branchée entre-temps
+    // doit apparaître sans rien redémarrer. Un échec laisse simplement la famille vide —
+    // il est déjà dit par le message ci-dessus, qui a la même cause (moteur éteint).
+    listCameras()
+      .then((devices) =>
+        setCameras(
+          devices.map((device) => ({
+            id: device.device_id,
+            label: device.name,
+          })),
+        ),
+      )
+      .catch(() => setCameras([]));
   }, [addingTo]);
+
+  /** Les appareils que la scène en cours d'ajout montre DÉJÀ. */
+  const placedCameraIds = new Set(
+    (state.status === "ready" ? state.scenes : [])
+      .find((scene) => scene.name === addingTo)
+      ?.sources.filter((source) => source.source_kind === "camera")
+      .map((source) => source.target_id) ?? [],
+  );
+
+  /** Ce que la fenêtre d'ajout propose : les captures du moteur, plus les caméras que
+   * cette scène ne montre pas encore. Reproposer une caméra déjà posée n'ouvrirait rien de
+   * neuf, et provoquerait un refus qu'on peut simplement ne pas déclencher. */
+  const pickerTargets: CaptureTargets | null = targets && {
+    ...targets,
+    cameras: cameras.filter((camera) => !placedCameraIds.has(camera.id)),
+  };
 
   const addToScene = (
     scene: string,
@@ -333,6 +373,15 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   ) => {
     setActionError(null);
     setAddingTo(null);
+    // Une caméra est UN appareil physique partagé entre les scènes : `add_capture_source`
+    // l'ouvrirait une seconde fois. Le moteur a sa propre commande pour ça (ADR : un
+    // appareil = une source libobs), et le nom vient de l'appareil, jamais de nous.
+    if (kind === "camera") {
+      addCameraSource(target.id, scene).catch((error: unknown) =>
+        setActionError(String(error)),
+      );
+      return;
+    }
     // Le libellé lisible sert de nom dans la scène : c'est ce que l'utilisateur reconnaît,
     // et le moteur refuse un doublon.
     addCaptureSource(scene, kind, target.id, target.label).catch(
@@ -485,7 +534,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         layout={layout}
         chosenFamily={chosenFamily}
         chosenIsFile={chosenIsFile}
-        targets={targets}
+        targets={pickerTargets}
         targetsError={targetsError}
         search={search}
         searchInputRef={searchInput}

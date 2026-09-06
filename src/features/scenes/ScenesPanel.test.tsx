@@ -222,6 +222,105 @@ describe("ScenesPanel", () => {
     });
   });
 
+  // --- La caméra est une source ordinaire (Jay, 2026-09-06) ------------------------
+  //
+  // Elle s'ajoutait depuis un panneau à part : deux portes d'entrée pour un même geste.
+  // Ces tests fixent la porte unique.
+
+  it("should_proposer_les_cameras_de_la_machine_parmi_les_sources", async () => {
+    const user = userEvent.setup();
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === "list_cameras"
+        ? Promise.resolve([{ name: "Logitech StreamCam", device_id: "cam-1" }])
+        : Promise.resolve(undefined),
+    );
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([scene({ name: "main" })]);
+
+    await user.click(
+      screen.getByRole("button", { name: "+ Ajouter une source" }),
+    );
+    emit({ type: "capture_targets", games: [], windows: [], monitors: [] });
+    await user.click(screen.getByRole("button", { name: "Une caméra" }));
+
+    expect(
+      await within(screen.getByRole("dialog")).findByText(/Logitech StreamCam/),
+    ).toBeInTheDocument();
+  });
+
+  it("should_poser_la_camera_par_sa_propre_commande_jamais_comme_une_capture", async () => {
+    // Une caméra est UN appareil partagé entre les scènes : `add_capture_source`
+    // l'ouvrirait une seconde fois. Le moteur a sa commande pour ça.
+    const user = userEvent.setup();
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === "list_cameras"
+        ? Promise.resolve([{ name: "Logitech StreamCam", device_id: "cam-1" }])
+        : Promise.resolve(undefined),
+    );
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([scene({ name: "main" })]);
+
+    await user.click(
+      screen.getByRole("button", { name: "+ Ajouter une source" }),
+    );
+    emit({ type: "capture_targets", games: [], windows: [], monitors: [] });
+    await user.click(screen.getByRole("button", { name: "Une caméra" }));
+    await user.click(await screen.findByText(/Logitech StreamCam/));
+
+    expect(invokeMock).toHaveBeenCalledWith("add_camera_source", {
+      deviceId: "cam-1",
+      scene: "main",
+    });
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "add_capture_source",
+      expect.anything(),
+    );
+  });
+
+  it("should_ne_pas_reproposer_une_camera_deja_posee_dans_cette_scene", async () => {
+    // La rajouter n'ouvrirait rien de neuf, et le moteur la refuserait — un refus qu'on
+    // peut éviter de provoquer vaut mieux qu'un refus bien affiché.
+    const user = userEvent.setup();
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === "list_cameras"
+        ? Promise.resolve([{ name: "Logitech StreamCam", device_id: "cam-1" }])
+        : Promise.resolve(undefined),
+    );
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([
+      scene({
+        name: "main",
+        has_camera: true,
+        sources: [
+          {
+            name: "Logitech StreamCam",
+            kind: "dshow_input",
+            source_kind: "camera",
+            target_id: "cam-1",
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            background_removal: false,
+            circle_mask: false,
+          },
+        ],
+      }),
+    ]);
+
+    await user.click(
+      screen.getByRole("button", { name: "+ Ajouter une source" }),
+    );
+    emit({ type: "capture_targets", games: [], windows: [], monitors: [] });
+    await user.click(screen.getByRole("button", { name: "Une caméra" }));
+
+    expect(
+      within(screen.getByRole("dialog")).queryByRole("button", {
+        name: /Logitech StreamCam/,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   // Le refus du moteur appartient au bandeau du cockpit depuis le 2026-09-06
   // (`EngineErrorBanner`) : il arrive de façon asynchrone, souvent pendant qu'un autre
   // panneau est au premier plan. L'afficher ici EN PLUS le montrerait deux fois quand ce

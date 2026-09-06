@@ -11,26 +11,16 @@ import type { RefObject } from "react";
 import { Modal } from "../../components/Modal";
 import { KIND_TO_LIBOBS, SOURCE_ICON } from "./ScenesControls";
 import { labelFor, type SceneLayout } from "./sceneLayout";
-import { dedupeTargets, SOURCE_FAMILIES, searchAll } from "./sourcePicker";
+import {
+  type CaptureTargets,
+  dedupeTargets,
+  SOURCE_FAMILIES,
+  searchAll,
+  targetsFor,
+} from "./sourcePicker";
 import type { CaptureTarget, SourceKind } from "./types";
 
-export interface CaptureTargets {
-  games: CaptureTarget[];
-  windows: CaptureTarget[];
-  monitors: CaptureTarget[];
-}
-
-/** Ce que chaque famille vivante propose. Les familles de fichier n'ont pas de liste : on y
- * ouvre le sélecteur du système. */
-function targetsFor(
-  kind: SourceKind,
-  targets: CaptureTargets,
-): CaptureTarget[] {
-  if (kind === "game") return targets.games;
-  if (kind === "window") return targets.windows;
-  if (kind === "monitor") return targets.monitors;
-  return [];
-}
+export type { CaptureTargets };
 
 interface AddSourceModalProps {
   addingTo: string | null;
@@ -131,12 +121,7 @@ export function AddSourceModal({
                 // Dès qu'on tape, on cherche dans TOUTES les familles : quelqu'un qui
                 // tape un nom cherche CETTE chose, pas « cette chose parmi les jeux ».
                 const hits = search.trim()
-                  ? searchAll(
-                      targets.games,
-                      targets.windows,
-                      targets.monitors,
-                      search,
-                    )
+                  ? searchAll(targets, search)
                   : dedupeTargets(targetsFor(chosenFamily, targets)).map(
                       (target) => ({ kind: chosenFamily, target }),
                     );

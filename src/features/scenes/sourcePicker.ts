@@ -36,6 +36,16 @@ export const SOURCE_FAMILIES: SourceFamily[] = [
     isFile: false,
   },
   {
+    // Une caméra est une source ordinaire depuis le 2026-09-06 (Jay). Avant, elle
+    // s'ajoutait depuis un panneau à part : deux portes d'entrée pour un même geste, et
+    // les réglages d'une caméra posée devenaient inatteignables dès que ce panneau
+    // perdait le fil.
+    kind: "camera",
+    label: "Une caméra",
+    hint: "Une webcam branchée sur cette machine.",
+    isFile: false,
+  },
+  {
     kind: "image",
     label: "Une image",
     hint: "Logo, habillage, écran d'attente.",
@@ -48,6 +58,30 @@ export const SOURCE_FAMILIES: SourceFamily[] = [
     isFile: true,
   },
 ];
+
+/** Tout ce qu'une scène peut recevoir, tel que la machine le rapporte à cet instant.
+ *
+ * Vit ici plutôt que dans la fenêtre d'ajout : c'est une donnée, pas un morceau
+ * d'affichage, et les fonctions pures ci-dessous la lisent sans toucher au DOM. */
+export interface CaptureTargets {
+  games: CaptureTarget[];
+  windows: CaptureTarget[];
+  monitors: CaptureTarget[];
+  cameras: CaptureTarget[];
+}
+
+/** Ce que chaque famille vivante propose. Les familles de fichier n'ont pas de liste : on
+ * y ouvre le sélecteur du système. */
+export function targetsFor(
+  kind: SourceKind,
+  targets: CaptureTargets,
+): CaptureTarget[] {
+  if (kind === "game") return targets.games;
+  if (kind === "window") return targets.windows;
+  if (kind === "monitor") return targets.monitors;
+  if (kind === "camera") return targets.cameras;
+  return [];
+}
 
 /** Les extensions proposées par le sélecteur de fichiers, par famille. */
 export const FILE_FILTERS: Record<string, string[]> = {
@@ -113,16 +147,12 @@ export interface SearchHit {
  * famille ouverte donnait une liste vide sans rien expliquer — Jay cherchait une fenêtre
  * depuis l'onglet « Un jeu ».
  */
-export function searchAll(
-  games: CaptureTarget[],
-  windows: CaptureTarget[],
-  monitors: CaptureTarget[],
-  query: string,
-): SearchHit[] {
+export function searchAll(targets: CaptureTargets, query: string): SearchHit[] {
   const families: [SourceKind, CaptureTarget[]][] = [
-    ["game", games],
-    ["window", windows],
-    ["monitor", monitors],
+    ["game", targets.games],
+    ["window", targets.windows],
+    ["monitor", targets.monitors],
+    ["camera", targets.cameras],
   ];
   const seen = new Set<string>();
   return families.flatMap(([kind, list]) =>

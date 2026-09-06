@@ -7,6 +7,7 @@ import {
   nameFromPath,
   SOURCE_FAMILIES,
   searchAll,
+  targetsFor,
 } from "./sourcePicker";
 
 const target = (label: string) => ({ id: "x", label });
@@ -70,35 +71,50 @@ describe("searchAll", () => {
     { id: "g1", label: "League of Legends" },
   ];
   const monitors = [{ id: "m1", label: "Écran 1" }];
+  const cameras = [{ id: "cam1", label: "Logitech StreamCam" }];
 
   it("should_find_a_window_even_when_the_game_family_is_the_open_one", () => {
     // Le defaut vecu le 2026-08-05 : chercher une fenêtre depuis l'onglet « Un jeu »
     // renvoyait une liste vide, sans rien expliquer.
-    const hits = searchAll(games, windows, monitors, "bloc");
+    const hits = searchAll({ games, windows, monitors, cameras }, "bloc");
 
     expect(hits).toEqual([{ kind: "window", target: windows[0] }]);
   });
 
   it("should_find_across_every_family_at_once", () => {
-    expect(searchAll(games, windows, monitors, "e").length).toBeGreaterThan(1);
+    expect(
+      searchAll({ games, windows, monitors, cameras }, "e").length,
+    ).toBeGreaterThan(1);
   });
 
   it("should_show_a_target_present_in_two_families_only_once", () => {
     // Une même fenêtre apparaît souvent dans « jeux » ET dans « fenêtres ». La montrer
     // deux fois ferait douter du résultat.
-    const hits = searchAll(games, windows, monitors, "league");
+    const hits = searchAll({ games, windows, monitors, cameras }, "league");
 
     expect(hits).toHaveLength(1);
     expect(hits[0].kind).toBe("game");
   });
 
   it("should_return_nothing_when_no_target_matches", () => {
-    expect(searchAll(games, windows, monitors, "zzzz")).toEqual([]);
+    expect(searchAll({ games, windows, monitors, cameras }, "zzzz")).toEqual(
+      [],
+    );
+  });
+
+  it("should_find_a_camera_like_any_other_source", () => {
+    // Une caméra est une source comme les autres depuis le 2026-09-06 : elle se cherche
+    // au même endroit, pas dans un panneau à part (Jay).
+    const hits = searchAll({ games, windows, monitors, cameras }, "streamcam");
+
+    expect(hits).toEqual([{ kind: "camera", target: cameras[0] }]);
   });
 
   it("should_return_everything_when_the_search_is_empty", () => {
-    // 4 cibles, dont un doublon d'identifiant retiré.
-    expect(searchAll(games, windows, monitors, "")).toHaveLength(3);
+    // 5 cibles, dont un doublon d'identifiant retiré.
+    expect(searchAll({ games, windows, monitors, cameras }, "")).toHaveLength(
+      4,
+    );
   });
 });
 
@@ -114,17 +130,18 @@ describe("recherche sur les libellés RÉELS de la machine de Jay (2026-08-05)",
   ];
   const games = [{ id: "g1", label: "Ankama Launcher" }];
   const monitors = [{ id: "m1", label: "Écran 1" }];
+  const cameras: { id: string; label: string }[] = [];
 
   for (const typed of ["MNK", "Termin", "MNK T", "mnk terminal"]) {
     it(`should_find_MNK_Terminal_when_typing_${typed.replace(/\s/g, "_")}`, () => {
-      const hits = searchAll(games, windows, monitors, typed);
+      const hits = searchAll({ games, windows, monitors, cameras }, typed);
 
       expect(hits.map((h) => h.target.label)).toContain("MNK Terminal");
     });
   }
 
   it("should_find_Spotify_when_typing_Spoti", () => {
-    const hits = searchAll(games, windows, monitors, "Spoti");
+    const hits = searchAll({ games, windows, monitors, cameras }, "Spoti");
 
     expect(hits.map((h) => h.target.label)).toContain("Spotify Widget");
   });
@@ -132,9 +149,13 @@ describe("recherche sur les libellés RÉELS de la machine de Jay (2026-08-05)",
   it("should_survive_a_label_carrying_invisible_characters", () => {
     // « ‎Angelique » commence par une marque de direction invisible. Une recherche qui
     // planterait dessus ferait échouer TOUTE la liste, pas seulement cette ligne.
-    expect(() => searchAll(games, windows, monitors, "angel")).not.toThrow();
+    expect(() =>
+      searchAll({ games, windows, monitors, cameras }, "angel"),
+    ).not.toThrow();
     expect(
-      searchAll(games, windows, monitors, "mejias").map((h) => h.target.label),
+      searchAll({ games, windows, monitors, cameras }, "mejias").map(
+        (h) => h.target.label,
+      ),
     ).toHaveLength(1);
   });
 });
@@ -218,5 +239,44 @@ describe("SOURCE_FAMILIES", () => {
     for (const family of SOURCE_FAMILIES.filter((f) => f.isFile)) {
       expect(FILE_FILTERS[family.kind]?.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("SOURCE_FAMILIES", () => {
+  it("should_offer_the_camera_next_to_the_other_families", () => {
+    // Décision de Jay, 2026-09-06 : « la caméra doit devenir une source ordinaire ».
+    // Une seule porte d'entrée pour tout ce qu'une scène peut montrer.
+    expect(SOURCE_FAMILIES.map((f) => f.kind)).toContain("camera");
+  });
+
+  it("should_choose_a_camera_in_a_list_never_on_the_disk", () => {
+    const camera = SOURCE_FAMILIES.find((f) => f.kind === "camera");
+
+    expect(camera?.isFile).toBe(false);
+  });
+});
+
+describe("targetsFor", () => {
+  const targets = {
+    games: [{ id: "g1", label: "Un jeu" }],
+    windows: [{ id: "w1", label: "Une fenêtre" }],
+    monitors: [{ id: "m1", label: "Un écran" }],
+    cameras: [{ id: "cam1", label: "Logitech StreamCam" }],
+  };
+
+  it("should_serve_the_cameras_when_the_camera_family_is_open", () => {
+    expect(targetsFor("camera", targets)).toEqual(targets.cameras);
+  });
+
+  it("should_serve_each_live_family_its_own_targets", () => {
+    expect(targetsFor("game", targets)).toEqual(targets.games);
+    expect(targetsFor("window", targets)).toEqual(targets.windows);
+    expect(targetsFor("monitor", targets)).toEqual(targets.monitors);
+  });
+
+  it("should_serve_nothing_for_a_family_chosen_on_the_disk", () => {
+    // Une image ou une vidéo n'a pas de liste : le sélecteur du système prend le relais.
+    expect(targetsFor("image", targets)).toEqual([]);
+    expect(targetsFor("video", targets)).toEqual([]);
   });
 });

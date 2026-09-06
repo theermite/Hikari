@@ -23,6 +23,7 @@ export const KIND_TO_LIBOBS: Record<string, string> = {
   game: "game_capture",
   window: "window_capture",
   monitor: "monitor_capture",
+  camera: "dshow_input",
 };
 
 /** Une flèche d'empilement, plus discrète que les boutons de scène pour ne pas confondre
