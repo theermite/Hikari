@@ -260,25 +260,34 @@ ont été arbitrées en le faisant, et la trace de l'arbitrage vaut autant que l
 | # | Sujet | Brique |
 |---|---|---|
 | 1 | Aligner l'application sur la maquette | B-ui socle (reste) |
-| 2 | Le moteur se ferme avec la fenêtre | dette |
-| 3 | Automations — l'écran pour les composer | B-auto (interface) |
-| 4 | Scènes — transitions, mouvements automatiques | B7 (reste) |
-| 5 | Sources — texte, page web, poignées visibles | B-sources (reste) |
-| 6 | Filtres de sources | **brique neuve, à définir** |
-| 7 | Chat — messages, modération, alertes, bandeaux, objectifs | B10 |
-| 8 | Deck mobile | B5 |
-| 9 | Audio — atténuation automatique, formes d'onde | B6 (reste) |
-| 10 | Caméra mobile | B-cam (reste) |
-| 11 | Vertical | B3 vertical |
-| 12 | Édition | B11 |
-| 13 | Publication | B12 |
-| 14 | Suivi | B-stats |
-| 15 | Accueil — tableau de bord | B-dash |
-| 16 | Paramètres | B-settings |
-| 17 | Assistant d'accueil | B9 (reste) |
-| 18 | Marque | B8 |
-| 19 | Avatar | B13/B14 |
+| 2 | **Réglages d'encodage automatiques** — mesurer la machine et la connexion, proposer une définition, une cadence et un débit qui tiennent | **brique neuve** (élargit B9 « réglage sûr ») |
+| 3 | **La caméra qui décroche se relève** — détecter une source qui ne délivre plus, la relancer | **brique neuve** |
+| 4 | Le moteur se ferme avec la fenêtre | dette |
+| 5 | Automations — l'écran pour les composer | B-auto (interface) |
+| 6 | Scènes — transitions, mouvements automatiques | B7 (reste) |
+| 7 | Sources — texte, page web, poignées visibles | B-sources (reste) |
+| 8 | Filtres de sources | **brique neuve, à définir** |
+| 9 | Chat — messages, modération, alertes, bandeaux, objectifs | B10 |
+| 10 | Deck mobile | B5 |
+| 11 | Audio — atténuation automatique, formes d'onde | B6 (reste) |
+| 12 | Caméra mobile | B-cam (reste) |
+| 13 | Vertical | B3 vertical |
+| 14 | Édition | B11 |
+| 15 | Publication | B12 |
+| 16 | Suivi | B-stats |
+| 17 | Accueil — tableau de bord | B-dash |
+| 18 | Paramètres | B-settings |
+| 19 | Assistant d'accueil | B9 (reste) |
+| 20 | Marque | B8 |
+| 21 | Avatar | B13/B14 |
 | 20 | Confort — morphique, palette de commandes, accessibilité | B15 |
+
+**Ajoutés le 2026-09-07, après le premier direct long** : Jay a diffusé **1 h 51** avec
+Hikari, avec environ 2 % d'images perdues et une caméra figée en cours de route. Sa
+conclusion : « maintenant que je sais que ça fonctionne, je streamerai qu'avec ». À partir
+de là, la FIABILITÉ passe devant les fonctions — d'où ces deux briques placées juste après
+la maquette. Mesure du jour : le débit est écrit en dur à 6000, et la définition comme la
+cadence sont les valeurs par défaut du moteur. Aucun des trois ne vient de sa machine.
 
 **Les deux arbitrages** :
 - *Assistant d'accueil APRÈS Paramètres* — l'assistant règle des choses qui doivent
