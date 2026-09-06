@@ -41,6 +41,7 @@ import {
   switchScene,
 } from "./api";
 import { SceneRow } from "./SceneRow";
+import { SceneCollections, SceneTransition } from "./SceneSkeleton";
 import {
   EMPTY_LAYOUT,
   labelFor,
@@ -509,6 +510,11 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         </p>
       )}
 
+      {/* Les collections coiffent la liste, comme dans la maquette. Elles n'apparaissent
+      qu'une fois le moteur entendu : annoncer un groupement au-dessus de rien ferait un
+      panneau qui parle de ce qu'il n'a pas. */}
+      {state.status === "ready" && <SceneCollections />}
+
       {state.status === "ready" && (
         <ul className="flex flex-col gap-1">
           {ordered.map((scene, index) => {
@@ -557,6 +563,8 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
           })}
         </ul>
       )}
+
+      {state.status === "ready" && <SceneTransition />}
 
       <AddSourceModal
         addingTo={addingTo}

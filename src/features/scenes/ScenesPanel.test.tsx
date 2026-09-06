@@ -572,6 +572,49 @@ describe("ScenesPanel", () => {
     ).toHaveAttribute("aria-pressed", "false");
   });
 
+  // --- Ce que la maquette dessine et qui n'est pas encore branché ---------------------
+  //
+  // Décision de Jay du 2026-09-05 : dessiner le squelette complet et le marquer « à
+  // venir ». On sait ce qui arrive, on voit à quoi ça ressemblera, et le squelette tient
+  // au lieu d'être rapiécé brique après brique.
+
+  it("should_dessiner_la_ligne_de_transition_de_la_maquette", () => {
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([scene({ name: "main" })]);
+
+    expect(screen.getByText(/Transition/)).toBeInTheDocument();
+  });
+
+  it("should_marquer_la_transition_comme_pas_encore_branchee", () => {
+    // Les transitions sont la brique qui suit les automations dans l'ordre de Jay. Un
+    // sélecteur qui FAIT SEMBLANT de marcher tromperait.
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([scene({ name: "main" })]);
+
+    expect(
+      screen.getByText(/Transition/).closest('[aria-disabled="true"]'),
+    ).not.toBeNull();
+  });
+
+  it("should_dessiner_les_collections_de_scenes", () => {
+    // La maquette groupe les scènes par collection (LoL, Interview, Pause). Rien ne les
+    // porte encore côté moteur.
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([scene({ name: "main" })]);
+
+    const collections = screen.getByLabelText(/Collections de scènes/);
+
+    expect(collections.closest('[aria-disabled="true"]')).not.toBeNull();
+  });
+
+  it("should_ne_rien_dessiner_de_tout_ca_tant_que_le_moteur_se_tait", () => {
+    // Un squelette annoncé au-dessus d'une liste vide, avant même de savoir s'il y a des
+    // scènes, ferait un panneau qui parle de ce qu'il n'a pas.
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+
+    expect(screen.queryByText(/Transition/)).not.toBeInTheDocument();
+  });
+
   // Le refus du moteur appartient au bandeau du cockpit depuis le 2026-09-06
   // (`EngineErrorBanner`) : il arrive de façon asynchrone, souvent pendant qu'un autre
   // panneau est au premier plan. L'afficher ici EN PLUS le montrerait deux fois quand ce

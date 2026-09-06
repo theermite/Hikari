@@ -11,7 +11,7 @@
 import type { IDockviewPanelHeaderProps } from "dockview-react";
 import type { ReactNode } from "react";
 import { Badge } from "../../components/ui/Badge";
-import { ComingSoonTag } from "../../components/ui/ComingSoon";
+import { ComingSoon, ComingSoonTag } from "../../components/ui/ComingSoon";
 import { IconButton } from "../../components/ui/IconButton";
 import { requestAdd } from "./panelActions";
 
@@ -52,6 +52,32 @@ export function PanelTab({ api }: IDockviewPanelHeaderProps) {
           +
         </IconButton>
       ) : null}
+      {/* Les outils de la carte, tels que la maquette les dessine : déplacer le panneau,
+      le détacher sur un autre écran. Dessinés et MARQUÉS, jamais cachés — le
+      glisser-déposer est cassé dans ce moteur d'affichage et le détachement attend son
+      étude. Un bouton absent laisserait croire à un oubli. */}
+      <span className="ml-auto flex items-center">
+        <ComingSoon what="déplacer ce panneau dans le cockpit">
+          <button
+            type="button"
+            disabled
+            aria-label="Déplacer le panneau"
+            className="px-1 text-[11px] text-hikari-txt-faint"
+          >
+            ⠿
+          </button>
+        </ComingSoon>
+        <ComingSoon what="détacher ce panneau sur un autre écran">
+          <button
+            type="button"
+            disabled
+            aria-label="Détacher sur un autre écran"
+            className="px-1 text-[11px] text-hikari-txt-faint"
+          >
+            ⧉
+          </button>
+        </ComingSoon>
+      </span>
     </div>
   );
 }
