@@ -262,7 +262,10 @@ export function Cockpit() {
   return (
     // La barre de titre coiffe TOUT, barre latérale comprise : c'est la ligne qui remplace
     // celle de Windows, et elle borde la fenêtre entière (Jay, 2026-09-06).
-    <div className="flex h-screen flex-col bg-hikari-bg font-hikari text-hikari-txt">
+    // `bg-hikari-canvas` et non `bg-hikari-bg` : la maquette pose un fond de FENÊTRE plus
+    // sombre que les panneaux, sous tout le reste. C'est lui qui fait lire les cartes
+    // comme des îlots posés au lieu d'un damier (relu dans la maquette le 2026-09-07).
+    <div className="flex h-screen flex-col bg-hikari-canvas font-hikari text-hikari-txt">
       <TitleBar />
       <div className="flex min-h-0 flex-1">
         <Sidebar onOpenPanel={openPanel} />

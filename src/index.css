@@ -3,10 +3,20 @@
 /* Charte graphique Hikari (光 — lumière d'aube), reprise EXACTEMENT de la maquette
  * validée (docs/Mockup-Hikari-Stream.html) — jamais réinventée, jamais approximée. */
 @theme {
+  /* Le fond de la FENÊTRE, sous tout le reste. Plus sombre que les panneaux : c'est ce
+   * qui fait lire les cartes comme des îlots posés, et non comme un damier. La maquette le
+   * pose sur `html` en fin de fichier. */
+  --color-hikari-canvas: #090c11;
   --color-hikari-bg: #0d1117; /* ardoise très sombre */
   --color-hikari-bg-2: #151b23; /* panneaux */
   --color-hikari-bg-3: #1c232d; /* cartes / surfaces élevées */
-  --color-hikari-line: #2a333f; /* bordures fines */
+  /* Filet fin TRANSLUCIDE, pas l'ardoise franche. La maquette redéfinit cette valeur plus
+   * bas dans son fichier, avec le commentaire « au lieu de l'ardoise franche » — nous
+   * avions gardé la première (relu le 2026-09-07). Un filet translucide prend la teinte de
+   * ce qu'il borde : la même carte se détache sur le fond sombre sans cerner ses contenus. */
+  --color-hikari-line: rgba(255, 255, 255, 0.08);
+  /* Séparateur secondaire, presque effacé — pour ce qui divise SANS délimiter. */
+  --color-hikari-line-soft: rgba(255, 255, 255, 0.045);
   --color-hikari-txt: #e6edf3; /* texte principal */
   --color-hikari-txt-dim: #9aa7b4; /* texte secondaire */
   --color-hikari-txt-faint: #5c6672; /* labels faibles */
@@ -17,8 +27,11 @@
   --color-hikari-live: #ff4d4f; /* pastille live */
   --font-hikari:
     "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --radius-hikari: 10px;
-  --radius-hikari-s: 7px;
+  /* La maquette relève ses deux rayons en fin de fichier (12 et 8) — mêmes valeurs
+   * redéfinies que le filet, même oubli de notre côté. Des angles plus francs font des
+   * cartes, des angles plus doux font des îlots. */
+  --radius-hikari: 12px;
+  --radius-hikari-s: 8px;
 }
 
 /* Costume du cockpit — les panneaux deviennent des CARTES posées sur un fond, comme dans
@@ -33,7 +46,7 @@
   /* Le FOND se voit entre les cartes, et c'est cette différence de teinte qui les détache
    * (Jay, 2026-09-05 : « on a de l'espace ET une différence de couleur entre le fond et
    * chaque bloc »). Le fond est le plus sombre de la charte, les cartes montent d'un cran. */
-  --dv-background-color: var(--color-hikari-bg);
+  --dv-background-color: var(--color-hikari-canvas);
   --dv-group-view-background-color: var(--color-hikari-bg-3);
   --dv-tabs-and-actions-container-background-color: var(--color-hikari-bg-3);
   --dv-activegroup-visiblepanel-tab-background-color: var(--color-hikari-bg-2);
@@ -68,7 +81,7 @@
  * modules »). Le conteneur reprend le fond de la page ; seules les cartes sont élevées. */
 .dockview-theme-dark,
 .dockview-theme-dark .dv-dockview {
-  background-color: var(--color-hikari-bg);
+  background-color: var(--color-hikari-canvas);
 }
 
 .dockview-theme-dark .dv-groupview {

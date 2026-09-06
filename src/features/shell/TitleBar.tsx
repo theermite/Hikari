@@ -21,7 +21,7 @@ export function TitleBar() {
   // affichage hors de ce système — le rendu des tests, et le premier instant avant que le
   // système ne réponde.
   return (
-    <div className="flex h-8 flex-shrink-0 items-stretch bg-hikari-bg">
+    <div className="flex h-8 flex-shrink-0 items-stretch bg-hikari-canvas">
       {/* Toute la zone vide déplace la fenêtre : c'est le seul geste que la barre système
       rendait et que rien d'autre ne remplace. */}
       {/* Nue, volontairement : la barre latérale porte déjà le nom et la devise, juste
