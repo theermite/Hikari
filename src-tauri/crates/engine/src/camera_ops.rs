@@ -203,14 +203,30 @@ impl App {
     /// inventer un identifiant qui ne désignerait rien.
     pub(crate) fn camera_device_id_by_name(&self, scene: &str, name: &str) -> String {
         let Some(obs) = self.obs.as_ref() else { return String::new() };
-        obs.camera_items
+        let trouve = obs
+            .camera_items
             .keys()
             .filter(|(shown_in, _)| shown_in == scene)
             .find(|(_, device_id)| {
                 obs.cameras.get(device_id).is_some_and(|opened| opened.name == name)
             })
-            .map(|(_, device_id)| device_id.clone())
-            .unwrap_or_default()
+            .map(|(_, device_id)| device_id.clone());
+        // Silencieux quand ça marche, bavard quand ça rate. Un refus de retrait resté
+        // inexpliqué le 2026-09-06 : il ne se reproduisait plus une heure après, et sans
+        // cette trace la prochaine fois serait aussi muette que la première.
+        if trouve.is_none() {
+            eprintln!(
+                "[engine] CAMERA INTROUVABLE scene={scene:?} nom={name:?} posees={:?}",
+                obs.camera_items
+                    .keys()
+                    .map(|(shown_in, device_id)| (
+                        shown_in,
+                        obs.cameras.get(device_id).map(|opened| &opened.name)
+                    ))
+                    .collect::<Vec<_>>()
+            );
+        }
+        trouve.unwrap_or_default()
     }
 
     /// Ferme les appareils que plus aucune scène ne montre.

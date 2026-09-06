@@ -9,5 +9,6 @@
 
 pub mod oauth;
 pub mod twitch;
+pub mod twitch_stream;
 pub mod vault;
 pub mod youtube;

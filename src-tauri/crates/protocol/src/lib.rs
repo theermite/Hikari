@@ -19,6 +19,7 @@
 //! re-exports below — no caller had to change.
 
 pub mod audio;
+pub mod broadcast;
 pub mod engine_log;
 pub mod geometry;
 pub mod platform;
@@ -27,6 +28,7 @@ pub mod sources;
 pub mod wire;
 
 pub use audio::*;
+pub use broadcast::*;
 pub use engine_log::*;
 pub use geometry::*;
 pub use platform::*;

@@ -19,6 +19,9 @@ use std::sync::Mutex;
 use hikari_protocol::{ControllerCommand, EngineMessage, parse_engine_message, to_line};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::accounts::twitch::TWITCH_CLIENT_ID;
+use crate::accounts::vault::{self, Platform, Secret};
+use crate::accounts::twitch_stream;
 use crate::engine_bridge::engine_command;
 use crate::preview_bridge::{graft_preview_window, hide_preview_window, position_preview_window};
 
@@ -61,7 +64,16 @@ pub struct EngineState(Mutex<EngineRuntime>);
 /// grafts the preview into the Aperçu panel's last-known rect as soon as `PreviewReady`
 /// arrives.
 #[tauri::command]
-pub(crate) fn start_engine(app: AppHandle, state: State<EngineState>) -> Result<(), String> {
+pub(crate) async fn start_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<(), String> {
+    // La destination est résolue AVANT de prendre le verrou : elle passe par le réseau, et
+    // tenir un verrou pendant une attente réseau bloquerait tout le reste du cockpit.
+    //
+    // Elle est posée dans l'environnement du moteur, jamais envoyée en message : une clé de
+    // diffusion est un secret, et le fil de messages est lisible par tout ce qui l'écoute.
+    // Son absence n'est pas une panne — Hikari s'ouvre très bien sans compte connecté. Elle
+    // devient un refus au moment de DIFFUSER, avec ses mots (voir `broadcast::resolve_target`).
+    let target = resolve_broadcast_target().await;
+
     let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
     if guard.handle.is_some() {
         return Ok(());
@@ -70,8 +82,11 @@ pub(crate) fn start_engine(app: AppHandle, state: State<EngineState>) -> Result<
     // `engine_command` and not a bare `Command`: it carries the no-console-window flag on
     // Windows. Spawning the engine directly here would show a black terminal beside the
     // cockpit — the exact defect Jay reported on 2026-09-04.
-    let mut child = engine_command()
-        .map_err(|err| err.to_string())?
+    let mut command = engine_command().map_err(|err| err.to_string())?;
+    if let Some((server, key)) = &target {
+        command.env("HIKARI_RTMP_SERVER", server).env("HIKARI_RTMP_KEY", key.expose());
+    }
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -538,4 +553,32 @@ fn graft_into_panel_rect(app: &AppHandle, engine_hwnd: i64) {
         return;
     }
     guard.preview_hwnd = Some(engine_hwnd);
+}
+
+/// La destination de diffusion du compte connecté, s'il y en a un.
+///
+/// Rend `None` sans bruit quand aucun compte n'est connecté : ouvrir Hikari sans compte est
+/// un usage normal. Un échec de lecture, lui, est TRACÉ — sinon une clé illisible
+/// ressemblerait à une absence de compte, et Jay chercherait au mauvais endroit.
+async fn resolve_broadcast_target() -> Option<(String, Secret)> {
+    let token = match vault::load(Platform::Twitch) {
+        Ok(Some(token)) => token,
+        Ok(None) => return None,
+        Err(err) => {
+            eprintln!("[twitch] coffre illisible ({err}) — diffusion sans destination");
+            return None;
+        }
+    };
+    if vault::is_expired(&token, vault::now_unix()) {
+        eprintln!("[twitch] jeton expiré — reconnecte le compte dans Paramètres");
+        return None;
+    }
+    let http = reqwest::Client::new();
+    match twitch_stream::fetch_target(&http, TWITCH_CLIENT_ID, &token.access_token).await {
+        Ok(target) => Some(target),
+        Err(err) => {
+            eprintln!("[twitch] destination illisible ({err})");
+            None
+        }
+    }
 }
