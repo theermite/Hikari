@@ -128,6 +128,11 @@ struct ObsInner {
     /// rather than approximate because nothing but this engine moves these sources — every
     /// writer clears it through `scene_layout_changed`.
     item_rects: Option<Vec<ItemRect>>,
+    /// La carte du dernier geste quand elle était INCOMPLÈTE — une source venait d'être
+    /// posée et ne produisait pas encore d'image, donc elle mesurait 0×0. Elle sert à ce
+    /// geste-ci et sera remesurée au suivant : la retenir dans `item_rects` rendrait cette
+    /// source inattrapable jusqu'à ce qu'un autre geste vide le cache (Jay, 2026-09-06).
+    pending_item_rects: Vec<ItemRect>,
     /// The mixer (B6) — audio sources in insertion order, so a source keeps its channel and
     /// its place in the panel for its whole life.
     audio: Vec<MixerSource>,

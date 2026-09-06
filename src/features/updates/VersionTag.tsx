@@ -36,6 +36,14 @@ export function VersionTag() {
       }
     >
       <span className="tabular-nums">v{__APP_VERSION__}</span>
+      {/* Ce numéro est le contrat avec le canal de mise à jour : le bousculer à chaque
+      compilation annoncerait des versions jamais publiées. Ce qui manque à l'utilisateur
+      n'est pas un autre numéro, c'est de savoir QUELLE construction il regarde — deux
+      fenêtres identiques affichaient « v0.4.0 », l'une installée, l'autre compilée à
+      l'instant (Jay, 2026-09-06). */}
+      {import.meta.env.DEV && (
+        <span className="text-hikari-accent">· développement</span>
+      )}
       {label && (
         <span
           className={status === "available" ? "text-hikari-accent" : undefined}

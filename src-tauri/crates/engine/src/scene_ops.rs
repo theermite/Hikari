@@ -82,6 +82,34 @@ impl App {
         }
     }
 
+    /// Ce que les scènes CONTIENNENT, sous une forme comparable — jamais ce qu'elles
+    /// montrent (position, échelle, filtres), qui change à chaque pixel déplacé.
+    ///
+    /// Sert de filet dans la boucle d'événements : si une commande a changé la composition
+    /// sans l'annoncer, la comparaison avant/après le voit et l'annonce à sa place. Lit
+    /// l'état du moteur, jamais libobs — appelée à chaque commande, elle doit rester
+    /// gratuite.
+    pub(crate) fn scene_contents_fingerprint(&self) -> Vec<String> {
+        let Some(obs) = self.obs.as_ref() else { return Vec::new() };
+        let mut marks: Vec<String> = Vec::new();
+        for (scene, list) in &obs.scene_sources {
+            for source in list {
+                marks.push(format!("s|{scene}|{}", source.name));
+            }
+        }
+        for (scene, device_id) in obs.camera_items.keys() {
+            marks.push(format!("c|{scene}|{device_id}"));
+        }
+        for (scene, name) in &obs.locked {
+            marks.push(format!("v|{scene}|{name}"));
+        }
+        // Une table de hachage ne rend pas ses clés dans le même ordre d'un appel à
+        // l'autre : sans ce tri, deux états IDENTIQUES se compareraient différents et le
+        // filet annoncerait à chaque commande.
+        marks.sort();
+        marks
+    }
+
     /// Emits the real scene list + active scene straight from libobs (never a shadowed
     /// count) — shared tail of every command that can change what the scenes hold.
     ///

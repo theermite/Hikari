@@ -62,3 +62,27 @@ export function restoreLayout(
 ): void {
   api.fromJSON(layout);
 }
+
+/** Les panneaux qui composent le cockpit, avec leur titre. Une seule liste : la disposition
+ * par défaut les pose, et la barre latérale les rend quand ils ont été fermés. */
+export const COCKPIT_PANELS: { id: string; title: string }[] = [
+  { id: "scenes", title: "Scènes" },
+  { id: "preview", title: "Aperçu" },
+  { id: "chat", title: "Chat" },
+  { id: "audio", title: "Audio" },
+  { id: "deck", title: "Deck" },
+  { id: "preflight", title: "Pré-vol" },
+];
+
+/** Ceux du cockpit qui MANQUENT parmi `present`.
+ *
+ * POURQUOI cette fonction existe (Jay, 2026-09-06) : il a fermé l'onglet Aperçu et n'a plus
+ * eu aucun moyen de le rouvrir — la barre latérale n'y menait pas, et le glisser-déposer
+ * des panneaux est cassé dans ce moteur d'affichage. Un panneau fermé était donc perdu
+ * jusqu'à la remise à zéro de la disposition. Pire pour l'Aperçu : c'est lui qui démarre le
+ * moteur, donc le fermer éteignait tout le reste sans le dire. */
+export function missingCockpitPanels(
+  present: string[],
+): { id: string; title: string }[] {
+  return COCKPIT_PANELS.filter((panel) => !present.includes(panel.id));
+}

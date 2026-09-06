@@ -62,6 +62,7 @@ impl App {
             }
         }
 
+        let wanted = items.len();
         let mut measured: Vec<(i32, ItemRect)> = items
             .into_iter()
             .filter_map(|(name, item)| {
@@ -91,8 +92,21 @@ impl App {
         // le plus en avant vient en premier.
         measured.sort_by_key(|(order, _)| std::cmp::Reverse(*order));
 
-        obs.item_rects = Some(measured.into_iter().map(|(_, rect)| rect).collect());
-        obs.item_rects.as_deref().unwrap_or(&[])
+        let rects: Vec<ItemRect> = measured.into_iter().map(|(_, rect)| rect).collect();
+        // Une source vient d'être posée et n'a pas encore produit d'image : elle mesure
+        // 0×0, donc elle est tombée du calcul ci-dessus. Retenir cette carte incomplète la
+        // rendrait inattrapable jusqu'à ce qu'un AUTRE geste vide le cache — vécu par Jay
+        // le 2026-09-06 : il devait d'abord déplacer la caméra de derrière pour pouvoir
+        // saisir celle qu'il venait d'ajouter.
+        //
+        // Une carte incomplète est donc utilisée pour ce clic-ci et jetée aussitôt. Le
+        // prochain geste remesure, et la source répond dès sa première image.
+        if rects.len() == wanted {
+            obs.item_rects = Some(rects);
+            return obs.item_rects.as_deref().unwrap_or(&[]);
+        }
+        obs.pending_item_rects = rects;
+        &obs.pending_item_rects
     }
 
     /// The scene item behind a name, in the active scene.

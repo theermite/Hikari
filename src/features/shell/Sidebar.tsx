@@ -22,7 +22,15 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Diffuser",
     items: [
       { label: "Pré-vol", built: true, panelId: "preflight", icon: "prevol" },
-      { label: "Cockpit Live", built: true, icon: "cockpit" },
+      // Ramène les panneaux du cockpit qui ont été fermés. Sans cette entrée, fermer
+      // l'onglet Aperçu le perdait pour de bon — le glisser-déposer des panneaux est
+      // cassé dans ce moteur d'affichage (Jay, 2026-09-06).
+      {
+        label: "Cockpit Live",
+        built: true,
+        panelId: "__cockpit__",
+        icon: "cockpit",
+      },
     ],
   },
   {

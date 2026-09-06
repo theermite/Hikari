@@ -106,6 +106,7 @@ impl App {
             scene_filter_state: std::collections::HashMap::new(),
             active_scene: "main".to_string(),
             item_rects: None,
+            pending_item_rects: Vec::new(),
             audio: Vec::new(),
             // La capture de démarrage est enregistrée comme une source ORDINAIRE : c'est ce
             // qui la rend retirable, saisissable et listée au même titre que les autres.

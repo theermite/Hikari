@@ -27,6 +27,18 @@ impl ApplicationHandler<EngineEvent> for App {
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: EngineEvent) {
+        // Ce que les scènes contiennent AVANT la commande.
+        //
+        // POURQUOI ce filet plutôt qu'un appel de plus dans chaque commande (2026-09-06) :
+        // deux commandes ont oublié d'annoncer la nouvelle composition le même jour —
+        // poser une caméra et en retirer une. Le symptôme est muet des deux côtés : le
+        // moteur fait le travail, l'écran garde l'ancienne liste, et rien n'échoue. La
+        // deuxième fois dit que le défaut n'est pas dans la commande, il est dans le fait
+        // qu'annoncer soit à la charge de celui qui écrit la commande.
+        //
+        // Une empreinte n'est pas une liste à tenir à jour : une commande écrite demain, à
+        // laquelle personne n'aura pensé ici, sera annoncée quand même.
+        let before = self.scene_contents_fingerprint();
         match event {
             EngineEvent::Exit => event_loop.exit(),
             EngineEvent::StartStream => self.handle_start_stream(),
@@ -74,6 +86,10 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetSourceLocked { scene, name, locked } => {
                 self.handle_set_source_locked(scene, name, locked)
             }
+        }
+        // La composition a changé sans que la commande le dise : le dire à sa place.
+        if self.scene_contents_fingerprint() != before {
+            self.emit_scene_list();
         }
     }
 

@@ -66,3 +66,37 @@ describe("VersionTag", () => {
     expect(screen.queryByText(/à jour/i)).toBeNull();
   });
 });
+
+describe("build de développement", () => {
+  beforeEach(() => {
+    forgetUpdateCheck();
+    checkMock.mockReset().mockResolvedValue(null);
+  });
+
+  // La valeur simulée est rendue APRÈS chaque test : un environnement laissé truqué
+  // suivrait les tests d'après et les ferait mentir.
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllEnvs();
+  });
+
+  it("should_say_it_is_a_development_build_when_it_is_one", () => {
+    // Jay, 2026-09-06 : « est-ce que tu ne devrais pas mettre à jour la version à chaque
+    // build ? ». Non — ce numéro est le contrat avec le canal de mise à jour, et le
+    // bousculer à chaque compilation annoncerait des versions jamais publiées. Ce qui lui
+    // manque n'est pas un autre numéro, c'est de savoir QUELLE construction il regarde.
+    vi.stubEnv("DEV", true);
+
+    render(<VersionTag />);
+
+    expect(screen.getByText(/développement/i)).toBeInTheDocument();
+  });
+
+  it("should_stay_silent_about_the_build_when_it_is_a_release", () => {
+    vi.stubEnv("DEV", false);
+
+    render(<VersionTag />);
+
+    expect(screen.queryByText(/développement/i)).not.toBeInTheDocument();
+  });
+});

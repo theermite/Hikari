@@ -22,7 +22,12 @@ import { UpdateBanner } from "../updates/UpdateBanner";
 import { VersionTag } from "../updates/VersionTag";
 import { EngineErrorBanner } from "./EngineErrorBanner";
 import { LiveBar } from "./LiveBar";
-import { loadLayout, restoreLayout, saveLayout } from "./layout";
+import {
+  loadLayout,
+  missingCockpitPanels,
+  restoreLayout,
+  saveLayout,
+} from "./layout";
 import { PanelTab } from "./PanelTab";
 import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
@@ -226,6 +231,22 @@ export function Cockpit() {
   const openPanel = useCallback((panelId: string, title: string) => {
     const api = apiRef.current;
     if (!api) return;
+    // « Cockpit Live » ne désigne pas UN panneau : il ramène ceux du direct qui ont été
+    // fermés. C'est la seule porte de retour — le glisser-déposer des panneaux est cassé
+    // dans ce moteur d'affichage, donc un onglet fermé était perdu jusqu'à la remise à
+    // zéro de la disposition (Jay, 2026-09-06). L'Aperçu rendait la perte pire encore :
+    // c'est lui qui démarre le moteur.
+    if (panelId === "__cockpit__") {
+      const present = api.panels.map((panel) => panel.id);
+      for (const panel of missingCockpitPanels(present)) {
+        api.addPanel({
+          id: panel.id,
+          component: panel.id,
+          title: panel.title,
+        });
+      }
+      return;
+    }
     const existing = api.getPanel(panelId);
     if (existing) {
       existing.api.setActive();
