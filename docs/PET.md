@@ -180,6 +180,7 @@ project: Hikari Stream
 | B1b | Aperçu cross-process (moteur → webview) | Critique | ✅ FAIT (2026-07-18, merge 4e97b4c) |
 | B2a | Diffusion réelle (RTMP + NVENC), pilotable, sans OAuth | Critique | ✅ FAIT (2026-07-18, merge 6909372) |
 | B2b | Comptes OAuth Twitch + YouTube + coffre | Critique | ✅ FAIT (2026-07-18) — Twitch et YouTube prouvés en conditions réelles |
+| **B2c** *(hors numérotation PET — née du constat de Jay 2026-09-06)* | **Clé de diffusion : du compte connecté jusqu'au moteur.** Lecture de la clé chez Twitch, serveur d'entrée choisi dans la liste publique, transmission par l'environnement du moteur (jamais par les messages), et **refus de diffuser sans destination** au lieu d'un repli silencieux | **Critique** | ✅ **PROUVÉE EN CONDITIONS RÉELLES 2026-09-06** — direct Twitch de 2-3 min depuis un compte connecté, zéro réglage manuel. Restent : YouTube (flux différent, une diffusion doit y être créée avant d'être remplie) et la relecture de la clé sans redémarrer le moteur |
 | *(hors brique)* | 1ʳᵉ tranche UI visible : bouton "Connecter Twitch" câblé à `commands.rs` (ADR-011 côté app) | Standard | ✅ FAIT (2026-07-18, `7eb9be0`) — Jay a vu la fenêtre, testé le bouton, ça marche |
 
 ### Phase P2 — Live complet
