@@ -36,7 +36,8 @@
       "binaries/hikari-engine"
     ],
     "resources": {
-      "obs-runtime/": ""
+      "obs-runtime/": "",
+      "assets/": "assets/"
     },
     "icon": [
       "icons/32x32.png",

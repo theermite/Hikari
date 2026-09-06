@@ -295,9 +295,13 @@ pub fn create_circle_mask_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> 
 /// the camera code keeps reading in its own vocabulary.
 pub use crate::filters::set_enabled as set_filter_enabled;
 
-/// Absolute path to the circle mask asset, resolved next to the engine's own binary —
-/// same colocation pattern as the OBS runtime files it already needs alongside it
-/// (packaging for a release bundle is separate debt, not yet relevant pre-installer).
+/// Le chemin du fichier de masque, cherché à côté du binaire du moteur — même règle que
+/// les fichiers du moteur OBS qu'il a déjà besoin d'avoir près de lui.
+///
+/// Cette dette était écrite ici (« l'empaquetage est une dette à part, pas encore
+/// pertinente avant l'installeur ») et elle est arrivée à échéance le 2026-09-06 : la
+/// 0.5.0 installée chez Jay a refusé le fichier au premier lancement, parce que
+/// l'installeur ne l'embarquait pas. Le dossier `assets/` est désormais livré avec.
 fn circle_mask_path() -> Result<std::path::PathBuf> {
     let exe = std::env::current_exe().context("résolution du chemin de l'exécutable")?;
     let dir = exe.parent().context("résolution du dossier de l'exécutable")?;
