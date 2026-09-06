@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -6,9 +7,19 @@ import tailwindcss from "@tailwindcss/vite";
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
+// La version affichée dans le cockpit vient du fichier qui décide de la version INSTALLÉE.
+// Lue ici, à la construction : une constante ne peut pas échouer à l'exécution et laisser
+// la case vide, là où un appel au système le pourrait. Et comme c'est le même fichier que
+// celui du paquet, l'écran ne peut pas annoncer une version que l'app n'a pas.
+const appVersion = JSON.parse(
+  readFileSync(new URL("./src-tauri/tauri.conf.json", import.meta.url), "utf-8"),
+).version as string;
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
+
+  define: { __APP_VERSION__: JSON.stringify(appVersion) },
 
   // Options Vite adaptées à Tauri (appliquées en `tauri dev` / `tauri build`).
   clearScreen: false, // 1. ne pas masquer les erreurs Rust

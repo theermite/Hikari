@@ -9,6 +9,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UpdateBanner } from "./UpdateBanner";
+import { forgetUpdateCheck } from "./useUpdateCheck";
 
 const checkMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/plugin-updater", () => ({ check: checkMock }));
@@ -30,6 +31,10 @@ function update(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
+  // La vérification du canal est mémorisée pour toute la vie du processus (un seul appel
+  // réseau par lancement). Chaque test rejoue un canal différent : sans cet oubli, tous
+  // hériteraient de la réponse du premier.
+  forgetUpdateCheck();
   checkMock.mockReset();
   relaunchMock.mockReset();
   invokeMock.mockReset();

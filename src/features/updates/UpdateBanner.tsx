@@ -12,39 +12,22 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { check } from "@tauri-apps/plugin-updater";
-import { useEffect, useState } from "react";
-
-/** La part de l'objet renvoyé par le module que cet écran utilise réellement. */
-interface AvailableUpdate {
-  version: string;
-  body?: string;
-  downloadAndInstall: () => Promise<void>;
-}
+import { useState } from "react";
+import { useUpdateCheck } from "./useUpdateCheck";
 
 type Phase = "idle" | "installing" | "failed";
 
 export function UpdateBanner() {
-  const [update, setUpdate] = useState<AvailableUpdate | null>(null);
+  // La vérification est partagée avec le numéro de version affiché en haut du cockpit :
+  // un seul appel au canal, et deux écrans qui ne peuvent pas se contredire.
+  const { update } = useUpdateCheck();
   const [phase, setPhase] = useState<Phase>("idle");
+  // « Plus tard » est un vrai refus, et il n'appartient qu'à ce bandeau : le numéro de
+  // version en haut du cockpit continue d'annoncer la version disponible, sinon écarter
+  // le bandeau reviendrait à effacer l'information au lieu de la remettre à plus tard.
+  const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    check()
-      .then((found) => {
-        if (!cancelled && found) setUpdate(found as unknown as AvailableUpdate);
-      })
-      .catch(() => {
-        // Silencieux à l'écran, jamais silencieux dans les journaux : sans cette trace,
-        // un canal cassé serait indistinguable d'un canal à jour (Observability).
-        console.warn("[maj] canal de mise à jour injoignable");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (!update) return null;
+  if (!update || dismissed) return null;
 
   async function install() {
     if (!update) return;
@@ -102,7 +85,7 @@ export function UpdateBanner() {
 
       <button
         type="button"
-        onClick={() => setUpdate(null)}
+        onClick={() => setDismissed(true)}
         className="rounded px-3 py-1 text-amber-200/80 hover:text-amber-100"
       >
         Plus tard

@@ -20,6 +20,7 @@ import { PreflightPanel } from "../preflight/PreflightPanel";
 import { PreviewPanel } from "../preview/PreviewPanel";
 import { ScenesPanel } from "../scenes/ScenesPanel";
 import { UpdateBanner } from "../updates/UpdateBanner";
+import { VersionTag } from "../updates/VersionTag";
 import { LiveBar } from "./LiveBar";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
 import { PanelTab } from "./PanelTab";
@@ -273,6 +274,10 @@ export function Cockpit() {
                 </button>
               ))}
             </div>
+            {/* Tout à droite : quelle version tourne, et ce que le canal a répondu. Sans
+                elle, la seule façon de savoir si on est à jour était de réinstaller —
+                le geste que la mise à jour dans l'app supprime (Jay, 2026-09-06). */}
+            <VersionTag />
           </header>
         </div>
         <div className="flex-1">
