@@ -31,7 +31,10 @@ const PANEL_BADGES: Record<string, ReactNode> = {
 export function PanelTab({ api }: IDockviewPanelHeaderProps) {
   const addLabel = ADD_LABELS[api.id];
   return (
-    <div className="flex items-center gap-2 px-2.5 py-1">
+    // `h-full` puis `items-center` : sans la hauteur pleine, le contenu se cale en haut de
+    // la bande et le titre flotte contre le bord (Jay, 2026-09-06). Une marge verticale ne
+    // le centre pas — elle le pousse, ce qui est vrai pour une seule hauteur de bande.
+    <div className="flex h-full items-center gap-2 px-2.5">
       <span className="text-[12.5px] font-semibold text-hikari-txt">
         {api.title}
       </span>

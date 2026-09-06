@@ -80,15 +80,44 @@ pub(crate) fn start_engine(app: AppHandle, state: State<EngineState>) -> Result<
     let stdout = child.stdout.take().ok_or("stdout du moteur indisponible")?;
 
     std::thread::spawn(move || {
+        // Le moteur a-t-il fini de s'initialiser ?
+        //
+        // Tout ce que `libobs` déclare AVANT est du bruit de démarrage : une carte
+        // d'acquisition absente, un encodeur non installé, un périphérique audio qui ne
+        // répond pas à l'inventaire. Rien de tout cela ne vient d'un geste de
+        // l'utilisateur, et rien ne lui donne prise — le remonter fabrique un bandeau que
+        // personne ne lit, donc un bandeau muet le jour où ça compte (Jay, 2026-09-06 :
+        // « j'ai eu plusieurs erreurs lorsque l'application s'est lancée »).
+        //
+        // Après ce signal, un échec est la conséquence de quelque chose : ce que
+        // l'utilisateur vient de demander, ou ce que la session rejoue pour lui.
+        let mut initialized = false;
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             match parse_engine_message(&line) {
                 Ok(msg) => {
                     if let EngineMessage::PreviewReady { hwnd } = &msg {
                         graft_into_panel_rect(&app, *hwnd);
                     }
+                    if matches!(msg, EngineMessage::Ready) {
+                        initialized = true;
+                    }
                     let _ = app.emit("engine-message", &msg);
                 }
-                Err(err) => eprintln!("[engine] WARN unparsable line {line:?} ({err})"),
+                Err(err) => {
+                    // Ce qui n'est pas du protocole est le journal de `libobs`. Il portait
+                    // la raison exacte d'une caméra restée noire — « pas assez de bande
+                    // passante » — et personne ne la voyait, parce que tout atterrissait
+                    // dans la console de développement (Jay, 2026-09-06).
+                    if let Some(shown) =
+                        hikari_protocol::user_visible_engine_log(&line).filter(|_| initialized)
+                    {
+                        let _ = app.emit(
+                            "engine-message",
+                            &EngineMessage::Error { message: shown },
+                        );
+                    }
+                    eprintln!("[engine] WARN unparsable line {line:?} ({err})")
+                }
             }
         }
     });

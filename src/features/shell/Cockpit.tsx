@@ -35,6 +35,7 @@ import { PlaceholderPanel } from "./panels/PlaceholderPanel";
 import { SettingsPanel } from "./panels/SettingsPanel";
 import { PRESETS, type PresetId, resolvePreset } from "./presets";
 import { Sidebar } from "./Sidebar";
+import { TitleBar } from "./TitleBar";
 
 /** Le thème passé au système de panneaux.
  *
@@ -259,61 +260,66 @@ export function Cockpit() {
   }, []);
 
   return (
-    <div className="flex h-screen bg-hikari-bg font-hikari text-hikari-txt">
-      <Sidebar onOpenPanel={openPanel} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Au-dessus de tout le cockpit : une annonce de mise à jour doit être visible
+    // La barre de titre coiffe TOUT, barre latérale comprise : c'est la ligne qui remplace
+    // celle de Windows, et elle borde la fenêtre entière (Jay, 2026-09-06).
+    <div className="flex h-screen flex-col bg-hikari-bg font-hikari text-hikari-txt">
+      <TitleBar />
+      <div className="flex min-h-0 flex-1">
+        <Sidebar onOpenPanel={openPanel} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Au-dessus de tout le cockpit : une annonce de mise à jour doit être visible
             quel que soit le panneau ouvert, sans jamais recouvrir l'aperçu. */}
-        <UpdateBanner />
-        {/* Juste sous l'annonce de mise à jour : ce que le moteur a REFUSÉ. Un refus
+          <UpdateBanner />
+          {/* Juste sous l'annonce de mise à jour : ce que le moteur a REFUSÉ. Un refus
             arrive longtemps après le clic, souvent pendant qu'un autre panneau est au
             premier plan — l'afficher dans le panneau d'origine revenait à ne pas
             l'afficher (Jay, 2026-09-06). */}
-        <EngineErrorBanner />
-        {/* L'état du direct passe AVANT la barre de dispositions : c'est la première
+          <EngineErrorBanner />
+          {/* L'état du direct passe AVANT la barre de dispositions : c'est la première
             chose à savoir en ouvrant le cockpit (« est-ce que je diffuse ? »). */}
-        {/* La barre du haut est une CARTE, comme dans la maquette — pas une rangée nue
+          {/* La barre du haut est une CARTE, comme dans la maquette — pas une rangée nue
             collée au bord. Elle repose sur le même fond sombre que les panneaux, et c'est
             ce fond visible partout qui unifie l'écran (Jay, 2026-09-05 : « tu n'as pas mis
             le background de la même couleur partout »). */}
-        <div className="m-2.5 mb-0 flex-shrink-0 overflow-hidden rounded-hikari border border-hikari-line bg-hikari-bg-3">
-          <LiveBar />
-          <header className="flex h-12 flex-shrink-0 items-center gap-4 px-4">
-            <h1 className="text-[14px] font-semibold tracking-tight">
-              Cockpit Live
-            </h1>
-            <span className="text-[11px] uppercase tracking-wider text-hikari-txt-faint">
-              Disposition
-            </span>
-            <div className="flex gap-0.5 rounded-full border border-hikari-line bg-hikari-bg p-0.5">
-              {PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => switchPreset(preset.id)}
-                  className={`rounded-full px-3 py-1 text-[12.5px] font-medium transition ${
-                    activePreset === preset.id
-                      ? "bg-hikari-accent text-[#1a1206]"
-                      : "text-hikari-txt-dim hover:text-hikari-txt"
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-            {/* Tout à droite : quelle version tourne, et ce que le canal a répondu. Sans
+          <div className="m-2.5 mb-0 flex-shrink-0 overflow-hidden rounded-hikari border border-hikari-line bg-hikari-bg-3">
+            <LiveBar />
+            <header className="flex h-12 flex-shrink-0 items-center gap-4 px-4">
+              <h1 className="text-[14px] font-semibold tracking-tight">
+                Cockpit Live
+              </h1>
+              <span className="text-[11px] uppercase tracking-wider text-hikari-txt-faint">
+                Disposition
+              </span>
+              <div className="flex gap-0.5 rounded-full border border-hikari-line bg-hikari-bg p-0.5">
+                {PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => switchPreset(preset.id)}
+                    className={`rounded-full px-3 py-1 text-[12.5px] font-medium transition ${
+                      activePreset === preset.id
+                        ? "bg-hikari-accent text-[#1a1206]"
+                        : "text-hikari-txt-dim hover:text-hikari-txt"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              {/* Tout à droite : quelle version tourne, et ce que le canal a répondu. Sans
                 elle, la seule façon de savoir si on est à jour était de réinstaller —
                 le geste que la mise à jour dans l'app supprime (Jay, 2026-09-06). */}
-            <VersionTag />
-          </header>
-        </div>
-        <div className="flex-1">
-          <DockviewReact
-            components={PANEL_COMPONENTS}
-            onReady={onReady}
-            theme={HIKARI_THEME}
-            defaultTabComponent={PanelTab}
-          />
+              <VersionTag />
+            </header>
+          </div>
+          <div className="flex-1">
+            <DockviewReact
+              components={PANEL_COMPONENTS}
+              onReady={onReady}
+              theme={HIKARI_THEME}
+              defaultTabComponent={PanelTab}
+            />
+          </div>
         </div>
       </div>
     </div>
