@@ -28,19 +28,28 @@ pub fn user_visible_engine_log(line: &str) -> Option<String> {
     if trimmed.contains(PROBE_SOURCE) {
         return None;
     }
-    let (marker, rest) = if let Some(rest) = trimmed.strip_prefix("[Error]") {
-        ("[Error]", rest)
-    } else if let Some(rest) = trimmed.strip_prefix("[Warning]") {
-        ("[Warning]", rest)
-    } else {
-        return None;
+    let (marker, rest) = match trimmed.strip_prefix("[Error]") {
+        Some(rest) => ("[Error]", rest),
+        None => ("[Warning]", trimmed.strip_prefix("[Warning]")?),
     };
     let text = rest.trim();
     if text.is_empty() {
         return None;
     }
+    let lowered = text.to_lowercase();
     // Un avertissement n'est montré que s'il annonce un échec — sinon c'est du confort.
-    if marker == "[Warning]" && !text.to_lowercase().contains("failed") {
+    if marker == "[Warning]" && !lowered.contains("failed") {
+        return None;
+    }
+    // Faire l'inventaire des appareils, c'est demander « qui répond ? ». Une absence de
+    // réponse EST la réponse, pas une panne — même nature que la sonde caméra ci-dessus.
+    // Ces lignes arrivent en rafale et remplissaient le bandeau de Jay le 2026-09-06.
+    if lowered.contains("enumerate") {
+        return None;
+    }
+    // « (null) » est littéralement le message manquant : le greffon a signalé une erreur
+    // sans dire laquelle. L'afficher alarme sans rien apprendre.
+    if lowered.contains("(null)") {
         return None;
     }
     Some(text.to_string())

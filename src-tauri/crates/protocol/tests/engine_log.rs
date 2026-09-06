@@ -21,9 +21,20 @@ fn should_show_the_reason_a_camera_stays_black() {
 
 #[test]
 fn should_show_what_the_engine_calls_an_error() {
-    let line = "[Error] [NVIDIA Video Effect: '(null)']";
+    let line = "[Error] impossible de creer la sortie video";
 
     assert!(user_visible_engine_log(line).is_some());
+}
+
+#[test]
+fn should_stay_silent_when_the_engine_had_nothing_to_say() {
+    // Ligne remontée dans le bandeau de Jay le 2026-09-06, à tort. « (null) » est
+    // littéralement le message manquant : le greffon a signalé une erreur sans dire
+    // laquelle. La montrer alarme sans rien apprendre, et elle revient à chaque caméra
+    // ouverte.
+    let line = "[Error] [NVIDIA Video Effect: '(null)']";
+
+    assert_eq!(user_visible_engine_log(line), None);
 }
 
 #[test]
@@ -52,6 +63,24 @@ fn should_stay_silent_while_probing_the_devices() {
     ] {
         assert_eq!(user_visible_engine_log(line), None, "line = {line}");
     }
+}
+
+#[test]
+fn should_stay_silent_when_an_inventory_asks_who_is_there() {
+    // Ligne remontée dans le bandeau de Jay le 2026-09-06, à tort. Faire l'inventaire des
+    // appareils, c'est demander « qui répond ? » — une absence de réponse EST la réponse,
+    // pas une panne. Même nature que la sonde caméra, déjà écartée.
+    let line = "[Warning] [WASAPISource::TryInitialize]:[{0.0.0.00000000}.                {17baa00b-a184-4f35-87b0-29ccf3e02dfe}] Failed to enumerate device: 80070490";
+
+    assert_eq!(user_visible_engine_log(line), None);
+}
+
+#[test]
+fn should_still_show_a_failure_that_is_not_an_inventory() {
+    // Le garde-fou du test précédent ne doit pas emporter le cas qui compte.
+    let line = "[Warning] DShow: Run failed (0x800718CF): A camera interface doesn't have                 the desired bandwidth for data transfer.";
+
+    assert!(user_visible_engine_log(line).is_some());
 }
 
 #[test]
