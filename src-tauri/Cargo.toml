@@ -22,6 +22,10 @@ proptest = "1"
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",
+    # Ouvrir une adresse avec l'application que Windows lui associe. `explorer.exe` a la
+    # meme intention mais ouvre l'explorateur de fichiers sur certaines configurations
+    # (vecu par Jay, 2026-09-06) : il n'est pas fait pour ca.
+    "Win32_UI_Shell",
 ] }
 winit = "0.30"
 keyring = { version = "4.1.5", features = ["windows-native-keyring-store"] }

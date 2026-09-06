@@ -15,13 +15,57 @@ struct TwitchCodePayload {
     user_code: String,
 }
 
-/// Opens `url` in the default browser. `explorer.exe`, not `cmd /C start`: `cmd.exe`
-/// re-parses its command line and treats an unescaped `&` as a command separator, silently
-/// truncating any URL with more than one query parameter (found the hard way in
-/// `examples/youtube_manual_auth.rs` — Google saw only the params before the first `&`).
+/// Ouvre `url` avec l'application que Windows associe aux adresses web.
+///
+/// Trois voies ont été essayées, deux sont écartées et voici pourquoi :
+///   — `cmd /C start` réanalyse sa ligne de commande et prend un `&` non échappé pour un
+///     séparateur : toute adresse à plus d'un paramètre était tronquée en silence (vécu
+///     dans `examples/youtube_manual_auth.rs`, Google ne voyait que le premier) ;
+///   — `explorer.exe <adresse>` fonctionne souvent et, sur certaines configurations,
+///     ouvre l'EXPLORATEUR DE FICHIERS au lieu du navigateur (vécu par Jay, 2026-09-06).
+///     C'est un gestionnaire de fichiers à qui l'on demande un travail qui n'est pas le
+///     sien ; qu'il l'ait fait un temps était une chance, pas un contrat.
+///
+/// Reste l'appel que Windows expose POUR cela. Il ne réanalyse aucune ligne de commande,
+/// donc le défaut du `&` ne peut pas revenir, et c'est le même chemin que celui d'un clic
+/// sur un lien depuis n'importe quelle application.
 fn open_in_browser(url: &str) -> std::io::Result<()> {
-    std::process::Command::new("explorer").arg(url).spawn()?;
-    Ok(())
+    use std::os::windows::ffi::OsStrExt;
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    use windows::core::PCWSTR;
+
+    // Windows attend du texte en 16 bits terminé par zéro ; une adresse en contient
+    // rarement, mais un accent dans un paramètre suffirait à casser une conversion naïve.
+    let wide = |texte: &str| {
+        std::ffi::OsStr::new(texte).encode_wide().chain(std::iter::once(0)).collect::<Vec<u16>>()
+    };
+    let operation = wide("open");
+    let cible = wide(url);
+    // Safety: les deux chaînes vivent jusqu'à la fin de l'appel, et sont terminées par
+    // zéro comme l'API l'exige. Aucune fenêtre parente : l'appel vient d'une commande, pas
+    // d'un clic dans une fenêtre à nous.
+    let resultat = unsafe {
+        ShellExecuteW(
+            None,
+            PCWSTR(operation.as_ptr()),
+            PCWSTR(cible.as_ptr()),
+            PCWSTR::null(),
+            PCWSTR::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+    // Cette fonction rend un pseudo-descripteur : au-dessus de 32 il a réussi, en dessous
+    // c'est un code d'erreur. Contrat de l'API, et le seul moyen de savoir qu'elle a
+    // échoué — sans ce test, un échec passerait pour un succès.
+    if resultat.0 as usize > 32 {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(format!(
+            "Windows n'a pas pu ouvrir l'adresse (code {})",
+            resultat.0 as usize
+        )))
+    }
 }
 
 /// Runs the real Twitch Device Code flow (B2b, already proven manually) and stores the
