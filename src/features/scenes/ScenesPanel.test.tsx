@@ -351,10 +351,12 @@ describe("ScenesPanel", () => {
       screen.getByRole("button", { name: /Réglages de Logitech StreamCam/ }),
     );
 
+    // Dépliés SOUS la ligne, jamais dans une fenêtre : une fenêtre passe devant l'image
+    // native du moteur, qui doit alors se retirer de l'écran. Régler une caméra sans la
+    // voir n'a pas de sens (Jay, 2026-09-06).
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
-      within(screen.getByRole("dialog")).getByRole("button", {
-        name: /fond IA/i,
-      }),
+      screen.getByRole("button", { name: /fond IA/i }),
     ).toBeInTheDocument();
   });
 
@@ -387,17 +389,48 @@ describe("ScenesPanel", () => {
     await user.click(
       screen.getByRole("button", { name: /Réglages de Logitech StreamCam/ }),
     );
-    await user.click(
-      within(screen.getByRole("dialog")).getByRole("button", {
-        name: /fond IA/i,
-      }),
-    );
+    await user.click(screen.getByRole("button", { name: /fond IA/i }));
 
     expect(invokeMock).toHaveBeenCalledWith("set_background_removal", {
       deviceId: "cam-1",
       scene: "main",
       enabled: true,
     });
+  });
+
+  it("should_refermer_les_reglages_au_second_clic", async () => {
+    const user = userEvent.setup();
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([
+      scene({
+        name: "main",
+        has_camera: true,
+        sources: [
+          {
+            name: "Logitech StreamCam",
+            kind: "dshow_input",
+            source_kind: "camera",
+            target_id: "cam-1",
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            background_removal: false,
+            circle_mask: false,
+          },
+        ],
+      }),
+    ]);
+    const bouton = screen.getByRole("button", {
+      name: /Réglages de Logitech StreamCam/,
+    });
+
+    await user.click(bouton);
+    await user.click(bouton);
+
+    expect(
+      screen.queryByRole("button", { name: /fond IA/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("should_annoncer_les_reglages_a_venir_sur_une_source_ordinaire", async () => {

@@ -20,8 +20,13 @@ const VERSION_KEY = "layoutVersion";
  * rustines au lieu d'être simplement rebâtie.
  *
  * 2 : répartition de la maquette — scènes à gauche, aperçu large au centre, chat à droite,
- * mixeur et deck dessous (2026-09-05). */
-export const LAYOUT_VERSION = 2;
+ * mixeur et deck dessous (2026-09-05).
+ *
+ * 3 : le Pré-vol et la Caméra quittent le cockpit (2026-09-06). Le premier s'ouvre depuis
+ * la barre latérale ; la seconde est devenue une source parmi les autres. Une disposition
+ * du 5 septembre les porte encore, et l'Aperçu de Jay s'y était retrouvé en onglet à côté
+ * du Deck — la rebâtir lui rend la répartition de la maquette d'un coup. */
+export const LAYOUT_VERSION = 3;
 
 let storePromise: Promise<Store> | null = null;
 
@@ -63,15 +68,47 @@ export function restoreLayout(
   api.fromJSON(layout);
 }
 
-/** Les panneaux qui composent le cockpit, avec leur titre. Une seule liste : la disposition
- * par défaut les pose, et la barre latérale les rend quand ils ont été fermés. */
-export const COCKPIT_PANELS: { id: string; title: string }[] = [
-  { id: "scenes", title: "Scènes" },
-  { id: "preview", title: "Aperçu" },
-  { id: "chat", title: "Chat" },
-  { id: "audio", title: "Audio" },
-  { id: "deck", title: "Deck" },
-  { id: "preflight", title: "Pré-vol" },
+/** Un panneau du cockpit : son titre, et OÙ il se replace s'il a été fermé.
+ *
+ * `anchor` nomme les voisins acceptables, du meilleur au moins bon. Le premier encore
+ * ouvert gagne — sans cette liste, un panneau rendu à côté d'un panneau lui-même fermé
+ * atterrirait n'importe où. */
+interface CockpitPanel {
+  id: string;
+  title: string;
+  anchor: string[];
+  direction: "left" | "right" | "above" | "below" | "within";
+}
+
+/** La disposition du direct, telle que la maquette la dessine : scènes à gauche, aperçu
+ * large au centre, chat à droite, mixeur et deck sous l'aperçu.
+ *
+ * Le Pré-vol n'en fait PAS partie (Jay, 2026-09-06) : il s'ouvre depuis la barre latérale,
+ * qui a son entrée. Deux portes pour un même écran, c'est une de trop — et il occupait une
+ * place que la maquette ne lui donne pas.
+ *
+ * Une seule liste : la disposition par défaut la pose, et la barre latérale la répare. */
+export const COCKPIT_PANELS: CockpitPanel[] = [
+  { id: "scenes", title: "Scènes", anchor: ["preview"], direction: "left" },
+  {
+    id: "preview",
+    title: "Aperçu",
+    anchor: ["scenes"],
+    direction: "right",
+  },
+  { id: "chat", title: "Chat", anchor: ["preview"], direction: "right" },
+  {
+    id: "audio",
+    title: "Audio",
+    anchor: ["preview"],
+    direction: "below",
+  },
+  {
+    id: "deck",
+    title: "Deck",
+    anchor: ["audio", "preview"],
+    direction: "right",
+  },
 ];
 
 /** Ceux du cockpit qui MANQUENT parmi `present`.
@@ -81,8 +118,21 @@ export const COCKPIT_PANELS: { id: string; title: string }[] = [
  * des panneaux est cassé dans ce moteur d'affichage. Un panneau fermé était donc perdu
  * jusqu'à la remise à zéro de la disposition. Pire pour l'Aperçu : c'est lui qui démarre le
  * moteur, donc le fermer éteignait tout le reste sans le dire. */
-export function missingCockpitPanels(
-  present: string[],
-): { id: string; title: string }[] {
+export function missingCockpitPanels(present: string[]): CockpitPanel[] {
   return COCKPIT_PANELS.filter((panel) => !present.includes(panel.id));
+}
+
+/** Le voisin contre lequel replacer `panel`, parmi ceux réellement ouverts.
+ *
+ * Vide quand aucun ne l'est : le panneau est alors posé sans consigne, et c'est le seul
+ * cas où on ne peut rien promettre — il n'y a plus de repère dans la fenêtre.
+ *
+ * POURQUOI (Jay, 2026-09-06) : rendu sans consigne de place, l'Aperçu s'est retrouvé en
+ * onglet à côté du Deck au lieu de reprendre le centre. Et comme le glisser-déposer des
+ * panneaux est cassé dans ce moteur d'affichage, il n'avait aucun moyen de le remettre. */
+export function anchorFor(
+  panel: CockpitPanel,
+  present: string[],
+): string | undefined {
+  return panel.anchor.find((candidate) => present.includes(candidate));
 }

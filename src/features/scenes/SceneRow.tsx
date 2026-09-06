@@ -18,6 +18,7 @@
 
 import type { RefObject } from "react";
 import { ComingSoon } from "../../components/ui/ComingSoon";
+import { CameraControls } from "../camera/CameraControls";
 import { IconButton, OrderButton, SOURCE_ICON } from "./ScenesControls";
 import { SceneThumb } from "./SceneThumb";
 import { labelFor, type SceneLayout } from "./sceneLayout";
@@ -71,9 +72,11 @@ interface SceneRowProps {
   ) => void;
   onToggleLock: (scene: string, name: string, locked: boolean) => void;
   onRemoveFromScene: (scene: string, name: string) => void;
-  /** Ouvre les réglages de CETTE source dans CETTE scène. Le même bouton pour toutes :
-   * une caméra n'a plus son panneau à part (Jay, 2026-09-06). */
+  /** Ouvre — ou referme — les réglages de CETTE source. Le même bouton pour toutes : une
+   * caméra n'a plus son panneau à part (Jay, 2026-09-06). */
   onOpenSettings: (scene: string, source: SceneSourceInfo) => void;
+  /** Le nom de la source dont les réglages sont dépliés dans CETTE scène, s'il y en a une. */
+  settingsOpenFor: string | null;
   onAddSource: (scene: string) => void;
   onRequestDelete: (name: string) => void;
   onCancelDelete: () => void;
@@ -103,6 +106,7 @@ export function SceneRow({
   onToggleLock,
   onRemoveFromScene,
   onOpenSettings,
+  settingsOpenFor,
   onAddSource,
   onRequestDelete,
   onCancelDelete,
@@ -208,7 +212,7 @@ export function SceneRow({
               scene.sources.map((item, position) => (
                 <li
                   key={item.name}
-                  className="flex items-center justify-between gap-2 text-[11.5px] text-hikari-txt-faint"
+                  className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] text-hikari-txt-faint"
                 >
                   <span className="truncate">
                     {SOURCE_ICON[item.kind] ?? "▪"} {item.name}
@@ -291,6 +295,22 @@ export function SceneRow({
                       ✕
                     </button>
                   </span>
+                  {/* Dépliés SOUS la ligne, jamais dans une fenêtre : l'image du moteur
+                  est une fenêtre NATIVE, elle se dessine au-dessus de tout contenu web,
+                  donc une fenêtre par-dessus l'oblige à se retirer de l'écran. Régler une
+                  caméra sans la voir n'a pas de sens (Jay, 2026-09-06). */}
+                  {settingsOpenFor === item.name &&
+                    item.source_kind === "camera" && (
+                      <CameraControls
+                        scene={scene.name}
+                        camera={{
+                          deviceId: item.target_id,
+                          name: item.name,
+                          backgroundRemoval: item.background_removal,
+                          circleMask: item.circle_mask,
+                        }}
+                      />
+                    )}
                 </li>
               ))
             )}

@@ -122,10 +122,14 @@ impl App {
             )]),
         });
         self.window = Some(Sendable(window));
-        emit(&EngineMessage::SceneList {
-            scenes: vec![hikari_protocol::SceneInfo::empty("main")],
-            active: "main".to_string(),
-        });
+        // Le VRAI inventaire, jamais une scène déclarée vide à la main.
+        //
+        // Ce message annonçait « main est vide » alors que la capture d'écran de démarrage
+        // venait d'y être posée, juste au-dessus. L'app en concluait qu'elle manquait et la
+        // redemandait, et le moteur refusait — « Monitor Capture existe déjà », à chaque
+        // lancement, depuis des semaines (Jay, 2026-08-06 puis 2026-09-06). Corrigé une
+        // fois côté app en 2026-08-06 ; le mensonge était ici.
+        self.emit_scene_list();
         Ok(())
     }
 

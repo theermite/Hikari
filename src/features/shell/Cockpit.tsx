@@ -23,6 +23,7 @@ import { VersionTag } from "../updates/VersionTag";
 import { EngineErrorBanner } from "./EngineErrorBanner";
 import { LiveBar } from "./LiveBar";
 import {
+  anchorFor,
   loadLayout,
   missingCockpitPanels,
   restoreLayout,
@@ -126,17 +127,11 @@ function buildDefaultLayout(api: DockviewApi): void {
     position: { referencePanel: audio.id, direction: "right" },
   });
 
-  // Le Pré-vol s'ouvre sous les scènes : il sert à PRÉPARER, pas à piloter pendant un
-  // direct, et la maquette ne lui donne pas de place propre.
-  //
-  // Plus de panneau « Caméra » (2026-09-06) : une caméra est une source, elle vit dans la
-  // liste des sources de sa scène, avec le même bouton réglages que les autres.
-  api.addPanel({
-    id: "preflight",
-    component: "preflight",
-    title: "Pré-vol",
-    position: { referencePanel: scenes.id, direction: "below" },
-  });
+  // Ni Pré-vol ni Caméra dans la disposition du direct (2026-09-06) :
+  //   — le Pré-vol a son entrée dans la barre latérale, et deux portes pour un même écran
+  //     en font une de trop. Il prenait une place que la maquette ne lui donne pas ;
+  //   — une caméra est une source : elle vit dans la liste des sources de sa scène, avec
+  //     le même bouton réglages que les autres.
 }
 
 export function Cockpit() {
@@ -237,12 +232,20 @@ export function Cockpit() {
     // zéro de la disposition (Jay, 2026-09-06). L'Aperçu rendait la perte pire encore :
     // c'est lui qui démarre le moteur.
     if (panelId === "__cockpit__") {
-      const present = api.panels.map((panel) => panel.id);
-      for (const panel of missingCockpitPanels(present)) {
+      // Recalculé à CHAQUE panneau posé : le suivant peut vouloir se placer contre celui
+      // qu'on vient de rendre, et une liste figée le renverrait vers un voisin absent.
+      for (const panel of missingCockpitPanels(api.panels.map((p) => p.id))) {
+        const anchor = anchorFor(
+          panel,
+          api.panels.map((p) => p.id),
+        );
         api.addPanel({
           id: panel.id,
           component: panel.id,
           title: panel.title,
+          position: anchor
+            ? { referencePanel: anchor, direction: panel.direction }
+            : undefined,
         });
       }
       return;
