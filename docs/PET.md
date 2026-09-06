@@ -246,6 +246,49 @@ project: Hikari Stream
 | **B-maj** *(hors numérotation PET — née de B-pack)* | Mises à jour reçues dans l'app : bandeau, bouton, redémarrage · canal privé signé · publication en une commande | Sensible | ✅ **prouvée de bout en bout 2026-09-05** : 0.2.0 → 0.3.0 reçue et installée |
 | **B-ui socle** *(hors numérotation PET)* | Pièces communes d'interface + costume de la maquette (îlots, fond, icônes) + répartition + barre du direct | Standard | 🟧 **prouvée à l'écran 2026-09-05** · restent en-têtes de cartes, formes d'onde animées, collections de scènes, ligne Transition, œil montrer/cacher |
 
+### Ordre de travail — décidé par Jay le 2026-09-06
+
+Il l'a réordonné lui-même, tableau par tableau, puis fusionné avec Takumi. Deux dépendances
+ont été arbitrées en le faisant, et la trace de l'arbitrage vaut autant que l'ordre :
+
+| # | Sujet | Brique |
+|---|---|---|
+| 1 | Aligner l'application sur la maquette | B-ui socle (reste) |
+| 2 | Le moteur se ferme avec la fenêtre | dette |
+| 3 | Automations — l'écran pour les composer | B-auto (interface) |
+| 4 | Scènes — transitions, mouvements automatiques | B7 (reste) |
+| 5 | Sources — texte, page web, poignées visibles | B-sources (reste) |
+| 6 | Filtres de sources | **brique neuve, à définir** |
+| 7 | Chat — messages, modération, alertes, bandeaux, objectifs | B10 |
+| 8 | Deck mobile | B5 |
+| 9 | Audio — atténuation automatique, formes d'onde | B6 (reste) |
+| 10 | Caméra mobile | B-cam (reste) |
+| 11 | Vertical | B3 vertical |
+| 12 | Édition | B11 |
+| 13 | Publication | B12 |
+| 14 | Suivi | B-stats |
+| 15 | Accueil — tableau de bord | B-dash |
+| 16 | Paramètres | B-settings |
+| 17 | Assistant d'accueil | B9 (reste) |
+| 18 | Marque | B8 |
+| 19 | Avatar | B13/B14 |
+| 20 | Confort — morphique, palette de commandes, accessibilité | B15 |
+
+**Les deux arbitrages** :
+- *Assistant d'accueil APRÈS Paramètres* — l'assistant règle des choses qui doivent
+  exister. Jay a déplacé la brique en le lisant.
+- *Chat AVANT Marque, en connaissance de cause* — les alertes et bandeaux utilisent la
+  charte, donc ils seront rhabillés ensuite. Raison de Jay : la marque d'Hikari n'existe
+  pas encore, pas même son logo. On ne peut pas propager ce qui n'est pas défini.
+
+**Décision de marque (2026-09-06)** : Hikari aura sa PROPRE identité graphique, pas celle
+de Shinkofa — il est le seul produit public et libre de l'écosystème. Ce qui traverse
+quand même la frontière, selon la lecture de la session Takumi (à confirmer) : les seuils
+d'accessibilité, le bouton d'adaptation morphique et sa place, les règles de provenance
+des images, la grille et l'échelle typographique. Ce qui s'arrête : couleurs, logo,
+motifs. Coût mesuré d'une identité complète : environ une session (celle de Shinkofa,
+le même jour).
+
 *(Ordre indicatif ; réévalué après le go/no-go du spike B0.0. La coque B-shell est prioritaire dès que le moteur est prouvé — elle héberge tous les panneaux. Exhaustivité finale post-spike.)*
 
 > **Note d'ordonnancement (2026-07-16, révisée)** — deux dépendances à ne pas perdre de vue :
