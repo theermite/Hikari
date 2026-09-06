@@ -254,7 +254,6 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         });
         setTargetsError(null);
       }
-      if (msg.type === "error" && msg.message) setActionError(msg.message);
     });
     return () => {
       unlisten.then((f) => f());

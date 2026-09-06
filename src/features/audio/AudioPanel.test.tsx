@@ -239,12 +239,16 @@ describe("AudioPanel", () => {
     expect(alerte).toHaveTextContent("Le son sature sur Micro USB");
   });
 
-  it("should_afficher_le_message_d_erreur_envoye_par_le_moteur", () => {
+  // Même règle que pour les scènes : le refus du moteur est porté par le bandeau du
+  // cockpit (`EngineErrorBanner`, 2026-09-06), jamais recopié dans chaque panneau.
+  it("should_laisser_le_bandeau_du_cockpit_porter_le_refus_du_moteur", () => {
     render(<AudioPanel {...({} as IDockviewPanelProps)} />);
 
     emit({ type: "error", message: "Le périphérique a disparu" });
 
-    expect(screen.getByText(/Le périphérique a disparu/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Le périphérique a disparu/i),
+    ).not.toBeInTheDocument();
   });
 
   it("should_desabonner_l_ecoute_du_moteur_au_demontage", async () => {

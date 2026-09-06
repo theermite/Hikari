@@ -21,6 +21,7 @@ import { PreviewPanel } from "../preview/PreviewPanel";
 import { ScenesPanel } from "../scenes/ScenesPanel";
 import { UpdateBanner } from "../updates/UpdateBanner";
 import { VersionTag } from "../updates/VersionTag";
+import { EngineErrorBanner } from "./EngineErrorBanner";
 import { LiveBar } from "./LiveBar";
 import { loadLayout, restoreLayout, saveLayout } from "./layout";
 import { PanelTab } from "./PanelTab";
@@ -243,6 +244,11 @@ export function Cockpit() {
         {/* Au-dessus de tout le cockpit : une annonce de mise à jour doit être visible
             quel que soit le panneau ouvert, sans jamais recouvrir l'aperçu. */}
         <UpdateBanner />
+        {/* Juste sous l'annonce de mise à jour : ce que le moteur a REFUSÉ. Un refus
+            arrive longtemps après le clic, souvent pendant qu'un autre panneau est au
+            premier plan — l'afficher dans le panneau d'origine revenait à ne pas
+            l'afficher (Jay, 2026-09-06). */}
+        <EngineErrorBanner />
         {/* L'état du direct passe AVANT la barre de dispositions : c'est la première
             chose à savoir en ouvrant le cockpit (« est-ce que je diffuse ? »). */}
         {/* La barre du haut est une CARTE, comme dans la maquette — pas une rangée nue

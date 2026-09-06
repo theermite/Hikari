@@ -94,7 +94,6 @@ export function AudioPanel(_props: IDockviewPanelProps) {
           setClipping(hot.name);
         }
       }
-      if (msg.type === "error" && msg.message) setError(msg.message);
     });
     return () => {
       unlisten.then((f) => f());

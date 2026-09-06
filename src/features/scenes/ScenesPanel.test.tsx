@@ -222,12 +222,16 @@ describe("ScenesPanel", () => {
     });
   });
 
-  it("should_afficher_le_message_d_erreur_envoye_par_le_moteur", () => {
+  // Le refus du moteur appartient au bandeau du cockpit depuis le 2026-09-06
+  // (`EngineErrorBanner`) : il arrive de façon asynchrone, souvent pendant qu'un autre
+  // panneau est au premier plan. L'afficher ici EN PLUS le montrerait deux fois quand ce
+  // panneau est ouvert, et pas du tout quand il ne l'est pas.
+  it("should_laisser_le_bandeau_du_cockpit_porter_le_refus_du_moteur", () => {
     render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
 
     emit({ type: "error", message: "La scène existe déjà" });
 
-    expect(screen.getByText(/La scène existe déjà/i)).toBeInTheDocument();
+    expect(screen.queryByText(/La scène existe déjà/i)).not.toBeInTheDocument();
   });
 
   it("should_desabonner_l_ecoute_du_moteur_au_demontage", async () => {

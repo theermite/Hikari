@@ -34,8 +34,9 @@ export function PreviewPanel(props: IDockviewPanelProps) {
           status: "scene",
           sources: msg.items.map((item) => item.name),
         });
-      } else if (msg.type === "error" && msg.message) {
-        setState({ status: "error", message: msg.message });
+        // Un refus du moteur n'est PAS un échec de l'aperçu : il est porté par le
+        // bandeau du cockpit (`EngineErrorBanner`, 2026-09-06). Le traiter ici vidait
+        // l'aperçu pour une demande sans rapport — retirer une caméra effaçait l'image.
       } else if (msg.type === "stopped") {
         setState({ status: "stopped" });
       }
