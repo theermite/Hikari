@@ -102,6 +102,9 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::SetSourceLocked { scene, name, locked }) => {
                     let _ = proxy.send_event(EngineEvent::SetSourceLocked { scene, name, locked });
                 }
+                Ok(ControllerCommand::SetSourceVisible { scene, name, visible }) => {
+                    let _ = proxy.send_event(EngineEvent::SetSourceVisible { scene, name, visible });
+                }
                 Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),
             }

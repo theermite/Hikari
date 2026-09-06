@@ -303,6 +303,7 @@ describe("ScenesPanel", () => {
             locked: false,
             background_removal: false,
             circle_mask: false,
+            visible: true,
           },
         ],
       }),
@@ -342,6 +343,7 @@ describe("ScenesPanel", () => {
             locked: false,
             background_removal: false,
             circle_mask: false,
+            visible: true,
           },
         ],
       }),
@@ -381,6 +383,7 @@ describe("ScenesPanel", () => {
             locked: false,
             background_removal: false,
             circle_mask: false,
+            visible: true,
           },
         ],
       }),
@@ -417,6 +420,7 @@ describe("ScenesPanel", () => {
             locked: false,
             background_removal: false,
             circle_mask: false,
+            visible: true,
           },
         ],
       }),
@@ -452,6 +456,7 @@ describe("ScenesPanel", () => {
             locked: false,
             background_removal: false,
             circle_mask: false,
+            visible: true,
           },
         ],
       }),
@@ -461,6 +466,110 @@ describe("ScenesPanel", () => {
 
     // Marqué « à venir » par le seul composant qui a le droit de le dire.
     expect(reglages.closest('[aria-disabled="true"]')).not.toBeNull();
+  });
+
+  // --- L'œil montrer/cacher (maquette, 2026-09-06) -----------------------------------
+  //
+  // Le geste du direct : masquer une source le temps d'une manipulation, puis la
+  // remontrer. Distinct du retrait, qui est une décision.
+
+  it("should_cacher_une_source_visible_quand_on_clique_l_oeil", async () => {
+    const user = userEvent.setup();
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([
+      scene({
+        name: "main",
+        sources: [
+          {
+            name: "Overlay LoL",
+            kind: "image_source",
+            source_kind: "image",
+            target_id: "D:/overlay.png",
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            background_removal: false,
+            circle_mask: false,
+            visible: true,
+          },
+        ],
+      }),
+    ]);
+
+    await user.click(
+      screen.getByRole("button", { name: /Cacher Overlay LoL/ }),
+    );
+
+    expect(invokeMock).toHaveBeenCalledWith("set_source_visible", {
+      scene: "main",
+      name: "Overlay LoL",
+      visible: false,
+    });
+  });
+
+  it("should_remontrer_une_source_cachee", async () => {
+    const user = userEvent.setup();
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([
+      scene({
+        name: "main",
+        sources: [
+          {
+            name: "Overlay LoL",
+            kind: "image_source",
+            source_kind: "image",
+            target_id: "D:/overlay.png",
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            background_removal: false,
+            circle_mask: false,
+            visible: false,
+          },
+        ],
+      }),
+    ]);
+
+    await user.click(
+      screen.getByRole("button", { name: /Montrer Overlay LoL/ }),
+    );
+
+    expect(invokeMock).toHaveBeenCalledWith("set_source_visible", {
+      scene: "main",
+      name: "Overlay LoL",
+      visible: true,
+    });
+  });
+
+  it("should_dire_a_un_lecteur_d_ecran_si_la_source_est_montree", async () => {
+    // Un pictogramme d'œil barré ne se lit pas. L'état doit être porté par le bouton.
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([
+      scene({
+        name: "main",
+        sources: [
+          {
+            name: "Overlay LoL",
+            kind: "image_source",
+            source_kind: "image",
+            target_id: "D:/overlay.png",
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            background_removal: false,
+            circle_mask: false,
+            visible: false,
+          },
+        ],
+      }),
+    ]);
+
+    expect(
+      screen.getByRole("button", { name: /Montrer Overlay LoL/ }),
+    ).toHaveAttribute("aria-pressed", "false");
   });
 
   // Le refus du moteur appartient au bandeau du cockpit depuis le 2026-09-06

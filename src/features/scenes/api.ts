@@ -69,6 +69,19 @@ export function setSourceLocked(
   return invoke("set_source_locked", { scene, name, locked });
 }
 
+/** Montre ou cache `name` dans `scene`, sans la retirer.
+ *
+ * Le geste du direct, celui de la maquette : masquer une source le temps d'une
+ * manipulation puis la remontrer. Elle garde son cadrage, ses filtres et sa place dans la
+ * pile — c'est ce qui le distingue du retrait, qui est une décision. */
+export function setSourceVisible(
+  scene: string,
+  name: string,
+  visible: boolean,
+): Promise<void> {
+  return invoke("set_source_visible", { scene, name, visible });
+}
+
 /** Moves a source one step in front of, or behind, the others in its scene — which source
  * hides which is a composition decision, so it belongs to the scene. */
 export function reorderSource(

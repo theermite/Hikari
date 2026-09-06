@@ -13,6 +13,7 @@ const source = (over: Partial<SceneSourceInfo> = {}): SceneSourceInfo => ({
   locked: false,
   background_removal: false,
   circle_mask: false,
+  visible: true,
   ...over,
 });
 

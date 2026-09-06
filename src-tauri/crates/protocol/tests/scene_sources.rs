@@ -35,6 +35,7 @@ fn should_carry_everything_needed_to_rebuild_a_source() {
         locked: true,
         background_removal: false,
         circle_mask: false,
+        visible: true,
     };
     let line = to_line(&source).expect("serializes");
     let back: SceneSourceInfo = serde_json::from_str(&line).expect("parses");
@@ -181,6 +182,7 @@ fn should_carry_each_scenes_own_source_list() {
                 locked: false,
                 background_removal: false,
                 circle_mask: false,
+                visible: true,
             },
             SceneSourceInfo {
                 name: "Webcam".to_string(),
@@ -193,6 +195,7 @@ fn should_carry_each_scenes_own_source_list() {
                 locked: true,
                 background_removal: false,
                 circle_mask: false,
+                visible: true,
             },
         ],
     };
@@ -232,4 +235,26 @@ proptest! {
         prop_assert!(!line.contains('\n'));
         prop_assert_eq!(parse_engine_message(&line).expect("parses"), msg);
     }
+}
+
+/// Une session enregistrée AVANT le champ `visible` ne le porte pas. La relire doit rendre
+/// des sources MONTRÉES : les cacher toutes au premier lancement de la version qui ajoute
+/// le champ effacerait l'écran de l'utilisateur sans qu'il ait rien demandé.
+#[test]
+fn should_show_a_source_saved_before_visibility_existed() {
+    let ancien = r#"{
+        "name": "Monitor Capture",
+        "kind": "monitor_capture",
+        "source_kind": "monitor",
+        "target_id": "ecran-1",
+        "x": 0, "y": 0, "scale_percent": 100,
+        "locked": false,
+        "background_removal": false,
+        "circle_mask": false
+    }"#;
+
+    let source: hikari_protocol::SceneSourceInfo =
+        serde_json::from_str(ancien).expect("une session d'avant doit rester lisible");
+
+    assert!(source.visible, "une source d'avant le champ est montrée, jamais cachée");
 }

@@ -37,6 +37,7 @@ import {
   reorderSource,
   setSourceLocked,
   setSourceTransform,
+  setSourceVisible,
   switchScene,
 } from "./api";
 import { SceneRow } from "./SceneRow";
@@ -447,6 +448,15 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     );
   };
 
+  /** Montre ou cache une source. Comme le verrou, l'état affiché vient du moteur au
+   * message suivant : on n'anticipe pas, sinon l'œil mentirait si la commande échouait. */
+  const toggleVisible = (scene: string, name: string, visible: boolean) => {
+    setActionError(null);
+    setSourceVisible(scene, name, visible).catch((error: unknown) =>
+      setActionError(String(error)),
+    );
+  };
+
   const startRename = (name: string) => {
     setLabelError(null);
     setRenaming(name);
@@ -526,6 +536,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                 onReorder={reorder}
                 onReorderInScene={reorderInScene}
                 onToggleLock={toggleLock}
+                onToggleVisible={toggleVisible}
                 onRemoveFromScene={removeFromScene}
                 onOpenSettings={(sceneName, source) =>
                   setSettingsFor((open) =>

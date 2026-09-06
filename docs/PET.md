@@ -246,6 +246,12 @@ project: Hikari Stream
 | **B-maj** *(hors numérotation PET — née de B-pack)* | Mises à jour reçues dans l'app : bandeau, bouton, redémarrage · canal privé signé · publication en une commande | Sensible | ✅ **prouvée de bout en bout 2026-09-05** : 0.2.0 → 0.3.0 reçue et installée |
 | **B-ui socle** *(hors numérotation PET)* | Pièces communes d'interface + costume de la maquette (îlots, fond, icônes) + répartition + barre du direct | Standard | 🟧 **prouvée à l'écran 2026-09-05** · restent en-têtes de cartes, formes d'onde animées, collections de scènes, ligne Transition, œil montrer/cacher |
 
+### Idées de Jay, notées mais non planifiées
+
+| Idée | Ce que ça règle | Date |
+|---|---|---|
+| **Panneaux d'éclairage virtuels** — ouvrir des fenêtres pleines, de couleur et de luminosité réglables, qui servent de lampes d'appoint sur un second écran. Avec dégradés et flux de couleurs, comme un vrai panneau à diodes. | Jay n'a pas de lampes de studio : il ouvre un bloc-notes en plein écran et se sert de sa page blanche comme éclairage. L'idée transforme un bricolage en fonction. Facultatif, et sans matériel à acheter — cohérent avec « combien d'idées l'utilisateur a-t-il abandonnées parce que l'outil les rendait trop chères ». | 2026-09-06 |
+
 ### Ordre de travail — décidé par Jay le 2026-09-06
 
 Il l'a réordonné lui-même, tableau par tableau, puis fusionné avec Takumi. Deux dépendances

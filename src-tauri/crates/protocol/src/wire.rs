@@ -218,6 +218,16 @@ pub enum ControllerCommand {
     /// Applies to the camera too, under its own name: it is the item most often nudged by
     /// accident, and excluding it would make the lock feel arbitrary.
     SetSourceLocked { scene: String, name: String, locked: bool },
+    /// Montre ou cache une source DANS une scène, sans la retirer (maquette, l'œil de la
+    /// liste des sources).
+    ///
+    /// Pourquoi c'est distinct du retrait : cacher garde la source, son cadrage, ses
+    /// filtres et sa place dans la pile. C'est le geste du direct — masquer une capture le
+    /// temps d'une manipulation, puis la remontrer — alors que retirer est une décision.
+    ///
+    /// Par scène, comme le verrou : la même caméra peut être visible ici et cachée
+    /// ailleurs.
+    SetSourceVisible { scene: String, name: String, visible: bool },
     /// Sets the volume the STREAMER hears, independently of what the audience hears.
     ///
     /// WHY it needs its own command and its own plumbing: libobs has ONE volume per source,

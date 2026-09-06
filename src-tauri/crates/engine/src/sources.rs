@@ -205,6 +205,29 @@ pub fn set_order(
         .context("changement d'ordre de la source")
 }
 
+/// Montre ou cache `item` dans sa scène, sans le retirer.
+///
+/// `libobs-wrapper` 9.0.4 n'expose pas la visibilité d'un élément (même constat que
+/// l'ordre d'empilement juste au-dessus), donc on passe par l'appel brut sur le fil OBS.
+///
+/// Ce que ça garde, et qui fait tout l'intérêt du geste : le cadrage, les filtres et la
+/// place dans la pile. Cacher est réversible d'un clic ; retirer ne l'est pas.
+pub fn set_visible(
+    runtime: &libobs_wrapper::runtime::ObsRuntime,
+    item: &ObsSceneItemRef<ObsSourceRef>,
+    visible: bool,
+) -> Result<()> {
+    let runtime = runtime.clone();
+    let ptr = item.as_ptr().clone();
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // Safety: sur le fil OBS, et le pointeur vient d'un pointeur intelligent vivant
+            // (l'élément est encore dans la scène, nous en tenons une référence).
+            libobs::obs_sceneitem_set_visible(ptr.get_ptr(), visible);
+        })
+        .context("changement de visibilité de la source")
+}
+
 /// La taille native de la source portée par un élément de scène, avant toute mise à
 /// l'échelle — nécessaire pour savoir où l'utilisateur clique.
 ///

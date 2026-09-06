@@ -436,6 +436,20 @@ pub(crate) fn set_source_locked(
     send_command(&state, ControllerCommand::SetSourceLocked { scene, name, locked })
 }
 
+/// Montre ou cache une source dans une scène, sans la retirer (maquette, l'œil).
+///
+/// Distinct du retrait : une source cachée garde son cadrage, ses filtres et sa place dans
+/// la pile. C'est le geste du direct — masquer le temps d'une manipulation, puis remontrer.
+#[tauri::command]
+pub(crate) fn set_source_visible(
+    state: State<EngineState>,
+    scene: String,
+    name: String,
+    visible: bool,
+) -> Result<(), String> {
+    send_command(&state, ControllerCommand::SetSourceVisible { scene, name, visible })
+}
+
 /// Moves a source one step in front of, or behind, the others in its scene (brique Sources).
 #[tauri::command]
 pub(crate) fn reorder_source(

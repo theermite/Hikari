@@ -187,6 +187,20 @@ pub struct SceneSourceInfo {
     /// Same contract as `background_removal`, for the circular mask filter.
     #[serde(default)]
     pub circle_mask: bool,
+    /// Montrée à l'écran, ou cachée sans être retirée. Cachée, la source garde son
+    /// cadrage, ses filtres et sa place dans la pile — c'est ce qui distingue le geste du
+    /// direct (masquer le temps d'une manipulation) de la décision de retirer.
+    ///
+    /// Par défaut VRAIE, et pas simplement « la valeur par défaut du type ». Une session
+    /// enregistrée avant ce champ ne le porte pas : la lire avec `false` cacherait toutes
+    /// les sources de l'utilisateur au premier lancement de la version qui l'ajoute.
+    #[serde(default = "shown")]
+    pub visible: bool,
+}
+
+/// La valeur d'une source dont personne n'a jamais dit si elle était montrée : elle l'est.
+fn shown() -> bool {
+    true
 }
 
 /// Validates a candidate source name against the sources ALREADY IN THAT SCENE.

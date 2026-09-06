@@ -86,6 +86,9 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetSourceLocked { scene, name, locked } => {
                 self.handle_set_source_locked(scene, name, locked)
             }
+            EngineEvent::SetSourceVisible { scene, name, visible } => {
+                self.handle_set_source_visible(scene, name, visible)
+            }
         }
         // La composition a changé sans que la commande le dise : le dire à sa place.
         if self.scene_contents_fingerprint() != before {

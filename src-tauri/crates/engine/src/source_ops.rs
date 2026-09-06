@@ -109,6 +109,46 @@ impl App {
         self.emit_scene_list();
     }
 
+    /// Montre ou cache une source dans UNE scène, sans la retirer (maquette, l'œil).
+    ///
+    /// Cherche d'abord parmi les captures, puis parmi les caméras : une caméra est une
+    /// source comme les autres pour ce geste, et elle est même celle qu'on masque le plus
+    /// — le temps de boire, de se lever, de régler autre chose.
+    ///
+    /// L'ensemble des cachées retient l'EXCEPTION : une source dont personne n'a rien dit
+    /// est montrée. C'est ce qui fait qu'une scène neuve n'a rien à écrire, et qu'une
+    /// session d'avant cette brique se relit sans cacher quoi que ce soit.
+    pub(crate) fn handle_set_source_visible(&mut self, scene: String, name: String, visible: bool) {
+        let camera = self.camera_item_by_name(&scene, &name).cloned();
+        let Some(obs) = &mut self.obs else { return };
+        let runtime = obs.context.runtime().clone();
+        let item = camera.or_else(|| {
+            obs.scene_sources
+                .get(&scene)
+                .and_then(|list| list.iter().find(|source| source.name == name))
+                .map(|source| source.item.clone())
+        });
+        let Some(item) = item else {
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas dans « {scene} »"),
+            });
+            return;
+        };
+        if let Err(err) = sources::set_visible(&runtime, &item, visible) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        if visible {
+            obs.hidden.remove(&(scene.clone(), name));
+        } else {
+            obs.hidden.insert((scene.clone(), name));
+        }
+        // Une source cachée ne se clique pas : le cache des rectangles doit repartir de
+        // zéro, sinon elle resterait attrapable là où plus rien ne se voit.
+        obs.item_rects = None;
+        self.emit_scene_list();
+    }
+
     /// Emits everything the machine can capture right now (brique Sources).
     pub(crate) fn handle_list_capture_targets(&mut self) {
         let (games, windows, monitors) = sources::list_capture_targets();

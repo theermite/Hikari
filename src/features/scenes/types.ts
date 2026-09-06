@@ -49,6 +49,10 @@ export interface SceneSourceInfo {
   background_removal: boolean;
   /** Pour une CAMÉRA : le masque circulaire voulu par cette scène. Même contrat. */
   circle_mask: boolean;
+  /** Montrée à l'écran, ou cachée sans être retirée (l'œil de la maquette). Cachée, la
+   * source garde son cadrage, ses filtres et sa place dans la pile — c'est ce qui
+   * distingue le geste du direct de la décision de retirer. */
+  visible: boolean;
 }
 
 export interface SceneInfo {

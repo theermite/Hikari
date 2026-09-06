@@ -103,6 +103,7 @@ impl App {
             cameras: std::collections::HashMap::new(),
             camera_items: std::collections::HashMap::new(),
             locked: std::collections::HashSet::new(),
+            hidden: std::collections::HashSet::new(),
             scene_filter_state: std::collections::HashMap::new(),
             active_scene: "main".to_string(),
             item_rects: None,

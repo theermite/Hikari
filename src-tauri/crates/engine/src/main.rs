@@ -146,6 +146,10 @@ struct ObsInner {
     /// lock without being pulled into that list — a camera source is shared across the
     /// scenes showing it, and its lock is per scene like its placement. Absent = free.
     locked: std::collections::HashSet<(String, String)>,
+    /// Les sources CACHÉES, par paire (scène, nom). L'ensemble retient l'exception, jamais
+    /// la règle : une source dont personne n'a rien dit est montrée, et une scène neuve
+    /// n'a donc rien à écrire ici.
+    hidden: std::collections::HashSet<(String, String)>,
 }
 
 /// Where one source of the active scene sits, in canvas pixels.
@@ -306,6 +310,7 @@ enum EngineEvent {
     ReorderSource { scene: String, name: String, direction: hikari_protocol::SourceOrder },
     SetSourceTransform { scene: String, name: String, x: i32, y: i32, scale_percent: i32 },
     SetSourceLocked { scene: String, name: String, locked: bool },
+    SetSourceVisible { scene: String, name: String, visible: bool },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on

@@ -153,6 +153,9 @@ impl App {
                             // toutes les sources, elle ne vaut quelque chose que pour une caméra.
                             background_removal: false,
                             circle_mask: false,
+                            visible: !obs
+                                .hidden
+                                .contains(&(name.clone(), source.name.clone())),
                         }
                     }));
                 }
@@ -193,6 +196,7 @@ impl App {
                         locked: obs.locked.contains(&(name.clone(), camera_name.clone())),
                         background_removal,
                         circle_mask,
+                        visible: !obs.hidden.contains(&(name.clone(), camera_name.clone())),
                         name: camera_name,
                     });
                 }

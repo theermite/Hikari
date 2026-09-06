@@ -73,6 +73,7 @@ fn should_carry_each_scene_own_camera_and_filter_state() {
             // dans une scène peuvent avoir deux allures différentes.
             background_removal: true,
             circle_mask: false,
+            visible: true,
         }],
     };
     let msg = EngineMessage::SceneList {

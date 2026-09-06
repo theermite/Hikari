@@ -71,6 +71,8 @@ interface SceneRowProps {
     direction: SourceOrder,
   ) => void;
   onToggleLock: (scene: string, name: string, locked: boolean) => void;
+  /** Montre ou cache une source sans la retirer — l'œil de la maquette. */
+  onToggleVisible: (scene: string, name: string, visible: boolean) => void;
   onRemoveFromScene: (scene: string, name: string) => void;
   /** Ouvre — ou referme — les réglages de CETTE source. Le même bouton pour toutes : une
    * caméra n'a plus son panneau à part (Jay, 2026-09-06). */
@@ -104,6 +106,7 @@ export function SceneRow({
   onReorder,
   onReorderInScene,
   onToggleLock,
+  onToggleVisible,
   onRemoveFromScene,
   onOpenSettings,
   settingsOpenFor,
@@ -214,7 +217,9 @@ export function SceneRow({
                   key={item.name}
                   className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] text-hikari-txt-faint"
                 >
-                  <span className="truncate">
+                  <span
+                    className={`truncate ${item.visible ? "" : "line-through opacity-50"}`}
+                  >
                     {SOURCE_ICON[item.kind] ?? "▪"} {item.name}
                   </span>
                   <span className="flex shrink-0 items-center gap-0.5">
@@ -236,6 +241,34 @@ export function SceneRow({
                     >
                       ↓
                     </OrderButton>
+                    {/* L'œil de la maquette. Premier de la rangée : c'est le geste le
+                    plus fréquent en direct, et le seul entièrement réversible d'un clic.
+                    L'état est porté par le bouton lui-même — un pictogramme d'œil barré
+                    ne se lit pas à voix haute. */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onToggleVisible(scene.name, item.name, !item.visible)
+                      }
+                      aria-label={
+                        item.visible
+                          ? `Cacher ${item.name}`
+                          : `Montrer ${item.name}`
+                      }
+                      aria-pressed={item.visible}
+                      title={
+                        item.visible
+                          ? `Cacher ${item.name} — elle garde son cadrage et ses filtres`
+                          : `Montrer ${item.name}`
+                      }
+                      className={`px-1 transition ${
+                        item.visible
+                          ? "text-hikari-txt-faint hover:text-hikari-txt"
+                          : "text-hikari-txt-faint/40 hover:text-hikari-txt-faint"
+                      }`}
+                    >
+                      {item.visible ? "👁" : "🚫"}
+                    </button>
                     {/* Les réglages sont là où la source est. Le 2026-09-06, une caméra
                     les portait dans un panneau à part, et ils sont devenus inatteignables
                     dès que ce panneau a perdu le fil de la scène en direct. */}
