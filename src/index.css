@@ -47,8 +47,13 @@
    * (Jay, 2026-09-05 : « on a de l'espace ET une différence de couleur entre le fond et
    * chaque bloc »). Le fond est le plus sombre de la charte, les cartes montent d'un cran. */
   --dv-background-color: var(--color-hikari-canvas);
-  --dv-group-view-background-color: var(--color-hikari-bg-3);
-  --dv-tabs-and-actions-container-background-color: var(--color-hikari-bg-3);
+  /* Les CARTES sont sur `bg-2`, pas `bg-3` (relu dans la maquette le 2026-09-07 :
+   * `.card{ background:var(--bg-2) }`). Nous les avions montées d'un cran de trop, et
+   * `bg-3` — que la maquette réserve aux surfaces ÉLEVÉES à l'intérieur d'une carte,
+   * comme la ligne d'une scène — n'avait plus de place au-dessus. D'où des listes plates,
+   * sans relief entre la carte et ce qu'elle contient. */
+  --dv-group-view-background-color: var(--color-hikari-bg-2);
+  --dv-tabs-and-actions-container-background-color: var(--color-hikari-bg-2);
   --dv-activegroup-visiblepanel-tab-background-color: var(--color-hikari-bg-2);
   --dv-activegroup-hiddenpanel-tab-background-color: var(--color-hikari-bg-2);
   --dv-inactivegroup-visiblepanel-tab-background-color: var(

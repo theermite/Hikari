@@ -31,7 +31,7 @@ export function Panel({ title, badge, actions, children }: PanelProps) {
   return (
     <section
       aria-label={title}
-      className="flex h-full flex-col overflow-hidden bg-hikari-bg-3"
+      className="flex h-full flex-col overflow-hidden bg-hikari-bg-2"
     >
       {hasHeader ? (
         <header className="flex flex-shrink-0 items-center gap-2 border-b border-hikari-line px-3 py-1.5">
@@ -44,7 +44,9 @@ export function Panel({ title, badge, actions, children }: PanelProps) {
       {/* LA carte possède le défilement, et elle est la seule. Un contenu qui défile aussi
           affiche deux barres côte à côte — vu sur l'écran de Jay le 2026-09-04, dès la
           première migration. Un panneau migré retire donc son propre `overflow`. */}
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3">
+      {/* 18 px, la respiration que la maquette donne a une carte (`.card{ padding:18px }`).
+          À 12 px le contenu touchait le bord et les cartes paraissaient serrées. */}
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-[18px]">
         {children}
       </div>
     </section>

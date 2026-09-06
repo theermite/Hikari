@@ -121,10 +121,13 @@ export function SceneRow({
     // et de la retrouver sans dépendre de l'ordre du texte à l'intérieur.
     <li
       aria-label={labelFor(scene.name, layout)}
-      className={`flex flex-col gap-1 rounded-[8px] border px-3 py-2 ${
+      // La maquette pose chaque scène sur une surface ÉLEVÉE (`bg-3`), avec un contour
+      // TRANSPARENT qui n'apparaît qu'au survol. C'est le relief qui distingue une ligne
+      // de la carte qui la porte ; un contour permanent, lui, fait une grille.
+      className={`flex flex-col gap-1 rounded-hikari-s border px-3 py-2.5 transition ${
         live
-          ? "border-hikari-accent bg-hikari-accent/[.07]"
-          : "border-hikari-line"
+          ? "border-hikari-accent bg-hikari-accent/[.14]"
+          : "border-transparent bg-hikari-bg-3 hover:border-hikari-line"
       }`}
     >
       <div className="flex items-center gap-2">
@@ -215,7 +218,7 @@ export function SceneRow({
               scene.sources.map((item, position) => (
                 <li
                   key={item.name}
-                  className="flex flex-wrap items-center justify-between gap-2 text-[11.5px] text-hikari-txt-faint"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-[6px] px-2 py-1 text-[12.5px] text-hikari-txt-dim transition hover:bg-hikari-bg-3"
                 >
                   <span
                     className={`truncate ${item.visible ? "" : "line-through opacity-50"}`}

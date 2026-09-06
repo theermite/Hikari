@@ -71,7 +71,7 @@ export function Sidebar({ onOpenPanel }: SidebarProps) {
     // `w-60` = 240 px, la largeur que la maquette fixe en fin de fichier (elle relève sa
     // valeur de 224 à 240). Les entrées les plus longues — « Deck mobile bientôt » — y
     // tiennent sans se serrer.
-    <aside className="m-2.5 mr-0 flex w-60 flex-shrink-0 flex-col gap-1 rounded-hikari border border-hikari-line bg-hikari-bg-3 p-3">
+    <aside className="m-2.5 mr-0 flex w-60 flex-shrink-0 flex-col gap-1 rounded-hikari border border-hikari-line bg-hikari-bg-2 p-3">
       <div className="mb-3 flex items-center gap-2.5 px-1 pb-2 pt-1">
         <div className="grid h-8.5 w-8.5 flex-shrink-0 place-items-center rounded-[9px] bg-[radial-gradient(circle_at_30%_30%,_#f5b642,_#c8891f)] text-[19px] font-extrabold text-[#1a1206]">
           光

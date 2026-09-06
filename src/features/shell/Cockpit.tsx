@@ -284,7 +284,7 @@ export function Cockpit() {
             collée au bord. Elle repose sur le même fond sombre que les panneaux, et c'est
             ce fond visible partout qui unifie l'écran (Jay, 2026-09-05 : « tu n'as pas mis
             le background de la même couleur partout »). */}
-          <div className="m-2.5 mb-0 flex-shrink-0 overflow-hidden rounded-hikari border border-hikari-line bg-hikari-bg-3">
+          <div className="m-2.5 mb-0 flex-shrink-0 overflow-hidden rounded-hikari border border-hikari-line bg-hikari-bg-2">
             <LiveBar />
             <header className="flex h-12 flex-shrink-0 items-center gap-4 px-4">
               <h1 className="text-[14px] font-semibold tracking-tight">
