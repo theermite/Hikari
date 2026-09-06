@@ -101,6 +101,26 @@ pub(crate) fn start_engine(app: AppHandle, state: State<EngineState>) -> Result<
                     if matches!(msg, EngineMessage::Ready) {
                         initialized = true;
                     }
+                    // Un refus laisse une trace datée, en plus du bandeau. Sans elle, un
+                    // défaut que l'utilisateur voit à l'écran ne peut être remonté qu'à sa
+                    // description — et la description ne dit jamais QUAND, dans la suite
+                    // des messages, le refus est tombé (vécu le 2026-09-06 sur
+                    // « Monitor Capture existe déjà »).
+                    if let EngineMessage::Error { message } = &msg {
+                        eprintln!("[engine] REFUS {message}");
+                    }
+                    if let EngineMessage::SceneList { scenes, active } = &msg {
+                        eprintln!(
+                            "[engine] SCENES actives={active} {:?}",
+                            scenes
+                                .iter()
+                                .map(|scene| (
+                                    &scene.name,
+                                    scene.sources.iter().map(|s| &s.name).collect::<Vec<_>>()
+                                ))
+                                .collect::<Vec<_>>()
+                        );
+                    }
                     let _ = app.emit("engine-message", &msg);
                 }
                 Err(err) => {

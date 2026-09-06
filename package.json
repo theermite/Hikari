@@ -13,7 +13,8 @@
     "lint": "biome check src",
     "format": "biome format --write src",
     "prepare-bundle": "python scripts/prepare_bundle.py",
-    "bundle": "python scripts/prepare_bundle.py && tauri build"
+    "bundle": "python scripts/prepare_bundle.py && tauri build",
+    "dev:engine": "cargo build --manifest-path src-tauri/Cargo.toml -p engine"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

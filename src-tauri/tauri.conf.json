@@ -4,7 +4,7 @@
   "version": "0.4.0",
   "identifier": "com.theermite.hikari",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm run dev:engine && pnpm dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
