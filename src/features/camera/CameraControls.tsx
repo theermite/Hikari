@@ -1,6 +1,11 @@
-// Les réglages d'UNE caméra posée dans la scène en direct (2026-09-06).
+// Les réglages d'UNE caméra posée dans une scène (2026-09-06).
 //
-// Extrait du panneau parce qu'il y en a désormais un par caméra : filtres, cadrage, retrait.
+// Ouverts depuis la ligne de la caméra dans le panneau Scènes, comme pour n'importe quelle
+// autre source. Ils vivaient dans un panneau à part : ce panneau devait deviner seul quelle
+// scène était en direct, et le jour où il a perdu ce fil, les réglages sont devenus
+// inatteignables sans qu'aucun test ne bronche (Jay, 2026-09-06).
+//
+// Ce qu'ils portent : filtres et cadrage.
 // Chaque bloc porte le nom de sa caméra comme étiquette de groupe — c'est ce qui permet à
 // l'utilisateur, comme à un lecteur d'écran, de savoir de LAQUELLE on parle quand deux
 // appareils sont posés dans la même scène.
@@ -8,7 +13,6 @@
 import { useState } from "react";
 import {
   nudgeCamera,
-  removeCameraSource,
   scaleCamera,
   setBackgroundRemoval,
   setCircleMask,
@@ -150,15 +154,8 @@ export function CameraControls({ camera, scene }: Props) {
         </button>
       </div>
 
-      <button
-        type="button"
-        onClick={() => run("remove", removeCameraSource(deviceId, scene))}
-        disabled={pending === "remove"}
-        className="mt-1 rounded-[8px] border border-hikari-red/60 px-3 py-1 text-[12.5px] text-hikari-red transition hover:bg-hikari-red/10 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {pending === "remove" ? "Retrait…" : "Retirer cette caméra"}
-      </button>
-
+      {/* Pas de « retirer » ici : le ✕ de la ligne de la source le fait, pour toutes les
+      sources de la même façon. Deux boutons pour un même geste, c'est un de trop. */}
       {error && <p className="text-hikari-red">❌ {error}</p>}
     </section>
   );

@@ -321,6 +321,115 @@ describe("ScenesPanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("should_ouvrir_les_reglages_d_une_camera_depuis_sa_ligne_de_source", async () => {
+    // LA régression du 2026-09-06 : les réglages de caméra étaient inatteignables. Ils
+    // vivent désormais au même endroit que la caméra elle-même — sa ligne dans la scène.
+    const user = userEvent.setup();
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([
+      scene({
+        name: "main",
+        has_camera: true,
+        sources: [
+          {
+            name: "Logitech StreamCam",
+            kind: "dshow_input",
+            source_kind: "camera",
+            target_id: "cam-1",
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            background_removal: false,
+            circle_mask: false,
+          },
+        ],
+      }),
+    ]);
+
+    await user.click(
+      screen.getByRole("button", { name: /Réglages de Logitech StreamCam/ }),
+    );
+
+    expect(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: /fond IA/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("should_appliquer_le_filtre_a_cette_camera_dans_cette_scene", async () => {
+    // Les filtres appartiennent à la caméra ET à la scène : deux caméras d'une même scène
+    // peuvent avoir deux allures, et la même caméra deux allures selon la scène.
+    const user = userEvent.setup();
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([
+      scene({
+        name: "main",
+        has_camera: true,
+        sources: [
+          {
+            name: "Logitech StreamCam",
+            kind: "dshow_input",
+            source_kind: "camera",
+            target_id: "cam-1",
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            background_removal: false,
+            circle_mask: false,
+          },
+        ],
+      }),
+    ]);
+
+    await user.click(
+      screen.getByRole("button", { name: /Réglages de Logitech StreamCam/ }),
+    );
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: /fond IA/i,
+      }),
+    );
+
+    expect(invokeMock).toHaveBeenCalledWith("set_background_removal", {
+      deviceId: "cam-1",
+      scene: "main",
+      enabled: true,
+    });
+  });
+
+  it("should_annoncer_les_reglages_a_venir_sur_une_source_ordinaire", async () => {
+    // Décision du 2026-09-05 : dessiner le squelette complet et le marquer « à venir »,
+    // plutôt que de laisser un trou. Un bouton absent ferait croire à un oubli.
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([
+      scene({
+        name: "main",
+        sources: [
+          {
+            name: "Dofus 3",
+            kind: "game_capture",
+            source_kind: "game",
+            target_id: "game-1",
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            background_removal: false,
+            circle_mask: false,
+          },
+        ],
+      }),
+    ]);
+
+    const reglages = screen.getByLabelText(/Réglages de Dofus 3/);
+
+    // Marqué « à venir » par le seul composant qui a le droit de le dire.
+    expect(reglages.closest('[aria-disabled="true"]')).not.toBeNull();
+  });
+
   // Le refus du moteur appartient au bandeau du cockpit depuis le 2026-09-06
   // (`EngineErrorBanner`) : il arrive de façon asynchrone, souvent pendant qu'un autre
   // panneau est au premier plan. L'afficher ici EN PLUS le montrerait deux fois quand ce

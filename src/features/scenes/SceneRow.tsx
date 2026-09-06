@@ -17,10 +17,11 @@
  */
 
 import type { RefObject } from "react";
+import { ComingSoon } from "../../components/ui/ComingSoon";
 import { IconButton, OrderButton, SOURCE_ICON } from "./ScenesControls";
 import { SceneThumb } from "./SceneThumb";
 import { labelFor, type SceneLayout } from "./sceneLayout";
-import type { SceneInfo, SourceOrder } from "./types";
+import type { SceneInfo, SceneSourceInfo, SourceOrder } from "./types";
 
 /** One line saying what the scene holds, in plain words — the point of étape 3 point 4:
  * knowing without switching. */
@@ -70,6 +71,9 @@ interface SceneRowProps {
   ) => void;
   onToggleLock: (scene: string, name: string, locked: boolean) => void;
   onRemoveFromScene: (scene: string, name: string) => void;
+  /** Ouvre les réglages de CETTE source dans CETTE scène. Le même bouton pour toutes :
+   * une caméra n'a plus son panneau à part (Jay, 2026-09-06). */
+  onOpenSettings: (scene: string, source: SceneSourceInfo) => void;
   onAddSource: (scene: string) => void;
   onRequestDelete: (name: string) => void;
   onCancelDelete: () => void;
@@ -98,6 +102,7 @@ export function SceneRow({
   onReorderInScene,
   onToggleLock,
   onRemoveFromScene,
+  onOpenSettings,
   onAddSource,
   onRequestDelete,
   onCancelDelete,
@@ -227,6 +232,31 @@ export function SceneRow({
                     >
                       ↓
                     </OrderButton>
+                    {/* Les réglages sont là où la source est. Le 2026-09-06, une caméra
+                    les portait dans un panneau à part, et ils sont devenus inatteignables
+                    dès que ce panneau a perdu le fil de la scène en direct. */}
+                    {item.source_kind === "camera" ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenSettings(scene.name, item)}
+                        aria-label={`Réglages de ${item.name}`}
+                        title={`Réglages de ${item.name}`}
+                        className="px-1 text-hikari-txt-faint transition hover:text-hikari-accent"
+                      >
+                        ⚙
+                      </button>
+                    ) : (
+                      <ComingSoon what="les réglages de cette source">
+                        <button
+                          type="button"
+                          disabled
+                          aria-label={`Réglages de ${item.name}`}
+                          className="px-1 text-hikari-txt-faint"
+                        >
+                          ⚙
+                        </button>
+                      </ComingSoon>
+                    )}
                     <button
                       type="button"
                       onClick={() =>

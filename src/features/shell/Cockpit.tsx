@@ -13,7 +13,6 @@ import { DockviewReact } from "dockview-react";
 import { useCallback, useRef, useState } from "react";
 import "dockview-react/dist/styles/dockview.css";
 import { AudioPanel } from "../audio/AudioPanel";
-import { CameraPanel } from "../camera/CameraPanel";
 import { ChatPanel } from "../chat/ChatPanel";
 import { DeckPanel } from "../deck/DeckPanel";
 import { PreflightPanel } from "../preflight/PreflightPanel";
@@ -60,7 +59,6 @@ const PANEL_COMPONENTS: Record<
   deck: DeckPanel,
   placeholder: PlaceholderPanel,
   preflight: PreflightPanel,
-  camera: CameraPanel,
   preview: PreviewPanel,
   scenes: ScenesPanel,
   audio: AudioPanel,
@@ -123,19 +121,16 @@ function buildDefaultLayout(api: DockviewApi): void {
     position: { referencePanel: audio.id, direction: "right" },
   });
 
-  // Caméra et Pré-vol partagent la colonne des scènes, en onglets : ils servent à PRÉPARER,
-  // pas à piloter pendant un direct, et la maquette ne leur donne pas de place propre.
-  api.addPanel({
-    id: "camera",
-    component: "camera",
-    title: "Caméra",
-    position: { referencePanel: scenes.id, direction: "below" },
-  });
+  // Le Pré-vol s'ouvre sous les scènes : il sert à PRÉPARER, pas à piloter pendant un
+  // direct, et la maquette ne lui donne pas de place propre.
+  //
+  // Plus de panneau « Caméra » (2026-09-06) : une caméra est une source, elle vit dans la
+  // liste des sources de sa scène, avec le même bouton réglages que les autres.
   api.addPanel({
     id: "preflight",
     component: "preflight",
     title: "Pré-vol",
-    position: { referencePanel: "camera" },
+    position: { referencePanel: scenes.id, direction: "below" },
   });
 }
 
@@ -152,9 +147,6 @@ export function Cockpit() {
       .then((saved) => {
         if (saved) {
           restoreLayout(event.api, saved);
-          // Un layout sauvegardé avant l'ajout de ce panneau ne l'a jamais vu — rattrapage
-          // pour qu'il apparaisse sans que Jay doive réinitialiser sa disposition.
-          ensurePanel(event.api, "camera", "Caméra");
           // Le placeholder "Aperçu (à venir)" est remplacé par le vrai panneau — retiré
           // s'il vient d'une disposition sauvegardée avant cette brique.
           const oldPlaceholder = event.api.getPanel("preview-placeholder");
@@ -165,13 +157,13 @@ export function Cockpit() {
           // Un layout sauvegardé avant cette brique (multi-scène) ne l'a jamais vu — même
           // rattrapage que les autres panneaux ajoutés après coup.
           ensurePanel(event.api, "scenes", "Scènes", {
-            referencePanel: "camera",
-            direction: "below",
+            referencePanel: "preview",
+            direction: "left",
           });
           // Idem pour le mixeur (B6) : ajouté après coup, absent des dispositions déjà
           // écrites sur le disque.
           ensurePanel(event.api, "audio", "Audio", {
-            referencePanel: "camera",
+            referencePanel: "preview",
             direction: "below",
           });
           // Migration Deck : une disposition écrite avant la livraison du deck (B4, août)
@@ -194,12 +186,17 @@ export function Cockpit() {
           // accessible depuis Paramètres, barre latérale).
           const twitchPanel = event.api.getPanel("twitch-connect");
           if (twitchPanel) {
-            const cameraPanel = event.api.getPanel("camera");
-            if (cameraPanel && cameraPanel.group !== twitchPanel.group) {
-              cameraPanel.api.moveTo({ group: twitchPanel.group });
+            const scenesPanel = event.api.getPanel("scenes");
+            if (scenesPanel && scenesPanel.group !== twitchPanel.group) {
+              scenesPanel.api.moveTo({ group: twitchPanel.group });
             }
             event.api.removePanel(twitchPanel);
           }
+          // Migration Caméra → Scènes (2026-09-06) : une disposition sauvegardée avant ce
+          // jour garde un panneau « Caméra » dont le composant n'existe plus. Le laisser
+          // afficherait une carte vide et intitulée, sans la moindre erreur visible.
+          const cameraGhost = event.api.getPanel("camera");
+          if (cameraGhost) event.api.removePanel(cameraGhost);
         } else {
           buildDefaultLayout(event.api);
         }

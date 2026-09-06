@@ -10,6 +10,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useRef, useState } from "react";
+import { Modal } from "../../components/Modal";
 import { Panel } from "../../components/ui/Panel";
 import {
   addAudioSource,
@@ -26,6 +27,7 @@ import {
   setBackgroundRemoval,
   setCircleMask,
 } from "../camera/api";
+import { CameraControls } from "../camera/CameraControls";
 import { onAddRequested } from "../shell/panelActions";
 import { AddSourceModal, type CaptureTargets } from "./AddSourceModal";
 import {
@@ -58,6 +60,7 @@ import type {
   CaptureTarget,
   EngineMessage,
   SceneInfo,
+  SceneSourceInfo,
   SourceKind,
   SourceOrder,
 } from "./types";
@@ -88,6 +91,12 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const [labelError, setLabelError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
+  /** La source dont les réglages sont ouverts, et dans quelle scène. Les deux, jamais la
+   * source seule : les filtres d'une caméra appartiennent à la PAIRE caméra + scène. */
+  const [settingsFor, setSettingsFor] = useState<{
+    scene: string;
+    source: SceneSourceInfo;
+  } | null>(null);
   /** Les scènes dont les sources sont dépliées. Fermées par défaut : avant, chaque scène
    * déroulait tout son contenu en permanence et trois scènes remplissaient le panneau.
    * La scène EN DIRECT s'ouvre d'office — c'est celle qu'on regarde. */
@@ -423,6 +432,17 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     );
   };
 
+  /** La source ouverte, RELUE dans l'état du moteur à chaque rendu. Sans cette relecture
+   * la fenêtre garderait la copie prise à l'ouverture : activer un filtre l'appliquerait
+   * vraiment, et le bouton continuerait d'afficher « activer ». */
+  const openedSource =
+    settingsFor &&
+    (state.status === "ready" ? state.scenes : [])
+      .find((scene) => scene.name === settingsFor.scene)
+      ?.sources.find(
+        (source) => source.target_id === settingsFor.source.target_id,
+      );
+
   const removeFromScene = (scene: string, name: string) => {
     setActionError(null);
     removeSource(scene, name).catch((error: unknown) =>
@@ -519,6 +539,9 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                 onReorderInScene={reorderInScene}
                 onToggleLock={toggleLock}
                 onRemoveFromScene={removeFromScene}
+                onOpenSettings={(scene, source) =>
+                  setSettingsFor({ scene, source })
+                }
                 onAddSource={setAddingTo}
                 onRequestDelete={setConfirmingDelete}
                 onCancelDelete={() => setConfirmingDelete(null)}
@@ -549,6 +572,28 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       />
 
       {labelError && <p className="text-hikari-red">❌ {labelError}</p>}
+      <Modal
+        open={settingsFor !== null && openedSource !== undefined}
+        title={
+          settingsFor
+            ? `Réglages — ${settingsFor.source.name} · ${labelFor(settingsFor.scene, layout)}`
+            : ""
+        }
+        onClose={() => setSettingsFor(null)}
+      >
+        {settingsFor && openedSource && (
+          <CameraControls
+            scene={settingsFor.scene}
+            camera={{
+              deviceId: openedSource.target_id,
+              name: openedSource.name,
+              backgroundRemoval: openedSource.background_removal,
+              circleMask: openedSource.circle_mask,
+            }}
+          />
+        )}
+      </Modal>
+
       {actionError && <p className="text-hikari-red">❌ {actionError}</p>}
 
       <div className="flex gap-2">
