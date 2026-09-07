@@ -71,7 +71,34 @@ impl App {
             .with_inner_size(winit::dpi::LogicalSize::new(PREVIEW_START_WIDTH, PREVIEW_START_HEIGHT));
         let window = event_loop.create_window(attrs).context("création fenêtre d'aperçu")?;
 
-        let mut context = ObsContext::new(libobs_wrapper::utils::StartupInfo::default()).context("init libobs")?;
+        // La definition et la cadence viennent de la MACHINE, plus des valeurs par
+        // defaut du moteur. Personne ne les avait choisies : ni Jay, ni nous.
+        //
+        // La taille se lit ICI parce que c'est le seul endroit qui connait les ecrans :
+        // c'est la boucle de fenetres qui les expose. L'ecran PRINCIPAL, jamais le plus
+        // grand — c'est celui ou l'on joue, et diffuser plus grand que ce qu'on compose
+        // n'ajoute aucun detail.
+        let (ecran_l, ecran_h) = event_loop
+            .primary_monitor()
+            .or_else(|| event_loop.available_monitors().next())
+            .map(|ecran| (ecran.size().width, ecran.size().height))
+            // Aucun ecran annonce : on choisit prudemment plutot que de refuser de
+            // demarrer. Un moteur qui ne demarre pas ne diffuse rien du tout.
+            .unwrap_or((1280, 720));
+        crate::set_composition(ecran_l, ecran_h);
+        let reglage = crate::composition();
+        let video = libobs_wrapper::data::video::ObsVideoInfoBuilder::new()
+            .base_width(reglage.width)
+            .base_height(reglage.height)
+            .output_width(reglage.width)
+            .output_height(reglage.height)
+            .fps_num(reglage.fps)
+            .fps_den(1)
+            .build();
+        let mut context = ObsContext::new(
+            libobs_wrapper::utils::StartupInfo::new().set_video_info(video),
+        )
+        .context("init libobs")?;
         emit(&EngineMessage::Ready);
 
         let (sources, scene_item, startup_monitor) =

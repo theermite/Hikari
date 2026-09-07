@@ -72,7 +72,19 @@ pub fn start_stream(context: &mut ObsContext) -> Result<ObsOutputRef> {
 
     let mut video_settings = context.data().context("réglages encodeur vidéo")?;
     video_settings.set_string("rate_control", "CBR")?;
-    video_settings.set_int("bitrate", 6000)?;
+    // Le debit vient de la MACHINE, plus d'un nombre ecrit en dur.
+    //
+    // 6000 etait pose la sans que personne ne l'ait choisi, et le premier direct
+    // long de Jay a perdu environ 2 % de ses images (1 h 51, 2026-09-07). Un debit
+    // trop haut est refuse par la plateforme ou sature la connexion : dans les deux
+    // cas l'image saccade, et rien a l'ecran n'explique pourquoi.
+    //
+    // Calcule ICI et pas au demarrage : c'est le seul endroit qui sait si la machine
+    // encode par le MATERIEL. Sans lui, le processeur fait deux metiers a la fois —
+    // encoder et faire tourner le jeu — et c'est la premiere cause d'images perdues.
+    let debit = hikari_protocol::bitrate_kbps(crate::composition(), hardware);
+    eprintln!("[engine] debit choisi : {debit} kbit/s (encodeur materiel : {hardware})");
+    video_settings.set_int("bitrate", i64::from(debit))?;
     video_settings.set_int("keyint_sec", 2)?; // clé toutes les 2 s : exigence des ingests RTMP
     let video_info = VideoEncoderInfo::new(video_type, "hikari_video_encoder", Some(video_settings), None);
     output.create_and_set_video_encoder(video_info).context("encodeur vidéo")?;

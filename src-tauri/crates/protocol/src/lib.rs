@@ -20,6 +20,7 @@
 
 pub mod audio;
 pub mod broadcast;
+pub mod encoding;
 pub mod engine_log;
 pub mod geometry;
 pub mod platform;
@@ -29,6 +30,7 @@ pub mod wire;
 
 pub use audio::*;
 pub use broadcast::*;
+pub use encoding::*;
 pub use engine_log::*;
 pub use geometry::*;
 pub use platform::*;

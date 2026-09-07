@@ -85,6 +85,32 @@ pub(crate) fn emit(msg: &EngineMessage) {
     }
 }
 
+/// La composition retenue au démarrage : ce que le moteur DESSINE.
+///
+/// Lue à deux moments éloignés — au démarrage pour construire l'image, puis à chaque
+/// diffusion pour en déduire le débit. Les deux DOIVENT s'accorder : une image composée en
+/// 1080 et un débit calculé pour du 720 produisent exactement le défaut qu'on corrige.
+pub(crate) fn composition() -> hikari_protocol::Composition {
+    // Personne n'a mesuré : on compose comme sur un écran modeste. Ce chemin ne devrait
+    // jamais servir — il existe pour que l'absence de mesure produise un réglage PRUDENT
+    // plutôt qu'un plantage.
+    *COMPOSITION.get_or_init(|| hikari_protocol::composition(1280, 720))
+}
+
+/// Retient la composition de cette machine. Appelée UNE fois, au démarrage, depuis
+/// l'endroit qui connaît la taille de l'écran.
+pub(crate) fn set_composition(screen_width: u32, screen_height: u32) {
+    let choisi = hikari_protocol::composition(screen_width, screen_height);
+    eprintln!(
+        "[engine] composition choisie : {}x{} a {} i/s (ecran {screen_width}x{screen_height})",
+        choisi.width, choisi.height, choisi.fps
+    );
+    let _ = COMPOSITION.set(choisi);
+}
+
+static COMPOSITION: std::sync::OnceLock<hikari_protocol::Composition> =
+    std::sync::OnceLock::new();
+
 /// Keeps the 16:9 aspect ratio when the controller resizes the grafted window (cross-process
 /// `MoveWindow`, proven at the spike). Pure aspect-fit math, transcribed unchanged.
 pub(crate) fn fit_size(win_w: u32, win_h: u32) -> (u32, u32) {
