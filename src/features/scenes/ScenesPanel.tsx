@@ -256,7 +256,16 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       const audioMsg = msg as AudioEngineMessage;
       if (audioMsg.type === "audio_sources" && audioMsg.items) {
         audioRef.current = audioMsg.items;
-        if (!replaying.current && stateRef.current.length > 0) {
+        // `restored.current` et non seulement « pas de rejeu en cours » : entre le
+        // démarrage d'un moteur neuf et le début du rejeu, aucun rejeu ne tourne encore, et
+        // c'est précisément là que le mixeur vide du moteur passait — il a effacé les
+        // appareils de Jay le 2026-09-07. Une seule règle vaut pour les deux versants :
+        // RIEN ne s'écrit tant que la session de CE moteur n'a pas été rejouée.
+        if (
+          restored.current &&
+          !replaying.current &&
+          stateRef.current.length > 0
+        ) {
           saveSession(
             toSession(stateRef.current, activeRef.current, audioMsg.items),
           ).catch(() => undefined);
@@ -268,6 +277,15 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       // rattrapage, ouvrir l'Aperçu après la fenêtre d'ajout laisserait celle-ci vide.
       if (msg.type === "ready") {
         listCaptureTargets().catch(() => undefined);
+        // Un moteur NEUF ne connaît que « main ». Sans cette ligne, l'écran prenait son
+        // inventaire nu pour la nouvelle vérité et l'écrivait par-dessus les vraies scènes
+        // — ce qui a DÉTRUIT la session de Jay le 2026-09-07 quand une correction s'est
+        // mise à relancer le moteur en cours de route.
+        //
+        // La garde d'origine demandait « a-t-on déjà rejoué ? », vraie une fois pour
+        // toutes. La bonne question est « ce moteur est-il neuf ? » : elle ferme la
+        // famille entière, y compris un moteur qui redémarrerait de lui-même.
+        restored.current = false;
       }
       if (msg.type === "capture_targets") {
         setTargets({

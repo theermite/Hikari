@@ -292,12 +292,14 @@ describe("la famille TEXTE", () => {
     const texte = SOURCE_FAMILIES.find((f) => f.kind === "text");
 
     expect(texte?.isFile).toBe(false);
-    expect(targetsFor("text", {
-      games: [],
-      windows: [],
-      monitors: [],
-      cameras: [],
-    })).toEqual([]);
+    expect(
+      targetsFor("text", {
+        games: [],
+        windows: [],
+        monitors: [],
+        cameras: [],
+      }),
+    ).toEqual([]);
   });
 
   it("should_say_what_it_is_for_in_plain_words", () => {

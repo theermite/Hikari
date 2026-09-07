@@ -30,6 +30,21 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
 // pour ne pas dépendre d'un vrai stockage entre deux tests.
 vi.mock("./sessionStore", () => ({}));
 
+// Le stockage de session est simulé pour pouvoir OBSERVER ce qui y est écrit — c'est le
+// seul moyen de prouver qu'une session n'est pas détruite.
+const saveSessionMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const loadSessionMock = vi.hoisted(() => vi.fn());
+vi.mock("./sceneLayout", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./sceneLayout")>();
+  return {
+    ...actual,
+    saveSession: saveSessionMock,
+    loadSession: loadSessionMock,
+    saveSceneLayout: vi.fn().mockResolvedValue(undefined),
+    loadSceneLayout: vi.fn().mockResolvedValue(actual.EMPTY_LAYOUT),
+  };
+});
+
 function emit(message: EngineMessage) {
   act(() => {
     engineListener?.({ payload: message });
@@ -715,7 +730,9 @@ describe("ScenesPanel", () => {
     emit({ type: "capture_targets", games: [], windows: [], monitors: [] });
     await user.click(screen.getByRole("button", { name: "Du texte" }));
 
-    expect(screen.getByRole("button", { name: /Ajouter le texte/ })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /Ajouter le texte/ }),
+    ).toBeDisabled();
   });
 
   // Le refus du moteur appartient au bandeau du cockpit depuis le 2026-09-06
@@ -745,5 +762,94 @@ describe("ScenesPanel", () => {
     unmount();
     await Promise.resolve();
     expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+
+  it("should_never_overwrite_the_saved_session_when_a_fresh_engine_reports_its_naked_state", async () => {
+    // Défaut vécu le 2026-09-07, et il a DÉTRUIT le travail de Jay : relancer le moteur en
+    // cours de session le fait repartir avec la seule scène « main ». L'écran ne rejouait
+    // la session qu'UNE fois par ouverture de l'application ; au second inventaire il
+    // prenait donc cet état nu pour la vérité et l'écrivait par-dessus les vraies scènes.
+    //
+    // La garde d'origine demandait « a-t-on déjà rejoué ? ». La bonne question est « ce
+    // moteur est-il neuf ? » — sinon un moteur qui redémarrerait seul détruirait pareil.
+    loadSessionMock.mockResolvedValue({
+      active: "main",
+      audio: [],
+      scenes: [
+        { name: "main", sources: [], cameras: [] },
+        { name: "Dofus", sources: [], cameras: [] },
+      ],
+    });
+
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    emit({ type: "ready" });
+    emit({
+      type: "scene_list",
+      active: "main",
+      scenes: [scene({ name: "main" }), scene({ name: "Dofus" })],
+    });
+    // Le rejeu doit AVOIR FINI avant la suite : sans cette attente, le drapeau « rejeu en
+    // cours » bloque encore la sauvegarde et le test passerait pour une mauvaise raison —
+    // exactement le faux vert constaté en l'écrivant.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    saveSessionMock.mockClear();
+
+    // Le moteur redémarre : nouveau signal de démarrage, puis un inventaire nu.
+    emit({ type: "ready" });
+    emit({
+      type: "scene_list",
+      active: "main",
+      scenes: [scene({ name: "main" })],
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const destructive = saveSessionMock.mock.calls.filter(
+      ([doc]) => (doc?.scenes?.length ?? 0) < 2,
+    );
+    expect(destructive).toHaveLength(0);
+  });
+
+  it("should_never_overwrite_the_saved_audio_when_a_fresh_engine_reports_no_device", async () => {
+    // Second versant du même défaut, et Jay l'a perdu aussi le 2026-09-07 : ses appareils
+    // audio. Un moteur neuf annonce zéro appareil AVANT que le rejeu ne commence ; la garde
+    // ne regardait que « un rejeu est-il en cours ? », donc cette liste vide passait et
+    // écrasait le mixeur entier.
+    loadSessionMock.mockResolvedValue({
+      active: "main",
+      audio: [
+        { name: "Micro", kind: "input", muted: false, monitoring: false },
+      ],
+      scenes: [{ name: "main", sources: [], cameras: [] }],
+    });
+
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    emit({ type: "ready" });
+    emit({
+      type: "scene_list",
+      active: "main",
+      scenes: [scene({ name: "main" })],
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    saveSessionMock.mockClear();
+
+    // Le moteur redémarre et annonce son mixeur vide avant tout rejeu.
+    emit({ type: "ready" });
+    emit({ type: "audio_sources", items: [] } as unknown as EngineMessage);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const destructive = saveSessionMock.mock.calls.filter(
+      ([doc]) => (doc?.audio?.length ?? 0) === 0,
+    );
+    expect(destructive).toHaveLength(0);
   });
 });
