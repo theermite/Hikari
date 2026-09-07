@@ -10,9 +10,12 @@ import type {
   IDockviewPanelProps,
 } from "dockview-react";
 import { DockviewReact } from "dockview-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "dockview-react/dist/styles/dockview.css";
 import { MorphicButton } from "@theermite/morphic-adapter/ui";
+import { useMorphicDensity } from "@theermite/morphic-adapter";
+import { watchForOverlay } from "../preview/domSuppression";
+import { gapForDensity } from "./density";
 import { AudioPanel } from "../audio/AudioPanel";
 import { ChatPanel } from "../chat/ChatPanel";
 import { DeckPanel } from "../deck/DeckPanel";
@@ -58,13 +61,19 @@ import { TitleBar } from "./TitleBar";
  * produisaient qu'un débordement.
  *
  * `className` porte nos couleurs ; `gap` porte l'espace ; le fond du conteneur se voit
- * entre les cartes, et c'est cette différence de teinte qui les détache. */
-const HIKARI_THEME = {
-  name: "hikari",
-  className: "dockview-theme-dark dockview-spaced",
-  colorScheme: "dark" as const,
-  gap: 10,
-};
+ * entre les cartes, et c'est cette différence de teinte qui les détache.
+ *
+ * Depuis le 2026-09-07, `gap` suit la DENSITÉ choisie dans le panneau d'adaptation : c'est
+ * la seule façon d'atteindre cet écart, et donc la seule façon de rendre ce réglage réel
+ * (Jay : « la densité ne change pas non plus »). Voir `density.ts`. */
+function hikariTheme(gap: number) {
+  return {
+    name: "hikari",
+    className: "dockview-theme-dark dockview-spaced",
+    colorScheme: "dark" as const,
+    gap,
+  };
+}
 
 const PANEL_COMPONENTS: Record<
   string,
@@ -315,6 +324,17 @@ export function Cockpit() {
 
   const screen = screenFor(screenId);
 
+  // L'aperçu est une fenêtre NATIVE : il se dessine toujours au-dessus du web, et il
+  // passait donc devant le panneau d'adaptation (Jay, 2026-09-07). Nos propres fenêtres
+  // surgissantes demandent son retrait elles-mêmes ; celle-ci vient d'un module externe qui
+  // n'expose aucun signal d'ouverture, d'où l'observation de sa présence réelle.
+  useEffect(() => watchForOverlay(".morphic-mb-modal"), []);
+
+  // La densité vient du module, jamais d'un réglage parallèle : deux sources pour un même
+  // choix, c'est la duplication qui a fait diverger le reste de l'écosystème.
+  const [density] = useMorphicDensity();
+  const theme = useMemo(() => hikariTheme(gapForDensity(density)), [density]);
+
   return (
     // La barre de titre coiffe TOUT, barre latérale comprise : c'est la ligne qui remplace
     // celle de Windows, et elle borde la fenêtre entière (Jay, 2026-09-06).
@@ -340,52 +360,69 @@ export function Cockpit() {
             collée au bord. Elle repose sur le même fond sombre que les panneaux, et c'est
             ce fond visible partout qui unifie l'écran (Jay, 2026-09-05 : « tu n'as pas mis
             le background de la même couleur partout »). */}
-          <div className="m-2.5 mb-0 flex-shrink-0 overflow-hidden rounded-hikari border border-hikari-line bg-hikari-bg-2">
-            <LiveBar />
-            <header className="flex h-12 flex-shrink-0 items-center gap-4 px-4">
-              {/* Le titre dit ce qu'on REGARDE. Il annoncait « Cockpit Live » en dur,
+          {/* La carte découpe ce qui dépasse d'elle, pour tenir ses coins arrondis. Le
+              panneau d'adaptation s'ouvre SOUS le bouton, donc hors de la carte : il était
+              découpé à 100 % à chaque ouverture, en silence, et Jay a conclu — à raison de
+              son point de vue — que le bouton était décoratif (2026-09-07).
+              D'où cette enveloppe `relative` qui ne découpe rien : la carte garde son
+              découpage, le bouton vit à côté. Voir `morphicPlacement.ts`. */}
+          <div className="relative m-2.5 mb-0 flex-shrink-0">
+            <div className="overflow-hidden rounded-hikari border border-hikari-line bg-hikari-bg-2">
+              <LiveBar />
+              <header className="flex h-12 flex-shrink-0 items-center gap-4 px-4">
+                {/* Le titre dit ce qu'on REGARDE. Il annoncait « Cockpit Live » en dur,
                   ce qui etait juste tant que le cockpit etait le seul ecran. */}
-              <h1 className="text-[14px] font-semibold tracking-tight">
-                {screen.label}
-              </h1>
-              {/* Les trois dispositions agencent le COCKPIT : preparer son direct, le
+                <h1 className="text-[14px] font-semibold tracking-tight">
+                  {screen.label}
+                </h1>
+                {/* Les trois dispositions agencent le COCKPIT : preparer son direct, le
                   piloter, rester concentre dessus (Jay, 2026-09-07). Elles n'ont aucun
                   sens sur le pre-vol ou les parametres, donc elles n'y paraissent pas. */}
-              {screen.id === "cockpit" && (
-                <>
-                  <span className="text-[11px] uppercase tracking-wider text-hikari-txt-faint">
-                    Disposition
-                  </span>
-                  <div className="flex gap-0.5 rounded-full border border-hikari-line bg-hikari-bg p-0.5">
-                    {PRESETS.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => switchPreset(preset.id)}
-                        className={`rounded-full px-3 py-1 text-[12.5px] font-medium transition ${
-                          activePreset === preset.id
-                            ? "bg-hikari-accent text-[#1a1206]"
-                            : "text-hikari-txt-dim hover:text-hikari-txt"
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-              {/* Tout à droite : quelle version tourne, et ce que le canal a répondu. Sans
+                {screen.id === "cockpit" && (
+                  <>
+                    <span className="text-[11px] uppercase tracking-wider text-hikari-txt-faint">
+                      Disposition
+                    </span>
+                    <div className="flex gap-0.5 rounded-full border border-hikari-line bg-hikari-bg p-0.5">
+                      {PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => switchPreset(preset.id)}
+                          className={`rounded-full px-3 py-1 text-[12.5px] font-medium transition ${
+                            activePreset === preset.id
+                              ? "bg-hikari-accent text-[#1a1206]"
+                              : "text-hikari-txt-dim hover:text-hikari-txt"
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {/* Tout à droite : quelle version tourne, et ce que le canal a répondu. Sans
                 elle, la seule façon de savoir si on est à jour était de réinstaller —
                 le geste que la mise à jour dans l'app supprime (Jay, 2026-09-06). */}
-              <VersionTag />
-              {/* Le bouton d'adaptation, tout à droite de la barre du haut (Jay,
+                <VersionTag />
+                {/* Le bouton d'adaptation, tout à droite de la barre du haut (Jay,
                   2026-09-07). Sa PLACE est une règle de l'écosystème : quelqu'un qui passe
                   d'un produit Shinkofa à l'autre ne doit pas réapprendre où le chercher.
                   C'est aussi le seul composant autorisé à dessiner un réglage de confort —
                   thème, mouvement, contraste, densité, police — parce qu'un panneau fait
                   main finit toujours par diverger de celui qui marche vraiment. */}
+                {/* La place du bouton est RÉSERVÉE ici, mais il est dessiné hors de la
+                  carte (juste en dessous) : sans cette réserve, sortir le bouton
+                  décalerait le numéro de version vers la droite. */}
+                <span className="w-9 flex-shrink-0" aria-hidden="true" />
+              </header>
+            </div>
+            {/* Aligné sur la rangée du bas de la carte — même hauteur que l'en-tête (h-12),
+              même marge droite (px-4). Il se lit donc exactement à sa place, sans être
+              prisonnier du découpage. */}
+            <div className="absolute right-4 bottom-0 z-30 flex h-12 items-center">
               <MorphicButton />
-            </header>
+            </div>
           </div>
           {/* Le cockpit reste MONTE en permanence, meme quand un autre ecran est
               devant : le demonter fermerait le moteur — c'est le panneau Apercu qui le
@@ -395,7 +432,7 @@ export function Cockpit() {
             <DockviewReact
               components={PANEL_COMPONENTS}
               onReady={onReady}
-              theme={HIKARI_THEME}
+              theme={theme}
               defaultTabComponent={PanelTab}
             />
           </div>

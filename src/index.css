@@ -197,3 +197,162 @@
 .dockview-theme-dark *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* ════════════════════════════════════════════════════════════════════════════════════
+ * Hikari écoute le module d'adaptation
+ * ════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Le module ne pose que des attributs sur `<html>` ; c'est à l'application de dire ce
+ * qu'ils changent chez elle. Jay, 2026-09-07 : « le thème clair et le thème sombre ne
+ * changent rien, les polices ne changent pas, la densité non plus ». Le panneau proposait
+ * cinq réglages dont trois étaient muets — un réglage qui ne fait rien est pire que pas de
+ * réglage.
+ *
+ * TOUT passe par les JETONS déclarés plus haut, jamais par des règles posées sur des
+ * écrans. Une couleur redéclarée à deux endroits finit par diverger ; ici, redéfinir le
+ * jeton suffit et tout ce qui l'utilise suit.
+ *
+ * POURQUOI le thème clair est une fonction et non un confort (correction de Jay,
+ * 2026-09-07) : sur un outil de stream, un écran clair ÉCLAIRE le visage de celui qui
+ * filme. Il n'a pas de lampes de studio et ouvre déjà un bloc-notes en plein écran pour
+ * s'éclairer — d'où sa note « panneaux d'éclairage virtuels » du 2026-09-06. J'avais
+ * classé ce thème en confort rare ; c'était faux.
+ */
+
+/* ── Polices ─────────────────────────────────────────────────────────────────────────
+ * Le module change la police du CORPS de page. Hikari posait la sienne sur le cockpit,
+ * c'est-à-dire plus bas — elle gagnait donc toujours, et le réglage restait sans effet.
+ * On redéfinit le JETON : tout ce qui l'utilise suit, sans une seule ligne ailleurs.
+ *
+ * Les fichiers de police ne sont pas embarqués : les noms sont cités, et le système
+ * retombe sur la suite indiquée s'il ne les a pas. Une police absente donne une police
+ * lisible, jamais un écran cassé. */
+html[data-morphic-font-family="system"] {
+  --font-hikari: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+html[data-morphic-font-family="serif"] {
+  --font-hikari: Georgia, "Times New Roman", Times, serif;
+}
+html[data-morphic-font-family="atkinson"] {
+  --font-hikari: "Atkinson Hyperlegible", Verdana, sans-serif;
+}
+html[data-morphic-font-family="dyslexic"] {
+  --font-hikari: "OpenDyslexic", "Comic Sans MS", Verdana, sans-serif;
+}
+
+/* ── Densité ─────────────────────────────────────────────────────────────────────────
+ * Le module publie un MULTIPLICATEUR (`--morphic-gap`) et laisse l'application décider ce
+ * qu'il étire. On le branche sur l'espace entre les cartes du cockpit — l'endroit où la
+ * respiration se voit vraiment — plutôt que sur les 106 espacements du code.
+ *
+ * Étirer les 106 d'un coup casserait une mise en page que Jay vient de valider, et il ne
+ * pourrait pas dire lesquels ont bougé. Un réglage qui déplace tout n'est pas réglable. */
+html {
+  --hikari-gap: calc(10px * var(--morphic-gap, 1));
+}
+
+/* ── Thèmes ──────────────────────────────────────────────────────────────────────────
+ * La palette CLAIRE. Ce n'est pas la sombre inversée : les mêmes rapports de contraste
+ * demandent d'autres valeurs, et l'accent ambre doit foncer pour rester lisible sur du
+ * clair.
+ *
+ * L'accent, le vert, le rouge et la pastille de direct changent AUSSI : un ambre pensé
+ * pour du presque-noir devient illisible sur du blanc, et un état « tout va bien » qu'on
+ * ne distingue plus ne renseigne plus personne. */
+html[data-morphic-theme="light"] {
+  --color-hikari-canvas: #eef1f5;
+  --color-hikari-bg: #f6f8fa;
+  --color-hikari-bg-2: #ffffff;
+  --color-hikari-bg-3: #f0f3f7;
+  --color-hikari-line: rgba(9, 12, 17, 0.12);
+  --color-hikari-line-soft: rgba(9, 12, 17, 0.06);
+  --color-hikari-txt: #111820;
+  --color-hikari-txt-dim: #4a5663;
+  --color-hikari-txt-faint: #737f8c;
+  --color-hikari-accent: #a86a00;
+  --color-hikari-cyan: #0a6c9e;
+  --color-hikari-green: #157f3c;
+  --color-hikari-red: #b3261e;
+  --color-hikari-live: #c92a2a;
+}
+
+/* « auto » ne dit pas une couleur : il delegue au reglage de la machine. Sans cette regle,
+ * choisir « auto » sur un systeme clair laisserait Hikari sombre — un choix sans effet,
+ * exactement ce qu'on vient de corriger ailleurs. */
+@media (prefers-color-scheme: light) {
+  html[data-morphic-theme="auto"],
+  html:not([data-morphic-theme]) {
+    --color-hikari-canvas: #eef1f5;
+    --color-hikari-bg: #f6f8fa;
+    --color-hikari-bg-2: #ffffff;
+    --color-hikari-bg-3: #f0f3f7;
+    --color-hikari-line: rgba(9, 12, 17, 0.12);
+    --color-hikari-line-soft: rgba(9, 12, 17, 0.06);
+    --color-hikari-txt: #111820;
+    --color-hikari-txt-dim: #4a5663;
+    --color-hikari-txt-faint: #737f8c;
+    --color-hikari-accent: #a86a00;
+    --color-hikari-cyan: #0a6c9e;
+    --color-hikari-green: #157f3c;
+    --color-hikari-red: #b3261e;
+    --color-hikari-live: #c92a2a;
+  }
+}
+
+/* ── Sépia : une vraie palette, jamais un filtre ─────────────────────────────────────
+ * Jay, 2026-09-07 : « le thème sépia n'est pas très beau, il est presque monochrome et
+ * effacé ». C'était exact, et c'est mécanique : le module rend le sépia par un filtre
+ * `sepia(0.45) saturate(0.85)`. Un filtre RETIRE de la couleur — il ne peut que délaver ce
+ * qu'on lui donne, jamais réchauffer.
+ *
+ * Alors on peint le sépia nous-mêmes, avec des tons papier, et on NEUTRALISE le filtre du
+ * module. Sa propre documentation prévoit ce remplacement (« hosts SHOULD override the
+ * [data-morphic-theme] rules »).
+ *
+ * Ce qui rend un sépia agréable et non terne : le fond tire vers le crème chaud, le texte
+ * vers le brun d'encre et jamais le noir, et les couleurs d'état gardent leur saturation.
+ * Un état « en direct » qu'on ne distingue plus ne renseigne plus personne. */
+html[data-morphic-theme="sepia"] {
+  --color-hikari-canvas: #e8ddc8;
+  --color-hikari-bg: #f2e9d8;
+  --color-hikari-bg-2: #fbf4e6;
+  --color-hikari-bg-3: #efe4cf;
+  --color-hikari-line: rgba(88, 63, 32, 0.18);
+  --color-hikari-line-soft: rgba(88, 63, 32, 0.09);
+  --color-hikari-txt: #3b2c18;
+  --color-hikari-txt-dim: #6b573c;
+  --color-hikari-txt-faint: #93805f;
+  --color-hikari-accent: #9a5b00;
+  --color-hikari-cyan: #1c6b86;
+  --color-hikari-green: #4a6a1f;
+  --color-hikari-red: #a8331d;
+  --color-hikari-live: #c0392b;
+}
+
+/* Le filtre du module est retiré pour CE thème : notre palette porte déjà la teinte, et
+ * l'empiler produisait le délavé signalé. Un filtre crée aussi un contexte d'empilement qui
+ * casse les éléments en position fixe — le module le documente lui-même comme un piège. */
+html[data-morphic-theme="sepia"] body {
+  filter: none;
+}
+
+/* ── Contraste élevé ─────────────────────────────────────────────────────────────────
+ * Ici le filtre du module est GARDÉ : renforcer le contraste est exactement ce qu'un
+ * filtre sait faire. Il lui faut seulement une base claire pour mordre — sur du
+ * presque-noir, augmenter le contraste ne donne rien. */
+html[data-morphic-theme="high-contrast"] {
+  --color-hikari-canvas: #ffffff;
+  --color-hikari-bg: #ffffff;
+  --color-hikari-bg-2: #ffffff;
+  --color-hikari-bg-3: #f2f2f2;
+  --color-hikari-line: rgba(0, 0, 0, 0.55);
+  --color-hikari-line-soft: rgba(0, 0, 0, 0.3);
+  --color-hikari-txt: #000000;
+  --color-hikari-txt-dim: #1a1a1a;
+  --color-hikari-txt-faint: #3d3d3d;
+  --color-hikari-accent: #7a4a00;
+  --color-hikari-cyan: #004b6b;
+  --color-hikari-green: #0a5c2a;
+  --color-hikari-red: #8c1008;
+  --color-hikari-live: #a01010;
+}
