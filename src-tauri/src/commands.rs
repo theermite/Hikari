@@ -3,7 +3,9 @@
 //! B2b) — no new backend logic, only the Tauri glue. Registered from `lib.rs` alongside
 //! the deck commands (`deck_bridge`) — Tauri allows only one `invoke_handler`.
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, State};
+
+use crate::engine_lifecycle::{EngineState, TargetReload, reload_broadcast_target};
 
 use crate::accounts::vault::{Platform, Secret};
 use crate::accounts::{twitch, vault, youtube};
@@ -82,12 +84,43 @@ fn open_in_browser(url: &str) -> std::io::Result<()> {
 /// errors funnel through, makes "no visible error" structurally impossible instead of
 /// relying on each call site to remember to emit.
 #[tauri::command]
-pub(crate) async fn connect_twitch(app: AppHandle) -> Result<(), String> {
+pub(crate) async fn connect_twitch(
+    app: AppHandle,
+    state: State<'_, EngineState>,
+) -> Result<(), String> {
     let result = try_connect_twitch(&app).await;
     if let Err(message) = &result {
         let _ = app.emit("twitch-error", message.clone());
     }
+    if result.is_ok() {
+        announce_target_reload(&app, &state).await;
+    }
     result
+}
+
+/// Fait parvenir au moteur la cle du compte qu'on vient de connecter, et le DIT quand il
+/// ne peut pas la recevoir tout de suite.
+///
+/// Sans ce relais, le compte etait connecte et la diffusion restait impossible jusqu'a la
+/// fermeture complete de l'application, sans que rien ne l'annonce (Jay, 2026-09-07). Le
+/// refus pendant un direct n'est pas une panne : il est normal, il est dit, et il se
+/// resout tout seul au direct suivant.
+async fn announce_target_reload(app: &AppHandle, state: &EngineState) {
+    match reload_broadcast_target(app, state).await {
+        Ok(TargetReload::RefusedWhileLive) => {
+            let _ = app.emit(
+                "engine-notice",
+                "Compte connecté. La nouvelle clé de diffusion sera prise en compte au prochain direct — le direct en cours n'est pas interrompu.".to_string(),
+            );
+        }
+        Ok(_) => {}
+        Err(err) => {
+            let _ = app.emit(
+                "engine-notice",
+                format!("Compte connecté, mais le moteur n'a pas pu relire la clé ({err}). Ferme et rouvre Hikari pour diffuser."),
+            );
+        }
+    }
 }
 
 async fn try_connect_twitch(app: &AppHandle) -> Result<(), String> {
@@ -127,10 +160,16 @@ async fn try_connect_twitch(app: &AppHandle) -> Result<(), String> {
 /// opens) used to return early with zero event emitted, leaving the UI on "waiting"
 /// forever (found live 2026-07-19, Jay's first real run).
 #[tauri::command]
-pub(crate) async fn connect_youtube(app: AppHandle) -> Result<(), String> {
+pub(crate) async fn connect_youtube(
+    app: AppHandle,
+    state: State<'_, EngineState>,
+) -> Result<(), String> {
     let result = try_connect_youtube(&app).await;
     if let Err(message) = &result {
         let _ = app.emit("youtube-error", message.clone());
+    }
+    if result.is_ok() {
+        announce_target_reload(&app, &state).await;
     }
     result
 }
@@ -153,4 +192,18 @@ async fn try_connect_youtube(app: &AppHandle) -> Result<(), String> {
     vault::store(Platform::YouTube, &token).map_err(|err| err.to_string())?;
     let _ = app.emit("youtube-connected", ());
     Ok(())
+}
+
+/// L'etat des comptes connectes, lu dans le coffre a la demande de l'ecran Comptes.
+///
+/// Pourquoi cette commande existe : l'ecran ne se souvenait de rien. Il partait de « pas
+/// connecte » a chaque affichage et ne passait au vert que sur l'evenement `twitch-connected`
+/// du moment. Sortir des Parametres puis y revenir suffisait donc a effacer la connexion —
+/// a l'ecran seulement, le jeton etant reste dans le coffre tout du long (Jay, 2026-09-07).
+///
+/// Elle ne rend QUE des booleens : aucun jeton, aucune date d'expiration ne traverse vers
+/// l'interface. Un secret ne sort pas du coffre pour alimenter un affichage.
+#[tauri::command]
+pub(crate) fn account_status() -> crate::accounts::AccountStatus {
+    crate::accounts::read_status()
 }

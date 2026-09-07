@@ -3,11 +3,16 @@
 // aucune nouvelle logique métier, seulement le déplacement dans un panneau dockview.
 // Étendu (2026-07-19) pour YouTube : même schéma que Twitch, sans l'étape "code" — la
 // redirection Google ne montre rien à saisir, seulement une attente puis connecté/erreur.
+//
+// Corrigé le 2026-09-07 : l'écran n'avait AUCUNE mémoire. Il repartait de « pas connecté »
+// à chaque affichage et ne passait au vert que sur l'événement du moment ; sortir des
+// Paramètres puis y revenir effaçait donc la connexion à l'écran, alors que le jeton était
+// resté dans le coffre. Il DEMANDE désormais l'état au démarrage (`account_status`).
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { IDockviewPanelProps } from "dockview-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type TwitchState =
   | { status: "idle" }
@@ -20,6 +25,32 @@ type YouTubeState =
   | { status: "waiting"; authorizationUrl?: string }
   | { status: "connected" }
   | { status: "error"; message: string };
+
+/// Lit l'état réel du compte au premier affichage, une seule fois pour les deux
+/// plateformes — un seul aller-retour plutôt qu'un par écran (mémoire :
+/// une lecture partagée nourrit plusieurs affichages, jamais une boucle par écran).
+///
+/// Un échec de lecture laisse les deux écrans en « pas connecté », ce qui est la lecture
+/// prudente : proposer un bouton de connexion inutile coûte un clic, afficher « connecté »
+/// à tort ferait chercher la panne ailleurs.
+function useStoredAccounts(
+  onKnown: (status: { twitch: boolean; youtube: boolean }) => void,
+) {
+  useEffect(() => {
+    let cancelled = false;
+    invoke<{ twitch: boolean; youtube: boolean }>("account_status")
+      .then((status) => {
+        if (!cancelled) onKnown(status);
+      })
+      .catch((error: unknown) => {
+        console.error("accounts: account_status failed", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // `onKnown` est stable (défini dans le composant parent via useCallback).
+  }, [onKnown]);
+}
 
 function useTwitchConnection() {
   const [state, setState] = useState<TwitchState>({ status: "idle" });
@@ -59,7 +90,16 @@ function useTwitchConnection() {
     });
   };
 
-  return { state, connect };
+  // `useCallback` n'est pas une optimisation ici, c'est la correction d'un défaut : sans
+  // elle, cette fonction est recréée à chaque rendu, l'effet qui la reçoit se relance,
+  // écrit l'état, provoque un rendu — et la lecture du coffre part en boucle sans fin
+  // (mesuré : 95 lectures en 50 ms). `setState` est stable, la liste vide est donc juste.
+  const markConnected = useCallback(
+    () => setState({ status: "connected" }),
+    [],
+  );
+
+  return { state, connect, markConnected };
 }
 
 function useYouTubeConnection() {
@@ -92,12 +132,30 @@ function useYouTubeConnection() {
     });
   };
 
-  return { state, connect };
+  // `useCallback` n'est pas une optimisation ici, c'est la correction d'un défaut : sans
+  // elle, cette fonction est recréée à chaque rendu, l'effet qui la reçoit se relance,
+  // écrit l'état, provoque un rendu — et la lecture du coffre part en boucle sans fin
+  // (mesuré : 95 lectures en 50 ms). `setState` est stable, la liste vide est donc juste.
+  const markConnected = useCallback(
+    () => setState({ status: "connected" }),
+    [],
+  );
+
+  return { state, connect, markConnected };
 }
 
 export function AccountsPanel(_props: IDockviewPanelProps) {
   const twitch = useTwitchConnection();
   const youtube = useYouTubeConnection();
+
+  const applyStoredStatus = useCallback(
+    (status: { twitch: boolean; youtube: boolean }) => {
+      if (status.twitch) twitch.markConnected();
+      if (status.youtube) youtube.markConnected();
+    },
+    [twitch.markConnected, youtube.markConnected],
+  );
+  useStoredAccounts(applyStoredStatus);
 
   return (
     // Même piège flexbox que le panneau Caméra : centrer verticalement rend le haut

@@ -19,7 +19,7 @@ use std::sync::Mutex;
 use hikari_protocol::{ControllerCommand, EngineMessage, parse_engine_message, to_line};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::accounts::twitch::TWITCH_CLIENT_ID;
+use crate::accounts::twitch::{self, TWITCH_CLIENT_ID};
 use crate::accounts::vault::{self, Platform, Secret};
 use crate::accounts::twitch_stream;
 use crate::engine_bridge::engine_command;
@@ -45,11 +45,14 @@ struct EngineRuntime {
     handle: Option<EngineHandle>,
     preview_hwnd: Option<i64>,
     panel_rect: (i32, i32, u32, u32),
+    /// Un direct est-il en cours ? Sert a REFUSER de relancer le moteur pendant qu'il
+    /// diffuse (voir `plan_target_reload`) — relancer couperait le direct.
+    streaming: bool,
 }
 
 impl Default for EngineRuntime {
     fn default() -> Self {
-        Self { handle: None, preview_hwnd: None, panel_rect: FALLBACK_RECT }
+        Self { handle: None, preview_hwnd: None, panel_rect: FALLBACK_RECT, streaming: false }
     }
 }
 
@@ -65,6 +68,11 @@ pub struct EngineState(Mutex<EngineRuntime>);
 /// arrives.
 #[tauri::command]
 pub(crate) async fn start_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<(), String> {
+    start_engine_inner(&app, &state).await
+}
+
+async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), String> {
+    let app = app.clone();
     // La destination est résolue AVANT de prendre le verrou : elle passe par le réseau, et
     // tenir un verrou pendant une attente réseau bloquerait tout le reste du cockpit.
     //
@@ -166,8 +174,13 @@ pub(crate) async fn start_engine(app: AppHandle, state: State<'_, EngineState>) 
 /// already-stopped engine must never error).
 #[tauri::command]
 pub(crate) fn stop_engine(state: State<EngineState>) -> Result<(), String> {
+    stop_engine_inner(&state)
+}
+
+fn stop_engine_inner(state: &EngineState) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
     guard.preview_hwnd = None;
+    guard.streaming = false;
     let Some(mut handle) = guard.handle.take() else {
         return Ok(());
     };
@@ -186,19 +199,27 @@ pub(crate) fn stop_engine(state: State<EngineState>) -> Result<(), String> {
 /// guess from the controller about an environment it does not own.
 #[tauri::command]
 pub(crate) fn start_stream(state: State<EngineState>) -> Result<(), String> {
-    send(state, ControllerCommand::StartStream, "StartStream")
+    send(&state, ControllerCommand::StartStream, "StartStream")?;
+    if let Ok(mut guard) = state.0.lock() {
+        guard.streaming = true;
+    }
+    Ok(())
 }
 
 /// Stops the current stream. The engine and its preview stay alive — only the output is
 /// detached, so the cockpit keeps showing the scene it was broadcasting.
 #[tauri::command]
 pub(crate) fn stop_stream(state: State<EngineState>) -> Result<(), String> {
-    send(state, ControllerCommand::StopStream, "StopStream")
+    let result = send(&state, ControllerCommand::StopStream, "StopStream");
+    if let Ok(mut guard) = state.0.lock() {
+        guard.streaming = false;
+    }
+    result
 }
 
 /// Sends one command to the running engine, or says why it cannot.
 fn send(
-    state: State<EngineState>,
+    state: &EngineState,
     command: ControllerCommand,
     name: &str,
 ) -> Result<(), String> {
@@ -595,16 +616,119 @@ async fn resolve_broadcast_target() -> Option<(String, Secret)> {
             return None;
         }
     };
-    if vault::is_expired(&token, vault::now_unix()) {
-        eprintln!("[twitch] jeton expiré — reconnecte le compte dans Paramètres");
-        return None;
-    }
     let http = reqwest::Client::new();
+    // Un jeton expiré n'est PAS un compte perdu : le coffre garde le jeton de
+    // rafraîchissement depuis la connexion. Abandonner ici (ce que faisait la version
+    // précédente) demandait à l'utilisateur de se reconnecter à la main toutes les quelques
+    // heures, pour une opération que la machine sait faire seule.
+    //
+    // On ne redemande une connexion QUE si Twitch refuse vraiment le renouvellement —
+    // jeton révoqué de son côté, ou réseau injoignable.
+    let token = if vault::is_expired(&token, vault::now_unix()) {
+        match twitch::refresh(&token, TWITCH_CLIENT_ID, &http).await {
+            Ok(renewed) => {
+                if let Err(err) = vault::store(Platform::Twitch, &renewed) {
+                    // Le renouvellement a marché, l'écriture non : on diffuse quand même
+                    // avec le jeton neuf, mais la trace dit pourquoi ça recommencera au
+                    // prochain lancement.
+                    eprintln!("[twitch] jeton renouvelé mais non rangé ({err})");
+                }
+                renewed
+            }
+            Err(err) => {
+                eprintln!("[twitch] renouvellement refusé ({err}) — reconnecte le compte dans Paramètres");
+                return None;
+            }
+        }
+    } else {
+        token
+    };
     match twitch_stream::fetch_target(&http, TWITCH_CLIENT_ID, &token.access_token).await {
         Ok(target) => Some(target),
         Err(err) => {
             eprintln!("[twitch] destination illisible ({err})");
             None
         }
+    }
+}
+
+/// Fait arriver au moteur une cle de diffusion connectee APRES son lancement.
+///
+/// Le moteur lit sa cle dans son propre environnement, pose une seule fois au demarrage.
+/// Avant cette fonction, connecter un compte n'avait donc aucun effet tant que toute
+/// l'application n'etait pas fermee et rouverte (Jay, 2026-09-07) — un geste que rien
+/// n'annoncait, et dont l'absence donnait un compte connecte qui ne diffusait pas.
+///
+/// Relance le moteur, et JAMAIS pendant un direct : la cle neuve ne sert qu'au direct
+/// suivant, couper celui en cours coute infiniment plus cher.
+pub(crate) async fn reload_broadcast_target(
+    app: &AppHandle,
+    state: &EngineState,
+) -> Result<TargetReload, String> {
+    let plan = {
+        let guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+        plan_target_reload(guard.handle.is_some(), guard.streaming)
+    };
+    if plan == TargetReload::Restart {
+        stop_engine_inner(state)?;
+        start_engine_inner(app, state).await?;
+    }
+    Ok(plan)
+}
+
+/// Ce qu'il faut faire quand un compte vient d'etre connecte et que la cle de diffusion a
+/// change.
+///
+/// Le moteur lit sa cle dans son PROPRE environnement, pose au moment ou on le lance : une
+/// cle arrivee apres coup ne l'atteint pas. La seule facon de la lui donner est de le
+/// relancer — sauf s'il diffuse, auquel cas relancer couperait le direct.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TargetReload {
+    /// Le moteur ne tourne pas : il lira la cle neuve a son prochain demarrage, sans geste.
+    NothingToDo,
+    /// Le moteur tourne a vide : on le relance, la cle neuve arrive dans son environnement.
+    Restart,
+    /// Un direct est en cours : on ne le coupe pas pour une cle qui ne sert qu'au suivant.
+    RefusedWhileLive,
+}
+
+/// Decide, sans rien executer. Fonction pure : c'est la seule partie de ce sujet ou une
+/// erreur coupe un direct, et c'est donc la seule qui merite un test.
+pub fn plan_target_reload(engine_running: bool, streaming: bool) -> TargetReload {
+    match (engine_running, streaming) {
+        (false, _) => TargetReload::NothingToDo,
+        (true, true) => TargetReload::RefusedWhileLive,
+        (true, false) => TargetReload::Restart,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_do_nothing_when_the_engine_is_not_running() {
+        assert_eq!(plan_target_reload(false, false), TargetReload::NothingToDo);
+    }
+
+    #[test]
+    fn should_restart_the_engine_when_it_runs_idle() {
+        // Sans cela, connecter un compte n'avait aucun effet avant de fermer et rouvrir
+        // toute l'application (Jay, 2026-09-07).
+        assert_eq!(plan_target_reload(true, false), TargetReload::Restart);
+    }
+
+    #[test]
+    fn should_never_restart_the_engine_during_a_live() {
+        // Un direct coute plus cher qu'une cle a jour : celle-ci ne sert qu'au direct
+        // SUIVANT, alors que relancer couperait celui qui est en cours.
+        assert_eq!(plan_target_reload(true, true), TargetReload::RefusedWhileLive);
+    }
+
+    #[test]
+    fn should_not_restart_a_stopped_engine_even_if_a_stream_flag_lingers() {
+        // Etat incoherent (un drapeau reste a vrai apres un arret brutal) : on retombe sur
+        // le cas sur, jamais sur un relancement surprise.
+        assert_eq!(plan_target_reload(false, true), TargetReload::NothingToDo);
     }
 }

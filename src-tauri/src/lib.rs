@@ -23,6 +23,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::connect_twitch,
             commands::connect_youtube,
+            commands::account_status,
             deck_bridge::deck_list_keys,
             deck_bridge::deck_trigger_key,
             preflight_bridge::run_preflight,

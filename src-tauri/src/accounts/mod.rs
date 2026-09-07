@@ -12,3 +12,78 @@ pub mod twitch;
 pub mod twitch_stream;
 pub mod vault;
 pub mod youtube;
+
+/// L'etat d'un compte, tel que l'ecran Comptes doit l'afficher a l'ouverture.
+///
+/// Il n'existe que deux etats, et c'est voulu : un jeton EXPIRE compte comme connecte,
+/// parce que le coffre garde de quoi le renouveler tout seul (`twitch::refresh`). Afficher
+/// « deconnecte » sur un compte que la machine sait reparer demanderait a l'utilisateur un
+/// geste inutile, et lui ferait croire que sa connexion n'a pas tenu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub struct AccountStatus {
+    pub twitch: bool,
+    pub youtube: bool,
+}
+
+/// Un compte est connecte des qu'un jeton est range pour lui, expire ou non.
+///
+/// Fonction pure, prise a part du coffre : elle porte la seule DECISION du sujet, et le
+/// coffre systeme ne se prete pas a un test automatique.
+pub fn is_connected(stored: Option<&vault::StoredToken>) -> bool {
+    stored.is_some()
+}
+
+/// Lit l'etat des deux comptes dans le coffre.
+///
+/// Une lecture qui echoue est tracee et compte comme « non connecte » : un coffre illisible
+/// n'est pas un compte connecte, et le silence ferait chercher au mauvais endroit.
+pub fn read_status() -> AccountStatus {
+    AccountStatus {
+        twitch: read_one(vault::Platform::Twitch),
+        youtube: read_one(vault::Platform::YouTube),
+    }
+}
+
+fn read_one(platform: vault::Platform) -> bool {
+    match vault::load(platform) {
+        Ok(stored) => is_connected(stored.as_ref()),
+        Err(err) => {
+            eprintln!("[comptes] coffre illisible pour {platform:?} ({err})");
+            false
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::accounts::vault::{Secret, StoredToken};
+
+    fn token(expires_at: u64) -> StoredToken {
+        StoredToken {
+            access_token: Secret::new("a"),
+            refresh_token: Secret::new("r"),
+            expires_at,
+        }
+    }
+
+    #[test]
+    fn should_report_disconnected_when_no_token_is_stored() {
+        assert!(!is_connected(None));
+    }
+
+    #[test]
+    fn should_report_connected_when_a_token_is_stored() {
+        assert!(is_connected(Some(&token(u64::MAX))));
+    }
+
+    #[test]
+    fn should_report_connected_even_when_the_token_is_expired() {
+        // Le defaut vecu le 2026-09-07 : l'ecran repartait de « pas connecte » a chaque
+        // affichage. Un jeton perime se renouvelle tout seul — l'annoncer deconnecte
+        // enverrait l'utilisateur refaire un geste dont la machine n'a pas besoin.
+        let perime = token(0);
+        assert!(vault::is_expired(&perime, vault::now_unix()), "le jeton du test doit etre expire");
+        assert!(is_connected(Some(&perime)));
+    }
+}

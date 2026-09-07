@@ -115,6 +115,66 @@ pub async fn wait_for_authorization(
     })
 }
 
+/// Construit le jeton a ranger apres un renouvellement reussi.
+///
+/// Twitch ne renvoie pas systematiquement un nouveau jeton de rafraichissement : le champ
+/// est optionnel dans sa reponse. Ecraser l'ancien avec du vide condamnerait le compte —
+/// le renouvellement suivant n'aurait plus rien a presenter, et l'utilisateur devrait se
+/// reconnecter a la main sans comprendre pourquoi. On garde donc l'ancien quand Twitch
+/// n'en donne pas.
+///
+/// Fonction pure : c'est la seule partie du renouvellement qui se teste sans reseau, et
+/// c'est aussi la seule ou une erreur coute un compte mort.
+pub fn merge_refreshed(
+    previous_refresh: &Secret,
+    access_token: &str,
+    expires_in_secs: u64,
+    new_refresh: Option<&str>,
+    now: u64,
+) -> StoredToken {
+    StoredToken {
+        access_token: Secret::new(access_token),
+        refresh_token: match new_refresh {
+            Some(value) => Secret::new(value),
+            None => previous_refresh.clone(),
+        },
+        expires_at: now + expires_in_secs,
+    }
+}
+
+/// Renouvelle un jeton Twitch arrive a expiration, a partir du jeton de rafraichissement
+/// deja range dans le coffre.
+///
+/// Le flux « device code » d'Hikari est un client PUBLIC : il n'a pas de secret client, et
+/// Twitch accepte le renouvellement sans (`client_secret` est un `Option` dans le pont, et
+/// vaut `None` ici — meme raison que pour la connexion, voir l'en-tete de ce fichier).
+///
+/// Rend une erreur quand le renouvellement echoue vraiment : jeton revoque cote Twitch,
+/// reseau injoignable. L'appelant redemande alors une connexion — c'est le seul cas ou
+/// deranger l'utilisateur est justifie.
+pub async fn refresh(
+    stored: &StoredToken,
+    client_id: &str,
+    http: &reqwest::Client,
+) -> Result<StoredToken> {
+    use twitch_oauth2::{ClientId, RefreshToken};
+
+    let refresh_token = RefreshToken::from(stored.refresh_token.expose().to_string());
+    let client_id = ClientId::from(client_id.to_string());
+    let (access_token, expires_in, new_refresh) = refresh_token
+        .refresh_token(http, &client_id, None)
+        .await
+        .context("renouvellement du jeton Twitch")?;
+
+    Ok(merge_refreshed(
+        &stored.refresh_token,
+        access_token.secret(),
+        expires_in.as_secs(),
+        new_refresh.as_ref().map(|token| token.secret()),
+        now_unix(),
+    ))
+}
+
 /// `UserToken::expires_in()` is a private crate method reachable only via the public
 /// `TwitchToken` trait; isolated here so the rest of this module reads cleanly.
 fn token_expires_in_secs(token: &twitch_oauth2::UserToken) -> u64 {
@@ -133,5 +193,35 @@ mod tests {
         // to), this test catches it. Widening scope is a deliberate choice, not a drift.
         let scopes = required_scopes();
         assert_eq!(scopes, vec![Scope::ChannelReadStreamKey]);
+    }
+
+    #[test]
+    fn should_keep_the_previous_refresh_token_when_twitch_returns_none() {
+        // Twitch ne renvoie PAS systematiquement un nouveau jeton de rafraichissement.
+        // Ecraser avec du vide tuerait le compte definitivement : le renouvellement
+        // suivant n'aurait plus rien a presenter, et Jay devrait se reconnecter a la main
+        // sans jamais savoir pourquoi.
+        let previous = Secret::new("refresh-d-origine");
+        let merged = merge_refreshed(&previous, "acces-neuf", 3_600, None, 1_000);
+        assert_eq!(merged.refresh_token.expose(), "refresh-d-origine");
+        assert_eq!(merged.access_token.expose(), "acces-neuf");
+        assert_eq!(merged.expires_at, 4_600);
+    }
+
+    #[test]
+    fn should_adopt_the_new_refresh_token_when_twitch_returns_one() {
+        let previous = Secret::new("refresh-d-origine");
+        let merged = merge_refreshed(&previous, "acces-neuf", 60, Some("refresh-neuf"), 10);
+        assert_eq!(merged.refresh_token.expose(), "refresh-neuf");
+        assert_eq!(merged.expires_at, 70);
+    }
+
+    #[test]
+    fn should_never_leak_a_refreshed_token_in_debug_output() {
+        let previous = Secret::new("refresh-tres-secret");
+        let merged = merge_refreshed(&previous, "acces-tres-secret", 60, None, 0);
+        let debug = format!("{merged:?}");
+        assert!(!debug.contains("acces-tres-secret"));
+        assert!(!debug.contains("refresh-tres-secret"));
     }
 }

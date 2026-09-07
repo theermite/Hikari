@@ -31,8 +31,17 @@ interface Refusal {
 
 export function EngineErrorBanner() {
   const [refusal, setRefusal] = useState<Refusal | null>(null);
+  // Une INFORMATION, pas un refus. Elle vit a part parce qu'elle ne se dit pas avec les
+  // memes mots : « Le moteur a refuse » sur « ta cle servira au prochain direct » ferait
+  // chercher une panne la ou tout va bien.
+  const [notice, setNotice] = useState<Refusal | null>(null);
 
   useEffect(() => {
+    let noticeSeq = 0;
+    const unlistenNotice = listen<string>("engine-notice", (event) => {
+      noticeSeq += 1;
+      setNotice({ text: event.payload, seq: noticeSeq });
+    });
     let seq = 0;
     const unlisten = listen<EngineMessage>("engine-message", (event) => {
       const msg = event.payload;
@@ -49,8 +58,30 @@ export function EngineErrorBanner() {
     });
     return () => {
       unlisten.then((f) => f());
+      unlistenNotice.then((f) => f());
     };
   }, []);
+
+  // Un refus passe DEVANT une information : si les deux sont la, c'est le refus qu'il faut
+  // lire d'abord.
+  if (!refusal && notice) {
+    return (
+      <div
+        role="status"
+        className="mx-2.5 mt-2.5 flex items-start justify-between gap-3 rounded-hikari border border-hikari-accent/40 bg-hikari-accent/10 px-4 py-2.5"
+      >
+        <p className="text-[12.5px] text-hikari-txt">{notice.text}</p>
+        <button
+          type="button"
+          onClick={() => setNotice(null)}
+          aria-label="Fermer ce message"
+          className="shrink-0 px-1 text-hikari-txt-faint transition hover:text-hikari-txt"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
 
   if (!refusal) return null;
 
