@@ -10,6 +10,10 @@ use crate::{ControllerCommand, EngineEvent};
 /// ones that need the winit/libobs thread as `EngineEvent`s (libobs calls only ever happen
 /// there — see `EngineEvent`'s doc). `Stop` breaks this thread's own loop too (nothing left
 /// to read once the engine is exiting).
+///
+/// La FIN de l'entrée arrête aussi le moteur : elle signifie que le contrôleur n'est plus
+/// là, et un moteur sans contrôleur ne sert plus personne — il garde seulement une caméra
+/// allumée et des fichiers verrouillés.
 pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
     std::thread::spawn(move || {
         let stdin = std::io::stdin();
@@ -109,5 +113,19 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),
             }
         }
+        // L'ENTRÉE S'EST FERMÉE : le contrôleur n'existe plus.
+        //
+        // Sortir en silence laissait le moteur vivant, une caméra allumée et un
+        // encodeur en marche, jusqu'au prochain redémarrage de la machine. Ce processus
+        // orphelin a coûté cher à Jay : 15 fichiers verrouillés à l'installation d'une
+        // mise à jour (2026-09-06), un moteur périmé conservé, et jusqu'à un plantage —
+        // il écrivait encore dans un tuyau fermé.
+        //
+        // Le traiter ICI plutôt que côté application est ce qui le rend fiable : la fin
+        // du tuyau arrive quelle que soit la façon dont l'application disparaît — fermée
+        // proprement, plantée, ou tuée. Une commande d'arrêt polie, elle, suppose une
+        // application encore capable de l'envoyer.
+        eprintln!("[engine] entrée fermée — le contrôleur est parti, arrêt");
+        let _ = proxy.send_event(EngineEvent::Exit);
     });
 }

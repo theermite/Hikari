@@ -67,7 +67,20 @@ const AUDIO_LEVEL_INTERVAL: std::time::Duration = std::time::Duration::from_mill
 /// so every domain module can report the same way.
 pub(crate) fn emit(msg: &EngineMessage) {
     match hikari_protocol::to_line(msg) {
-        Ok(line) => println!("{line}"),
+        // `println!` PANIQUE quand le tuyau est ferme, et c'est arrive : l'application
+        // fermee, le moteur ecrivait encore et mourait sur « The pipe is being closed »
+        // (vecu par Jay, 2026-09-07). Un plantage est le pire des arrets — il ne libere
+        // rien proprement, et il salit le journal d'une trace qui ressemble a un bug.
+        //
+        // L'ecriture manuelle rend l'erreur au lieu de paniquer. Un tuyau ferme n'est pas
+        // une panne : c'est la fin normale, et le lecteur d'entree la traite deja en
+        // arretant le moteur.
+        Ok(line) => {
+            let mut sortie = std::io::stdout().lock();
+            if writeln!(sortie, "{line}").is_ok() {
+                let _ = sortie.flush();
+            }
+        }
         Err(err) => eprintln!("[engine] failed to serialize {msg:?}: {err}"),
     }
 }
