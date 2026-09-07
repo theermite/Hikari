@@ -20,6 +20,7 @@ Stdlib only. Cross-platform (Windows + Linux). LF line endings, UTF-8.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterator
@@ -105,23 +106,31 @@ def _collect_recent_tool_calls(transcript_path: str | Path, limit: int = RECENT_
     return out
 
 
+def _ellipsis(texte: str, limite: int = 120) -> str:
+    return texte[:limite] + ("..." if len(texte) > limite else "")
+
+
+# Quel champ decrit l'appel, par outil. Une table se lit et s'etend ; une
+# cascade de `if` grossit jusqu'a devenir illisible (complexite mesuree 14).
+_CHAMP_PARLANT = {
+    "Read": "file_path",
+    "Write": "file_path",
+    "Edit": "file_path",
+    "Bash": "command",
+    "Grep": "pattern",
+    "Glob": "pattern",
+}
+
+
 def _describe_tool_call(name: str, inp: dict[str, Any]) -> str:
     """One-line description of a tool call for the brief."""
-    if name in ("Read", "Write", "Edit"):
-        return str(inp.get("file_path", "") or "?")
-    if name == "Bash":
-        cmd = str(inp.get("command", "") or "?")
-        return cmd[:120] + ("..." if len(cmd) > 120 else "")
-    if name in ("Grep", "Glob"):
-        return str(inp.get("pattern", "") or "?")
+    champ = _CHAMP_PARLANT.get(name)
+    if champ:
+        return _ellipsis(str(inp.get(champ) or "?"))
     if name == "TodoWrite":
-        todos = inp.get("todos") or []
-        return f"{len(todos)} todo(s)"
-    # Generic: first short value
-    for v in inp.values():
-        if isinstance(v, str) and v:
-            return v[:120] + ("..." if len(v) > 120 else "")
-    return "(no input)"
+        return f"{len(inp.get('todos') or [])} todo(s)"
+    premiere = next((v for v in inp.values() if isinstance(v, str) and v), None)
+    return _ellipsis(premiere) if premiere else "(no input)"
 
 
 def _collect_last_user_messages(transcript_path: str | Path, limit: int = RECENT_USER_MSGS) -> list[str]:
@@ -155,6 +164,39 @@ def _collect_last_assistant_text(transcript_path: str | Path, max_chars: int = A
     return ""
 
 
+_EN_SUSPENS_RE = re.compile(r"\[EN-SUSPENS\][\s`*_|:>-]*(.+)", re.I)
+_RESOLU_RE = re.compile(r"\[RESOLU\][\s`*_|:>-]*(.+)", re.I)
+
+
+def collect_open_threads(transcript_path: str | Path) -> list[str]:
+    """Les objections et fils laisses ouverts, dans l'ordre ou ils sont venus.
+
+    Demande de Jay le 2026-09-06 : ce qu'une reprise a chaud perdrait doit
+    entrer dans le resume. Un fil marque `[EN-SUSPENS]` y entre ; le meme texte
+    marque `[RESOLU]` en sort.
+
+    Collecte depuis la session, jamais redigee de memoire : un sommaire recopie
+    vieillit et ment (mesure du 2026-08-30, trois chiffres contradictoires le
+    meme jour pour un meme inventaire).
+    """
+    ouverts: list[str] = []
+    resolus: set[str] = set()
+    # L'iterateur rend les messages du plus recent au plus ancien ; un fil se
+    # lit dans l'ordre ou il est venu.
+    for texte in reversed(list(_iter_assistant_messages(transcript_path))):
+        for ligne in texte.splitlines():
+            m = _RESOLU_RE.search(ligne)
+            if m:
+                resolus.add(m.group(1).strip().strip("*`_ "))
+                continue
+            m = _EN_SUSPENS_RE.search(ligne)
+            if m:
+                fil = m.group(1).strip().strip("*`_ ")
+                if fil and fil not in ouverts:
+                    ouverts.append(fil)
+    return [f for f in ouverts if f not in resolus]
+
+
 def build_brief(transcript_path: str, session_id: str, trigger: str = "auto") -> str:
     """Build a Markdown handoff brief from the current transcript.
 
@@ -163,61 +205,76 @@ def build_brief(transcript_path: str, session_id: str, trigger: str = "auto") ->
     via `write_brief`.
     """
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    files = _collect_files_modified(transcript_path)
-    user_msgs = _collect_last_user_messages(transcript_path)
-    tool_calls = _collect_recent_tool_calls(transcript_path)
-    last_asst = _collect_last_assistant_text(transcript_path)
+    lines: list[str] = [
+        f"# Handoff Brief — session {session_id}",
+        "",
+        f"- Generated: {now}",
+        f"- Trigger: {trigger}",
+        "",
+    ]
 
-    lines: list[str] = []
-    lines.append(f"# Handoff Brief — session {session_id}")
-    lines.append("")
-    lines.append(f"- Generated: {now}")
-    lines.append(f"- Trigger: {trigger}")
-    lines.append("")
-
-    lines.append("## Files Modified This Session")
-    if files:
-        for f in files[:30]:
-            lines.append(f"- `{f}`")
-    else:
-        lines.append("_(none recorded)_")
-    lines.append("")
-
-    lines.append(f"## Last User Messages (latest {len(user_msgs)})")
-    if user_msgs:
-        for i, msg in enumerate(user_msgs, 1):
-            lines.append(f"{i}. {msg}")
-            lines.append("")
-    else:
-        lines.append("_(none recorded)_")
-        lines.append("")
-
-    lines.append(f"## Recent Tool Calls (latest {len(tool_calls)})")
-    if tool_calls:
-        for tc in tool_calls:
-            lines.append(f"- {tc}")
-    else:
-        lines.append("_(none recorded)_")
-    lines.append("")
-
-    lines.append("## Last Assistant Text")
-    if last_asst:
-        lines.append("```")
-        lines.append(last_asst)
-        lines.append("```")
-    else:
-        lines.append("_(none recorded)_")
-    lines.append("")
-
-    lines.append("## Resume Instructions")
-    lines.append("1. Re-read `.claude/CLAUDE.md` to refresh identity + rules.")
-    lines.append("2. Re-read this brief in full.")
-    lines.append("3. Run `git status` and `git log --oneline -5` to confirm working state.")
-    lines.append("4. Review the last user messages above to recover intent.")
-    lines.append("5. Continue from the last in-progress task, or ask Jay for redirection.")
-    lines.append("")
-
+    lines += _corps(transcript_path)
+    lines += _instructions_de_reprise()
     return "\n".join(lines)
+
+
+def _corps(transcript_path: str) -> list[str]:
+    """Le corps du resume. Les fils ouverts viennent EN PREMIER.
+
+    C'est ce qu'une reprise a chaud perdrait, et une section qu'on lit apres
+    coup ne sert a rien (demande de Jay, 2026-09-06).
+    """
+    return (
+        _section(
+            "Fils ouverts / objections en suspens",
+            collect_open_threads(transcript_path),
+            vide="aucun",
+        )
+        + _section(
+            "Files Modified This Session",
+            [f"`{f}`" for f in _collect_files_modified(transcript_path)[:30]],
+        )
+        + _section(
+            "Last User Messages",
+            _collect_last_user_messages(transcript_path),
+            numerote=True,
+        )
+        + _section("Recent Tool Calls", _collect_recent_tool_calls(transcript_path))
+        + _bloc_texte(
+            "Last Assistant Text", _collect_last_assistant_text(transcript_path)
+        )
+    )
+
+
+def _section(titre: str, elements, vide: str = "_(none recorded)_",
+             numerote: bool = False) -> list[str]:
+    """Une section de liste, qui dit toujours quelque chose — jamais rien."""
+    lignes = [f"## {titre} ({len(elements)})" if elements else f"## {titre}"]
+    if not elements:
+        lignes += [vide, ""]
+        return lignes
+    for i, e in enumerate(elements, 1):
+        lignes.append(f"{i}. {e}" if numerote else f"- {e}")
+    lignes.append("")
+    return lignes
+
+
+def _bloc_texte(titre: str, texte: str) -> list[str]:
+    if not texte:
+        return [f"## {titre}", "_(none recorded)_", ""]
+    return [f"## {titre}", "```", texte, "```", ""]
+
+
+def _instructions_de_reprise() -> list[str]:
+    return [
+        "## Resume Instructions",
+        "1. Re-read `.claude/CLAUDE.md` to refresh identity + rules.",
+        "2. Re-read this brief in full — the open threads FIRST.",
+        "3. Run `git status` and `git log --oneline -5` to confirm working state.",
+        "4. Review the last user messages above to recover intent.",
+        "5. Continue from the last in-progress task, or ask Jay for redirection.",
+        "",
+    ]
 
 
 def write_brief(brief: str, repo_root: Path, session_id: str) -> Path:

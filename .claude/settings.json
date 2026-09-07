@@ -36,6 +36,16 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/doc-facts-check.py",
+            "description": "Plan pt7 - refuse un commit qui emporte un fait faux sur nous-memes"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/agents-park-check.py",
+            "description": "Plan pt2 - refuse un commit qui fait deriver le parc d experts"
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/anti-quick-fix.py",
             "description": "Block git commit fix:/hotfix: without [ROBUSTNESS] (6 mois / cause racine / alternative durable) or [ROBUSTNESS-SKIP] motif"
           },
@@ -183,6 +193,10 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/matter-expert-suggest.py",
             "description": "Plan pt1 - convocation par la matiere (suggere, ne bloque jamais)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/challenge-trace-check.py"
           }
         ]
       }
@@ -205,6 +219,11 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/function-complexity-check.py",
             "description": "Maintainability: block Python functions > 30 lines or cyclomatic complexity > 10 (F1)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" memory/memory-autocommit.py",
+            "description": "Regle Memoire - commet + pousse le souvenir ET ses sommaires dans Shinzo"
           }
         ]
       },
@@ -257,6 +276,10 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/pre-session-end-readme-check.py",
             "description": "D4 — Warn at /session-end when README appears out of sync (new commands, manifests, breaking changes)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/context-gauge.py"
           }
         ]
       }
@@ -279,6 +302,15 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/session-start-obsidian.py",
             "description": "SessionStart reminder: load 4 mandatory Obsidian project notes (companion to obsidian-mandatory-read.py)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/session-start-handoff.py"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/relay-inbox.py",
+            "description": "Plan pt8 - remonte les messages des autres sessions, en donnee jamais en ordre"
           }
         ]
       }

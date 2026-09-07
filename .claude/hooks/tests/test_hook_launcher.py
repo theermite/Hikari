@@ -36,6 +36,39 @@ def _lance(args, entree=""):
                           capture_output=True, text=True, cwd=str(DEPOT), timeout=60)
 
 
+# --- les fins de ligne du lanceur --------------------------------------------
+#
+# Mesure du 2026-09-07 : `_run.sh` voyageait avec des CRLF. Un bash strict rend
+# alors `$'\r': command not found` puis le code 2 — qui vaut REFUS pour l'outil.
+# Un lanceur casse ne desarme pas UN garde-fou, il les bloque TOUS, sur chaque
+# depot receveur. Le correctif existait sans un seul test capable de rougir : on
+# pouvait l'annuler et la suite entiere restait verte.
+
+
+def test_le_lanceur_n_a_aucun_retour_chariot():
+    """Les octets du fichier, pas la promesse d'un `.gitattributes`.
+
+    C'est le FICHIER DE TRAVAIL que la propagation copie, jamais la version du
+    depot : seuls ses octets reels disent la verite.
+    """
+    assert b"\r" not in LANCEUR.read_bytes()
+
+
+def test_une_regle_de_fin_de_ligne_voyage_avec_les_garde_fous():
+    """La regle doit ARRIVER chez le receveur, pas seulement proteger la source.
+
+    Le `.gitattributes` racine de Kata ne voyage pas : la propagation ne copie
+    que `.claude/{rules,rules-ondemand,agents,hooks,skills}`. Sans regle DANS le
+    dossier propage, un receveur Windows (`core.autocrlf=true`, defaut systeme)
+    reintroduit les CRLF au premier clone ou `reset --hard`, et le defaut
+    revient a l'identique.
+    """
+    regle = HOOKS / ".gitattributes"
+    assert regle.is_file(), "aucune regle de fin de ligne dans le dossier propage"
+    texte = regle.read_text(encoding="utf-8")
+    assert "*.sh text eol=lf" in texte
+
+
 # --- le lanceur --------------------------------------------------------------
 
 

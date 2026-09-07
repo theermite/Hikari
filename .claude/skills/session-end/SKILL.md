@@ -18,6 +18,15 @@ Execute these steps IN ORDER. Gate 8 must pass.
    - Tests: passed / failed / new tests written (or "N/A — non-code project" in LITE_MODE)
    - Errors encountered → **root cause (5 whys)** → correction applied
    - Decisions made
+   - **Trace du conseil (BLOCKING, hook-enforced)** — `[CHALLENGE] <what was contradicted,
+     and what came of it>` OR `[NO-CHALLENGE] motif: <aucune-decision-structurante |
+     chemin-unique-impose | contradiction-portee-par-jay | session-de-correction-dirigee>`.
+     The report cannot be written without one of the two. The reason is a signal to count,
+     never an escape hatch. See `rules/Honesty.md` — Active Technical Challenge.
+   - **Reproches de livraison** — every complaint Jay made about the OUTPUT itself
+     (unreadable, too dense, too technical, too much), his words verbatim + the cause found
+     + what changed. −10 Value each. None this session → write « aucun ». See
+     `rules/Workflows.md` — Scoring V2.
    - **Leçon(s)** — the transferable lesson(s) from this session (复盘 grammar: Objectif → Processus → Résultat → Analyse 5-pourquoi → Leçon)
    - Pending items for next session
    - Context Awareness status: was the 60% threshold reached? Was a handoff brief written? Note any context degradation detected.

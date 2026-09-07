@@ -1,0 +1,21 @@
+# La regle de fin de ligne VOYAGE avec les garde-fous.
+#
+# POURQUOI ICI, et pas seulement a la racine de Kata (mesure du 2026-09-07,
+# relecture independante). Le `.gitattributes` racine protege la SOURCE ; il ne
+# part vers aucun receveur, car la propagation ne copie que
+# `.claude/{rules,rules-ondemand,agents,hooks,skills}`. Un receveur Windows
+# herite alors de `core.autocrlf=true` (defaut systeme) et reintroduit des CRLF
+# dans `_run.sh` au premier clone, `checkout` ou `reset --hard`.
+#
+# CE QUE CELA COUTE QUAND CELA ARRIVE. Un bash strict rend `$'\r': command not
+# found` puis `exit: 0\r: numeric argument required`, donc le code 2 — qui vaut
+# REFUS pour l'outil. Un lanceur casse ne desarme pas UN garde-fou : il les
+# bloque TOUS, a chaque appel, sur ce depot.
+#
+# Cette regle vit DANS le dossier propage : elle arrive donc partout ou arrive
+# le lanceur qu'elle protege. Sa portee s'arrete a `.claude/hooks/` — elle ne
+# touche a aucun fichier propre au projet receveur.
+*.sh text eol=lf
+
+# Meme raison pour ce qui s'execute par un shebang.
+*.py text eol=lf

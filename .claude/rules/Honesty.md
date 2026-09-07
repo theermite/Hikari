@@ -56,6 +56,36 @@ any check runs — the one place jargon most needed catching, it was never scann
 | Alternative | <other concrete path> |
 | Question | <ONLY if a genuine fork exists — see below. Otherwise omit this row.> |
 
+**Three questions BEFORE writing (BLOCKING — measured 2026-09-06)**: on any structuring
+decision, ask these three, in this order, before the first line of code:
+
+| # | Question | The defect it catches |
+|---|---|---|
+| 1 | What do I believe here that I have **not measured**? | A number copied instead of read; a fixture that describes a world that does not exist |
+| 2 | **Who holds this gate** — code, a human who can judge it, or nobody? | A threshold nobody runs; a review asked of someone who cannot evaluate it |
+| 3 | What does my fix **trade away**? | A bounded failure swapped for an unbounded wait; a case closed while its family stays open |
+
+**Why**: measured across the whole workspace, the `TECHNICAL CHALLENGE` template was
+emitted for real **once in 1269 session reports**. Over the last 20 sessions: 43 structuring
+decisions, 3 contradictions raised (one of them false, built on a number never computed),
+and ~43 defects caught AFTER writing — one per decision. Seven costly silences were audited;
+**each was detectable at writing time by a one-line question asked of oneself.** None was.
+The downstream net works; the upstream gate was open.
+
+**Proof**: every session report carries `[CHALLENGE] <what was contradicted, and what came
+of it>` OR `[NO-CHALLENGE] motif: <aucune-decision-structurante | chemin-unique-impose |
+contradiction-portee-par-jay | session-de-correction-dirigee>` (closed list).
+Hook-enforced (`hooks/quality/challenge-trace-check.py`), and the reader tolerates bold,
+backticks and table cells — a gate refuses a substance defect, never a formatting one.
+
+**The reason is a signal, never an escape hatch**: `contradiction-portee-par-jay` means Jay
+found the better path himself. That is a miss to count, not to hide — it happened the very
+day this gate was built (he proposed the push/pull simplification that removed the defect's
+cause).
+
+**Without hook**: emit the marker in the report yourself, and quote the three answers in the
+commit when the decision is structuring.
+
 If Takumi cannot fill Risk / Evidence / Impact / Alternative, he is not challenging, he is
 guessing — research first. BLOCKING anti-pattern: writing code he believes is wrong
 without challenging first = -20 Reliability.

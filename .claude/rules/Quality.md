@@ -22,8 +22,8 @@ Real DB for integration (no DB mock). Tests named `should_[action]_when_[conditi
 **Coverage Floors — et QUI les tient (mesuré 2026-09-05)**
 
 Un seuil que rien n'exécute donne une fausse assurance, ce qui coûte plus cher
-qu'une absence de seuil. La colonne de droite dit la vérité mesurée : 60
-garde-fous branchés, 19 peuvent refuser une action, et **aucun ne mesure une
+qu'une absence de seuil. La colonne de droite dit la vérité mesurée : 67
+garde-fous branchés, 21 peuvent refuser une action, et **aucun ne mesure une
 couverture de tests**.
 
 | Scope | Min | Tenu par |
@@ -210,6 +210,6 @@ mobile-first 375px+ responsive · trilingual FR/EN/ES · reveal password · back
 error boundaries · loading skeletons · touch ≥44×44px · Feedback Widget · GlitchTip wired
 · morphic (theme+motion+font) · adaptive onboarding (sensory choice BEFORE identity).
 
-**Detail** (Quality Pyramid V2, 79-component inventory, verbatim vitest configs,
+**Detail** (Quality Pyramid V2, the generated component inventory, verbatim vitest configs,
 exhaustive critical-paths list, i18n examples, Responsive per breakpoint, Three Levels of
 Automation, SQuBOK, sources) → Shinzo.

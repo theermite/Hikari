@@ -357,7 +357,7 @@ stripe.test_helpers.TestClock.advance(clock.id, frozen_time=future_ts)
 | PBT | Payment amount calculations, proration logic | Hypothesis / fast-check |
 | Mutation | Stripe event handling logic | Stryker / mutmut |
 | Edge cases | Duplicate webhooks, expired cards, SCA challenge, currency conversion | Manual + integration |
-| **Dignity tests** | Cancel flow ≤ 2 clics, zero countdown manipulateur, export RGPD self-service | E2E Playwright |
+| **Dignity tests** | Cancel flow ≤ 2 clics (Dignity.md §g), zero countdown manipulateur, export RGPD self-service | E2E Playwright |
 
 ---
 

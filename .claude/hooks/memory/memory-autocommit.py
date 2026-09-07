@@ -16,6 +16,7 @@ local. SHINZO_DIR overrides the repo root (per-machine path + test injection).
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -67,10 +68,49 @@ def _rel_path(abs_path: Path, root: Path) -> str:
         return abs_path.as_posix()
 
 
+def _regenerate_summaries(root: Path) -> list[str]:
+    """Rebuild README.md + MEMORY.md from the memory files. Return their paths.
+
+    Why here: the summaries are GENERATED, but nothing ran the generator. Every
+    memory written made the index a little more false — measured 2026-09-06:
+    601 announced for 604 files, 28 indexed for 283. A generator nobody runs
+    produces exactly the drift a hand-copied summary does.
+
+    Where it lives, and why it moved (relecture independante, 2026-09-06): the
+    generator used to sit in `scripts/`, which is NOT propagated to the 32 repos.
+    Shinzo is shared — a memory written from any repo lands there — so the index
+    was only rebuilt when the memory happened to be written from Kata. Silently
+    the rest of the time: the very drift this hook exists to close, coming back
+    through 32 doors. It now lives in `hooks/lib/`, which travels.
+    """
+    generator = Path(__file__).resolve().parent.parent / "lib" / "memory_index.py"
+    if not generator.is_file():
+        raise FileNotFoundError(str(generator))
+    spec = importlib.util.spec_from_file_location("memory_index", generator)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["memory_index"] = module
+    spec.loader.exec_module(module)
+    module.ecrire_index(root / MEMORY_SUBDIR)
+    return [f"{MEMORY_SUBDIR}/README.md", f"{MEMORY_SUBDIR}/MEMORY.md"]
+
+
+def _stage_summaries(root: Path) -> list[str]:
+    """Regenerate then stage the summaries. Never fatal — the memory matters more."""
+    try:
+        sommaires = _regenerate_summaries(root)
+    except Exception as exc:
+        print(f"WARNING: sommaires memoire non regeneres ({exc}). "
+              "ACTION: relancer le sommaire — `python .claude/hooks/lib/memory_index.py`. Le souvenir, lui, part.", file=sys.stderr)
+        return []
+    for sommaire in sommaires:
+        _git(root, "add", "--", sommaire)
+    return sommaires
+
+
 def _commit_and_push(root: Path, abs_path: Path) -> str | None:
     """Stage, commit and push the memory file. Return a stderr line, or None.
 
-    Every git call is scoped to this one file. Another session may be writing the
+    Every git call is scoped to NAMED paths. Another session may be writing the
     same repo at the same time: an unscoped `diff --cached` would read its staged
     work as "something changed", and an unscoped `commit` would carry that work
     away under a `chore(memory)` message (observed 2026-08-10).
@@ -80,9 +120,11 @@ def _commit_and_push(root: Path, abs_path: Path) -> str | None:
     if _git(root, "diff", "--cached", "--quiet", "--", rel).returncode == 0:
         return None  # this memory did not change → no empty commit
 
+    chemins = [rel, *_stage_summaries(root)]
+
     basename = abs_path.name
     message = f'chore(memory): {basename}\n\nCo-Authored-By: Takumi "IA Dev Partner"'
-    commit = _git(root, "commit", "-m", message, "--", rel)
+    commit = _git(root, "commit", "-m", message, "--", *chemins)
     if commit.returncode != 0:
         return f"WARNING: memory auto-commit failed. ACTION: commit Shinzo manually. {commit.stderr.strip()}"
 

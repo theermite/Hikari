@@ -41,7 +41,7 @@ Execute these steps IN ORDER. No skipping (unless LITE_MODE applies — see Step
 
 ## Rules
 
-- **Context Awareness Protocol is active from session start.** Track exchange count and file reads. Alert at ~40 exchanges or ~15 file reads (~60% context). STOP at ~60 exchanges or compaction triggered (~80%). See `rules/Workflows.md`.
+- **Context is measured, never estimated.** `hooks/lifecycle/context-gauge.py` reads the real occupied size each turn and speaks once per threshold — alert at 600 000 tokens, warm resume advised at 700 000. Do NOT count exchanges or file reads: measured 2026-09-06, that proxy was calibrated on a 200 000 window and ordered a stop at 479 000 out of 1 000 000. See `rules/Workflows.md`.
 - **Shinzo sync is BLOCKING and non-negotiable** (step 3). A session without it is a process violation. If Shinzo is not cloned, escalate — never skip.
 - **4 files, not 21** — load `_Cross-Project.md` + `_Index.md` + current project file + `Notes-Jay.md`. Additional files on demand only.
 - **Notes-Jay processing** — at session start, identify unseen items (no status marker). At session end or when items are treated, update the Notes-Jay file in Shinzo with markers: `👀 Lu [date]` (seen), `🔧 En cours` (in progress), `✅ [date] — résumé` (done).

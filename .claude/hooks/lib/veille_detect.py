@@ -15,7 +15,9 @@ Stdlib only. Cross-platform (Windows + Linux).
 from __future__ import annotations
 
 import json
+import os
 import re
+from pathlib import Path
 
 from veille_config import (
     CODE_EXT,
@@ -89,6 +91,119 @@ def _js_specs(line: str) -> list[str]:
     specs = [m.group(1) for m in JS_IMPORT_RE.finditer(line)]
     specs += [m.group(1) for m in JS_REQUIRE_RE.finditer(line)]
     return [s for s in specs if not s.startswith((".", "/", "~", "@/"))]
+
+
+# --- First-party modules ------------------------------------------------------
+
+# Ce qu'on ne descend jamais : rien d'importable a nous n'y vit, et node_modules
+# a lui seul ferait de ce balayage une lenteur.
+_IGNORE_DIRS = {
+    ".git", "node_modules", "__pycache__",
+    "dist", "build", ".mypy_cache", ".pytest_cache", ".ruff_cache",
+    "_build", "deps", "target", "tmp", "vendor", "site-packages",
+}
+
+# Un environnement virtuel contient un `__init__.py` par dependance installee.
+# Le nommer exactement ne suffit pas : `venv311`, `.venv313`, `virtualenv`,
+# `.tox` existent tous en vrai. Defaut BLOQUANT trouve par la relecture
+# independante du 2026-09-06 — un dossier `venv311` faisait passer `stripe` pour
+# du code maison, donc `import stripe` ne demandait plus de veille.
+_ENV_DIR_RE = re.compile(r"^\.?(?:venv|env|virtualenv|tox|conda|pyenv)[\w.-]*$", re.I)
+
+
+def _dossier_ignore(nom: str) -> bool:
+    return nom in _IGNORE_DIRS or bool(_ENV_DIR_RE.match(nom))
+
+
+# Les dossiers ou vivent nos modules simples (un fichier = un module). Ailleurs,
+# seuls les paquets (un dossier avec __init__.py) comptent.
+# LIMITE DITE (contre-relecture 2026-09-06) : cette liste est celle de Kata.
+# Dans un depot applicatif, un paquet vivant en `src/` ou `apps/` n'est pas
+# reconnu comme maison, donc son import redemande une veille. Le sens de
+# l'erreur est le bon — on redemande une preuve au lieu d'en dispenser — mais la
+# promesse « un module est a nous s'il se resout dans l'arborescence » ne vaut
+# que pour ce depot-ci.
+_SOURCE_DIRS = ("scripts", os.path.join(".claude", "hooks"))
+
+_FIRST_PARTY_CACHE: dict[str, frozenset[str]] = {}
+
+
+def first_party_modules(root) -> frozenset[str]:
+    """Modules qui vivent dans ce depot. En importer un n'ajoute aucune dependance.
+
+    Ne 2026-09-06 : le garde-fou reclamait une recherche web sur un registre
+    public pour `propagate_lib`, un paquet de `scripts/`. Il se serait bloque
+    lui-meme — il importe cinq modules maison.
+
+    Un module est a nous s'il se resout dans l'arborescence : un paquet (dossier
+    avec `__init__.py`), ou un fichier `.py` d'un de nos dossiers de code. On ne
+    devine rien, on regarde le disque.
+    """
+    cle = str(Path(root))
+    if cle not in _FIRST_PARTY_CACHE:
+        _FIRST_PARTY_CACHE[cle] = frozenset(_parcourir_modules(Path(root)) - {""})
+    return _FIRST_PARTY_CACHE[cle]
+
+
+def _parcourir_modules(root: Path) -> set[str]:
+    """Regarde NOS dossiers de code, jamais tout le depot.
+
+    Deux raisons, toutes deux mesurees le 2026-09-06 :
+
+    - Le cout. Un `os.walk` de tout le depot tournait a CHAQUE ecriture de
+      fichier. Il a fait tomber un test de concurrence en epuisant le delai
+      d'un verrou — un garde-fou qui ralentit tout finit debranche.
+    - La justesse. Balayer partout ramassait les `__init__.py` des dependances
+      installees dans un environnement virtuel, et blanchissait donc de vraies
+      dependances externes. Ne regarder que nos dossiers supprime la cause au
+      lieu d'allonger une liste d'exclusions.
+    """
+    noms: set[str] = set()
+    for source in (root / d for d in _SOURCE_DIRS):
+        noms.update(_modules_d_un_dossier(source))
+        for enfant in _sous_dossiers(source):
+            noms.update(_modules_d_un_dossier(enfant))
+            noms.update(_sous_paquets(enfant))
+    return noms
+
+
+def _sous_dossiers(dossier: Path) -> list[Path]:
+    try:
+        return [p for p in dossier.iterdir() if p.is_dir() and not _dossier_ignore(p.name)]
+    except OSError:
+        return []
+
+
+def _modules_d_un_dossier(dossier: Path) -> set[str]:
+    """Les modules simples du dossier, et lui-meme s'il est un paquet."""
+    try:
+        fichiers = [p.name for p in dossier.iterdir() if p.is_file()]
+    except OSError:
+        return set()
+    noms = _modules_simples(fichiers)
+    if "__init__.py" in fichiers:
+        noms.add(dossier.name)
+    return noms
+
+
+def _sous_paquets(dossier: Path) -> set[str]:
+    return {p.name for p in _sous_dossiers(dossier) if (p / "__init__.py").is_file()}
+
+
+def _modules_simples(fichiers: list[str]) -> set[str]:
+    return {f[:-3] for f in fichiers if f.endswith(".py") and not f.startswith("_")}
+
+
+def _repo_root_of(file_path: str):
+    """Le depot qui contient ce fichier, ou None. Hors depot, on reste strict."""
+    try:
+        chemin = Path(file_path).resolve()
+    except OSError:
+        return None
+    for candidat in (chemin, *chemin.parents):
+        if (candidat / ".git").exists():
+            return candidat
+    return None
 
 
 def external_imports(text: str, ext: str) -> set[str]:
@@ -214,6 +329,18 @@ def sensitive_change(file_path: str, filename: str, ext: str, old: str, new: str
         return "version pin pattern in diff"
     if ext in {"py", "ts", "tsx", "js", "jsx"}:
         added = external_imports(new, ext) - external_imports(old, ext)
+        added -= _modules_du_depot(file_path, ext)
         if added:
             return f"new external import detected ({ext}: {', '.join(sorted(added))})"
     return None
+
+
+def _modules_du_depot(file_path: str, ext: str) -> set[str]:
+    """Ce qui vit dans le meme depot que le fichier ecrit n'est pas une dependance.
+
+    Hors depot, on ne retire rien : ne pas savoir n'autorise pas a rassurer.
+    """
+    if ext != "py":
+        return set()
+    root = _repo_root_of(file_path)
+    return set(first_party_modules(root)) if root else set()

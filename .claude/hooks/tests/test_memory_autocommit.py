@@ -167,9 +167,15 @@ def test_commit_excludes_a_file_staged_by_another_session(tmp_path):
     r = _run({"tool_name": "Write", "tool_input": {"file_path": str(f)}}, root)
 
     assert r.returncode == 0
-    assert _paths_in_head(root) == {"05-Memoire/feedback-isolation.md"}, (
-        "the memory commit must carry the memory file and nothing else"
-    )
+    # The commit carries the memory AND its generated summaries (2026-09-06:
+    # nothing ran the generator, so every write made the index a little more
+    # false). It must carry nothing else — never another session's work.
+    assert _paths_in_head(root) <= {
+        "05-Memoire/feedback-isolation.md",
+        "05-Memoire/MEMORY.md",
+        "05-Memoire/README.md",
+    }, "the memory commit must carry the memory and its summaries, nothing else"
+    assert "05-Memoire/feedback-isolation.md" in _paths_in_head(root)
     assert "02-Projets/Takumi.md" in _staged_paths(root), (
         "the other session's file must stay staged, available to its owner"
     )

@@ -99,7 +99,7 @@ def _mots(texte: str) -> set[str]:
 
 def _lignes_index(index: Path) -> list[dict]:
     """Lit le sommaire GÉNÉRÉ. Un sommaire absent n'est pas une erreur — il faut
-    juste le produire (`scripts/generate-memory-index.py`)."""
+    juste le produire (`.claude/hooks/lib/memory_index.py`)."""
     try:
         texte = Path(index).read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):

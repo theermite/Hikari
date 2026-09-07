@@ -35,19 +35,19 @@ reference. Not conversation-only details.
 **Index — corrigé 2026-09-05, la règle précédente était fausse.** Elle disait
 « l'index est `README.md`, ne créez pas de `MEMORY.md` ». Or `MEMORY.md` est
 justement le fichier que le harnais CHARGE à chaque session : l'interdire
-revenait à interdire le seul index réellement lu. Mesure du jour : 601 souvenirs,
-28 indexés.
+revenait à interdire le seul index réellement lu. Mesure du 2026-09-06 :
+604 souvenirs, 283 indexés. <!-- photo: 2026-09-06 -->
 
-**Les deux existent, produits par `scripts/generate-memory-index.py`, jamais
+**Les deux existent, produits par `.claude/hooks/lib/memory_index.py`, jamais
 écrits à la main** (un sommaire recopié vieillit et ment — famille de l'inventaire
 de composants, 79 annoncés contre 149 réels le même jour) :
 
 | Fichier | Rôle | Contenu |
 |---|---|---|
-| `README.md` | sommaire complet, pour naviguer | les 601, groupés par type |
+| `README.md` | sommaire complet, pour naviguer | tous, groupés par type |
 | `MEMORY.md` | chargé à chaque session | `user` + `feedback` — ceux qui changent la façon de travailler |
 
-**Proof**: `python scripts/generate-memory-index.py --check` sort en erreur dès
+**Proof**: `python .claude/hooks/lib/memory_index.py --check` sort en erreur dès
 qu'un souvenir manque à un sommaire.
 
 **Rappel au bon moment** : le sommaire rend les souvenirs visibles ; il ne

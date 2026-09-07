@@ -95,6 +95,46 @@ Max 4 concurrent sub-agents (announce "sub-agent N of max 4" ; beyond, queue). C
 reset: after 2 failed corrections on the same symptom → announce "Context reset
 recommended" and stop the fixes until Jay decides.
 
+**Context size is READ, never estimated (BLOCKING — Jay 2026-09-06)**: the gauge
+(`hooks/lifecycle/context-gauge.py`) reads the real occupied tokens each turn and speaks
+once per threshold — **600 000** enters the zone where quality can degrade, **700 000**
+advises the warm resume (write the `[EN-SUSPENS]` threads, `/clear`, continue on the
+brief). Never block: it is a gauge, not a gate.
+
+**Why the old proxy went**: « ~40 exchanges or ~15 file reads (~60 %) » measures nothing —
+an exchange costs 200 tokens or 40 000, a read 3 lines or 3 000 — and it was calibrated on
+a 200 000 window while sessions run on 1 000 000. Measured that day: it ordered a stop at
+**479 000 of 1 000 000**. A gate that fires wrongly gets unplugged, and takes the real
+detection with it.
+
+**A warm resume beats closing and reopening**: session-end runs the suite, the report, the
+sync and the scoring ; session-start re-reads four project files and three reports. The
+resume costs a generated brief and a few targeted reads.
+
+## What must survive a resume (BLOCKING — Jay 2026-09-06)
+
+**Rule**: the moment a thread is left OPEN, write it as `[EN-SUSPENS] <the thread, one
+line>`. When it is settled, write `[RESOLU] <the same line>`. The handoff brief collects
+both from the session and lists the survivors FIRST.
+
+**What counts as open**: an objection raised and not yet answered · a hypothesis stated
+without measuring it · a lead worth following, parked for later · a decision waiting on
+Jay · a defect seen off-topic and not yet traced.
+
+**Why**: a warm resume (write the brief, `/clear`, continue) costs far less than closing
+and reopening a session. What it loses is what nobody wrote down — the thread of a hunch,
+an objection left hanging. Jay's instruction: put it IN the brief instead of accepting the
+loss.
+
+**The brief is generated, never written from memory** — a summary typed from recollection
+ages and lies (three contradictory figures for one inventory, same day, 2026-08-30). So
+the marker is the only thing that carries: what is not marked is not saved.
+
+**Proof**: `.claude/state/handoff-<session>.md` opens on « Fils ouverts / objections en
+suspens », listing them or saying « aucun ». `hooks/lib/brief_builder.py`, 8 tests.
+
+**Without hook**: end the session's last message with the open threads, verbatim.
+
 ## Post-Compact Continuity (BLOCKING — behavioral)
 
 After auto-compact, do NOT propose /session-end or write a report unless Jay explicitly
@@ -143,6 +183,19 @@ rollback/hotfix. **Fix = Deploy**: a fix is done only when deployed AND verified
 3 dimensions: Value 40% (deliverable/publishable/usable) · Reliability 30% (rework,
 regressions) · Process 30% (gates respected). `Score = Value×0.4 + Reliability×0.3 +
 Process×0.3`. Report the 3 separately + total.
+
+**A delivery complaint counts as a defect (BLOCKING — measured 2026-09-06)**: when Jay says
+the output is unreadable, too dense, too technical, or that there is too much of it, that is
+a session defect — **−10 Value per occurrence**, listed in the report under
+« Reproches de livraison » with his words verbatim.
+
+**Why**: 5 complaints in 20 sessions, 3 of them AFTER the fix meant to close them. The
+signal existed, was documented every time, and entered no score — so nothing changed. A
+deliverable is done when it matches the user's expressed need; Jay is the user of every
+report, reformulation and recap we write. Tech-green is not user-right.
+
+**Proof**: the report's « Reproches de livraison » section — his sentence, the cause found,
+and what was changed. Zero complaints = write « aucun ». An absent section is itself a miss.
 
 ## Documentation & Tracking (BLOCKING — A8)
 

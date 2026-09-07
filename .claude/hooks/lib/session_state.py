@@ -182,7 +182,14 @@ def _write_state_at(p: Path, data: dict[str, Any]) -> None:
 
 
 def read_state(name: str, session_id: str | None = None, repo_root: Path | None = None) -> dict[str, Any]:
-    """Read state JSON, return {} if missing or malformed."""
+    """Read state JSON, return {} if missing or malformed.
+
+    Le lecteur ne prend PAS le verrou. Essaye le 2026-09-06 : lui faire prendre
+    le meme verrou exclusif transforme la collision en FAMINE — les ecrivains
+    n'obtenaient plus le verrou en 10 s sous charge. Echanger une panne bornee
+    contre une attente non bornee est une regression deguisee (lecon 2026-09-02).
+    La fermeture de la fenetre se fait cote ecrivain, voir `_replace_with_retry`.
+    """
     return _read_state_at(state_path(name, session_id, repo_root))
 
 
@@ -221,8 +228,36 @@ def _replace_with_retry(tmp: Path, target: Path, attempts: int = 5) -> None:
             return
         except PermissionError:
             if attempt == attempts - 1:
-                raise
+                break
             time.sleep(0.01 * (attempt + 1))
+
+    # QUATRIEME occurrence de la famille (2026-08-18, 08-19, 09-02, puis quatre
+    # fois le 2026-09-06 dont deux pendant la propagation). Les trois premiers
+    # correctifs ont rendu le RENOMMAGE plus resistant ; chacun a fini depasse.
+    #
+    # La cause restante n'est pas la contention entre ecrivains — le verrou l'a
+    # supprimee. C'est qu'un LECTEUR, qui ne prend aucun verrou, tient le fichier
+    # ouvert une fraction de seconde : sur Windows, on ne renomme pas par-dessus
+    # un fichier ouvert, quel que soit le nombre de reessais.
+    #
+    # Faire prendre le verrou aux lecteurs a ete essaye et MESURE : cela cree une
+    # famine, les ecrivains n'obtenant plus le verrou en 10 s. On echangeait une
+    # panne bornee contre une attente non bornee.
+    #
+    # Le repli n'est donc pas un quatrieme reglage de reessai : c'est un MECANISME
+    # DIFFERENT. On ecrit le contenu EN PLACE, toujours sous le verrou d'ecriture.
+    # Un lecteur peut alors voir un fichier a moitie ecrit — deja traite comme
+    # vide par `_read_state_at`, degradation connue et benigne, la ou l'echec
+    # faisait tomber un garde-fou entier.
+    try:
+        contenu = tmp.read_bytes()
+        with open(target, "wb") as sortie:
+            sortie.write(contenu)
+    finally:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
 
 
 def mark_once(name: str, key: str, session_id: str | None = None, repo_root: Path | None = None) -> bool:

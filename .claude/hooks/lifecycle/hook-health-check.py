@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -35,7 +36,7 @@ HOOK_DIR = Path(__file__).resolve().parent
 LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
-from common import find_repo_root  # type: ignore
+from common import find_repo_root  # type: ignore # noqa: E402
 
 # L'ordre compte : le premier qui S'EXECUTE gagne, pas le premier nomme.
 CANDIDATS = ("python3", "python", "py", "python3.13", "python3.12")
@@ -48,22 +49,67 @@ CIBLE_LANCEUR = re.compile(r'_run\.sh"?\s+(\S+)')
 CIBLE_ANCIENNE = re.compile(r"/\.claude/hooks/(\S+?\.py)")
 
 
-def _interprete_qui_tourne() -> tuple[str | None, str]:
-    """Rend le premier interprete qui s'execute reellement, et sa version.
+def _est_dernier_recours(chemin: str) -> bool:
+    """Le raccourci Microsoft Store : valable seul, jamais prioritaire.
 
-    On le FAIT TOURNER : c'est la seule preuve. Le raccourci Microsoft Store
-    existe sur le PATH et repond « permission refusee » a l'execution — un test
-    de presence le declarerait bon.
+    Il demarre 3x plus lentement (558 ms contre 169 ms, mesure 2026-09-06) et
+    refuse selon le contexte. Le lanceur applique la meme regle.
     """
+    return "windowsapps" in chemin.replace("\\", "/").lower()
+
+
+def _version_si_il_tourne(nom: str) -> str:
+    """La version, ou vide. On le FAIT TOURNER : c'est la seule preuve.
+
+    Le raccourci Store existe sur le PATH et repond « permission refusee » a
+    l'execution — un test de presence le declarerait bon.
+    """
+    try:
+        proc = subprocess.run([nom, "-c", "import sys;print(sys.version.split()[0])"],
+                              capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return proc.stdout.strip() if proc.returncode == 0 else ""
+
+
+def _interprete_retenu(racine: Path) -> str:
+    """Celui que `_run.sh` a retenu pour la session, ou vide."""
+    try:
+        return (racine / ".claude" / "state" / "hook-interpreter").read_text(
+            encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def _interprete_qui_tourne(racine: Path | None = None) -> tuple[str | None, str]:
+    """L'interprete que les garde-fous utilisent VRAIMENT, et sa version.
+
+    Defaut du 2026-09-06 : la sonde annoncait `python3` 3.14.2 quand le lanceur
+    executait `python` 3.13.9. Elle sondait le PATH dans l'ordre brut, alors que
+    `_run.sh` ecarte le raccourci Store et retient son choix. Nommer un
+    interprete qu'aucun garde-fou n'emprunte envoie le prochain diagnostic a
+    cote — avec l'autorite d'un chiffre.
+
+    Le choix retenu est une TRACE, jamais une preuve : on le fait tourner avant
+    de le nommer, et on retombe sur la sonde complete s'il ne repond plus.
+    """
+    racine = Path(racine) if racine else find_repo_root()
+    retenu = _interprete_retenu(racine)
+    if retenu:
+        version = _version_si_il_tourne(retenu)
+        if version:
+            return retenu, version
+
+    dernier_recours: tuple[str, str] | None = None
     for nom in CANDIDATS:
-        try:
-            proc = subprocess.run([nom, "-c", "import sys;print(sys.version.split()[0])"],
-                                  capture_output=True, text=True, timeout=10)
-        except (OSError, subprocess.SubprocessError):
+        version = _version_si_il_tourne(nom)
+        if not version:
             continue
-        if proc.returncode == 0 and proc.stdout.strip():
-            return nom, proc.stdout.strip()
-    return None, ""
+        if _est_dernier_recours(shutil.which(nom) or nom):
+            dernier_recours = dernier_recours or (nom, version)
+            continue
+        return nom, version
+    return dernier_recours if dernier_recours else (None, "")
 
 
 def _commandes(config: dict):
@@ -91,7 +137,7 @@ def diagnostiquer(reglages: Path | None = None, racine: Path | None = None) -> d
     """Etat des garde-fous. Ne leve jamais."""
     racine = Path(racine) if racine else find_repo_root()
     reglages = Path(reglages) if reglages else racine / ".claude" / "settings.json"
-    nom, version = _interprete_qui_tourne()
+    nom, version = _interprete_qui_tourne(racine)
     cibles = _cibles(reglages)
     absents = [c for c in cibles if not (racine / ".claude" / "hooks" / c).is_file()]
     # Defaut D2, relecture independante du 2026-09-06 : la sonde verifiait les
@@ -99,6 +145,12 @@ def diagnostiquer(reglages: Path | None = None, racine: Path | None = None) -> d
     # n'empruntent PAS. Ils passent tous par `_run.sh`. Un depot qui recoit le
     # cablage sans le lanceur affichait « 60 operationnels » avec 60 controles
     # morts. C'est exactement le faux vert que cette sonde existe pour tuer.
+    #
+    # SUITE, le soir du 2026-09-06 : ce commentaire annoncait DEUX corrections,
+    # le code n'en portait qu'une. Les cibles etaient reparees, l'interprete non
+    # — la sonde nommait encore `python3` (3.14.2) quand le lanceur executait
+    # `python` (3.13.9). Un commentaire qui decrit un comportement que le code
+    # contredit est la meme famille qu'un chiffre perime : il rassure a tort.
     lanceur = racine / ".claude" / "hooks" / "_run.sh"
     return {
         "interprete": nom,
