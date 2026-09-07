@@ -33,7 +33,7 @@ import { PanelTab } from "./PanelTab";
 import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
 import { SettingsPanel } from "./panels/SettingsPanel";
-import { PRESETS, type PresetId, resolvePreset } from "./presets";
+import { PRESETS, type PresetId, resolvePreset, showsPanel } from "./presets";
 import { ScreenFrame } from "./ScreenFrame";
 import { ScreenPlaceholder } from "./ScreenPlaceholder";
 import { Sidebar } from "./Sidebar";
@@ -74,6 +74,28 @@ const PANEL_COMPONENTS: Record<
   audio: AudioPanel,
   chat: ChatPanel,
 };
+
+/** Applique une disposition : chaque panneau du cockpit se montre ou se cache.
+ *
+ * CACHÉ, jamais fermé. Fermer un panneau lui ferait perdre sa place, et le rouvrir le
+ * remonterait — remonter l'Aperçu relancerait le moteur et couperait une diffusion en
+ * cours. Le système de panneaux sait masquer sans démonter ; c'est exactement ce qu'il
+ * faut ici, et l'Aperçu réagit déjà à sa propre visibilité en retirant sa fenêtre.
+ *
+ * Hors du composant : la coque l'appelle au démarrage ET à chaque bascule, et une fonction
+ * de module se lit aux deux endroits sans dépendre de l'ordre des déclarations. */
+function applyPreset(api: DockviewApi | null, preset: PresetId): void {
+  if (!api) return;
+  // La visibilité appartient au GROUPE, pas au panneau : le système l'écrit dans ses
+  // types, qui retirent explicitement ce réglage de l'interface d'un panneau. Un groupe
+  // reste donc visible dès qu'UN de ses panneaux doit se montrer — sinon, deux panneaux
+  // mis en onglets se cacheraient l'un l'autre selon la disposition, et l'utilisateur
+  // perdrait celui qu'il vient de ranger là.
+  for (const group of api.groups) {
+    const montre = group.panels.some((panel) => showsPanel(preset, panel.id));
+    group.api.setVisible(montre);
+  }
+}
 
 /** Adds panel `id` if a (fresh or restored) layout doesn't already have it — a saved
  * layout predates every panel added after it was first written to disk, so this is how a
@@ -213,6 +235,10 @@ export function Cockpit() {
         buildDefaultLayout(event.api);
       });
 
+    // La disposition de départ s'applique tout de suite : sans ça le cockpit s'ouvrait
+    // avec TOUS ses panneaux, quelle que soit la disposition affichée comme active.
+    applyPreset(event.api, resolvePreset(null));
+
     event.api.onDidLayoutChange(() => {
       saveLayout(event.api).catch(() => {
         // La sauvegarde échoue rarement (coffre local) ; ne jamais bloquer l'UI dessus.
@@ -222,9 +248,7 @@ export function Cockpit() {
 
   const switchPreset = (id: PresetId) => {
     setActivePreset(id);
-    // Les presets ne portent pas encore de disposition propre (aucun 2ᵉ layout construit
-    // tant que B-auto/B4/l'aperçu n'existent pas) — la bascule change l'état affiché, la
-    // disposition réelle par preset arrive avec les écrans qu'elle doit organiser.
+    applyPreset(apiRef.current, id);
   };
 
   // Ouvre (ou remet au premier plan) un panneau par son id — utilisé par la sidebar pour

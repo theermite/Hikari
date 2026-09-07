@@ -46,7 +46,7 @@ export function Panel({ title, badge, actions, children }: PanelProps) {
           première migration. Un panneau migré retire donc son propre `overflow`. */}
       {/* 18 px, la respiration que la maquette donne a une carte (`.card{ padding:18px }`).
           À 12 px le contenu touchait le bord et les cartes paraissaient serrées. */}
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-[18px]">
+      <div className="hikari-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-[18px]">
         {children}
       </div>
     </section>

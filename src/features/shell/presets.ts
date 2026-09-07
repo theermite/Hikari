@@ -1,7 +1,19 @@
-// Cockpit layout presets (B-shell, mono-fenêtre). Préparation/Live/Focus — PET fiche
-// F-101. Pure model: WHICH preset is active + how to switch it, no dockview coupling here
-// (the actual layout each preset maps to arrives with the real panels in a later brique —
-// this is the switching mechanism, tested honestly against what exists today).
+// Les trois dispositions du cockpit — Préparation, Live, Focus.
+//
+// Ce que Jay en dit (2026-09-07), et qui fixe leur contenu :
+//   — Préparation : « constituer son stream, le mettre en place, créer ses scènes » ;
+//   — Live : « une interface lorsque nous sommes en live » ;
+//   — Focus : « rester focus sur le live, sur le jeu que nous sommes en train de faire ».
+//
+// Elles n'agençaient RIEN jusqu'ici : cliquer changeait l'état affiché et rien d'autre.
+// Chaque disposition dit désormais quels panneaux du cockpit se montrent.
+//
+// La maquette tranche le seul cas ambigu : en préparation le chat s'efface, en direct il
+// revient (« Préparation : sources, kit de marque et checklist en avant — le chat
+// s'efface »).
+//
+// Modèle PUR : il dit QUOI montrer, jamais COMMENT. Le comment appartient à la coque, qui
+// seule possède le système de panneaux.
 
 export type PresetId = "preparation" | "live" | "focus";
 
@@ -28,4 +40,27 @@ export function resolvePreset(saved: string | null): PresetId {
     return saved;
   }
   return DEFAULT_PRESET;
+}
+
+/** Les panneaux que chaque disposition montre. Ce qui n'y est pas se cache — jamais ne se
+ * ferme : un panneau fermé perd sa place, et le rouvrir le remonterait. Remonter l'Aperçu
+ * relancerait le moteur et couperait la diffusion. */
+const SHOWN: Record<PresetId, readonly string[]> = {
+  // Tout ce qui sert à MONTER le direct. Le chat s'efface : personne ne regarde encore.
+  preparation: ["scenes", "preview", "audio", "deck"],
+  // Le direct : le chat revient, et tout reste sous la main.
+  live: ["scenes", "preview", "audio", "deck", "chat"],
+  // Le strict nécessaire. Les scènes restent — basculer d'un clic est la promesse du
+  // produit, et c'est le seul geste qu'on fait encore quand on est pris par le jeu.
+  focus: ["scenes", "preview"],
+};
+
+/** Si `panelId` se montre dans la disposition `preset`.
+ *
+ * Un panneau inconnu de la liste se montre : une disposition ne doit jamais faire
+ * disparaître un panneau ajouté après elle. L'oubli se verrait, l'effacement non. */
+export function showsPanel(preset: PresetId, panelId: string): boolean {
+  const shown = SHOWN[preset];
+  const connus = new Set(Object.values(SHOWN).flat());
+  return connus.has(panelId) ? shown.includes(panelId) : true;
 }

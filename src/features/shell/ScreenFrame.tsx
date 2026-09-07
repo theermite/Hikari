@@ -26,7 +26,7 @@ export function ScreenFrame({ label, children }: ScreenFrameProps) {
       {/* L'écran possède le défilement, et lui seul — même règle que la carte d'un
           panneau. Deux zones qui défilent affichent deux barres côte à côte (vu chez Jay
           le 2026-09-04). */}
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="hikari-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
         {children}
       </div>
     </section>

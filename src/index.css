@@ -141,6 +141,21 @@
   scrollbar-color: var(--color-hikari-line) transparent;
 }
 
+/* La place de la barre est RÉSERVÉE, qu'elle s'affiche ou non.
+ *
+ * Sans cela, la barre apparaît quand le contenu dépasse et POUSSE tout le panneau de sa
+ * largeur — le contenu saute latéralement au moment même où l'on commence à lire (Jay,
+ * 2026-09-07 : « une scrollbar qui déplace le panneau »). Le saut est pire que la barre :
+ * il arrive pendant qu'on regarde, et il se répète à chaque fois que le contenu passe
+ * au-dessus ou en dessous de la hauteur disponible.
+ *
+ * Réservée des DEUX côtés : sinon le contenu d'un panneau qui défile n'est plus centré de
+ * la même façon que celui d'un panneau qui ne défile pas, et deux cartes voisines ne se
+ * ressemblent plus. */
+.hikari-scroll {
+  scrollbar-gutter: stable both-edges;
+}
+
 .dockview-theme-dark *::-webkit-scrollbar {
   width: 8px;
   height: 8px;

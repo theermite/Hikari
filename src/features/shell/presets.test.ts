@@ -4,6 +4,7 @@ import {
   isKnownPreset,
   PRESETS,
   resolvePreset,
+  showsPanel,
 } from "./presets";
 
 describe("presets", () => {
@@ -28,5 +29,41 @@ describe("presets", () => {
       expect(isKnownPreset(preset.id)).toBe(true);
     }
     expect(isKnownPreset("not-a-real-preset")).toBe(false);
+  });
+});
+
+describe("showsPanel", () => {
+  it("should_hide_the_chat_while_preparing", () => {
+    // La maquette le dit : « Préparation : sources, kit de marque et checklist en avant —
+    // le chat s'efface ». Personne ne regarde encore.
+    expect(showsPanel("preparation", "chat")).toBe(false);
+    expect(showsPanel("live", "chat")).toBe(true);
+  });
+
+  it("should_keep_the_preview_in_every_disposition", () => {
+    // L'aperçu porte le moteur : le cacher partout reviendrait à éteindre l'application.
+    for (const preset of PRESETS) {
+      expect(showsPanel(preset.id, "preview"), preset.id).toBe(true);
+    }
+  });
+
+  it("should_keep_scene_switching_even_in_focus", () => {
+    // Basculer de scène d'un clic est la promesse du produit, et c'est le seul geste
+    // qu'on fait encore quand on est pris par le jeu.
+    expect(showsPanel("focus", "scenes")).toBe(true);
+  });
+
+  it("should_strip_focus_down_to_the_essentials", () => {
+    expect(showsPanel("focus", "chat")).toBe(false);
+    expect(showsPanel("focus", "deck")).toBe(false);
+    expect(showsPanel("focus", "audio")).toBe(false);
+  });
+
+  it("should_never_hide_a_panel_it_has_never_heard_of", () => {
+    // Une disposition ne doit pas faire disparaître un panneau ajouté après elle :
+    // l'oubli se verrait, l'effacement non.
+    for (const preset of PRESETS) {
+      expect(showsPanel(preset.id, "un-panneau-futur"), preset.id).toBe(true);
+    }
   });
 });
