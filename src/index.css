@@ -25,6 +25,12 @@
   --color-hikari-green: #4ade80; /* état OK */
   --color-hikari-red: #f87171; /* état bloquant */
   --color-hikari-live: #ff4d4f; /* pastille live */
+  /* Couleurs de MARQUE des plateformes — jamais de la charte d'Hikari.
+     Elles vivent ici, une seule fois, parce qu'un violet écrit à deux endroits finit par
+     diverger. Elles ne servent QU'aux boutons de connexion : Hikari a sa propre identité
+     graphique, et une couleur de plateforme ailleurs la diluerait. */
+  --color-hikari-twitch: #9146ff; /* violet Twitch officiel */
+  --color-hikari-youtube: #ff0033; /* rouge YouTube officiel */
   --font-hikari:
     "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   /* La maquette relève ses deux rayons en fin de fichier (12 et 8) — mêmes valeurs

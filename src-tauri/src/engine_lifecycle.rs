@@ -20,7 +20,7 @@ use hikari_protocol::{ControllerCommand, EngineMessage, parse_engine_message, to
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::accounts::twitch::{self, TWITCH_CLIENT_ID};
-use crate::accounts::vault::{self, Platform, Secret};
+use crate::accounts::vault::{self, Platform, Secret, StoredToken};
 use crate::accounts::twitch_stream;
 use crate::engine_bridge::engine_command;
 use crate::preview_bridge::{graft_preview_window, hide_preview_window, position_preview_window};
@@ -34,20 +34,20 @@ const MAIN_WINDOW_LABEL: &str = "main";
 /// panel reports its true rect on mount, almost always before `PreviewReady` even arrives.
 const FALLBACK_RECT: (i32, i32, u32, u32) = (0, 0, 320, 180);
 
-struct EngineHandle {
-    child: Child,
-    stdin: ChildStdin,
+pub(crate) struct EngineHandle {
+    pub(crate) child: Child,
+    pub(crate) stdin: ChildStdin,
 }
 
 /// Runtime state: the engine child (if running), the grafted preview's HWND (if
 /// grafted), and the last screen rect the Aperçu panel reported for itself.
-struct EngineRuntime {
-    handle: Option<EngineHandle>,
-    preview_hwnd: Option<i64>,
-    panel_rect: (i32, i32, u32, u32),
+pub(crate) struct EngineRuntime {
+    pub(crate) handle: Option<EngineHandle>,
+    pub(crate) preview_hwnd: Option<i64>,
+    pub(crate) panel_rect: (i32, i32, u32, u32),
     /// Un direct est-il en cours ? Sert a REFUSER de relancer le moteur pendant qu'il
     /// diffuse (voir `plan_target_reload`) — relancer couperait le direct.
-    streaming: bool,
+    pub(crate) streaming: bool,
 }
 
 impl Default for EngineRuntime {
@@ -59,7 +59,11 @@ impl Default for EngineRuntime {
 /// Tauri-managed wrapper — the default state is honest: nothing launches until the
 /// Aperçu panel asks for it.
 #[derive(Default)]
-pub struct EngineState(Mutex<EngineRuntime>);
+/// `pub(crate)` sur le champ depuis le decoupage du 2026-09-07 : les commandes de scenes
+/// vivent maintenant dans `engine_scenes.rs` et prennent le verrou elles-memes, comme
+/// avant. Le decoupage ne devait rien changer au comportement — leur faire passer par une
+/// autre fonction aurait ete un second changement cache dans le premier.
+pub struct EngineState(pub(crate) Mutex<EngineRuntime>);
 
 /// Starts the continuous engine process if it isn't already running (idempotent — the
 /// Aperçu panel calls this on mount, and mounting twice must never double-launch).
@@ -218,7 +222,7 @@ pub(crate) fn stop_stream(state: State<EngineState>) -> Result<(), String> {
 }
 
 /// Sends one command to the running engine, or says why it cannot.
-fn send(
+pub(crate) fn send(
     state: &EngineState,
     command: ControllerCommand,
     name: &str,
@@ -262,323 +266,16 @@ pub(crate) fn hide_preview(state: State<EngineState>) -> Result<(), String> {
     Ok(())
 }
 
-/// Adds a webcam source to the live scene (B-cam) by sending `AddCamera` to the already-
-/// running engine. Requires the engine to be running (Aperçu panel open) — a clear error
-/// beats a silent no-op if it isn't, since there's no queue to "add it once started".
-#[tauri::command]
-pub(crate) fn add_camera_source(state: State<EngineState>, device_id: String, scene: String) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
-    let Some(handle) = guard.handle.as_mut() else {
-        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
-    };
-    let line = to_line(&ControllerCommand::AddCamera { device_id, scene }).map_err(|err| err.to_string())?;
-    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi AddCamera au moteur: {err}"))
-}
-
-/// Retire la caméra `device_id` de `scene` — les autres caméras de la scène restent, et
-/// les autres scènes gardent celle-ci. Sans effet si cette caméra n'y est pas.
-#[tauri::command]
-pub(crate) fn remove_camera_source(
-    state: State<EngineState>,
-    device_id: String,
-    scene: String,
-) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
-    let Some(handle) = guard.handle.as_mut() else {
-        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
-    };
-    let line = to_line(&ControllerCommand::RemoveCamera { device_id, scene }).map_err(|err| err.to_string())?;
-    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi RemoveCamera au moteur: {err}"))
-}
-
-/// Sets whether the real NVIDIA background-removal filter is applied to the webcam
-/// (B-cam, F-036). Toggling REBUILDS the camera source (see
-/// `ControllerCommand::SetBackgroundRemoval`'s own doc for why — no public filter-removal
-/// API exists) — a brief camera reinit blip, disclosed to Jay. Requires the engine
-/// running AND a camera already added.
-#[tauri::command]
-pub(crate) fn set_background_removal(
-    state: State<EngineState>,
-    device_id: String,
-    scene: String,
-    enabled: bool,
-) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
-    let Some(handle) = guard.handle.as_mut() else {
-        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
-    };
-    let line = to_line(&ControllerCommand::SetBackgroundRemoval { device_id, scene, enabled }).map_err(|err| err.to_string())?;
-    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi au moteur: {err}"))
-}
-
-/// Sets whether a circular alpha mask is applied to the webcam (B-cam, F-036). Same
-/// rebuild-based toggle and requirements as `set_background_removal`.
-#[tauri::command]
-pub(crate) fn set_circle_mask(
-    state: State<EngineState>,
-    device_id: String,
-    scene: String,
-    enabled: bool,
-) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
-    let Some(handle) = guard.handle.as_mut() else {
-        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
-    };
-    let line = to_line(&ControllerCommand::SetCircleMask { device_id, scene, enabled }).map_err(|err| err.to_string())?;
-    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi au moteur: {err}"))
-}
-
-/// Moves the webcam by `(dx, dy)` scene pixels (B7 — arrow buttons, never a raw drag: the
-/// dockview drag already broke silently in this WebView2 build, session 2026-07-23).
-/// Requires the engine running AND a camera already added.
-#[tauri::command]
-pub(crate) fn nudge_camera(
-    state: State<EngineState>,
-    device_id: String,
-    scene: String,
-    dx: i32,
-    dy: i32,
-) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
-    let Some(handle) = guard.handle.as_mut() else {
-        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
-    };
-    let line = to_line(&ControllerCommand::NudgeCamera { device_id, scene, dx, dy }).map_err(|err| err.to_string())?;
-    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi NudgeCamera au moteur: {err}"))
-}
-
-/// Grows or shrinks the webcam by one fixed step (B7). Same requirements as `nudge_camera`.
-#[tauri::command]
-pub(crate) fn scale_camera(
-    state: State<EngineState>,
-    device_id: String,
-    scene: String,
-    grow: bool,
-) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
-    let Some(handle) = guard.handle.as_mut() else {
-        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
-    };
-    let line = to_line(&ControllerCommand::ScaleCamera { device_id, scene, grow }).map_err(|err| err.to_string())?;
-    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi ScaleCamera au moteur: {err}"))
-}
-
-/// Creates a new, empty scene (multi-scene, tranche 1). Requires the engine running.
-#[tauri::command]
-pub(crate) fn create_scene(state: State<EngineState>, name: String) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
-    let Some(handle) = guard.handle.as_mut() else {
-        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
-    };
-    let line = to_line(&ControllerCommand::CreateScene { name }).map_err(|err| err.to_string())?;
-    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi CreateScene au moteur: {err}"))
-}
-
-/// Switches the live scene (multi-scene, tranche 1) — an instant cut. Requires the engine
-/// running.
-#[tauri::command]
-pub(crate) fn switch_scene(state: State<EngineState>, name: String) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
-    let Some(handle) = guard.handle.as_mut() else {
-        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
-    };
-    let line = to_line(&ControllerCommand::SwitchScene { name }).map_err(|err| err.to_string())?;
-    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi SwitchScene au moteur: {err}"))
-}
-
-/// Deletes a scene and everything scene-local it carried (multi-scene, tranche 3). The
-/// engine re-checks the two rules (the scene exists, it is not the last one) and answers an
-/// `Error` message rather than obeying — this command only carries the intent.
-#[tauri::command]
-pub(crate) fn delete_scene(state: State<EngineState>, name: String) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
-    let Some(handle) = guard.handle.as_mut() else {
-        return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
-    };
-    let line = to_line(&ControllerCommand::DeleteScene { name }).map_err(|err| err.to_string())?;
-    writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi DeleteScene au moteur: {err}"))
-}
-
-/// Asks the engine for everything the machine can capture right now (brique Sources).
-#[tauri::command]
-pub(crate) fn list_capture_targets(state: State<EngineState>) -> Result<(), String> {
-    send_command(&state, ControllerCommand::ListCaptureTargets)
-}
-
-/// Adds a game, window or screen capture into a scene (brique Sources).
-#[tauri::command]
-pub(crate) fn add_capture_source(
-    state: State<EngineState>,
-    scene: String,
-    kind: hikari_protocol::SourceKind,
-    target_id: String,
-    name: String,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::AddCaptureSource { scene, kind, target_id, name })
-}
-
-/// Removes a capture from one scene (brique Sources).
-#[tauri::command]
-pub(crate) fn remove_source(
-    state: State<EngineState>,
-    scene: String,
-    name: String,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::RemoveSource { scene, name })
-}
-
-/// Places a source exactly (brique Persistance) — ce qui permet de rejouer une session
-/// sauvegardée au lancement suivant.
-#[tauri::command]
-pub(crate) fn set_source_transform(
-    state: State<EngineState>,
-    scene: String,
-    name: String,
-    x: i32,
-    y: i32,
-    scale_percent: i32,
-) -> Result<(), String> {
-    send_command(
-        &state,
-        ControllerCommand::SetSourceTransform { scene, name, x, y, scale_percent },
-    )
-}
-
-/// Locks or unlocks a source against the mouse, in one scene (brique Sources). A locked
-/// source stays visible, reorderable and removable — the lock guards against the accidental
-/// gesture, never against the deliberate decision.
-#[tauri::command]
-pub(crate) fn set_source_locked(
-    state: State<EngineState>,
-    scene: String,
-    name: String,
-    locked: bool,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetSourceLocked { scene, name, locked })
-}
-
-/// Relance l'appareil derrière une caméra, sans la retirer d'aucune scène.
-///
-/// Elle garde son cadrage, ses filtres et sa place dans la pile — c'est ce qui
-/// distingue ce geste du retrait-remise que Jay a dû faire en plein direct.
-#[tauri::command]
-pub(crate) fn restart_camera(
-    state: State<EngineState>,
-    device_id: String,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::RestartCamera { device_id })
-}
-
-/// Montre ou cache une source dans une scène, sans la retirer (maquette, l'œil).
-///
-/// Distinct du retrait : une source cachée garde son cadrage, ses filtres et sa place dans
-/// la pile. C'est le geste du direct — masquer le temps d'une manipulation, puis remontrer.
-#[tauri::command]
-pub(crate) fn set_source_visible(
-    state: State<EngineState>,
-    scene: String,
-    name: String,
-    visible: bool,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetSourceVisible { scene, name, visible })
-}
-
-/// Moves a source one step in front of, or behind, the others in its scene (brique Sources).
-#[tauri::command]
-pub(crate) fn reorder_source(
-    state: State<EngineState>,
-    scene: String,
-    name: String,
-    direction: hikari_protocol::SourceOrder,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::ReorderSource { scene, name, direction })
-}
-
 /// Sends one mixer command to the engine (B6). Shared body of the five audio commands
 /// below: they differ only by the payload, and repeating the lock/guard/serialize dance five
 /// times is where a divergence would eventually creep in.
-fn send_command(state: &State<EngineState>, command: ControllerCommand) -> Result<(), String> {
+pub(crate) fn send_command(state: &State<EngineState>, command: ControllerCommand) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
     let line = to_line(&command).map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi audio au moteur: {err}"))
-}
-
-/// Asks the engine for the machine's real audio devices (B6).
-#[tauri::command]
-pub(crate) fn list_audio_devices(state: State<EngineState>) -> Result<(), String> {
-    send_command(&state, ControllerCommand::ListAudioDevices)
-}
-
-/// Adds a microphone or desktop-audio capture to the mixer (B6).
-#[tauri::command]
-pub(crate) fn add_audio_source(
-    state: State<EngineState>,
-    device_id: String,
-    kind: hikari_protocol::AudioSourceKind,
-    name: String,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::AddAudioSource { device_id, kind, name })
-}
-
-/// Removes an audio source from the mixer (B6).
-#[tauri::command]
-pub(crate) fn remove_audio_source(state: State<EngineState>, name: String) -> Result<(), String> {
-    send_command(&state, ControllerCommand::RemoveAudioSource { name })
-}
-
-/// Sets a mixer source's volume from a 0–100 slider position (B6).
-#[tauri::command]
-pub(crate) fn set_audio_volume(
-    state: State<EngineState>,
-    name: String,
-    percent: i32,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetAudioVolume { name, percent })
-}
-
-/// Mutes or unmutes a mixer source (B6).
-#[tauri::command]
-pub(crate) fn set_audio_muted(
-    state: State<EngineState>,
-    name: String,
-    muted: bool,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetAudioMuted { name, muted })
-}
-
-/// Sets whether the streamer hears a source, and whether the audience does (B6).
-#[tauri::command]
-pub(crate) fn set_audio_monitoring(
-    state: State<EngineState>,
-    name: String,
-    monitoring: hikari_protocol::AudioMonitoring,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetAudioMonitoring { name, monitoring })
-}
-
-/// Sets room-noise suppression for a microphone: on/off, method, and Speex's strength (B6).
-#[tauri::command]
-pub(crate) fn set_noise_settings(
-    state: State<EngineState>,
-    name: String,
-    enabled: bool,
-    method: hikari_protocol::NoiseMethod,
-    level_db: f32,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetNoiseSettings { name, enabled, method, level_db })
-}
-
-/// Sets the volume the streamer hears, independently of the audience's (B6).
-#[tauri::command]
-pub(crate) fn set_monitor_volume(
-    state: State<EngineState>,
-    name: String,
-    percent: i32,
-) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetMonitorVolume { name, percent })
 }
 
 /// Grafts the engine's preview window (`engine_hwnd`, just announced via `PreviewReady`)
@@ -644,7 +341,21 @@ async fn resolve_broadcast_target() -> Option<(String, Secret)> {
         token
     };
     match twitch_stream::fetch_target(&http, TWITCH_CLIENT_ID, &token.access_token).await {
-        Ok(target) => Some(target),
+        Ok((server, key, nom)) => {
+            // Le nom du compte arrive dans la meme reponse que la cle : le ranger ici le
+            // remplit pour les comptes connectes AVANT que ce champ n'existe, sans un seul
+            // appel reseau supplementaire. Un echec d'ecriture n'empeche pas de diffuser —
+            // c'est un confort d'affichage, jamais une condition.
+            if let Some(nom) = nom {
+                if token.account_name.as_deref() != Some(nom.as_str()) {
+                    let renseigne = StoredToken { account_name: Some(nom), ..token };
+                    if let Err(err) = vault::store(Platform::Twitch, &renseigne) {
+                        eprintln!("[twitch] nom du compte non range ({err})");
+                    }
+                }
+            }
+            Some((server, key))
+        }
         Err(err) => {
             eprintln!("[twitch] destination illisible ({err})");
             None

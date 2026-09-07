@@ -73,6 +73,19 @@ pub struct StoredToken {
     pub refresh_token: Secret,
     /// Unix timestamp (seconds) the access token expires at.
     pub expires_at: u64,
+    /// Le nom LISIBLE du compte connecté — « KromKam », pas un identifiant.
+    ///
+    /// Pourquoi il vit ici : Jay a plusieurs comptes Twitch, un de test et son compte
+    /// principal, et « connecté » ne lui dit pas lequel (2026-09-07). Rangé avec le jeton,
+    /// il s'affiche sans appel réseau, donc aussi hors ligne.
+    ///
+    /// `Option` et non `String` : les jetons rangés AVANT cette version n'en portent pas,
+    /// et les refuser déconnecterait tout le monde à la mise à jour.
+    ///
+    /// Ce n'est PAS un secret : c'est le nom que la plateforme affiche publiquement. Il est
+    /// donc un `String` nu, et peut traverser vers l'interface — au contraire des deux
+    /// champs au-dessus.
+    pub account_name: Option<String>,
 }
 
 /// Whether the given token is expired at `now` (seconds since epoch). A stream must never
@@ -96,13 +109,23 @@ pub fn now_unix() -> u64 {
 /// Appendix A (0x20-0x7E), which excludes tab and newline — a legitimate token never hits
 /// this path in practice.
 fn encode(token: &StoredToken) -> String {
-    format!("{}\t{}\t{}", token.access_token.expose(), token.refresh_token.expose(), token.expires_at)
+    format!(
+        "{}\t{}\t{}\t{}",
+        token.access_token.expose(),
+        token.refresh_token.expose(),
+        token.expires_at,
+        token.account_name.as_deref().unwrap_or(""),
+    )
 }
 
 /// Parses a vault-stored line back into a token. Hostile input (corrupted entry, wrong
 /// field count) yields a clean `Err`, never a panic.
 fn decode(raw: &str) -> Result<StoredToken> {
-    let mut parts = raw.splitn(3, '\t');
+    // `splitn(4)` et non `splitn(3)` : un 4ᵉ champ, le nom du compte, est arrivé le
+    // 2026-09-07. Les entrées écrites avant n'en ont que 3 — elles restent lisibles, et le
+    // nom vaut alors `None`. Sans cette tolérance, la mise à jour qui ajoute le nom
+    // déconnecterait tout le monde : elle produirait exactement le défaut qu'elle suit.
+    let mut parts = raw.splitn(4, '\t');
     let access_token = Secret::new(parts.next().context("jeton d'accès manquant")?);
     let refresh_token = Secret::new(parts.next().context("jeton de rafraîchissement manquant")?);
     let expires_at: u64 = parts
@@ -110,7 +133,8 @@ fn decode(raw: &str) -> Result<StoredToken> {
         .context("expiration manquante")?
         .parse()
         .context("expiration non numérique")?;
-    Ok(StoredToken { access_token, refresh_token, expires_at })
+    let account_name = parts.next().filter(|nom| !nom.is_empty()).map(str::to_string);
+    Ok(StoredToken { access_token, refresh_token, expires_at, account_name })
 }
 
 /// Stores a token for `platform` in the OS credential store. Overwrites any prior entry
@@ -144,10 +168,45 @@ pub fn remove(platform: Platform) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn should_still_read_a_token_stored_before_the_account_name_existed() {
+        // Compatibilite ASCENDANTE, et elle n'est pas un detail : sans elle, la mise a jour
+        // qui ajoute le nom du compte DECONNECTE tout le monde — le correctif produirait
+        // exactement le defaut qu'il vient de fermer.
+        let ancien = "acces	rafraichissement	1753000000";
+        let decode = decode(ancien).expect("un jeton d'avant doit rester lisible");
+        assert_eq!(decode.access_token.expose(), "acces");
+        assert_eq!(decode.expires_at, 1_753_000_000);
+        assert_eq!(decode.account_name, None);
+    }
+
+    #[test]
+    fn should_roundtrip_a_token_carrying_an_account_name() {
+        let mut t = token("acces", "rafraichissement", 42);
+        t.account_name = Some("KromKam".to_string());
+        let decode = decode(&encode(&t)).expect("doit se relire");
+        assert_eq!(decode.account_name.as_deref(), Some("KromKam"));
+    }
+
+    #[test]
+    fn should_never_leak_a_secret_through_the_account_name_field() {
+        // Le nom n'est PAS un secret, mais il voyage dans la meme ligne que deux secrets :
+        // une erreur de decoupe le remplirait avec un morceau de jeton.
+        let mut t = token("acces-secret", "rafraichissement-secret", 1);
+        t.account_name = Some("Public".to_string());
+        let decode = decode(&encode(&t)).expect("doit se relire");
+        assert_eq!(decode.account_name.as_deref(), Some("Public"));
+    }
     use super::*;
 
     fn token(access: &str, refresh: &str, expires_at: u64) -> StoredToken {
-        StoredToken { access_token: Secret::new(access), refresh_token: Secret::new(refresh), expires_at }
+        StoredToken {
+            access_token: Secret::new(access),
+            refresh_token: Secret::new(refresh),
+            expires_at,
+            account_name: None,
+        }
     }
 
     #[test]

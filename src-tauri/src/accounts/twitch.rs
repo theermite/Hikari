@@ -112,6 +112,9 @@ pub async fn wait_for_authorization(
         access_token: Secret::new(token.access_token.secret()),
         refresh_token: Secret::new(refresh_token.secret()),
         expires_at: now_unix() + token_expires_in_secs(&token),
+        // Le nom arrive juste apres, par `GET /helix/users` : le flux d'autorisation ne le
+        // porte pas. Il est rempli par l'appelant (voir `commands.rs`).
+        account_name: None,
     })
 }
 
@@ -125,8 +128,11 @@ pub async fn wait_for_authorization(
 ///
 /// Fonction pure : c'est la seule partie du renouvellement qui se teste sans reseau, et
 /// c'est aussi la seule ou une erreur coute un compte mort.
+/// Prend le jeton PRECEDENT en entier et non son seul champ de rafraichissement : il porte
+/// aussi le nom du compte, qui n'a aucune raison de changer au renouvellement. Le passer en
+/// morceaux, c'etait programmer l'oubli du nom toutes les quelques heures.
 pub fn merge_refreshed(
-    previous_refresh: &Secret,
+    previous: &StoredToken,
     access_token: &str,
     expires_in_secs: u64,
     new_refresh: Option<&str>,
@@ -136,9 +142,10 @@ pub fn merge_refreshed(
         access_token: Secret::new(access_token),
         refresh_token: match new_refresh {
             Some(value) => Secret::new(value),
-            None => previous_refresh.clone(),
+            None => previous.refresh_token.clone(),
         },
         expires_at: now + expires_in_secs,
+        account_name: previous.account_name.clone(),
     }
 }
 
@@ -167,7 +174,7 @@ pub async fn refresh(
         .context("renouvellement du jeton Twitch")?;
 
     Ok(merge_refreshed(
-        &stored.refresh_token,
+        stored,
         access_token.secret(),
         expires_in.as_secs(),
         new_refresh.as_ref().map(|token| token.secret()),
@@ -184,6 +191,25 @@ fn token_expires_in_secs(token: &twitch_oauth2::UserToken) -> u64 {
 
 #[cfg(test)]
 mod tests {
+
+    fn stored(access: &str, refresh: &str, nom: Option<&str>) -> StoredToken {
+        StoredToken {
+            access_token: Secret::new(access),
+            refresh_token: Secret::new(refresh),
+            expires_at: 0,
+            account_name: nom.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn should_keep_the_account_name_across_a_refresh() {
+        // Sans cela, le nom du compte disparaitrait de l'ecran a chaque renouvellement,
+        // c'est-a-dire toutes les quelques heures — et Jay ne saurait plus sur quel compte
+        // il est au moment ou ca compte le plus, juste avant un direct.
+        let previous = stored("acces-vieux", "refresh", Some("KromKam"));
+        let merged = merge_refreshed(&previous, "acces-neuf", 60, Some("refresh-neuf"), 0);
+        assert_eq!(merged.account_name.as_deref(), Some("KromKam"));
+    }
     use super::*;
 
     #[test]
@@ -201,7 +227,7 @@ mod tests {
         // Ecraser avec du vide tuerait le compte definitivement : le renouvellement
         // suivant n'aurait plus rien a presenter, et Jay devrait se reconnecter a la main
         // sans jamais savoir pourquoi.
-        let previous = Secret::new("refresh-d-origine");
+        let previous = stored("acces-vieux", "refresh-d-origine", None);
         let merged = merge_refreshed(&previous, "acces-neuf", 3_600, None, 1_000);
         assert_eq!(merged.refresh_token.expose(), "refresh-d-origine");
         assert_eq!(merged.access_token.expose(), "acces-neuf");
@@ -210,7 +236,7 @@ mod tests {
 
     #[test]
     fn should_adopt_the_new_refresh_token_when_twitch_returns_one() {
-        let previous = Secret::new("refresh-d-origine");
+        let previous = stored("acces-vieux", "refresh-d-origine", None);
         let merged = merge_refreshed(&previous, "acces-neuf", 60, Some("refresh-neuf"), 10);
         assert_eq!(merged.refresh_token.expose(), "refresh-neuf");
         assert_eq!(merged.expires_at, 70);
@@ -218,7 +244,7 @@ mod tests {
 
     #[test]
     fn should_never_leak_a_refreshed_token_in_debug_output() {
-        let previous = Secret::new("refresh-tres-secret");
+        let previous = stored("acces-vieux", "refresh-tres-secret", None);
         let merged = merge_refreshed(&previous, "acces-tres-secret", 60, None, 0);
         let debug = format!("{merged:?}");
         assert!(!debug.contains("acces-tres-secret"));

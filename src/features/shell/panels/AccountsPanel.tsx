@@ -17,13 +17,13 @@ import { useCallback, useEffect, useState } from "react";
 type TwitchState =
   | { status: "idle" }
   | { status: "waiting"; verificationUri: string; userCode: string }
-  | { status: "connected" }
+  | { status: "connected"; account?: string }
   | { status: "error"; message: string };
 
 type YouTubeState =
   | { status: "idle" }
   | { status: "waiting"; authorizationUrl?: string }
-  | { status: "connected" }
+  | { status: "connected"; account?: string }
   | { status: "error"; message: string };
 
 /// Lit l'état réel du compte au premier affichage, une seule fois pour les deux
@@ -33,12 +33,68 @@ type YouTubeState =
 /// Un échec de lecture laisse les deux écrans en « pas connecté », ce qui est la lecture
 /// prudente : proposer un bouton de connexion inutile coûte un clic, afficher « connecté »
 /// à tort ferait chercher la panne ailleurs.
-function useStoredAccounts(
-  onKnown: (status: { twitch: boolean; youtube: boolean }) => void,
-) {
+// Les marques des plateformes, groupees ici pour qu'une couleur ne soit ecrite qu'UNE
+// fois : deux boutons violets ecrits a deux endroits finissent par diverger.
+//
+// Les logos sont marques `aria-hidden` : le nom du bouton se lit sans eux, le logo ne fait
+// que le confirmer. Un lecteur d'ecran annonce donc « Connecter Twitch », pas une image.
+const TWITCH_LOGO = (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 24 24"
+    className="h-4 w-4 shrink-0 fill-current"
+  >
+    <path d="M3.7 0 1.2 4.5v15.9h5.4V24h3l3-3.6h4.4L24 14.3V0H3.7Zm2.1 2.1h16.1v11.1l-3 3h-4.9l-3 3v-3H5.8V2.1Z" />
+    <path d="M11 6.4h2.1v5.9H11V6.4Zm5.4 0h2.1v5.9h-2.1V6.4Z" />
+  </svg>
+);
+
+const YOUTUBE_LOGO = (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 24 24"
+    className="h-4 w-4 shrink-0 fill-current"
+  >
+    <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.3 31.3 0 0 0 0 12a31.3 31.3 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.3 31.3 0 0 0 24 12a31.3 31.3 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z" />
+  </svg>
+);
+
+// La classe de couleur porte le NOM de la plateforme et non sa valeur : c'est ce que le
+// test verifie, et c'est ce qui empeche un violet ecrit deux fois de deriver.
+const BOUTON_BASE =
+  "flex items-center justify-center gap-2 rounded-[10px] px-5 py-2.5 font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50";
+
+// Le nom du compte, quand on le connait — jamais un nom invente.
+//
+// Se taire est ici la reponse honnete : un compte connecte avant que ce champ n'existe n'en
+// porte pas, et afficher « compte principal » ferait lancer un direct sur la foi d'un nom
+// que personne n'a lu chez la plateforme.
+function CompteConnecte({
+  plateforme,
+  nom,
+}: {
+  plateforme: string;
+  nom?: string;
+}) {
+  return (
+    <p className="text-hikari-green">
+      ✅ Compte {plateforme} connecté
+      {nom ? <span className="font-medium"> — {nom}</span> : null}.
+    </p>
+  );
+}
+
+interface StoredStatus {
+  twitch: boolean;
+  youtube: boolean;
+  twitch_account?: string | null;
+  youtube_account?: string | null;
+}
+
+function useStoredAccounts(onKnown: (status: StoredStatus) => void) {
   useEffect(() => {
     let cancelled = false;
-    invoke<{ twitch: boolean; youtube: boolean }>("account_status")
+    invoke<StoredStatus>("account_status")
       .then((status) => {
         if (!cancelled) onKnown(status);
       })
@@ -95,7 +151,7 @@ function useTwitchConnection() {
   // écrit l'état, provoque un rendu — et la lecture du coffre part en boucle sans fin
   // (mesuré : 95 lectures en 50 ms). `setState` est stable, la liste vide est donc juste.
   const markConnected = useCallback(
-    () => setState({ status: "connected" }),
+    (account?: string) => setState({ status: "connected", account }),
     [],
   );
 
@@ -137,7 +193,7 @@ function useYouTubeConnection() {
   // écrit l'état, provoque un rendu — et la lecture du coffre part en boucle sans fin
   // (mesuré : 95 lectures en 50 ms). `setState` est stable, la liste vide est donc juste.
   const markConnected = useCallback(
-    () => setState({ status: "connected" }),
+    (account?: string) => setState({ status: "connected", account }),
     [],
   );
 
@@ -149,9 +205,11 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
   const youtube = useYouTubeConnection();
 
   const applyStoredStatus = useCallback(
-    (status: { twitch: boolean; youtube: boolean }) => {
-      if (status.twitch) twitch.markConnected();
-      if (status.youtube) youtube.markConnected();
+    (status: StoredStatus) => {
+      if (status.twitch)
+        twitch.markConnected(status.twitch_account ?? undefined);
+      if (status.youtube)
+        youtube.markConnected(status.youtube_account ?? undefined);
     },
     [twitch.markConnected, youtube.markConnected],
   );
@@ -166,8 +224,9 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
           type="button"
           onClick={twitch.connect}
           disabled={twitch.state.status === "waiting"}
-          className="rounded-[10px] bg-hikari-accent px-5 py-2.5 font-medium text-[#1a1206] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`${BOUTON_BASE} bg-hikari-twitch`}
         >
+          {TWITCH_LOGO}
           Connecter Twitch
         </button>
 
@@ -183,7 +242,7 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
           </div>
         )}
         {twitch.state.status === "connected" && (
-          <p className="text-hikari-green">✅ Compte Twitch connecté.</p>
+          <CompteConnecte plateforme="Twitch" nom={twitch.state.account} />
         )}
         {twitch.state.status === "error" && (
           <p className="text-hikari-red">❌ {twitch.state.message}</p>
@@ -195,8 +254,9 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
           type="button"
           onClick={youtube.connect}
           disabled={youtube.state.status === "waiting"}
-          className="rounded-[10px] bg-hikari-accent px-5 py-2.5 font-medium text-[#1a1206] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`${BOUTON_BASE} bg-hikari-youtube`}
         >
+          {YOUTUBE_LOGO}
           Connecter YouTube
         </button>
 
@@ -214,7 +274,7 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
           </div>
         )}
         {youtube.state.status === "connected" && (
-          <p className="text-hikari-green">✅ Compte YouTube connecté.</p>
+          <CompteConnecte plateforme="YouTube" nom={youtube.state.account} />
         )}
         {youtube.state.status === "error" && (
           <p className="text-hikari-red">❌ {youtube.state.message}</p>

@@ -278,6 +278,8 @@ async fn exchange_code_for_token(
         access_token: Secret::new(token.access_token),
         refresh_token: Secret::new(refresh_token),
         expires_at: now_unix() + token.expires_in,
+        // YouTube : le nom du compte n'est pas encore lu (brique a part).
+        account_name: None,
     })
 }
 

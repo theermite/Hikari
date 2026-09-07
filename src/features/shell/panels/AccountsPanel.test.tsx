@@ -106,4 +106,57 @@ describe("AccountsPanel", () => {
     );
     expect(reads).toHaveLength(1);
   });
+
+  it("should_name_the_connected_twitch_account", async () => {
+    // Jay a plusieurs comptes Twitch : un pour les essais techniques, sans public, et son
+    // compte principal (2026-09-07). « Connecté » tout court ne répond pas à la seule
+    // question qui compte juste avant un direct : lequel ?
+    invokeMock.mockResolvedValue({
+      twitch: true,
+      youtube: false,
+      twitch_account: "KromKam",
+    });
+
+    render(<AccountsPanel {...panelProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/KromKam/)).toBeTruthy();
+    });
+  });
+
+  it("should_stay_honest_when_the_account_name_is_unknown", async () => {
+    // Un compte connecté AVANT que le nom n'existe n'en porte pas. Inventer « compte
+    // principal » serait pire que se taire : Jay lancerait un direct sur la foi d'un nom
+    // que personne n'a lu chez Twitch.
+    invokeMock.mockResolvedValue({
+      twitch: true,
+      youtube: false,
+      twitch_account: null,
+    });
+
+    render(<AccountsPanel {...panelProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Compte Twitch connecté/)).toBeTruthy();
+    });
+    expect(screen.queryByText(/compte principal/i)).toBeNull();
+  });
+
+  it("should_dress_each_button_with_its_own_platform_identity", async () => {
+    invokeMock.mockResolvedValue({ twitch: false, youtube: false });
+
+    render(<AccountsPanel {...panelProps} />);
+
+    const twitch = await screen.findByRole("button", {
+      name: /Connecter Twitch/,
+    });
+    const youtube = screen.getByRole("button", { name: /Connecter YouTube/ });
+    // La couleur vit dans une classe nommée par la plateforme, jamais dans une valeur
+    // écrite en dur à deux endroits : deux boutons violets écrits deux fois divergent.
+    expect(twitch.className).toContain("hikari-twitch");
+    expect(youtube.className).toContain("hikari-youtube");
+    // Le logo est une image décorative : le nom du bouton doit rester lisible sans lui.
+    expect(twitch.querySelector("svg")).toBeTruthy();
+    expect(youtube.querySelector("svg")).toBeTruthy();
+  });
 });

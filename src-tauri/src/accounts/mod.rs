@@ -19,10 +19,21 @@ pub mod youtube;
 /// parce que le coffre garde de quoi le renouveler tout seul (`twitch::refresh`). Afficher
 /// « deconnecte » sur un compte que la machine sait reparer demanderait a l'utilisateur un
 /// geste inutile, et lui ferait croire que sa connexion n'a pas tenu.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct AccountStatus {
     pub twitch: bool,
     pub youtube: bool,
+    /// Le nom LISIBLE du compte Twitch connecte, quand on le connait.
+    ///
+    /// Pourquoi (Jay, 2026-09-07) : il a plusieurs comptes Twitch — un pour les essais
+    /// techniques, sans public, et son compte principal. « J'ai besoin de savoir sur quel
+    /// compte je suis. » « Connecte » tout court ne repond pas a la question qui compte
+    /// juste avant un direct.
+    ///
+    /// `None` pour un compte connecte AVANT que ce champ n'existe : le nom se remplit tout
+    /// seul au prochain demarrage du moteur, sans appel reseau supplementaire.
+    pub twitch_account: Option<String>,
+    pub youtube_account: Option<String>,
 }
 
 /// Un compte est connecte des qu'un jeton est range pour lui, expire ou non.
@@ -38,18 +49,17 @@ pub fn is_connected(stored: Option<&vault::StoredToken>) -> bool {
 /// Une lecture qui echoue est tracee et compte comme « non connecte » : un coffre illisible
 /// n'est pas un compte connecte, et le silence ferait chercher au mauvais endroit.
 pub fn read_status() -> AccountStatus {
-    AccountStatus {
-        twitch: read_one(vault::Platform::Twitch),
-        youtube: read_one(vault::Platform::YouTube),
-    }
+    let (twitch, twitch_account) = read_one(vault::Platform::Twitch);
+    let (youtube, youtube_account) = read_one(vault::Platform::YouTube);
+    AccountStatus { twitch, youtube, twitch_account, youtube_account }
 }
 
-fn read_one(platform: vault::Platform) -> bool {
+fn read_one(platform: vault::Platform) -> (bool, Option<String>) {
     match vault::load(platform) {
-        Ok(stored) => is_connected(stored.as_ref()),
+        Ok(stored) => (is_connected(stored.as_ref()), stored.and_then(|t| t.account_name)),
         Err(err) => {
             eprintln!("[comptes] coffre illisible pour {platform:?} ({err})");
-            false
+            (false, None)
         }
     }
 }
@@ -64,6 +74,7 @@ mod tests {
             access_token: Secret::new("a"),
             refresh_token: Secret::new("r"),
             expires_at,
+            account_name: None,
         }
     }
 

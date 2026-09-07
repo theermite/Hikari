@@ -42,6 +42,35 @@ pub fn parse_user_id(body: &str) -> Result<String> {
     }
 }
 
+/// Le nom LISIBLE du compte connecte, lu dans la meme reponse que son identifiant.
+///
+/// Pourquoi ca compte (Jay, 2026-09-07) : il a plusieurs comptes Twitch — un compte de test
+/// sans public, et son compte principal. « J'ai besoin de savoir sur quel compte je suis. »
+/// Sans ce nom, « connecte » ne repond pas a la seule question qui l'interesse avant un
+/// direct.
+///
+/// Aucune permission supplementaire : `GET /helix/users` est deja appele pour trouver la
+/// cle, et porte ce nom depuis toujours — il etait simplement jete.
+///
+/// Retombe sur `login` quand `display_name` manque : les deux existent sur tout compte
+/// Twitch, et un nom approchant vaut mieux qu'aucun nom.
+pub fn parse_user_display_name(body: &str) -> Result<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(body).context("reponse Twitch illisible (compte)")?;
+    let user = value.get("data").and_then(|data| data.get(0));
+    let nom = user
+        .and_then(|user| user.get("display_name"))
+        .and_then(|nom| nom.as_str())
+        .filter(|nom| !nom.is_empty())
+        .or_else(|| {
+            user.and_then(|user| user.get("login")).and_then(|nom| nom.as_str()).filter(|nom| !nom.is_empty())
+        });
+    match nom {
+        Some(nom) => Ok(nom.to_string()),
+        None => bail!("Twitch n'a pas rendu le nom du compte connecte"),
+    }
+}
+
 /// La clé de diffusion, lue dans la réponse de `GET /helix/streams/key`.
 ///
 /// Rend une chaîne nue et non un secret enveloppé : l'appelant l'enveloppe aussitôt. Cette
@@ -103,7 +132,12 @@ fn strip_key_placeholder(template: &str) -> String {
     }
 }
 
-/// La destination Twitch du compte connecté : serveur d'entrée et clé de diffusion.
+/// La destination Twitch du compte connecté : serveur d'entrée, clé de diffusion, et le NOM
+/// du compte.
+///
+/// Le nom vient de la MEME réponse que l'identifiant (`GET /helix/users`), déjà appelée
+/// ici : l'afficher ne coûte donc aucun appel de plus, ni aucune permission de plus. Il
+/// était simplement jeté jusqu'au 2026-09-07.
 ///
 /// Trois appels, dans cet ordre, parce que chacun a besoin du précédent : qui est connecté,
 /// quelle est SA clé, et par quel serveur passer. Un échec à n'importe quelle étape rend
@@ -116,11 +150,14 @@ pub async fn fetch_target(
     http: &reqwest::Client,
     client_id: &str,
     access_token: &Secret,
-) -> Result<(String, Secret)> {
+) -> Result<(String, Secret, Option<String>)> {
     let compte = helix(http, client_id, access_token, "https://api.twitch.tv/helix/users")
         .await
         .context("lecture du compte Twitch")?;
     let broadcaster = parse_user_id(&compte)?;
+    // Un nom illisible n'empêche PAS de diffuser : c'est un confort d'affichage, jamais une
+    // condition. Le refuser ici transformerait une gêne en panne.
+    let nom = parse_user_display_name(&compte).ok();
 
     let url = format!("https://api.twitch.tv/helix/streams/key?broadcaster_id={broadcaster}");
     let reponse =
@@ -145,7 +182,7 @@ pub async fn fetch_target(
             TWITCH_INGEST_FALLBACK.to_string()
         }
     };
-    Ok((server, key))
+    Ok((server, key, nom))
 }
 
 /// Un appel à l'interface Twitch, avec les deux en-têtes qu'elle exige. Le corps est rendu
@@ -174,6 +211,24 @@ async fn helix(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn should_read_the_display_name_of_the_connected_account() {
+        let body = r#"{"data":[{"id":"141981764","login":"twitchdev","display_name":"TwitchDev"}]}"#;
+        assert_eq!(parse_user_display_name(body).unwrap(), "TwitchDev");
+    }
+
+    #[test]
+    fn should_fall_back_to_the_login_when_the_display_name_is_missing() {
+        let body = r#"{"data":[{"id":"1","login":"krom_kam"}]}"#;
+        assert_eq!(parse_user_display_name(body).unwrap(), "krom_kam");
+    }
+
+    #[test]
+    fn should_fail_when_twitch_returns_no_account() {
+        assert!(parse_user_display_name(r#"{"data":[]}"#).is_err());
+        assert!(parse_user_display_name("pas du json").is_err());
+    }
     use super::*;
 
     /// Forme exacte documentée par Twitch pour `GET /helix/streams/key`
