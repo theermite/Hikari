@@ -33,7 +33,7 @@ afterEach(cleanup);
 
 describe("AccountsPanel", () => {
   it("should_show_twitch_connected_when_a_token_is_already_stored", async () => {
-    invokeMock.mockResolvedValue({ twitch: true, youtube: false });
+    invokeMock.mockResolvedValue({ twitch: "live", youtube: "absent" });
 
     render(<AccountsPanel {...panelProps} />);
 
@@ -44,7 +44,7 @@ describe("AccountsPanel", () => {
   });
 
   it("should_show_youtube_connected_when_a_token_is_already_stored", async () => {
-    invokeMock.mockResolvedValue({ twitch: false, youtube: true });
+    invokeMock.mockResolvedValue({ twitch: "absent", youtube: "live" });
 
     render(<AccountsPanel {...panelProps} />);
 
@@ -54,7 +54,7 @@ describe("AccountsPanel", () => {
   });
 
   it("should_stay_idle_when_no_account_is_stored", async () => {
-    invokeMock.mockResolvedValue({ twitch: false, youtube: false });
+    invokeMock.mockResolvedValue({ twitch: "absent", youtube: "absent" });
 
     render(<AccountsPanel {...panelProps} />);
 
@@ -92,7 +92,7 @@ describe("AccountsPanel", () => {
     // rendu, et la lecture part en boucle sans fin. Le symptôme serait un écran figé et un
     // coffre système sollicité en continu — cher, et invisible dans un test qui n'attend
     // qu'un seul appel.
-    invokeMock.mockResolvedValue({ twitch: true, youtube: true });
+    invokeMock.mockResolvedValue({ twitch: "live", youtube: "live" });
 
     render(<AccountsPanel {...panelProps} />);
 
@@ -112,8 +112,8 @@ describe("AccountsPanel", () => {
     // compte principal (2026-09-07). « Connecté » tout court ne répond pas à la seule
     // question qui compte juste avant un direct : lequel ?
     invokeMock.mockResolvedValue({
-      twitch: true,
-      youtube: false,
+      twitch: "live",
+      youtube: "absent",
       twitch_account: "KromKam",
     });
 
@@ -129,8 +129,8 @@ describe("AccountsPanel", () => {
     // principal » serait pire que se taire : Jay lancerait un direct sur la foi d'un nom
     // que personne n'a lu chez Twitch.
     invokeMock.mockResolvedValue({
-      twitch: true,
-      youtube: false,
+      twitch: "live",
+      youtube: "absent",
       twitch_account: null,
     });
 
@@ -143,7 +143,7 @@ describe("AccountsPanel", () => {
   });
 
   it("should_dress_each_button_with_its_own_platform_identity", async () => {
-    invokeMock.mockResolvedValue({ twitch: false, youtube: false });
+    invokeMock.mockResolvedValue({ twitch: "absent", youtube: "absent" });
 
     render(<AccountsPanel {...panelProps} />);
 
@@ -158,5 +158,19 @@ describe("AccountsPanel", () => {
     // Le logo est une image décorative : le nom du bouton doit rester lisible sans lui.
     expect(twitch.querySelector("svg")).toBeTruthy();
     expect(youtube.querySelector("svg")).toBeTruthy();
+  });
+
+  it("should_ask_for_a_new_connection_when_a_token_can_no_longer_renew", async () => {
+    // Jay, 2026-09-07 : « YouTube dit que je suis connecté alors que je ne me suis
+    // connecté à rien du tout. » Un jeton de juillet, périmé, et rien ne sait le
+    // renouveler côté YouTube. Dire « connecté » l'enverrait diffuser vers un refus.
+    invokeMock.mockResolvedValue({ twitch: "absent", youtube: "a_renouveler" });
+
+    render(<AccountsPanel {...panelProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/reconnecte-toi/i)).toBeTruthy();
+    });
+    expect(screen.queryByText(/Compte YouTube connecté/)).toBeNull();
   });
 });

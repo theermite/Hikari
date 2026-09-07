@@ -7,8 +7,8 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::engine_lifecycle::{EngineState, TargetReload, reload_broadcast_target};
 
-use crate::accounts::vault::{Platform, Secret};
-use crate::accounts::{twitch, vault, youtube};
+use crate::accounts::vault::{Platform, Secret, StoredToken};
+use crate::accounts::{twitch, twitch_stream, vault, youtube};
 
 /// What the frontend shows while waiting for the user to authorize in their browser.
 #[derive(Clone, serde::Serialize)]
@@ -136,6 +136,23 @@ async fn try_connect_twitch(app: &AppHandle) -> Result<(), String> {
     let _ = open_in_browser(&prompt.verification_uri);
 
     let token = twitch::wait_for_authorization(&mut builder, &http).await.map_err(|err| err.to_string())?;
+    // Le nom du compte est lu MAINTENANT, pas au prochain demarrage du moteur.
+    //
+    // Il l'etait, et ca ne suffisait pas : quand Jay se reconnecte depuis l'ecran
+    // Parametres, le moteur ne tourne pas (le panneau Apercu est ferme), donc rien ne le
+    // relance, donc rien ne lisait le nom — et « gurugonc » disparaissait de l'ecran juste
+    // apres s'y etre affiche (2026-09-07). Une donnee dont le remplissage depend d'un autre
+    // evenement est une donnee qui manque le jour ou cet evenement n'arrive pas.
+    //
+    // Un echec de lecture n'annule PAS la connexion : le compte est connecte, seul son nom
+    // manque. Le refuser ici transformerait un confort en panne.
+    let nom = twitch_stream::fetch_display_name(&http, twitch::TWITCH_CLIENT_ID, &token.access_token)
+        .await
+        .map_err(|err| {
+            eprintln!("[twitch] nom du compte illisible ({err}) — connexion conservee");
+        })
+        .ok();
+    let token = StoredToken { account_name: nom, ..token };
     vault::store(Platform::Twitch, &token).map_err(|err| err.to_string())?;
     let _ = app.emit("twitch-connected", ());
     Ok(())

@@ -185,6 +185,22 @@ pub async fn fetch_target(
     Ok((server, key, nom))
 }
 
+/// Le nom du compte connecte, et rien d'autre.
+///
+/// Un seul appel, celui que `fetch_target` fait deja pour trouver l'identifiant. Existe a
+/// part pour le moment de la CONNEXION, ou l'on a besoin du nom sans avoir besoin de la
+/// cle : demander la cle a ce moment-la ferait sortir un secret du coffre pour rien.
+pub async fn fetch_display_name(
+    http: &reqwest::Client,
+    client_id: &str,
+    access_token: &Secret,
+) -> Result<String> {
+    let compte = helix(http, client_id, access_token, "https://api.twitch.tv/helix/users")
+        .await
+        .context("lecture du compte Twitch")?;
+    parse_user_display_name(&compte)
+}
+
 /// Un appel à l'interface Twitch, avec les deux en-têtes qu'elle exige. Le corps est rendu
 /// tel quel : la lecture appartient aux fonctions pures ci-dessus, vérifiables sans réseau.
 async fn helix(

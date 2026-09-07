@@ -18,21 +18,16 @@ type TwitchState =
   | { status: "idle" }
   | { status: "waiting"; verificationUri: string; userCode: string }
   | { status: "connected"; account?: string }
+  | { status: "stale" }
   | { status: "error"; message: string };
 
 type YouTubeState =
   | { status: "idle" }
   | { status: "waiting"; authorizationUrl?: string }
   | { status: "connected"; account?: string }
+  | { status: "stale" }
   | { status: "error"; message: string };
 
-/// Lit l'état réel du compte au premier affichage, une seule fois pour les deux
-/// plateformes — un seul aller-retour plutôt qu'un par écran (mémoire :
-/// une lecture partagée nourrit plusieurs affichages, jamais une boucle par écran).
-///
-/// Un échec de lecture laisse les deux écrans en « pas connecté », ce qui est la lecture
-/// prudente : proposer un bouton de connexion inutile coûte un clic, afficher « connecté »
-/// à tort ferait chercher la panne ailleurs.
 // Les marques des plateformes, groupees ici pour qu'une couleur ne soit ecrite qu'UNE
 // fois : deux boutons violets ecrits a deux endroits finissent par diverger.
 //
@@ -64,6 +59,18 @@ const YOUTUBE_LOGO = (
 const BOUTON_BASE =
   "flex items-center justify-center gap-2 rounded-[10px] px-5 py-2.5 font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50";
 
+// Un jeton existe, il est perime, et rien ici ne sait le renouveler.
+//
+// Dit avec le geste a faire, jamais avec un diagnostic : « jeton expire » decrit notre
+// mecanique, « reconnecte-toi » decrit ce qui debloque la situation.
+function ARenouveler({ plateforme }: { plateforme: string }) {
+  return (
+    <p className="text-hikari-accent">
+      Ta connexion {plateforme} a expiré — reconnecte-toi pour diffuser.
+    </p>
+  );
+}
+
 // Le nom du compte, quand on le connait — jamais un nom invente.
 //
 // Se taire est ici la reponse honnete : un compte connecte avant que ce champ n'existe n'en
@@ -84,13 +91,25 @@ function CompteConnecte({
   );
 }
 
+/// Trois etats et non deux : « on ne sait pas renouveler ce jeton » n'est ni « connecte »
+/// ni « jamais connecte ». Les confondre a fait afficher YouTube comme connecte sur un
+/// jeton mort (Jay, 2026-09-07).
+type Connection = "absent" | "live" | "a_renouveler";
+
 interface StoredStatus {
-  twitch: boolean;
-  youtube: boolean;
+  twitch: Connection;
+  youtube: Connection;
   twitch_account?: string | null;
   youtube_account?: string | null;
 }
 
+// Lit l'état réel du compte au premier affichage, une seule fois pour les deux
+// plateformes — un seul aller-retour plutôt qu'un par écran (mémoire :
+// une lecture partagée nourrit plusieurs affichages, jamais une boucle par écran).
+//
+// Un échec de lecture laisse les deux écrans en « pas connecté », ce qui est la lecture
+// prudente : proposer un bouton de connexion inutile coûte un clic, afficher « connecté »
+// à tort ferait chercher la panne ailleurs.
 function useStoredAccounts(onKnown: (status: StoredStatus) => void) {
   useEffect(() => {
     let cancelled = false;
@@ -154,8 +173,9 @@ function useTwitchConnection() {
     (account?: string) => setState({ status: "connected", account }),
     [],
   );
+  const markStale = useCallback(() => setState({ status: "stale" }), []);
 
-  return { state, connect, markConnected };
+  return { state, connect, markConnected, markStale };
 }
 
 function useYouTubeConnection() {
@@ -196,8 +216,9 @@ function useYouTubeConnection() {
     (account?: string) => setState({ status: "connected", account }),
     [],
   );
+  const markStale = useCallback(() => setState({ status: "stale" }), []);
 
-  return { state, connect, markConnected };
+  return { state, connect, markConnected, markStale };
 }
 
 export function AccountsPanel(_props: IDockviewPanelProps) {
@@ -206,12 +227,22 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
 
   const applyStoredStatus = useCallback(
     (status: StoredStatus) => {
-      if (status.twitch)
+      // Comparaison EXPLICITE a "live" : ces champs sont devenus des chaines, et toute
+      // chaine non vide est vraie — y compris "absent". Un `if (status.twitch)` affichait
+      // donc « connecte » pour un compte absent.
+      if (status.twitch === "live")
         twitch.markConnected(status.twitch_account ?? undefined);
-      if (status.youtube)
+      if (status.twitch === "a_renouveler") twitch.markStale();
+      if (status.youtube === "live")
         youtube.markConnected(status.youtube_account ?? undefined);
+      if (status.youtube === "a_renouveler") youtube.markStale();
     },
-    [twitch.markConnected, youtube.markConnected],
+    [
+      twitch.markConnected,
+      twitch.markStale,
+      youtube.markConnected,
+      youtube.markStale,
+    ],
   );
   useStoredAccounts(applyStoredStatus);
 
@@ -244,6 +275,7 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
         {twitch.state.status === "connected" && (
           <CompteConnecte plateforme="Twitch" nom={twitch.state.account} />
         )}
+        {twitch.state.status === "stale" && <ARenouveler plateforme="Twitch" />}
         {twitch.state.status === "error" && (
           <p className="text-hikari-red">❌ {twitch.state.message}</p>
         )}
@@ -275,6 +307,9 @@ export function AccountsPanel(_props: IDockviewPanelProps) {
         )}
         {youtube.state.status === "connected" && (
           <CompteConnecte plateforme="YouTube" nom={youtube.state.account} />
+        )}
+        {youtube.state.status === "stale" && (
+          <ARenouveler plateforme="YouTube" />
         )}
         {youtube.state.status === "error" && (
           <p className="text-hikari-red">❌ {youtube.state.message}</p>
