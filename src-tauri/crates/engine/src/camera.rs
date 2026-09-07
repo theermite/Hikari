@@ -11,7 +11,7 @@ use libobs_wrapper::context::ObsContext;
 use libobs_wrapper::data::object::ObsObjectTrait;
 use libobs_wrapper::data::properties::types::ObsListItemValue;
 use libobs_wrapper::data::properties::{ObsProperty, ObsPropertyObject};
-use libobs_wrapper::data::{ObsData, ObsDataSetters};
+use libobs_wrapper::data::{ObsData, ObsDataPointers, ObsDataSetters};
 use libobs_wrapper::graphics::Vec2;
 use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemExtSceneTrait, SceneItemTrait};
 use libobs_wrapper::sources::{ObsFilterRef, ObsSourceBuilder, ObsSourceRef, ObsSourceTrait};
@@ -99,6 +99,49 @@ pub fn build_camera_source(
         .set_video_device_id(device_id)
         .build()
         .context("construction source caméra")
+}
+
+/// Relance l'appareil derrière une source caméra, sans la retirer de ses scènes.
+///
+/// CE QUE ÇA RÈGLE (Jay, 2026-09-07, pendant un direct de 1 h 51) : « ma caméra s'est
+/// arrêtée de fonctionner, elle a figé ; j'ai dû la supprimer de la scène et la remettre ».
+/// Une caméra USB décroche — bande passante, veille du pilote, câble bousculé — et l'image
+/// reste figée sur sa dernière prise. Rien ne la remet en marche.
+///
+/// Retirer puis remettre marchait, mais ce geste coûte cher EN DIRECT : la source perd son
+/// cadrage, ses filtres et sa place dans la pile, et il faut tout refaire pendant que les
+/// spectateurs regardent. Relancer garde tout.
+///
+/// COMMENT : réécrire ses réglages à l'identique. `libobs` referme et rouvre l'appareil
+/// quand on lui redonne son identifiant — c'est le même chemin que suit OBS quand
+/// l'utilisateur rouvre les propriétés d'une caméra et valide sans rien changer.
+///
+/// `libobs-wrapper` 9.0.4 n'expose pas la mise à jour d'une source (vérifié dans sa
+/// source), donc l'appel est brut, sur le fil OBS — même contrat que les filtres, l'audio
+/// et l'ordre d'empilement.
+pub fn restart_camera(
+    context: &mut ObsContext,
+    source: &ObsSourceRef,
+    device_id: &str,
+) -> Result<()> {
+    let runtime = context.runtime().clone();
+    let mut settings = ObsData::new(runtime.clone()).context("réglages relance caméra")?;
+    settings
+        // Le nom EXACT de la propriété, celui que la liste des appareils expose. Une
+        // faute ici serait muette : libobs accepte n'importe quelle clé et ignore celles
+        // qu'il ne connaît pas.
+        .set_string("video_device_id", device_id)
+        .context("identifiant appareil pour la relance")?;
+    let source_ptr = source.as_ptr();
+    let settings_ptr = settings.as_ptr();
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // Safety: les deux pointeurs viennent de valeurs VIVANTES dont nous tenons une
+            // référence, et nous sommes sur le fil OBS — même argument que les autres
+            // appels bruts de ce dépôt.
+            libobs::obs_source_update(source_ptr.get_ptr(), settings_ptr.get_ptr());
+        })
+        .context("relance de la caméra")
 }
 
 /// Adds the ALREADY-BUILT camera `source` to `scene_name` as a new scene item — reuses the

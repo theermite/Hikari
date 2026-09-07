@@ -41,6 +41,18 @@ export function setCircleMask(
   return invoke("set_circle_mask", { deviceId, scene, enabled });
 }
 
+/** Relance l'appareil `deviceId` sans le retirer d'aucune scène.
+ *
+ * Le geste que Jay a dû faire à la main pendant un direct de 1 h 51 : sa caméra a figé, il
+ * l'a retirée de la scène et remise. Ça marchait — et ça lui a coûté son cadrage, ses
+ * filtres et sa place dans la pile, à refaire pendant que les spectateurs regardaient.
+ *
+ * Par APPAREIL et non par scène : c'est l'appareil qui décroche, et toutes les scènes qui
+ * le montrent sont figées ensemble. */
+export function restartCamera(deviceId: string): Promise<void> {
+  return invoke("restart_camera", { deviceId });
+}
+
 /** Retire la caméra `deviceId` de `scene` seulement — les autres caméras de la scène
  * restent, et les autres scènes gardent celle-ci avec leurs propres filtres. */
 export function removeCameraSource(

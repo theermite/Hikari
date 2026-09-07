@@ -145,6 +145,30 @@ impl App {
         self.emit_scene_list();
     }
 
+    /// Relance l'appareil `device_id` sans le retirer d'aucune scène.
+    ///
+    /// Le geste que Jay a dû faire à la main pendant un direct de 1 h 51 : sa
+    /// caméra a figé, il l'a retirée de la scène et remise. Ça marchait, et ça
+    /// lui a coûté son cadrage, ses filtres et sa place dans la pile — à
+    /// refaire pendant que les spectateurs regardaient.
+    ///
+    /// Un appareil qu'aucune scène ne montre n'est pas une erreur : il n'y a
+    /// simplement rien à relancer, et le dire serait un reproche adressé à un
+    /// geste sans conséquence.
+    pub(crate) fn handle_restart_camera(&mut self, device_id: String) {
+        let Some(obs) = &mut self.obs else { return };
+        let Some(ouverte) = obs.cameras.get(&device_id) else { return };
+        let source = ouverte.source.clone();
+        if let Err(err) = camera::restart_camera(&mut obs.context, &source, &device_id) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        // Le cadrage cliquable repart de zéro : une source relancée peut revenir
+        // dans une autre définition, donc son rectangle n'est plus le même.
+        obs.item_rects = None;
+        eprintln!("[engine] caméra relancée : {device_id}");
+    }
+
     /// Les caméras posées dans `scene`, chacune sous son nom — triées, pour que la pile de
     /// sources ne change pas d'ordre d'un lancement à l'autre.
     pub(crate) fn cameras_in_scene(&self, scene: &str) -> Vec<(String, &CameraItem)> {

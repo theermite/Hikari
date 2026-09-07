@@ -47,6 +47,9 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::RemoveCamera { device_id, scene }) => {
                     let _ = proxy.send_event(EngineEvent::RemoveCamera { device_id, scene });
                 }
+                Ok(ControllerCommand::RestartCamera { device_id }) => {
+                    let _ = proxy.send_event(EngineEvent::RestartCamera { device_id });
+                }
                 Ok(ControllerCommand::NudgeCamera { device_id, scene, dx, dy }) => {
                     let _ = proxy.send_event(EngineEvent::NudgeCamera { device_id, scene, dx, dy });
                 }

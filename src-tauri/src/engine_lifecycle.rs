@@ -436,6 +436,18 @@ pub(crate) fn set_source_locked(
     send_command(&state, ControllerCommand::SetSourceLocked { scene, name, locked })
 }
 
+/// Relance l'appareil derrière une caméra, sans la retirer d'aucune scène.
+///
+/// Elle garde son cadrage, ses filtres et sa place dans la pile — c'est ce qui
+/// distingue ce geste du retrait-remise que Jay a dû faire en plein direct.
+#[tauri::command]
+pub(crate) fn restart_camera(
+    state: State<EngineState>,
+    device_id: String,
+) -> Result<(), String> {
+    send_command(&state, ControllerCommand::RestartCamera { device_id })
+}
+
 /// Montre ou cache une source dans une scène, sans la retirer (maquette, l'œil).
 ///
 /// Distinct du retrait : une source cachée garde son cadrage, ses filtres et sa place dans

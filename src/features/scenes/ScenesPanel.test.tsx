@@ -615,6 +615,51 @@ describe("ScenesPanel", () => {
     expect(screen.queryByText(/Transition/)).not.toBeInTheDocument();
   });
 
+  it("should_relancer_une_camera_sans_la_retirer", async () => {
+    // Vécu par Jay le 2026-09-07, en plein direct : sa caméra a figé, et le seul recours
+    // était de la retirer puis de la remettre — donc de refaire son cadrage et ses
+    // filtres devant les spectateurs.
+    const user = userEvent.setup();
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([
+      scene({
+        name: "main",
+        has_camera: true,
+        sources: [
+          {
+            name: "Krom Kam",
+            kind: "dshow_input",
+            source_kind: "camera",
+            target_id: "cam-1",
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            background_removal: false,
+            circle_mask: false,
+            visible: true,
+          },
+        ],
+      }),
+    ]);
+
+    await user.click(
+      screen.getByRole("button", { name: /Réglages de Krom Kam/ }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Relancer la caméra/ }),
+    );
+
+    expect(invokeMock).toHaveBeenCalledWith("restart_camera", {
+      deviceId: "cam-1",
+    });
+    // Rien ne doit la retirer au passage : c'est tout l'intérêt du geste.
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "remove_camera_source",
+      expect.anything(),
+    );
+  });
+
   // Le refus du moteur appartient au bandeau du cockpit depuis le 2026-09-06
   // (`EngineErrorBanner`) : il arrive de façon asynchrone, souvent pendant qu'un autre
   // panneau est au premier plan. L'afficher ici EN PLUS le montrerait deux fois quand ce

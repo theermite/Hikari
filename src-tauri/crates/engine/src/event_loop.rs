@@ -49,6 +49,7 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetBackgroundRemoval { device_id, scene, enabled } => self.handle_set_background_removal(device_id, scene, enabled),
             EngineEvent::SetCircleMask { device_id, scene, enabled } => self.handle_set_circle_mask(device_id, scene, enabled),
             EngineEvent::RemoveCamera { device_id, scene } => self.handle_remove_camera(device_id, scene),
+            EngineEvent::RestartCamera { device_id } => self.handle_restart_camera(device_id),
             EngineEvent::NudgeCamera { device_id, scene, dx, dy } => self.handle_nudge_camera(device_id, scene, dx, dy),
             EngineEvent::ScaleCamera { device_id, scene, grow } => self.handle_scale_camera(device_id, scene, grow),
             EngineEvent::CreateScene { name } => self.handle_create_scene(name),

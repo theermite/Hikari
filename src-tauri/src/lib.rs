@@ -55,6 +55,7 @@ pub fn run() {
             engine_lifecycle::set_source_transform,
             engine_lifecycle::set_source_locked,
             engine_lifecycle::set_source_visible,
+            engine_lifecycle::restart_camera,
             engine_lifecycle::start_stream,
             engine_lifecycle::stop_stream,
         ])

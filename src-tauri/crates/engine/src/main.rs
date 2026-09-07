@@ -320,6 +320,7 @@ enum EngineEvent {
     SetBackgroundRemoval { device_id: String, scene: String, enabled: bool },
     SetCircleMask { device_id: String, scene: String, enabled: bool },
     RemoveCamera { device_id: String, scene: String },
+    RestartCamera { device_id: String },
     NudgeCamera { device_id: String, scene: String, dx: i32, dy: i32 },
     ScaleCamera { device_id: String, scene: String, grow: bool },
     CreateScene { name: String },

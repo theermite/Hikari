@@ -126,6 +126,17 @@ pub enum ControllerCommand {
     /// left alone. The device (and its filters) is fully released once no scene shows it
     /// anymore. A no-op if `scene` doesn't show that camera.
     RemoveCamera { device_id: String, scene: String },
+    /// Relance l'appareil `device_id` sans le retirer d'aucune scene.
+    ///
+    /// Une camera USB decroche — bande passante, veille du pilote, cable
+    /// bouscule — et l'image reste figee sur sa derniere prise. Retirer puis
+    /// remettre la remet en marche, mais ce geste coute cher EN DIRECT : la
+    /// source perd son cadrage, ses filtres et sa place dans la pile, et il
+    /// faut tout refaire pendant que les spectateurs regardent.
+    ///
+    /// Par APPAREIL et non par scene : c'est l'appareil qui a decroche, et
+    /// toutes les scenes qui le montrent sont figees ensemble.
+    RestartCamera { device_id: String },
     /// Start streaming to the RTMP target the engine reads from its OWN environment
     /// (`HIKARI_RTMP_SERVER`/`HIKARI_RTMP_KEY`, B2a scope). The wire NEVER carries a key —
     /// account-sourced targets (B2b, OAuth + vault) will replace the env-var mechanism,

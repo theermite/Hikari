@@ -13,6 +13,7 @@
 import { useState } from "react";
 import {
   nudgeCamera,
+  restartCamera,
   scaleCamera,
   setBackgroundRemoval,
   setCircleMask,
@@ -153,6 +154,20 @@ export function CameraControls({ camera, scene }: Props) {
           Agrandir +
         </button>
       </div>
+
+      {/* Relancer l'appareil, sans rien perdre. Vécu par Jay le 2026-09-07, en plein
+      direct : sa caméra a figé, et le seul recours était de la retirer de la scène puis
+      de la remettre — donc de refaire son cadrage et ses filtres devant les spectateurs.
+      Ce bouton garde tout. */}
+      <button
+        type="button"
+        onClick={() => run("restart", restartCamera(deviceId))}
+        disabled={pending === "restart"}
+        title="Referme et rouvre l'appareil. Le cadrage et les filtres sont conservés."
+        className={`mt-1 ${BUTTON}`}
+      >
+        {pending === "restart" ? "Relance…" : "Relancer la caméra"}
+      </button>
 
       {/* Pas de « retirer » ici : le ✕ de la ligne de la source le fait, pour toutes les
       sources de la même façon. Deux boutons pour un même geste, c'est un de trop. */}
