@@ -54,3 +54,50 @@ pub fn user_visible_engine_log(line: &str) -> Option<String> {
     }
     Some(text.to_string())
 }
+
+/// Faut-il montrer cette ligne, compte tenu de l'ETAT du moteur ?
+///
+/// Trois phases, et non deux. Le demarrage etait deja silencieux ; l'ARRET ne l'etait pas,
+/// et c'est ce qui a produit « Le moteur a refuse : Number of memory leaks: 10 » chez Jay
+/// le 2026-09-07, juste apres « OBS context shutdown ». Un moteur qui s'eteint ne refuse
+/// rien : il fait son inventaire de fin de vie, et ce decompte s'adresse a celui qui
+/// developpe, jamais a celui qui diffuse.
+///
+/// Le cout d'un faux bandeau n'est pas le bandeau : c'est qu'on cesse de les lire.
+pub fn engine_log_to_show(line: &str, initialized: bool, stopping: bool) -> Option<String> {
+    if !initialized || stopping {
+        return None;
+    }
+    user_visible_engine_log(line)
+}
+
+#[cfg(test)]
+mod phase_tests {
+    use super::*;
+
+    const ARRET: &str = "[Error] Number of memory leaks: 10";
+    const VRAI_REFUS: &str =
+        "[Error] DShow: Run failed (0x800718CF): A camera interface doesn't have the desired bandwidth";
+
+    #[test]
+    fn should_stay_silent_while_the_engine_is_shutting_down() {
+        assert_eq!(engine_log_to_show(ARRET, true, true), None);
+    }
+
+    #[test]
+    fn should_stay_silent_before_the_engine_is_ready() {
+        assert_eq!(engine_log_to_show(VRAI_REFUS, false, false), None);
+    }
+
+    #[test]
+    fn should_speak_a_real_failure_while_the_engine_runs() {
+        assert!(engine_log_to_show(VRAI_REFUS, true, false).is_some());
+    }
+
+    #[test]
+    fn should_stay_silent_on_a_shutdown_diagnostic_even_when_it_says_error() {
+        // La ligne qui a menti a Jay. Elle porte bien le mot « Error » de `libobs`, et
+        // n'est pourtant l'annonce d'aucun refus : c'est un decompte de fin de vie.
+        assert_eq!(engine_log_to_show(ARRET, true, true), None);
+    }
+}

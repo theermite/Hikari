@@ -14,7 +14,8 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Stdio};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use hikari_protocol::{ControllerCommand, EngineMessage, parse_engine_message, to_line};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -37,6 +38,13 @@ const FALLBACK_RECT: (i32, i32, u32, u32) = (0, 0, 320, 180);
 pub(crate) struct EngineHandle {
     pub(crate) child: Child,
     pub(crate) stdin: ChildStdin,
+    /// A-t-on demande a CE moteur de s'arreter ?
+    ///
+    /// Partage avec le fil qui lit sa sortie, qui n'a aucun autre moyen de le savoir. Un
+    /// moteur qui s'eteint ecrit son inventaire de fin de vie — dont un decompte de fuites
+    /// memoire que `libobs` classe en erreur. Sans ce drapeau, cet inventaire s'affichait
+    /// a l'utilisateur sous « Le moteur a refuse » (Jay, 2026-09-07).
+    pub(crate) stopping: Arc<AtomicBool>,
 }
 
 /// Runtime state: the engine child (if running), the grafted preview's HWND (if
@@ -105,6 +113,8 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
         .map_err(|err| format!("lancement du moteur: {err}"))?;
     let stdin = child.stdin.take().ok_or("stdin du moteur indisponible")?;
     let stdout = child.stdout.take().ok_or("stdout du moteur indisponible")?;
+    let stopping = Arc::new(AtomicBool::new(false));
+    let stopping_reader = Arc::clone(&stopping);
 
     std::thread::spawn(move || {
         // Le moteur a-t-il fini de s'initialiser ?
@@ -155,9 +165,11 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
                     // la raison exacte d'une caméra restée noire — « pas assez de bande
                     // passante » — et personne ne la voyait, parce que tout atterrissait
                     // dans la console de développement (Jay, 2026-09-06).
-                    if let Some(shown) =
-                        hikari_protocol::user_visible_engine_log(&line).filter(|_| initialized)
-                    {
+                    if let Some(shown) = hikari_protocol::engine_log_to_show(
+                        &line,
+                        initialized,
+                        stopping_reader.load(Ordering::Relaxed),
+                    ) {
                         let _ = app.emit(
                             "engine-message",
                             &EngineMessage::Error { message: shown },
@@ -169,7 +181,7 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
         }
     });
 
-    guard.handle = Some(EngineHandle { child, stdin });
+    guard.handle = Some(EngineHandle { child, stdin, stopping });
     Ok(())
 }
 
@@ -188,6 +200,9 @@ fn stop_engine_inner(state: &EngineState) -> Result<(), String> {
     let Some(mut handle) = guard.handle.take() else {
         return Ok(());
     };
+    // Dit AVANT d'envoyer l'ordre : ce que le moteur ecrira ensuite appartient a son
+    // extinction, et n'est le refus de rien.
+    handle.stopping.store(true, Ordering::Relaxed);
     let line = to_line(&ControllerCommand::Stop).map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi Stop au moteur: {err}"))?;
     handle.child.wait().map_err(|err| format!("attente arrêt moteur: {err}"))?;
