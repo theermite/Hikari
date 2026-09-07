@@ -25,15 +25,45 @@ optimises the solution it already chose. A fresh reader starts from the problem.
 reversible, and a review several times a day would kill the rule by friction. What stays
 gated is what cannot be taken back. A build (`pnpm build`) is not shipping.
 
-**Proof** (falsifiable marker, hook-enforced):
+**Proof** — THREE markers, in THIS order. The gate refuses at each step, so emitting them
+out of order costs a round trip (it cost three, on 2026-09-07):
 
 ```
-[REVIEW] par <relecteur> le <YYYY-MM-DD> — verdict: <PASS|FAIL>, <ce qui en est sorti>
+[REVIEW-BRIEF]
+- objectif: <what the project is for>
+- perimetre: <what is under review>
+- zones suspectes: <where to dig>
+- consigne: <must ask to REFUTE, never to validate>
+```
+then, after the review comes back:
+```
+[REVIEW] par <relecteur> le <YYYY-MM-DD> sur <empreinte> — verdict: <PASS|FAIL>, <ce qui en est sorti>
 ```
 
 `<relecteur>` = a sub-agent with a fresh memory, another model, or a human. A sentence
 saying "I had it reviewed" is NOT proof — it is a self-attestation, and a model produces
 one as easily as the truth (`Rule-Format.md`).
+
+**`<empreinte>` is the commit that was actually read** (7+ hex, from `git rev-parse HEAD`).
+Added 2026-09-07 after Jay asked « as-tu bien vérifié tout ce que tu vas propager ? ». The
+answer was no: seven commits had landed after the last green verdict, and the gate would
+have let them ship — it read the verdict's WORD, never which code it covered. A green light
+does not survive the code it validated: when HEAD has moved, the gate refuses and names both
+SHAs. A phrase cannot prove what it covered; a commit can.
+
+**Correcting a finding starts with a search, never with code (BLOCKING — Jay 2026-09-07)**:
+« lorsqu'il y a des relectures qui sont faites et que les corrections sont tentées, il faut
+absolument faire des recherches Web pour s'assurer d'avoir les informations à jour ». The
+`[CAUSE]` block owed after a FAIL carries a fourth line, `- veille: <dated source or link
+consulted BEFORE fixing>`. A line without a date or a URL is refused — "I looked" is not a
+search, and a model writes that sentence as easily as the truth.
+
+**Why**: measured the same day. Five review rounds, ~15 real defects, every fix written from
+scratch with zero research — each time waved through as "internal refactor, no new
+dependency", true to the letter and a way past the real question. The first search, run only
+because Jay asked, found that the reference tool for what we hand-roll **refuses to start on
+a repo with uncommitted work** — the very rule whose absence had cost the whole morning. A
+fix written in reaction feels urgent and research feels like a detour; it is the reverse.
 
 **Legitimate skip** (closed enum — an open motif field becomes "no time" within a week):
 

@@ -36,10 +36,48 @@ def boite(racine: Path) -> Path:
     return Path(racine) / ".claude" / "state" / "relay"
 
 
-def rapport(dossier: Path) -> str:
-    """Le texte a afficher, ou vide. Marque les messages comme lus."""
-    messages, illisibles = relay.relever_avec_erreurs(dossier, marquer_lus=True)
-    morceaux = [relay.rendu(message) for message in messages]
+def boite_partagee(racine: Path) -> Path:
+    """La boite de Shinzo, lue quel que soit le depot ou l'on demarre.
+
+    Choix de Jay, 2026-09-07. Une propagation qui ne peut pas rendre une reserve
+    y depose son constat : `/session-start` lit Shinzo a chaque demarrage, tandis
+    que `.claude/state/` est ignore par git et s'efface sans laisser de trace.
+
+    Shinzo vit en frere de l'atelier, jamais dans le depot courant.
+    """
+    return Path(racine).parent / "Shinzo" / "09-Relais"
+
+
+def _lire(dossier: Path) -> tuple[list, int]:
+    """Une boite absente est vide ; une boite EN PANNE est comptee.
+
+    Defaut introduit puis trouve par relecture le 2026-09-07 : en lisant deux
+    boites, j'avais neutralise l'erreur de l'une en la rendant vide. Une boite
+    cassee devenait alors indiscernable d'une boite calme — precisement le
+    silence qu'on passe la journee a fermer. Un depot illisible est COMPTE, et
+    le lecteur le dit.
+    """
+    dossier = Path(dossier)
+    if dossier.exists() and not dossier.is_dir():
+        return [], 1  # une boite qui n'est pas un dossier est cassee, pas calme
+    try:
+        return relay.relever_avec_erreurs(dossier, marquer_lus=True)
+    except OSError:
+        return [], 1
+
+
+def rapport(dossier: Path, partagee: Path | None = None) -> str:
+    """Le texte a afficher, ou vide. Marque les messages comme lus.
+
+    Deux boites, une seule passe : celle du depot et celle de Shinzo. Un canal
+    ecrit sans son lecteur est un controle orphelin de plus — il y en a eu trois
+    le 2026-09-06.
+    """
+    morceaux, illisibles = [], 0
+    for boite_a_lire in [dossier] + ([partagee] if partagee is not None else []):
+        messages, rates = _lire(Path(boite_a_lire))
+        morceaux.extend(relay.rendu(message) for message in messages)
+        illisibles += rates
     if illisibles:
         morceaux.append(
             f"[RELAIS] {illisibles} depot(s) illisible(s) — ignores, jamais devines. "
@@ -50,7 +88,8 @@ def rapport(dossier: Path) -> str:
 
 def main() -> None:
     try:
-        texte = rapport(boite(find_repo_root()))
+        racine = find_repo_root()
+        texte = rapport(boite(racine), boite_partagee(racine))
     except Exception as erreur:  # une boite cassee ne doit jamais retenir une session
         print(f"[RELAIS] boite indisponible ({erreur}).", file=sys.stderr)
         sys.exit(0)

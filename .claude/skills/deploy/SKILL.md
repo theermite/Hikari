@@ -8,7 +8,7 @@ model: opus
 
 Execute these steps IN ORDER. Zero-error tolerance. Every step must PASS with evidence before proceeding to the next. Fix = Deploy.
 
-**Before step 1**: Read `.claude/rules-ondemand/Independent-Review.md` in full — a deploy is one of the trigger classes that rule gates (fresh-context review, `[REVIEW]`/`[REVIEW-SKIP]` marker). It is not auto-loaded at session start; this is where it applies.
+**Before step 1**: Read `.claude/rules-ondemand/Independent-Review.md` in full — a deploy is one of the trigger classes that rule gates (fresh-context review, THREE markers in order: `[REVIEW-BRIEF]` before launching the reviewer, then `[REVIEW] ... sur <empreinte> — verdict:` naming the commit read, or `[REVIEW-SKIP]`). It is not auto-loaded at session start; this is where it applies.
 
 ## Pre-Flight (BLOCKING — before ANY step)
 

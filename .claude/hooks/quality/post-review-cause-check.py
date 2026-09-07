@@ -99,7 +99,12 @@ _CODE = re.compile(r"```.*?```|`[^`]*`", re.DOTALL)
 _FAMILY = re.compile(r"famille[^\S\n]*:[^\S\n]*([^,\n]+)", re.IGNORECASE)
 _UNNAMED = "<sans famille nommee>"
 
-_FIELDS = ("famille", "cause", "ce qui empeche la repetition")
+_FIELDS = ("famille", "cause", "ce qui empeche la repetition", "veille")
+
+# La veille doit porter une DATE : « j'ai regardé » n'est pas une source, et un
+# modele produit cette phrase aussi facilement que la verite (`Rule-Format.md`).
+_VEILLE_DATEE = re.compile(r"-[^\S\n]*veille[^\S\n]*:[^\S\n]*(\S.*)", re.IGNORECASE)
+_DATE_OU_LIEN = re.compile(r"\d{4}-\d{2}-\d{2}|https?://")
 _APPROACH = re.compile(r"-\s*approche\s+chang\w+\s*:\s*oui\s*[—-]\s*\S+", re.IGNORECASE)
 
 
@@ -159,21 +164,49 @@ def find_cause(message):
     """Return the message when it carries a complete [CAUSE] block, else None."""
     if "[CAUSE]" not in (message or ""):
         return None
-    if all(_field_filled(message, field) for field in _FIELDS):
-        return message
-    return None
+    if not all(_field_filled(message, field) for field in _FIELDS):
+        return None
+    if not _veille_datee(message):
+        return None
+    return message
+
+
+def _veille_datee(message):
+    """La ligne de veille porte-t-elle une date ou un lien ?
+
+    DEMANDE DE JAY, 2026-09-07 : « lorsqu'il y a des relectures qui sont faites
+    et que les corrections sont tentees, il faut absolument faire des recherches
+    Web pour s'assurer d'avoir les informations a jour, afin de corriger
+    correctement les erreurs. »
+
+    Mesure du jour qui lui donne raison : une journee entiere de correctifs
+    ecrits depuis zero, sans une seule recherche. La premiere veille lancee a
+    trouve que l'outil de reference REFUSE de demarrer sur un depot sale — la
+    regle meme dont l'absence a coute toute la matinee. Corriger avec un jeu de
+    connaissances perime, c'est corriger de travers, avec application.
+
+    Une date ou un lien, jamais « j'ai regarde » : une phrase de verification
+    n'est pas une verification.
+    """
+    trouve = _VEILLE_DATEE.search(message)
+    return bool(trouve and _DATE_OU_LIEN.search(trouve.group(1)))
 
 
 def _missing_cause_message():
     return (
         "BLOCKED: the last independent review came back FAIL, and this commit does "
         "not say what it taught. "
-        "RECOVERY: add to the commit message: '[CAUSE]' then three lines — "
+        "RECOVERY: add to the commit message: '[CAUSE]' then FOUR lines — "
         "'- famille: <la CLASSE du defaut, pas le cas signale>', "
         "'- cause: <d'ou il vient>', "
-        "'- ce qui empeche la repetition: <test, composant partage, garde-fou>'. "
+        "'- ce qui empeche la repetition: <test, composant partage, garde-fou>', "
+        "'- veille: <source datee ou lien consulte AVANT de corriger>'. "
         "Why: on 2026-08-10, five reviews in a row rejected the same family, "
-        "because each fix addressed the reported case and never the cause."
+        "because each fix addressed the reported case and never the cause. "
+        "And on 2026-09-07, a full day of fixes was written from scratch with "
+        "zero research: the first search found that the reference tool REFUSES "
+        "to run on a dirty repo — the very rule whose absence cost the morning. "
+        "Correcting from a stale dataset is correcting wrong, thoroughly."
     )
 
 

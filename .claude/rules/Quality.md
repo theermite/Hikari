@@ -113,6 +113,40 @@ critical paths, WARNING elsewhere. Every caught exception logged at the right le
 **The Knob Footgun**: an option with only one correct value = a constant, not a knob.
 Expose a setting only when several values are legitimate.
 
+## Measuring a thing, never a word about it (BLOCKING — measured 2026-09-07)
+
+**Rule**: when a check selects what it will judge, select on the **structure that carries
+the fact** — a named field, a parsed node, a line that OPENS the event — never on a word
+being *present* somewhere in the text.
+
+**Why**: text that *talks about* X is indistinguishable from X itself, and documentation is
+precisely the text that reproduces the real form most faithfully. Measured in one day, three
+times, on three different files: a blocks counter that counted its own comments and the code
+it had just read (69 announced against 26 real) · a net that selected sessions on the word
+`blockingError` and caught the review report *describing* the defect · a guard that read a
+verdict's word without ever asking which code it covered.
+
+**Trigger**: writing or fixing anything that COUNTS, DETECTS or GATES on text — a hook, a
+meter, a report, a lint rule.
+
+| Instead of | Select on |
+|---|---|
+| the word is in the raw line | the parsed field that holds it |
+| a marker appears anywhere | the marker OPENS the line, from a closed list of real forms |
+| a list of shapes to exclude | the list of shapes to accept — an exclusion list is open, always overtaken by the next form |
+| a phrase asserting a state | an artefact that git or the filesystem can settle (a SHA, a path, an exit code) |
+
+**And a closed list is only worth the breadth of what was looked at before closing it.** The
+same day, a list closed on ONE measured channel missed a fifth real shape present in 55
+session files. Confront the list to the field, and let the test fail on the form you did not
+foresee — never on your own recollection of it.
+
+**Proof**: the selection reads a field or an anchored pattern, and a test feeds it the real
+text of the thing it must NOT count (documentation, a quoted example, a diff line).
+
+**Without hook**: before shipping a counter or a detector, run it on real data and read the
+top of its output line by line. A number without its source lines is a claim.
+
 ## Static Analysis (BLOCKING sur intention — ✋ 4 outils sur 21 installes, 0 automatise)
 
 Mesure de l'audit, confirmee le 2026-09-05 : la liste ci-dessous decrit un ideal,

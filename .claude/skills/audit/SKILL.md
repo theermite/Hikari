@@ -30,7 +30,8 @@ Modes: `--audit` (diagnostic only), default (audit + plan), `--fix` (audit + aut
 10. **DOCS CHECK**: Blueprint, CDC, PET match current reality. Verify **deviations** from Universal Project Checklist are documented with justification. **QE V2 retroactive** (per `rules/QE-V2-Retroactive.md`): cross-check artefacts against QE V2 standards — signal gaps for pre-4.0.0 projects.
 
    > 🧭 **Expert convoque** : conformite — RGPD, echeances UE, inventaire des composants
-11. **PLAN**: Generate structured execution plan for fixes with priorities.
+11. **FRICTION DES GARDE-FOUS**: run `python .claude/hooks/lifecycle/hook-blocks-report.py` and quote its output. It reads the per-session journal and names which guard fires most, and which re-fires inside one session — the strongest journal-only signal of a false positive. **Why this step exists**: the journal was written for months and read by nobody; a meter no one opens measures nothing (mesuré 2026-09-07). A guard that fires constantly gets bypassed before it gets fixed. Honest limit, written in the tool itself: repetition is a proxy for friction, never proof.
+12. **PLAN**: Generate structured execution plan for fixes with priorities.
 
 ## Visibility Audit Mode (`--visibility`)
 

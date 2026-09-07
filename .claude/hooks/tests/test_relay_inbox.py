@@ -43,6 +43,62 @@ def test_nothing_pending_says_nothing(tmp_path):
     assert inbox.rapport(tmp_path) == ""
 
 
+# --- la boite partagee de Shinzo -------------------------------------------
+#
+# Choix de Jay, 2026-09-07 : une propagation qui ne peut pas rendre une reserve
+# le dit dans Shinzo, pas dans le depot touche. Deux raisons tenues par le code :
+# `/session-start` lit Shinzo a chaque demarrage quel que soit le projet, et
+# `.claude/state/` est ignore par git — une alerte posee la s'efface sans trace.
+#
+# Ecrire le depot sans son lecteur fabriquerait un quatrieme controle orphelin,
+# apres les trois trouves le 2026-09-06.
+
+
+def test_a_message_left_in_shinzo_is_read_too(tmp_path):
+    locale, partagee = tmp_path / "repo", tmp_path / "shinzo"
+    relay.deposer(_message(sujet="reserve non rendue sur Hikari"), partagee)
+    texte = inbox.rapport(locale, partagee)
+    assert "Hikari" in texte
+
+
+def test_both_boxes_are_read_in_the_same_pass(tmp_path):
+    locale, partagee = tmp_path / "repo", tmp_path / "shinzo"
+    relay.deposer(_message(sujet="message du depot"), locale)
+    relay.deposer(_message(sujet="message de Shinzo"), partagee)
+    texte = inbox.rapport(locale, partagee)
+    assert "message du depot" in texte and "message de Shinzo" in texte
+
+
+def test_a_missing_shinzo_never_holds_a_session(tmp_path):
+    """Shinzo peut ne pas etre clone : la boite locale continue de parler."""
+    locale = tmp_path / "repo"
+    relay.deposer(_message(sujet="message du depot"), locale)
+    texte = inbox.rapport(locale, tmp_path / "shinzo-absent" / "09-Relais")
+    assert "message du depot" in texte
+
+
+def test_an_unreadable_box_is_counted_never_swallowed(tmp_path):
+    """Defaut que J'AI introduit, trouve par relecture le 2026-09-07.
+
+    En lisant deux boites, j'avais neutralise l'erreur d'une boite en la rendant
+    VIDE. Une boite en panne devenait donc indiscernable d'une boite calme —
+    exactement le silence qu'on passe la journee a fermer. Avant ce changement,
+    l'erreur remontait au moins jusqu'a un message.
+    """
+    locale = tmp_path / "repo"
+    locale.mkdir(parents=True)
+    (locale / "pas-un-dossier").write_text("x", encoding="utf-8")
+    messages, illisibles = inbox._lire(locale / "pas-un-dossier")
+    assert messages == []
+    assert illisibles >= 1, "une boite en erreur doit etre COMPTEE, jamais avalee"
+
+
+def test_the_shared_box_is_the_shinzo_one():
+    """Le chemin est celui que la propagation ecrit — deux copies deriveraient."""
+    from pathlib import Path as _P
+    assert inbox.boite_partagee(_P("D:/atelier/Kata")).parts[-2:] == ("Shinzo", "09-Relais")
+
+
 def test_a_pending_message_is_shown_with_its_sender(tmp_path):
     relay.deposer(_message(), tmp_path)
     texte = inbox.rapport(tmp_path)

@@ -192,3 +192,79 @@ def test_two_identical_messages_do_not_produce_two_files(tmp_path):
 def test_the_name_stays_readable_for_a_human(tmp_path):
     chemin = relay.deposer(_message(de="session-kobo-002"), tmp_path)
     assert "session-kobo-002" in chemin.name
+
+
+def test_a_deposit_is_never_visible_half_written(tmp_path):
+    """Le geste de `maildir` : ecrire a cote, puis deplacer d'un coup.
+
+    Veille du 2026-09-07 (spec D. J. Bernstein, cr.yp.to/proto/maildir.html),
+    lancee sur demande de Jay. Elle a montre le trou : une ecriture directe dans
+    la boite est visible a mi-chemin. Un lecteur qui arrive pendant l'ecriture
+    lit un texte tronque, le compte illisible — ET LE MARQUE LU. Message perdu
+    pour de bon, emetteur convaincu de l'avoir remis. Reproduit avant correction.
+
+    Ce test regarde la boite PENDANT l'ecriture : rien d'incomplet ne doit y
+    apparaitre sous le nom definitif.
+    """
+    vus = []
+    vrai_replace = relay.os.replace
+
+    def espionner(source, cible):
+        # A cet instant precis, le fichier definitif n'existe pas encore.
+        vus.append(sorted(p.name for p in tmp_path.glob("*.jsonl")))
+        return vrai_replace(source, cible)
+
+    relay.os.replace = espionner
+    try:
+        relay.deposer(_message(), tmp_path)
+    finally:
+        relay.os.replace = vrai_replace
+
+    assert vus == [[]], "aucun message ne doit etre visible avant d'etre complet"
+    assert len(relay.relever(tmp_path)) == 1, "et il arrive bien, entier"
+
+
+def test_a_failed_mark_never_loses_what_was_already_read(tmp_path, monkeypatch):
+    """Defaut mesure par relecture croisee le 2026-09-07, le plus grave du lot.
+
+    Deux sessions demarrent en meme temps. L'une renomme un depot que l'autre
+    vient de lire ; le renommage de la seconde echoue, l'exception SORT de la
+    fonction, et les messages deja collectes sont perdus — alors qu'ils avaient
+    ete lus ET marques lus. Le lecteur affiche « 1 depot illisible, 0 message ».
+
+    Une perte definitive, pas un doublon d'affichage.
+    """
+    vrai = relay._marquer_lu
+    appels = {"n": 0}
+
+    def capricieux(chemin):
+        appels["n"] += 1
+        vrai(chemin)
+        if appels["n"] == 1:
+            raise FileNotFoundError("une autre session est passee avant")
+
+    relay.deposer(_message(de="premier"), tmp_path)
+    relay.deposer(_message(de="second"), tmp_path)
+    monkeypatch.setattr(relay, "_marquer_lu", capricieux)
+
+    recus, illisibles = relay.relever_avec_erreurs(tmp_path, marquer_lus=True)
+    assert len(recus) == 2, "un message lu ne doit jamais etre perdu par un renommage rate"
+    assert illisibles >= 1, "et le renommage rate doit etre COMPTE, jamais avale"
+
+
+def test_the_same_alert_twice_is_still_delivered(tmp_path):
+    """Defaut trouve par relecture independante le 2026-09-07, famille silence-sur-recidive.
+
+    Le nom du depot vient de l'empreinte du message : une alerte IDENTIQUE reprend
+    le meme nom. Le marqueur de lecture du premier passage existait deja, le
+    renommage levait une erreur, et la boite entiere devenait muette.
+
+    C'est exactement la forme qui se repete : une reserve qui echoue deux fois de
+    suite n'alertait qu'une fois. Le second silence ressemblait a « rien a
+    signaler ».
+    """
+    relay.deposer(_message(), tmp_path)
+    assert len(relay.relever(tmp_path, marquer_lus=True)) == 1
+    relay.deposer(_message(), tmp_path)
+    assert len(relay.relever(tmp_path, marquer_lus=True)) == 1, (
+        "la deuxieme occurrence de la meme alerte etait perdue en silence")

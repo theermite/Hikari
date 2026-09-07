@@ -309,6 +309,11 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/notes-globales.py",
+            "description": "Les notes globales de Jay (Shinzo 08-Notes) remontent dans Takumi — une fois par changement, jamais bloquant"
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/relay-inbox.py",
             "description": "Plan pt8 - remonte les messages des autres sessions, en donnee jamais en ordre"
           }

@@ -23,6 +23,7 @@ Execute these steps IN ORDER. No skipping (unless LITE_MODE applies — see Step
    - `[SHINZO_PATH]/02-Projets/_Index.md` — project inventory and tracks
    - `[SHINZO_PATH]/02-Projets/[current-project].md` — the project file matching the current repo (e.g., `Koshin.md` for Koshin repo)
    - `[SHINZO_PATH]/02-Projets/[current-project]-Notes-Jay.md` — Jay's async feedback channel (bugs, questions, features, observations). Process new items (no marker = unseen). Display count of unseen items.
+   - `[SHINZO_PATH]/08-Notes/inbox.md` — **in the `Takumi` repo ONLY**. Jay's global capture channel: what is cross-project, or belongs to no project. He brainstorms there (his words, 2026-09-07). Read it IN FULL when the hook announces it — these are his own words, they are not summarised. Elsewhere: do not load it, it would be noise.
    - **`[SHINZO_PATH]`** = sibling of workspace: `D:/30-Dev-Projects/Shinzo` (local) · `~/Shinzo` (VPS) · any clone.
    - **DO NOT load all project files.** Only load additional project files if explicitly needed.
    - **If Shinzo is not cloned locally: STOP. Clone it (`git clone git@github.com:theermite/Shinzo.git`) then re-start.**

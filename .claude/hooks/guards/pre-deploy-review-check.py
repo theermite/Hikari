@@ -31,12 +31,18 @@ in one evening — every one of them before the code shipped.
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
+
+# Sentinelle : « personne n'a precise » se distingue de « on ne sait pas lire ».
+# Sans elle, un appelant passant None se verrait imposer une lecture de git.
+_ABSENT = object()
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 from common import (  # noqa: E402
     block,
+    find_repo_root,
     get_command,
     looks_like_deploy,
     pass_through,
@@ -59,6 +65,9 @@ _MARKER = re.compile(
     r"[^\n]*?verdict\s*:\s*(?P<verdict>PASS|FAIL)",
     re.IGNORECASE,
 )
+# L'empreinte que le feu vert declare couvrir : « sur <empreinte> », entre la
+# date et le verdict. Sept caracteres au moins, comme git les abrege.
+_SUR_COMMIT = re.compile(r"\bsur\s+(?P<commit>[0-9a-f]{7,40})\b", re.IGNORECASE)
 _SKIP = re.compile(r"\[REVIEW-SKIP\]\s+motif\s*:\s*(?P<motif>[a-z0-9-]+)", re.IGNORECASE)
 
 # Shipping is not only a deploy: pushing and publishing put code in front of
@@ -302,13 +311,73 @@ def _block_message(command):
     )
 
 
-def verdict(command, recent_texts):
+def head_courant():
+    """L'empreinte du commit actuel, ou None quand on ne peut pas la lire.
+
+    None n'est pas un refus : un garde-fou qui bloque ce qu'il ne sait pas lire
+    se fait debrancher, et emporte la detection reelle avec lui.
+    """
+    # Lu depuis la RACINE du depot, jamais depuis le dossier courant du
+    # processus. Sinon un `cd` hors depot suffit a rendre l'empreinte illisible,
+    # donc a desactiver le controle entier — le repli redevient la porte de
+    # sortie qu'il ne doit pas etre (relecture croisee, 2026-09-07).
+    try:
+        racine = find_repo_root()
+    except Exception:
+        racine = None
+    try:
+        sortie = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True,
+            check=False, cwd=str(racine) if racine else None)
+    except OSError:
+        return None
+    empreinte = sortie.stdout.strip()
+    return empreinte if sortie.returncode == 0 and empreinte else None
+
+
+def _couvre_le_code_actuel(texte, head):
+    """None si le feu vert couvre le code qui part, sinon le message de refus.
+
+    NE D'UNE QUESTION DE JAY le 2026-09-07 : « as-tu bien verifie tout ce que tu
+    vas propager ? ». Non — sept commits etaient partis apres le dernier feu
+    vert, et ce garde-fou les aurait laisses passer. Il lisait le mot du verdict
+    sans jamais demander sur QUOI il portait.
+
+    Une phrase ne peut pas prouver ce qu'elle a couvert ; une empreinte, si.
+    """
+    if not head:
+        return None  # etat inconnu : on ne transforme pas l'ignorance en refus
+    trouve = _SUR_COMMIT.search(_spoken(texte))
+    if not trouve:
+        return (
+            "BLOCKED: the review says PASS but names no commit — on ne sait pas ce "
+            "qu'elle a couvert. RECOVERY: relire le code ACTUEL, puis emettre "
+            f"'[REVIEW] par <relecteur> le <date> sur {head[:7]} — verdict: PASS, "
+            "<ce qui en est sorti>'. L'empreinte est la preuve ; une phrase n'en "
+            "est pas une."
+        )
+    relu = trouve.group("commit").lower()
+    if head.lower().startswith(relu) or relu.startswith(head.lower()):
+        return None
+    return (
+        f"BLOCKED: the review covered {relu}, the code now ships {head[:7]}. "
+        "Ce qui a change depuis n'a ete relu par personne. RECOVERY: faire relire "
+        f"l'ecart ('git diff {relu}..HEAD'), puis emettre un nouveau feu vert "
+        f"'[REVIEW] ... sur {head[:7]} — verdict: PASS, <ce qui a change>'."
+    )
+
+
+def verdict(command, recent_texts, head=_ABSENT):
     """Return a block message, or None when the command may proceed.
 
     Texts arrive most recent first, so the latest verdict wins: a FAIL blocks
     until a later review says PASS. Checking only that a marker EXISTS would let
     "verdict: FAIL, 5 defauts bloquants" ship (independent review, 2026-08-10).
+
+    Depuis le 2026-09-07, un PASS doit AUSSI nommer le commit qu'il a relu.
     """
+    if head is _ABSENT:
+        head = head_courant()
     if not _is_gated(command):
         return None
     for index, text in enumerate(recent_texts):
@@ -317,9 +386,9 @@ def verdict(command, recent_texts):
         marker = find_marker(text)
         if marker:
             if marker.group("verdict").upper() == "PASS":
-                if _was_briefed(recent_texts, index):
-                    return None
-                return _missing_brief_message()
+                if not _was_briefed(recent_texts, index):
+                    return _missing_brief_message()
+                return _couvre_le_code_actuel(text, head)
             return (
                 "BLOCKED: the last independent review came back FAIL and nothing "
                 "says it was resolved. "

@@ -85,13 +85,13 @@ _BRIEF = "\n".join([
 
 def test_deploy_with_review_passes():
     """A PASS also needs its launch traced (contract widened 2026-08-30)."""
-    marker = "[REVIEW] par contexte-neuf le 2026-08-10 — verdict: PASS, 0 defaut"
-    assert gate.verdict("docker compose up -d", [marker, _BRIEF]) is None
+    marker = "[REVIEW] par contexte-neuf le 2026-08-10 sur abc1234 — verdict: PASS, 0 defaut"
+    assert gate.verdict("docker compose up -d", [marker, _BRIEF], head=COMMIT_RELU) is None
 
 
 def test_deploy_with_a_review_but_no_launch_brief_is_refused():
     """The counterpart of the test above: the same PASS, without the brief."""
-    marker = "[REVIEW] par contexte-neuf le 2026-08-10 — verdict: PASS, 0 defaut"
+    marker = "[REVIEW] par contexte-neuf le 2026-08-10 sur abc1234 — verdict: PASS, 0 defaut"
     assert gate.verdict("docker compose up -d", [marker]) is not None
 
 
@@ -114,9 +114,9 @@ def test_methodology_propagation_counts_as_a_deploy():
 
 
 def test_methodology_propagation_with_review_passes():
-    marker = "[REVIEW] par cross-model le 2026-08-10 — verdict: PASS, 2 defauts corriges"
+    marker = "[REVIEW] par cross-model le 2026-08-10 sur abc1234 — verdict: PASS, 2 defauts corriges"
     command = "python scripts/propagate-methodology.py --all"
-    assert gate.verdict(command, [marker, _BRIEF]) is None
+    assert gate.verdict(command, [marker, _BRIEF], head=COMMIT_RELU) is None
 
 
 def test_sync_repo_propagation_counts_as_a_deploy():
@@ -143,11 +143,11 @@ def test_a_failed_review_blocks_the_deploy():
 
 def test_a_failed_review_followed_by_a_passing_one_unblocks():
     texts = [
-        "[REVIEW] par cross-model le 2026-08-10 — verdict: PASS, defauts corriges",
+        "[REVIEW] par cross-model le 2026-08-10 sur abc1234 — verdict: PASS, defauts corriges",
         "[REVIEW] par cross-model le 2026-08-10 — verdict: FAIL, 5 defauts",
         _BRIEF,
     ]  # most recent first, as the transcript reader yields them
-    assert gate.verdict("docker compose up -d", texts) is None
+    assert gate.verdict("docker compose up -d", texts, head=COMMIT_RELU) is None
 
 
 def test_an_ordinary_push_is_free():
@@ -417,7 +417,15 @@ def test_testing_the_propagation_script_is_not_running_it():
 #   - zones suspectes: <where to look first>
 #   - consigne: refuter
 
-PASS_MARKER = "[REVIEW] par contexte-neuf le 2026-08-30 — verdict: PASS, 0 defaut retenu"
+# Depuis le 2026-09-07, un feu vert nomme l'empreinte qu'il a relue : un verdict
+# sans empreinte ne dit pas sur quoi il porte (voir test_review_covers_head.py).
+# Les tests ci-dessous portent sur le BRIEF et sur le mot du verdict ; ils
+# nomment donc une empreinte pour rester sur leur propre sujet.
+COMMIT_RELU = "abc1234"
+PASS_MARKER = (
+    f"[REVIEW] par contexte-neuf le 2026-08-30 sur {COMMIT_RELU} "
+    "— verdict: PASS, 0 defaut retenu"
+)
 
 FULL_BRIEF = (
     "[REVIEW-BRIEF]\n"
@@ -474,12 +482,12 @@ def test_should_name_the_missing_fields_in_the_block_message():
 
 
 def test_should_accept_a_passing_review_launched_from_a_brief():
-    assert gate.verdict(DEPLOY, [PASS_MARKER, FULL_BRIEF]) is None
+    assert gate.verdict(DEPLOY, [PASS_MARKER, FULL_BRIEF], head=COMMIT_RELU) is None
 
 
 def test_should_accept_a_brief_and_a_verdict_in_the_same_message():
     together = FULL_BRIEF + "\n" + PASS_MARKER
-    assert gate.verdict(DEPLOY, [together]) is None
+    assert gate.verdict(DEPLOY, [together], head=COMMIT_RELU) is None
 
 
 def test_should_still_block_a_failing_review_even_with_a_brief():
@@ -516,7 +524,7 @@ def test_should_refuse_a_brief_that_came_after_the_verdict():
 
 def test_should_accept_a_brief_that_came_before_the_verdict():
     texts = [PASS_MARKER, _BRIEF]  # verdict most recent, brief older = before it
-    assert gate.verdict(DEPLOY, texts) is None
+    assert gate.verdict(DEPLOY, texts, head=COMMIT_RELU) is None
 
 
 def test_should_refuse_when_an_older_review_was_briefed_and_this_one_was_not():
@@ -535,11 +543,11 @@ def test_should_carry_the_brief_across_a_corrective_round():
     truth: the objective did not change between the two passes.
     """
     texts = [
-        "[REVIEW] par x le 2026-08-30 — verdict: PASS, corrige",
+        f"[REVIEW] par x le 2026-08-30 sur {COMMIT_RELU} — verdict: PASS, corrige",
         "[REVIEW] par x le 2026-08-30 — verdict: FAIL, famille: bouton decoratif, 1 defaut",
         _BRIEF,
     ]
-    assert gate.verdict(DEPLOY, texts) is None
+    assert gate.verdict(DEPLOY, texts, head=COMMIT_RELU) is None
 
 
 # --- the template the agents are told to emit must be readable by this gate ----

@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
@@ -135,8 +136,37 @@ def deposer(message: Message, dossier: Path) -> Path:
     dossier.mkdir(parents=True, exist_ok=True)
     texte = encoder(message)
     chemin = dossier / f"{_ardoise(message.de)}-{_empreinte(texte)}.jsonl"
-    chemin.write_text(texte + "\n", encoding="utf-8")
+    # ECRIRE A COTE, PUIS DEPLACER D'UN COUP — le geste de `maildir`
+    # (spec D. J. Bernstein, cr.yp.to/proto/maildir.html, veille du 2026-09-07).
+    #
+    # POURQUOI. Une ecriture directe dans la boite est visible a mi-chemin. Un
+    # lecteur qui arrive pendant l'ecriture lit un texte tronque, le compte
+    # illisible — ET LE MARQUE LU. Le message est alors perdu pour de bon,
+    # pendant que l'emetteur croit l'avoir remis. Reproduit avant correction.
+    #
+    # Le deplacement, lui, est atomique : la boite ne contient jamais un
+    # message a moitie. C'est la seule partie de `maildir` qu'on adopte — son
+    # nom unique par message nous ferait perdre le notre, tire du CONTENU, qui
+    # evite qu'un meme message depose deux fois soit lu deux fois.
+    brouillon = chemin.with_name(f".{chemin.name}.{os.getpid()}.partiel")
+    brouillon.write_text(texte + "\n", encoding="utf-8")
+    os.replace(brouillon, chemin)
     return chemin
+
+
+def _marquer_lu(chemin: Path) -> None:
+    """Poser le marqueur de lecture, meme si la meme alerte est deja passee.
+
+    `os.replace` et non `rename` : le nom du depot vient de l'empreinte du
+    message, donc une alerte IDENTIQUE reprend le meme nom. Sous Windows,
+    `rename` echoue quand le marqueur existe deja, et la boite entiere devient
+    muette a partir de la deuxieme occurrence.
+
+    Mesure du 2026-09-07, famille « silence-sur-recidive » : une reserve qui
+    echoue deux fois de suite n'alertait qu'une fois, et le second silence
+    ressemblait exactement a « rien a signaler ».
+    """
+    os.replace(chemin, chemin.with_suffix(chemin.suffix + SUFFIXE_LU))
 
 
 def relever_avec_erreurs(dossier: Path, marquer_lus: bool = False) -> tuple[list[Message], int]:
@@ -151,21 +181,40 @@ def relever_avec_erreurs(dossier: Path, marquer_lus: bool = False) -> tuple[list
     recus: list[Message] = []
     illisibles = 0
     for chemin in sorted(dossier.glob("*.jsonl")):
+        lus, rates = _depouiller(chemin, marquer_lus)
+        recus.extend(lus)
+        illisibles += rates
+    return recus, illisibles
+
+
+def _depouiller(chemin: Path, marquer_lus: bool) -> tuple[list[Message], int]:
+    """Un seul depot : ce qu'il porte, et ce qu'il a rate.
+
+    Un renommage rate ne doit JAMAIS emporter ce qui vient d'etre lu. Course
+    mesuree le 2026-09-07 : deux sessions demarrent ensemble, l'une renomme le
+    depot que l'autre vient de lire, l'exception sortait de la fonction entiere
+    et les messages deja collectes etaient perdus — lus, marques lus, jamais
+    montres. Un echec local reste local.
+    """
+    try:
+        contenu = chemin.read_text(encoding="utf-8")
+    except OSError:
+        return [], 1
+    recus: list[Message] = []
+    illisibles = 0
+    for ligne in contenu.splitlines():
+        if not ligne.strip():
+            continue
+        message = decoder(ligne)
+        if message is None:
+            illisibles += 1
+        else:
+            recus.append(message)
+    if marquer_lus:
         try:
-            contenu = chemin.read_text(encoding="utf-8")
+            _marquer_lu(chemin)
         except OSError:
             illisibles += 1
-            continue
-        for ligne in contenu.splitlines():
-            if not ligne.strip():
-                continue
-            message = decoder(ligne)
-            if message is None:
-                illisibles += 1
-            else:
-                recus.append(message)
-        if marquer_lus:
-            chemin.rename(chemin.with_suffix(chemin.suffix + SUFFIXE_LU))
     return recus, illisibles
 
 

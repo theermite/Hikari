@@ -45,9 +45,47 @@ from common import find_repo_root  # noqa: E402
 from friction import detect_overcome_blocks, signature  # noqa: E402
 from transcript_reader import iter_entries  # noqa: E402
 
-# A real hook message starts a line with BLOCKED: or WARNING: (see common.py
-# format_block / format_warn). Capture the reason that follows, one per line.
-MARKER_RE = re.compile(r"^\s*(BLOCKED|WARNING):\s*(.+?)\s*$", re.MULTILINE)
+# Le marqueur arrive RAREMENT en debut de ligne. Le harnais le prefixe du nom de
+# l'evenement et du chemin du garde-fou :
+#   PreToolUse:Bash hook error: [bash ".../_run.sh" guards/bash-guard.py]: BLOCKED: ...
+# Exiger `^` perdait donc les BLOCAGES en priorite — ceux qui comptent le plus.
+# Mesure du 2026-09-07 sur une session reelle : 92 marqueurs presents, 30 comptes.
+# Le marqueur ouvre la ligne, OU suit le prefixe du harnais (`]: ` / `hook error: `).
+# Ce cadrage est ce qui separe un evenement d'un simple TEXTE qui parle de blocage :
+# en elargissant naivement a « n'importe ou dans la ligne », le compteur s'est mis a
+# compter le code source qu'on venait de LIRE — 69 blocages annonces au lieu de 26,
+# mesure du 2026-09-07. Un compteur qui gonfle ment autant qu'un compteur muet.
+MARKER_RE = re.compile(
+    r"(?:^|\]:[ \t]|hook error:[ \t])(BLOCKED|WARNING):[ \t]*(.+?)[ \t]*$",
+    re.MULTILINE,
+)
+
+# Une ligne qui n'est QU'un gabarit commence par un chevron : c'est une doc, pas
+# un evenement. Un vrai blocage, lui, porte presque toujours un `<exemple>` dans
+# son texte d'aide — l'ecarter pour ce motif jetait 12 occurrences reelles sur la
+# seule session mesuree. On teste donc le DEBUT du motif, jamais sa presence.
+GABARIT_RE = re.compile(r"^\s*<[^>]+>")
+
+# Un vrai evenement OUVRE sa ligne. Liste FERMEE des cinq formes MESUREES :
+# le harnais annonce l'evenement (`PreToolUse:` / `PostToolUse:`), le message
+# arrive nu (`BLOCKED:` / `WARNING:`), ou la commande du garde-fou ouvre la ligne
+# quand le prefixe est alle a la ligne precedente (`[bash "`, `[HOOK=`).
+#
+# POURQUOI UN CRITERE POSITIF, ET NON UNE LISTE DE CE QU'IL FAUT ECARTER.
+# Premiere tentative du 2026-09-07 : ecarter les lignes commencant par un diese
+# ou une citation. Relecture independante, mesure a l'appui — il restait 26 % de
+# gonflement, car une ligne de code commence tout aussi bien par `msg = ` ou par
+# le `+` d'un diff. Une liste d'exclusions est OUVERTE : la forme suivante la
+# depasse toujours.
+#
+# ET UNE LISTE D'INCLUSIONS FERMEE TROP TOT MENT DANS L'AUTRE SENS. Deuxieme
+# relecture, sur un modele different : la 5e forme (`[HOOK=`) existe dans 55
+# fichiers de session, et le compteur perdait donc de vrais blocages
+# PostToolUse. J'avais mesure UN seul canal (le resultat d'outil) avant de
+# declarer la liste close. Une liste fermee ne vaut que par l'etendue de ce
+# qu'on a regarde — d'ou le test qui relit de VRAIS transcripts et echoue sur
+# toute forme non couverte (`test_hook_blocks_shapes.py`).
+EVENEMENT_RE = re.compile(r'^(?:(?:Pre|Post)ToolUse:|BLOCKED:|WARNING:|\[bash "|\[HOOK=)')
 
 STATE_REL = ".claude/state/hook-blocks.jsonl"
 
@@ -87,31 +125,55 @@ def extract_text(node: object) -> str:
     return "\n".join(chunks)
 
 
-def scan(transcript_path: str) -> tuple[dict[str, int], dict[str, int]]:
+def scan(transcript_path: str) -> tuple[dict[str, int], dict[str, int], int]:
+    """Compte les blocages et avertissements, et DIT combien d'entrees il a lues.
+
+    Le nombre d'entrees lues est la seule chose qui rende un zero croyable : sans
+    lui, « aucun garde-fou n'a parle » et « le compteur n'a rien lu » s'ecrivent
+    pareil. C'est ce qui a masque le defaut pendant trois mois.
+    """
     blocks: dict[str, int] = {}
     warns: dict[str, int] = {}
+    lues = 0
     for entry in iter_entries(transcript_path):
+        lues += 1
         if entry_role(entry) == "assistant":
             continue  # Takumi quoting a message is not a real block
-        text = extract_text(entry)
-        for kind, reason in MARKER_RE.findall(text):
-            if "<" in reason and ">" in reason:
-                continue  # placeholder/template line, not a real occurrence
-            sig = signature(reason)
-            if not sig:
-                continue
+        for kind, sig in _evenements(extract_text(entry)):
             bucket = blocks if kind == "BLOCKED" else warns
             bucket[sig] = bucket.get(sig, 0) + 1
-    return blocks, warns
+    return blocks, warns, lues
+
+
+def _evenements(text: str) -> set[tuple[str, str]]:
+    """Les evenements DISTINCTS d'une entree — un resultat d'outil, un evenement.
+
+    Le meme texte apparait a deux endroits d'un resultat d'outil. Chaque blocage
+    etait donc compte double (mesure du 2026-09-07, sur les trois entrees
+    concernees). Un compteur juste a un facteur deux pres est un compteur qui
+    ment. Deux motifs DIFFERENTS dans une meme entree comptent bien pour deux.
+    """
+    trouves: set[tuple[str, str]] = set()
+    for ligne in text.splitlines():
+        if not EVENEMENT_RE.match(ligne):
+            continue  # du texte qui PARLE de blocage n'est pas un blocage
+        for kind, reason in MARKER_RE.findall(ligne):
+            if GABARIT_RE.match(reason):
+                continue  # une ligne qui n'est QU'un gabarit, pas un evenement
+            sig = signature(reason)
+            if sig:
+                trouves.add((kind, sig))
+    return trouves
 
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _append_journal(session_id: str, blocks: dict, warns: dict, overcome: dict) -> None:
+def _append_journal(session_id: str, blocks: dict, warns: dict, overcome: dict,
+                    lues: int) -> None:
     entry = {"session_id": session_id, "ts": now_iso(),
-             "blocks": blocks, "warns": warns, "overcome": overcome}
+             "blocks": blocks, "warns": warns, "overcome": overcome, "lues": lues}
     state_path = find_repo_root() / STATE_REL
     try:
         state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -140,12 +202,15 @@ def main() -> None:
     session_id = data.get("session_id") or os.environ.get("CLAUDE_SESSION_ID", "")
     if not transcript_path:
         sys.exit(0)
-    blocks, warns = scan(transcript_path)
+    blocks, warns, lues = scan(transcript_path)
     overcome = detect_overcome_blocks(transcript_path)
-    if not blocks and not warns:
-        sys.exit(0)
-    _append_journal(session_id, blocks, warns, overcome)
-    _emit_summary(blocks, warns, overcome)
+    # Une session calme laisse une trace, elle aussi. Sans elle, « rien ne s'est
+    # passe » et « le compteur est casse » s'ecrivent pareil — et c'est ce qui a
+    # laisse croire pendant trois mois que nos garde-fous se taisaient : 115
+    # sessions ecrites dans ce depot, 5 lignes au journal.
+    _append_journal(session_id, blocks, warns, overcome, lues)
+    if blocks or warns:
+        _emit_summary(blocks, warns, overcome)
     sys.exit(0)
 
 

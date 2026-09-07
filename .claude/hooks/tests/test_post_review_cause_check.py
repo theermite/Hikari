@@ -29,7 +29,48 @@ FULL_CAUSE = (
     "- famille: analyse du shell faite a la main dans chaque garde-fou\n"
     "- cause: deux analyseurs prives qui divergent\n"
     "- ce qui empeche la repetition: un analyseur partage, avec ses tests\n"
+    "- veille: shlex, doc officielle consultee le 2026-09-07\n"
 )
+
+
+# --- corriger sans chercher, c'est corriger de travers -----------------------
+#
+# DEMANDE DE JAY, 2026-09-07 : « lorsqu'il y a des relectures qui sont faites et
+# que les corrections sont tentees, il faut absolument faire des recherches Web
+# pour s'assurer d'avoir les informations a jour ».
+#
+# Mesure qui lui donne raison, le jour meme : une journee entiere de correctifs
+# ecrits depuis zero, sans une seule recherche. La premiere veille lancee a
+# trouve que l'outil de reference REFUSE de demarrer sur un depot sale — la
+# regle dont l'absence a coute toute la matinee.
+
+
+def test_a_cause_without_research_is_refused():
+    """Corriger depuis un jeu de connaissances perime, c'est corriger de travers."""
+    sans = (
+        "[CAUSE]\n"
+        "- famille: x\n- cause: y\n- ce qui empeche la repetition: z\n"
+    )
+    assert gate.find_cause(sans) is None
+
+
+def test_a_research_line_without_a_source_is_refused():
+    """« J'ai regarde » n'est pas une source : un modele l'ecrit aussi vite que la verite."""
+    vague = FULL_CAUSE.replace(
+        "- veille: shlex, doc officielle consultee le 2026-09-07\n",
+        "- veille: j'ai regarde, rien de neuf\n")
+    assert gate.find_cause(vague) is None
+
+
+def test_a_dated_source_is_accepted():
+    assert gate.find_cause(FULL_CAUSE) is not None
+
+
+def test_a_link_counts_as_a_source():
+    avec_lien = FULL_CAUSE.replace(
+        "- veille: shlex, doc officielle consultee le 2026-09-07\n",
+        "- veille: https://copier.readthedocs.io/en/stable/updating/\n")
+    assert gate.find_cause(avec_lien) is not None
 
 
 # --- reading the verdicts ----------------------------------------------------

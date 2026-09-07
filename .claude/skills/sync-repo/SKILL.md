@@ -17,9 +17,13 @@ Jay's decision: one implementation, no second recipe. A route that copies the
 gestures will drift from the route that owns them.
 
 **Before the push step**: read `.claude/rules-ondemand/Independent-Review.md` in
-full — propagating to other repos is one of its trigger classes (fresh-context
-review, `[REVIEW]` / `[REVIEW-SKIP]` marker). It is not auto-loaded at session
-start; this is where it applies.
+full — propagating to other repos is one of its trigger classes. THREE markers,
+in order: `[REVIEW-BRIEF]` (four lines, before launching the reviewer), then
+`[REVIEW] par <relecteur> le <date> sur <empreinte> — verdict: PASS|FAIL`, where
+`<empreinte>` is the commit actually read. Or `[REVIEW-SKIP] motif: <enum>`. The
+gate refuses at each step, so the order is not decoration — emitting it wrong
+cost three round trips on 2026-09-07. It is not auto-loaded at session start;
+this is where it applies.
 
 ## Steps
 
