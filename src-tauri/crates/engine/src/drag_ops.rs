@@ -318,9 +318,22 @@ impl App {
 
     /// Shared tail of both gestures: forget the cached rectangles and report what really
     /// happened (the clamped values, never the requested ones).
+    ///
+    /// Appelé à CHAQUE mouvement de souris pendant un glissement — donc des dizaines de fois
+    /// par seconde, sur n'importe quelle source. Chercher un identifiant de caméra pour un
+    /// texte ou une capture d'écran ne pouvait que rater, et ratait bruyamment : la trace de
+    /// diagnostic prévue pour un vrai refus de retrait (2026-09-06) s'est mise à tourner en
+    /// boucle sur une source texte qu'on déplaçait, 431 fois en une session (Jay, 2026-09-07).
+    ///
+    /// La question « est-ce une caméra ? » se pose donc AVANT de demander son identifiant,
+    /// avec la même fonction qui répond déjà oui/non ailleurs dans ce fichier.
     fn report_transform(&mut self, name: &str, result: Result<(i32, i32, i32)>) {
         let scene = self.obs.as_ref().map(|obs| obs.active_scene.clone()).unwrap_or_default();
-        let device_id = self.camera_device_id_by_name(&scene, name);
+        let device_id = if self.camera_item_by_name(&scene, name).is_some() {
+            self.camera_device_id_by_name(&scene, name)
+        } else {
+            String::new()
+        };
         match result {
             Ok((x, y, scale_percent)) => {
                 self.scene_layout_changed();
