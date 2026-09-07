@@ -337,9 +337,11 @@ describe("ScenesPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("should_ouvrir_les_reglages_d_une_camera_depuis_sa_ligne_de_source", async () => {
-    // LA régression du 2026-09-06 : les réglages de caméra étaient inatteignables. Ils
-    // vivent désormais au même endroit que la caméra elle-même — sa ligne dans la scène.
+  it("should_ouvrir_les_reglages_d_une_camera_dans_une_fenetre_separee", async () => {
+    // Jay, 2026-09-07 : « c'est absolument contre-intuitif [...] c'est une fenêtre qui
+    // apparaît pour que l'on puisse régler », comme dans OBS. Le panneau replié SOUS la
+    // ligne (régression du 2026-09-06, corrigée alors) est remplacé par une vraie fenêtre
+    // native — le contenu (`CameraControls`) vit désormais dans `SettingsWindow.tsx`.
     const user = userEvent.setup();
     render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([
@@ -368,55 +370,22 @@ describe("ScenesPanel", () => {
       screen.getByRole("button", { name: /Réglages de Logitech StreamCam/ }),
     );
 
-    // Dépliés SOUS la ligne, jamais dans une fenêtre : une fenêtre passe devant l'image
-    // native du moteur, qui doit alors se retirer de l'écran. Régler une caméra sans la
-    // voir n'a pas de sens (Jay, 2026-09-06).
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /fond IA/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("should_appliquer_le_filtre_a_cette_camera_dans_cette_scene", async () => {
-    // Les filtres appartiennent à la caméra ET à la scène : deux caméras d'une même scène
-    // peuvent avoir deux allures, et la même caméra deux allures selon la scène.
-    const user = userEvent.setup();
-    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
-    ready([
-      scene({
-        name: "main",
-        has_camera: true,
-        sources: [
-          {
-            name: "Logitech StreamCam",
-            kind: "dshow_input",
-            source_kind: "camera",
-            target_id: "cam-1",
-            x: 0,
-            y: 0,
-            scale_percent: 100,
-            locked: false,
-            background_removal: false,
-            circle_mask: false,
-            visible: true,
-          },
-        ],
-      }),
-    ]);
-
-    await user.click(
-      screen.getByRole("button", { name: /Réglages de Logitech StreamCam/ }),
-    );
-    await user.click(screen.getByRole("button", { name: /fond IA/i }));
-
-    expect(invokeMock).toHaveBeenCalledWith("set_background_removal", {
-      deviceId: "cam-1",
+    expect(invokeMock).toHaveBeenCalledWith("open_settings_window", {
+      kind: "camera",
       scene: "main",
-      enabled: true,
+      name: "Logitech StreamCam",
+      initial: null,
     });
+    // Rien ne se déplie plus dans la ligne : le contenu vit dans la fenêtre séparée.
+    expect(
+      screen.queryByRole("button", { name: /fond IA/i }),
+    ).not.toBeInTheDocument();
   });
 
-  it("should_refermer_les_reglages_au_second_clic", async () => {
+  it("should_ouvrir_ou_focaliser_la_meme_fenetre_a_chaque_clic", async () => {
+    // Plus de repli local à fermer/rouvrir : chaque clic redemande l'ouverture, et c'est
+    // la commande côté Rust qui décide de créer une fenêtre ou de focaliser celle qui
+    // existe déjà pour cette source (voir `settings_window.rs`, `window_label`).
     const user = userEvent.setup();
     render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([
@@ -447,9 +416,11 @@ describe("ScenesPanel", () => {
     await user.click(bouton);
     await user.click(bouton);
 
-    expect(
-      screen.queryByRole("button", { name: /fond IA/i }),
-    ).not.toBeInTheDocument();
+    const appels = invokeMock.mock.calls.filter(
+      ([nom]) => nom === "open_settings_window",
+    );
+    expect(appels).toHaveLength(2);
+    expect(appels[0]).toEqual(appels[1]);
   });
 
   it("should_annoncer_les_reglages_a_venir_sur_une_source_ordinaire", async () => {
@@ -630,51 +601,6 @@ describe("ScenesPanel", () => {
     expect(screen.queryByText(/Transition/)).not.toBeInTheDocument();
   });
 
-  it("should_relancer_une_camera_sans_la_retirer", async () => {
-    // Vécu par Jay le 2026-09-07, en plein direct : sa caméra a figé, et le seul recours
-    // était de la retirer puis de la remettre — donc de refaire son cadrage et ses
-    // filtres devant les spectateurs.
-    const user = userEvent.setup();
-    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
-    ready([
-      scene({
-        name: "main",
-        has_camera: true,
-        sources: [
-          {
-            name: "Krom Kam",
-            kind: "dshow_input",
-            source_kind: "camera",
-            target_id: "cam-1",
-            x: 0,
-            y: 0,
-            scale_percent: 100,
-            locked: false,
-            background_removal: false,
-            circle_mask: false,
-            visible: true,
-          },
-        ],
-      }),
-    ]);
-
-    await user.click(
-      screen.getByRole("button", { name: /Réglages de Krom Kam/ }),
-    );
-    await user.click(
-      screen.getByRole("button", { name: /Relancer la caméra/ }),
-    );
-
-    expect(invokeMock).toHaveBeenCalledWith("restart_camera", {
-      deviceId: "cam-1",
-    });
-    // Rien ne doit la retirer au passage : c'est tout l'intérêt du geste.
-    expect(invokeMock).not.toHaveBeenCalledWith(
-      "remove_camera_source",
-      expect.anything(),
-    );
-  });
-
   it("should_demander_le_texte_a_ecrire_plutot_qu_une_cible", async () => {
     // Le contenu d'une source texte vient de l'utilisateur, pas de la machine : ni liste
     // de cibles, ni sélecteur de fichier. Un champ, et c'est tout.
@@ -761,7 +687,11 @@ describe("ScenesPanel", () => {
 
     unmount();
     await Promise.resolve();
-    expect(unlisten).toHaveBeenCalledTimes(1);
+    // Deux abonnements distincts vivent ici depuis la fenêtre de réglages séparée
+    // (2026-09-07) : l'écoute des messages du moteur, et celle des changements
+    // d'apparence de texte qu'une fenêtre séparée annonce (`useTextSettings`). Les deux
+    // doivent se désabonner au démontage.
+    expect(unlisten).toHaveBeenCalledTimes(2);
   });
 
   it("should_never_overwrite_the_saved_session_when_a_fresh_engine_reports_its_naked_state", async () => {

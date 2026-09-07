@@ -13,6 +13,7 @@ pub mod preflight;
 pub mod preflight_bridge;
 pub mod preview_bridge;
 pub mod protocol;
+pub mod settings_window;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -58,6 +59,7 @@ pub fn run() {
             engine_scenes::set_source_transform,
             engine_scenes::set_source_locked,
             engine_scenes::set_source_visible,
+            settings_window::open_settings_window,
             engine_scenes::set_text_settings,
             engine_scenes::set_text_content,
             engine_scenes::restart_camera,

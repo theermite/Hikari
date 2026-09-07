@@ -9,11 +9,28 @@
 
 import { MorphicProvider } from "@theermite/morphic-adapter";
 import { Cockpit } from "./features/shell/Cockpit";
+import {
+  readSettingsWindowParams,
+  SettingsWindow,
+} from "./features/shell/SettingsWindow";
+
+// Une fenêtre de réglages (Jay, 2026-09-07 : « une fenêtre qui apparaît pour que l'on
+// puisse régler », comme dans OBS) partage le même point d'entrée que la fenêtre
+// principale — c'est le même exécutable, le même index.html — et se distingue par les
+// paramètres que `open_settings_window` pose dans son URL. Lu UNE fois, au montage : ces
+// paramètres ne changent jamais pour la durée de vie de cette fenêtre précise.
+//
+// `typeof window` et non un accès direct : ce composant passe aussi par un rendu SERVEUR
+// dans ses propres tests de coque (`renderToStaticMarkup`), où `window` n'existe pas.
+const settingsParams =
+  typeof window === "undefined"
+    ? null
+    : readSettingsWindowParams(window.location.search);
 
 function App() {
   return (
     <MorphicProvider>
-      <Cockpit />
+      {settingsParams ? <SettingsWindow {...settingsParams} /> : <Cockpit />}
     </MorphicProvider>
   );
 }

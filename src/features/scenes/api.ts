@@ -104,3 +104,25 @@ export function setTextSettings(
 ): Promise<void> {
   return invoke("set_text_settings", { scene, name, settings });
 }
+
+/** Ouvre les réglages d'une source dans une vraie fenêtre séparée — déplaçable, comme dans
+ * OBS (Jay, 2026-09-07 : « c'est absolument contre-intuitif [...] c'est une fenêtre qui
+ * apparaît pour que l'on puisse régler »). Ramène au premier plan celle qui existe déjà
+ * pour cette source plutôt que d'en ouvrir une deuxième — voir `settings_window.rs`.
+ *
+ * `initial` porte l'état de départ pour ce que le moteur ne rapporte pas lui-même
+ * (l'apparence d'un texte) ; absent pour une caméra, dont l'état vient entièrement du
+ * moteur. */
+export function openSettingsWindow(
+  kind: "text" | "camera",
+  scene: string,
+  name: string,
+  initial?: { text: string; settings: TextSettings },
+): Promise<void> {
+  return invoke("open_settings_window", {
+    kind,
+    scene,
+    name,
+    initial: initial ? JSON.stringify(initial) : null,
+  });
+}

@@ -7,9 +7,8 @@
 // moteur — son identifiant y reste fixe à vie.
 
 import { listen } from "@tauri-apps/api/event";
-import { open } from "@tauri-apps/plugin-dialog";
 import type { IDockviewPanelProps } from "dockview-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Panel } from "../../components/ui/Panel";
 import {
   addAudioSource,
@@ -22,22 +21,18 @@ import {
 import type { AudioEngineMessage, AudioSourceInfo } from "../audio/types";
 import {
   addCameraSource,
-  listCameras,
   setBackgroundRemoval,
   setCircleMask,
 } from "../camera/api";
 import { onAddRequested } from "../shell/panelActions";
-import { AddSourceModal, type CaptureTargets } from "./AddSourceModal";
+import { AddSourceModal } from "./AddSourceModal";
 import {
   addCaptureSource,
   createScene,
-  deleteScene,
   listCaptureTargets,
-  removeSource,
-  reorderSource,
+  openSettingsWindow,
   setSourceLocked,
   setSourceTransform,
-  setSourceVisible,
   setTextSettings as setTextSettingsOnEngine,
   switchScene,
 } from "./api";
@@ -45,7 +40,6 @@ import { SceneRow } from "./SceneRow";
 import { SceneCollections, SceneTransition } from "./SceneSkeleton";
 import {
   EMPTY_LAYOUT,
-  labelFor,
   loadSceneLayout,
   loadSession,
   moveScene,
@@ -53,27 +47,18 @@ import {
   type SceneLayout,
   saveSceneLayout,
   saveSession,
-  validateLabel,
 } from "./sceneLayout";
 import { buildReplay, toSession } from "./session";
-import { FILE_FILTERS, nameFromPath, SOURCE_FAMILIES } from "./sourcePicker";
-import type { TextSettings } from "./textSettings";
-import type {
-  CaptureTarget,
-  EngineMessage,
-  SceneInfo,
-  SourceKind,
-  SourceOrder,
-} from "./types";
+import { withDefaults } from "./textSettings";
+import type { EngineMessage, SceneInfo } from "./types";
+import { useAddSource } from "./useAddSource";
+import { useSceneActions } from "./useSceneActions";
+import { useSceneRename } from "./useSceneRename";
+import { useTextSettings } from "./useTextSettings";
 
 type State =
   | { status: "idle" }
   | { status: "ready"; scenes: SceneInfo[]; active: string };
-
-const LABEL_ERRORS = {
-  empty: "Le nom ne peut pas être vide.",
-  duplicate: "Une autre scène porte déjà ce nom.",
-} as const;
 
 /** Un pictogramme par famille de source, pour reconnaître le contenu d'une scène d'un coup
  * d'œil. Clé = identifiant libobs, jamais un nom inventé côté écran. */
@@ -87,82 +72,14 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const [newName, setNewName] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [renaming, setRenaming] = useState<string | null>(null);
-  const [draftLabel, setDraftLabel] = useState("");
-  const [labelError, setLabelError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
-  /** La source dont les réglages sont dépliés, et dans quelle scène. Les deux, jamais la
-   * source seule : les filtres d'une caméra appartiennent à la PAIRE caméra + scène, et
-   * deux scènes peuvent montrer la même caméra. Le NOM, jamais une copie de la source :
-   * une copie prise à l'ouverture ferait afficher « activer » à un filtre déjà activé. */
-  const [settingsFor, setSettingsFor] = useState<{
-    scene: string;
-    name: string;
-  } | null>(null);
-  /** Les réglages de texte, par scène puis par source.
-   *
-   * Retenus par l'application et non relus du moteur : l'application est le SEUL auteur de
-   * ces réglages — rien d'autre ne les change — alors que les filtres d'une caméra sont
-   * aussi posés par le moteur, d'où leur aller-retour. Deux sources de vérité là où il n'y
-   * a qu'un auteur créeraient une divergence sans raison. */
-  const [textSettings, setTextSettings] = useState<
-    Record<string, Record<string, TextSettings>>
-  >({});
-  const textSettingsRef = useRef(textSettings);
-  textSettingsRef.current = textSettings;
-
-  /** Retient un réglage de texte, et le range dans la session.
-   *
-   * Écrit tout de suite plutôt qu'à la fermeture : une application fermée brutalement ne
-   * sauvegarde rien, et c'est précisément le moment où l'on perd le plus. */
-  const handleTextSettingsChange = useCallback(
-    (scene: string, name: string, next: TextSettings) => {
-      setTextSettings((avant) => {
-        const apres = {
-          ...avant,
-          [scene]: { ...(avant[scene] ?? {}), [name]: next },
-        };
-        textSettingsRef.current = apres;
-        return apres;
-      });
-      saveSession(
-        toSession(
-          stateRef.current,
-          activeRef.current,
-          audioRef.current,
-          textSettingsRef.current,
-        ),
-      ).catch(() => undefined);
-    },
-    [],
-  );
   /** Les scènes dont les sources sont dépliées. Fermées par défaut : avant, chaque scène
    * déroulait tout son contenu en permanence et trois scènes remplissaient le panneau.
    * La scène EN DIRECT s'ouvre d'office — c'est celle qu'on regarde. */
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  /** Ce que le MOTEUR diffuse : les captures vivantes, sans les caméras (il les détecte
-   * par une commande à part). Garder ici sa forme exacte évite d'inventer un champ vide
-   * que rien ne remplit. */
-  const [targets, setTargets] = useState<Omit<
-    CaptureTargets,
-    "cameras"
-  > | null>(null);
-  /** Les caméras branchées, telles que la machine les rapporte. Elles arrivent par une
-   * commande à part (le moteur les DÉTECTE, il ne les diffuse pas avec les captures), d'où
-   * cet état distinct recomposé avec le reste juste avant l'affichage. */
-  const [cameras, setCameras] = useState<CaptureTarget[]>([]);
-  const [targetsError, setTargetsError] = useState<string | null>(null);
-  const [chosenFamily, setFamily] = useState<SourceKind>("game");
-  const [search, setSearch] = useState("");
-  /** Le texte en cours de saisie dans la fenêtre d'ajout. */
-  const [draftText, setDraftText] = useState("");
-  const chosenIsFile =
-    SOURCE_FAMILIES.find((f) => f.kind === chosenFamily)?.isFile ?? false;
-  const renameInput = useRef<HTMLInputElement>(null);
   /** Le champ de creation, pour que le « + » de l'onglet y amene directement le curseur. */
   const newNameInput = useRef<HTMLInputElement>(null);
-  const searchInput = useRef<HTMLInputElement>(null);
   /** Vrai pendant le rejeu de la session — empêche de réécrire par-dessus ce qu'on restaure. */
   const replaying = useRef(false);
   /** Vrai une fois le rejeu lancé. Tant qu'il est faux, on ne SAUVEGARDE pas : l'état nu du
@@ -177,6 +94,29 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   /** La scène en direct, pour que l'écoute du mixeur sache quoi retenir sans dépendre d'un
    * état React déjà périmé au moment où elle s'exécute. */
   const activeRef = useRef("main");
+  const { textSettings, setTextSettingsFromReplay } = useTextSettings(
+    stateRef,
+    activeRef,
+    audioRef,
+  );
+  const {
+    targets,
+    setTargets,
+    targetsError,
+    setTargetsError,
+    chosenFamily,
+    setFamily,
+    search,
+    setSearch,
+    draftText,
+    setDraftText,
+    chosenIsFile,
+    searchInput,
+    pickerTargets,
+    addToScene,
+    addText,
+    pickFile,
+  } = useAddSource(state, addingTo, setAddingTo, setActionError);
 
   // Le « + » de l'onglet vit hors de l'arbre de ce panneau : il demande, on repond en
   // amenant le curseur là où l'on nomme une scène.
@@ -253,7 +193,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
           if (step.do === "textSettings") {
             // Retenu AUSSI en mémoire : le panneau doit rouvrir sur les vraies valeurs,
             // sinon il afficherait celles de départ sur un texte déjà réglé.
-            setTextSettings((avant) => ({
+            setTextSettingsFromReplay((avant) => ({
               ...avant,
               [step.scene]: {
                 ...(avant[step.scene] ?? {}),
@@ -359,10 +299,6 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       .catch(() => setLayout(EMPTY_LAYOUT));
   }, []);
 
-  useEffect(() => {
-    if (renaming) renameInput.current?.focus();
-  }, [renaming]);
-
   // Le champ de recherche apparaît APRÈS l'ouverture de la fenêtre, quand les cibles
   // arrivent — d'où ce focus posé à son apparition plutôt qu'à l'ouverture.
   useEffect(() => {
@@ -376,6 +312,17 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     );
   };
 
+  const {
+    renaming,
+    draftLabel,
+    setDraftLabel,
+    labelError,
+    renameInput,
+    startRename,
+    submitRename,
+    cancelRename,
+  } = useSceneRename(layout, persist);
+
   const submitCreate = () => {
     const name = newName.trim();
     if (!name) return;
@@ -385,181 +332,14 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       .catch((error: unknown) => setCreateError(String(error)));
   };
 
-  const activate = (name: string) => {
-    setActionError(null);
-    switchScene(name).catch((error: unknown) => setActionError(String(error)));
-  };
-
-  const confirmDelete = (name: string) => {
-    setActionError(null);
-    setConfirmingDelete(null);
-    deleteScene(name)
-      .then(() => {
-        // L'étiquette et la position d'une scène disparue n'ont plus de sens : les garder
-        // ferait réapparaître un ancien nom si une future scène reprenait cet identifiant.
-        const { [name]: _removed, ...labels } = layout.labels;
-        persist({ order: layout.order.filter((n) => n !== name), labels });
-      })
-      .catch((error: unknown) => setActionError(String(error)));
-  };
-
-  // Redemandée à chaque ouverture du choix, jamais mise en cache : un jeu lancé entre-temps
-  // doit apparaître sans rien redémarrer.
-  //
-  // L'échec est DIT, jamais avalé : le moteur ne tourne qu'avec le panneau Aperçu ouvert, et
-  // afficher « Recherche en cours… » pour toujours laisse l'utilisateur attendre une liste
-  // qui ne viendra jamais (même défaut que le panneau Audio, corrigé le 2026-08-04).
-  useEffect(() => {
-    if (!addingTo) return;
-    setTargetsError(null);
-    listCaptureTargets().catch(() =>
-      setTargetsError(
-        "Le moteur n'est pas démarré — ouvre le panneau Aperçu, la liste apparaîtra toute seule.",
-      ),
-    );
-    // Redemandées à chaque ouverture, comme les captures : une webcam branchée entre-temps
-    // doit apparaître sans rien redémarrer. Un échec laisse simplement la famille vide —
-    // il est déjà dit par le message ci-dessus, qui a la même cause (moteur éteint).
-    listCameras()
-      .then((devices) =>
-        setCameras(
-          devices.map((device) => ({
-            id: device.device_id,
-            label: device.name,
-          })),
-        ),
-      )
-      .catch(() => setCameras([]));
-  }, [addingTo]);
-
-  /** Les appareils que la scène en cours d'ajout montre DÉJÀ. */
-  const placedCameraIds = new Set(
-    (state.status === "ready" ? state.scenes : [])
-      .find((scene) => scene.name === addingTo)
-      ?.sources.filter((source) => source.source_kind === "camera")
-      .map((source) => source.target_id) ?? [],
-  );
-
-  /** Ce que la fenêtre d'ajout propose : les captures du moteur, plus les caméras que
-   * cette scène ne montre pas encore. Reproposer une caméra déjà posée n'ouvrirait rien de
-   * neuf, et provoquerait un refus qu'on peut simplement ne pas déclencher. */
-  const pickerTargets: CaptureTargets | null = targets && {
-    ...targets,
-    cameras: cameras.filter((camera) => !placedCameraIds.has(camera.id)),
-  };
-
-  const addToScene = (
-    scene: string,
-    kind: SourceKind,
-    target: CaptureTarget,
-  ) => {
-    setActionError(null);
-    setAddingTo(null);
-    // Une caméra est UN appareil physique partagé entre les scènes : `add_capture_source`
-    // l'ouvrirait une seconde fois. Le moteur a sa propre commande pour ça (ADR : un
-    // appareil = une source libobs), et le nom vient de l'appareil, jamais de nous.
-    if (kind === "camera") {
-      addCameraSource(target.id, scene).catch((error: unknown) =>
-        setActionError(String(error)),
-      );
-      return;
-    }
-    // Le libellé lisible sert de nom dans la scène : c'est ce que l'utilisateur reconnaît,
-    // et le moteur refuse un doublon.
-    addCaptureSource(scene, kind, target.id, target.label).catch(
-      (error: unknown) => setActionError(String(error)),
-    );
-  };
-
-  /** Pose un texte dans la scène. Le texte SERT DE CIBLE et de nom : c'est ce que
-   * l'utilisateur reconnaîtra dans sa liste de sources, sans avoir à le nommer une
-   * seconde fois. */
-  const addText = (scene: string, texte: string) => {
-    setActionError(null);
-    setAddingTo(null);
-    setDraftText("");
-    addCaptureSource(scene, "text", texte, texte).catch((error: unknown) =>
-      setActionError(String(error)),
-    );
-  };
-
-  /** Ouvre le sélecteur du système, puis pose le fichier choisi dans la scène. Un abandon
-   * (aucun fichier retenu) ne fait rien et ne dit rien : ce n'est pas une erreur. */
-  const pickFile = (scene: string, kind: SourceKind) => {
-    setActionError(null);
-    open({
-      multiple: false,
-      filters: [
-        {
-          name: kind === "image" ? "Images" : "Vidéos",
-          extensions: FILE_FILTERS[kind] ?? [],
-        },
-      ],
-    })
-      .then((path) => {
-        if (typeof path !== "string") return;
-        setAddingTo(null);
-        return addCaptureSource(scene, kind, path, nameFromPath(path));
-      })
-      .catch((error: unknown) => setActionError(String(error)));
-  };
-
-  // Nommé sans ambiguïté : `reorder` plus bas déplace une SCÈNE dans la liste, celui-ci
-  // déplace une SOURCE dans la pile d'une scène. Deux gestes voisins, jamais le même.
-  const reorderInScene = (
-    scene: string,
-    name: string,
-    direction: SourceOrder,
-  ) => {
-    setActionError(null);
-    reorderSource(scene, name, direction).catch((error: unknown) =>
-      setActionError(String(error)),
-    );
-  };
-
-  const removeFromScene = (scene: string, name: string) => {
-    setActionError(null);
-    removeSource(scene, name).catch((error: unknown) =>
-      setActionError(String(error)),
-    );
-  };
-
-  /** Fige une source à la souris, ou la libère. L'état affiché vient du moteur au message
-   * suivant : on n'anticipe pas ici, sinon le cadenas mentirait si la commande échouait. */
-  const toggleLock = (scene: string, name: string, locked: boolean) => {
-    setActionError(null);
-    setSourceLocked(scene, name, locked).catch((error: unknown) =>
-      setActionError(String(error)),
-    );
-  };
-
-  /** Montre ou cache une source. Comme le verrou, l'état affiché vient du moteur au
-   * message suivant : on n'anticipe pas, sinon l'œil mentirait si la commande échouait. */
-  const toggleVisible = (scene: string, name: string, visible: boolean) => {
-    setActionError(null);
-    setSourceVisible(scene, name, visible).catch((error: unknown) =>
-      setActionError(String(error)),
-    );
-  };
-
-  const startRename = (name: string) => {
-    setLabelError(null);
-    setRenaming(name);
-    setDraftLabel(labelFor(name, layout));
-  };
-
-  const submitRename = (name: string, sceneNames: string[]) => {
-    const verdict = validateLabel(draftLabel, name, sceneNames, layout);
-    if (verdict !== "ok") {
-      setLabelError(LABEL_ERRORS[verdict]);
-      return;
-    }
-    persist({
-      ...layout,
-      labels: { ...layout.labels, [name]: draftLabel.trim() },
-    });
-    setRenaming(null);
-  };
+  const {
+    activate,
+    confirmDelete,
+    reorderInScene,
+    removeFromScene,
+    toggleLock,
+    toggleVisible,
+  } = useSceneActions(setActionError, layout, persist, setConfirmingDelete);
 
   const reorder = (
     sceneNames: string[],
@@ -622,24 +402,31 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                 onActivate={activate}
                 onStartRename={startRename}
                 onSubmitRename={submitRename}
-                onCancelRename={() => setRenaming(null)}
+                onCancelRename={cancelRename}
                 onReorder={reorder}
                 onReorderInScene={reorderInScene}
                 onToggleLock={toggleLock}
                 onToggleVisible={toggleVisible}
                 onRemoveFromScene={removeFromScene}
-                onOpenSettings={(sceneName, source) =>
-                  setSettingsFor((open) =>
-                    open?.scene === sceneName && open.name === source.name
-                      ? null
-                      : { scene: sceneName, name: source.name },
-                  )
-                }
-                textSettings={textSettings[scene.name]}
-                onTextSettingsChange={handleTextSettingsChange}
-                settingsOpenFor={
-                  settingsFor?.scene === scene.name ? settingsFor.name : null
-                }
+                onOpenSettings={(sceneName, source) => {
+                  const initial =
+                    source.source_kind === "text"
+                      ? {
+                          text: source.target_id,
+                          settings: withDefaults(
+                            textSettings[sceneName]?.[source.name],
+                          ),
+                        }
+                      : undefined;
+                  openSettingsWindow(
+                    source.source_kind === "camera" ? "camera" : "text",
+                    sceneName,
+                    source.name,
+                    initial,
+                  ).catch((error: unknown) =>
+                    console.error("scenes: open_settings_window failed", error),
+                  );
+                }}
                 onAddSource={setAddingTo}
                 onRequestDelete={setConfirmingDelete}
                 onCancelDelete={() => setConfirmingDelete(null)}
