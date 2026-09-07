@@ -1,3 +1,4 @@
+import type { TextSettings } from "./textSettings";
 // Scenes Tauri bridge (multi-scene, tranche 1) — thin `invoke` wrapper, no logic here.
 
 import { invoke } from "@tauri-apps/api/core";
@@ -90,4 +91,16 @@ export function reorderSource(
   direction: SourceOrder,
 ): Promise<void> {
   return invoke("reorder_source", { scene, name, direction });
+}
+
+/** Pose l'apparence d'une source texte : police, taille, couleur, contour, alignement.
+ *
+ * Ne dit rien du TEXTE lui-même — le moteur fusionne ce qu'on lui nomme avec ce qu'il a
+ * déjà, donc le contenu reste intact. */
+export function setTextSettings(
+  scene: string,
+  name: string,
+  settings: TextSettings,
+): Promise<void> {
+  return invoke("set_text_settings", { scene, name, settings });
 }

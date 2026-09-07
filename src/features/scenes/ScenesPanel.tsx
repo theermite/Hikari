@@ -9,7 +9,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { IDockviewPanelProps } from "dockview-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Panel } from "../../components/ui/Panel";
 import {
   addAudioSource,
@@ -38,6 +38,7 @@ import {
   setSourceLocked,
   setSourceTransform,
   setSourceVisible,
+  setTextSettings as setTextSettingsOnEngine,
   switchScene,
 } from "./api";
 import { SceneRow } from "./SceneRow";
@@ -56,6 +57,7 @@ import {
 } from "./sceneLayout";
 import { buildReplay, toSession } from "./session";
 import { FILE_FILTERS, nameFromPath, SOURCE_FAMILIES } from "./sourcePicker";
+import type { TextSettings } from "./textSettings";
 import type {
   CaptureTarget,
   EngineMessage,
@@ -98,6 +100,43 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     scene: string;
     name: string;
   } | null>(null);
+  /** Les réglages de texte, par scène puis par source.
+   *
+   * Retenus par l'application et non relus du moteur : l'application est le SEUL auteur de
+   * ces réglages — rien d'autre ne les change — alors que les filtres d'une caméra sont
+   * aussi posés par le moteur, d'où leur aller-retour. Deux sources de vérité là où il n'y
+   * a qu'un auteur créeraient une divergence sans raison. */
+  const [textSettings, setTextSettings] = useState<
+    Record<string, Record<string, TextSettings>>
+  >({});
+  const textSettingsRef = useRef(textSettings);
+  textSettingsRef.current = textSettings;
+
+  /** Retient un réglage de texte, et le range dans la session.
+   *
+   * Écrit tout de suite plutôt qu'à la fermeture : une application fermée brutalement ne
+   * sauvegarde rien, et c'est précisément le moment où l'on perd le plus. */
+  const handleTextSettingsChange = useCallback(
+    (scene: string, name: string, next: TextSettings) => {
+      setTextSettings((avant) => {
+        const apres = {
+          ...avant,
+          [scene]: { ...(avant[scene] ?? {}), [name]: next },
+        };
+        textSettingsRef.current = apres;
+        return apres;
+      });
+      saveSession(
+        toSession(
+          stateRef.current,
+          activeRef.current,
+          audioRef.current,
+          textSettingsRef.current,
+        ),
+      ).catch(() => undefined);
+    },
+    [],
+  );
   /** Les scènes dont les sources sont dépliées. Fermées par défaut : avant, chaque scène
    * déroulait tout son contenu en permanence et trois scènes remplissaient le panneau.
    * La scène EN DIRECT s'ouvre d'office — c'est celle qu'on regarde. */
@@ -211,6 +250,18 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
           if (step.do === "lock") {
             await setSourceLocked(step.scene, step.name, true);
           }
+          if (step.do === "textSettings") {
+            // Retenu AUSSI en mémoire : le panneau doit rouvrir sur les vraies valeurs,
+            // sinon il afficherait celles de départ sur un texte déjà réglé.
+            setTextSettings((avant) => ({
+              ...avant,
+              [step.scene]: {
+                ...(avant[step.scene] ?? {}),
+                [step.name]: step.settings,
+              },
+            }));
+            await setTextSettingsOnEngine(step.scene, step.name, step.settings);
+          }
           if (step.do === "switchScene") await switchScene(step.scene);
         }
       } catch (error: unknown) {
@@ -296,6 +347,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         setTargetsError(null);
       }
     });
+
     return () => {
       unlisten.then((f) => f());
     };
@@ -583,6 +635,8 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                       : { scene: sceneName, name: source.name },
                   )
                 }
+                textSettings={textSettings[scene.name]}
+                onTextSettingsChange={handleTextSettingsChange}
                 settingsOpenFor={
                   settingsFor?.scene === scene.name ? settingsFor.name : null
                 }

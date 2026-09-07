@@ -229,3 +229,165 @@ fn shown() -> bool {
 pub fn validate_source_name(name: &str, existing: &[String]) -> Result<(), crate::scenes::SceneNameError> {
     crate::scenes::validate_scene_name(name, existing)
 }
+
+/// Les clés de réglage du greffon de texte, EXTRAITES DU BINAIRE embarqué le 2026-09-07
+/// (`obs-text.dll`, OBS 32.0.4) — jamais recopiées d'une documentation.
+///
+/// Même précaution que pour l'identifiant du greffon, et pour la même raison : une clé
+/// inexistante ne provoque AUCUNE erreur. libobs l'ignore, le réglage ne s'applique pas, et
+/// l'utilisateur voit un curseur qui ne fait rien.
+pub const TEXT_FONT_PROPERTY: &str = "font";
+pub const TEXT_FONT_FACE: &str = "face";
+pub const TEXT_FONT_SIZE: &str = "size";
+pub const TEXT_FONT_FLAGS: &str = "flags";
+pub const TEXT_COLOR_PROPERTY: &str = "color";
+pub const TEXT_OUTLINE_PROPERTY: &str = "outline";
+pub const TEXT_OUTLINE_SIZE_PROPERTY: &str = "outline_size";
+pub const TEXT_OUTLINE_COLOR_PROPERTY: &str = "outline_color";
+pub const TEXT_ALIGN_PROPERTY: &str = "align";
+
+/// Les drapeaux de style d'une police libobs, valeurs de `obs_font_style` — additionnables.
+const FONT_FLAG_BOLD: i64 = 1;
+const FONT_FLAG_ITALIC: i64 = 2;
+
+/// L'alignement horizontal, tel que le greffon l'attend : une chaîne, pas un nombre.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TextAlign {
+    Left,
+    Center,
+    Right,
+}
+
+impl TextAlign {
+    pub fn libobs_value(self) -> &'static str {
+        match self {
+            TextAlign::Left => "left",
+            TextAlign::Center => "center",
+            TextAlign::Right => "right",
+        }
+    }
+}
+
+/// Ce que l'utilisateur règle sur une source texte.
+///
+/// Volontairement PLUS PETIT que ce que le greffon expose : le dégradé, le mode journal de
+/// chat et les dimensions forcées sont laissés de côté. Un panneau qui montre tout ne se
+/// règle plus — et ces trois-là ne servent presque jamais à un direct.
+///
+/// Le CONTOUR est là bien que Jay ne l'ait pas demandé : c'est lui qui rend un texte lisible
+/// sur n'importe quelle scène. Sans lui, un titre disparaît dès que le fond passe au clair.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TextSettings {
+    pub face: String,
+    pub size: i64,
+    pub bold: bool,
+    pub italic: bool,
+    /// Couleur du texte, en composantes rouge/vert/bleu de 0 à 255.
+    pub color: Rgb,
+    pub outline: bool,
+    pub outline_size: i64,
+    pub outline_color: Rgb,
+    pub align: TextAlign,
+}
+
+/// Une couleur telle que l'utilisateur la choisit — trois composantes, pas un entier.
+///
+/// POURQUOI ne pas transporter directement l'entier de libobs : son ORDRE D'OCTETS est une
+/// convention interne au moteur. La garder d'un seul côté évite qu'une moitié du code pense
+/// en rouge-vert-bleu pendant que l'autre pense l'inverse — le genre d'écart qui donne un
+/// bleu là où l'utilisateur a cliqué sur du rouge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Rgb {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+impl TextSettings {
+    /// Les drapeaux de style à poser sur la police.
+    pub fn font_flags(&self) -> i64 {
+        let mut flags = 0;
+        if self.bold {
+            flags += FONT_FLAG_BOLD;
+        }
+        if self.italic {
+            flags += FONT_FLAG_ITALIC;
+        }
+        flags
+    }
+}
+
+/// La couleur au format que le greffon attend.
+///
+/// libobs range ses couleurs en BLEU-VERT-ROUGE et non l'inverse, avec l'opacité dans
+/// l'octet de poids fort. ⚠️ Cet ordre est une convention du moteur que le binaire ne
+/// documente pas : il se vérifie à l'écran au premier essai — un rouge qui sort bleu le dit
+/// tout de suite, et se corrige en inversant deux lignes ici.
+///
+/// L'opacité est toujours pleine : le greffon porte son propre réglage `opacity`, et deux
+/// façons de rendre un texte transparent en feraient une de trop.
+pub fn libobs_color(color: Rgb) -> i64 {
+    let (r, g, b) = (color.r as i64, color.g as i64, color.b as i64);
+    0xff00_0000 | (b << 16) | (g << 8) | r
+}
+
+#[cfg(test)]
+mod text_settings_tests {
+    use super::*;
+
+    fn rgb(r: u8, g: u8, b: u8) -> Rgb {
+        Rgb { r, g, b }
+    }
+
+    #[test]
+    fn should_put_the_red_component_in_the_low_byte() {
+        // Rouge pur. Si l'ordre etait inverse, cette valeur porterait le rouge en haut et
+        // l'utilisateur verrait du bleu — le defaut se voit a l'oeil, ce test le nomme.
+        // Opacite pleine, bleu nul, vert nul, rouge plein — dans cet ordre d'octets.
+        assert_eq!(libobs_color(rgb(255, 0, 0)), 0xff_00_00_ff);
+    }
+
+    #[test]
+    fn should_keep_full_opacity_on_every_colour() {
+        for couleur in [rgb(0, 0, 0), rgb(255, 255, 255), rgb(12, 34, 56)] {
+            assert_eq!(libobs_color(couleur) >> 24 & 0xff, 0xff);
+        }
+    }
+
+    #[test]
+    fn should_round_trip_each_component_to_its_own_byte() {
+        let valeur = libobs_color(rgb(0x12, 0x34, 0x56));
+        assert_eq!(valeur & 0xff, 0x12, "rouge");
+        assert_eq!(valeur >> 8 & 0xff, 0x34, "vert");
+        assert_eq!(valeur >> 16 & 0xff, 0x56, "bleu");
+    }
+
+    #[test]
+    fn should_add_style_flags_rather_than_replace_them() {
+        let mut reglages = TextSettings {
+            face: "Inter".into(),
+            size: 48,
+            bold: true,
+            italic: true,
+            color: rgb(255, 255, 255),
+            outline: true,
+            outline_size: 4,
+            outline_color: rgb(0, 0, 0),
+            align: TextAlign::Left,
+        };
+        // Gras ET italique valent la somme des deux, jamais l'un des deux.
+        assert_eq!(reglages.font_flags(), FONT_FLAG_BOLD + FONT_FLAG_ITALIC);
+        reglages.italic = false;
+        assert_eq!(reglages.font_flags(), FONT_FLAG_BOLD);
+        reglages.bold = false;
+        assert_eq!(reglages.font_flags(), 0);
+    }
+
+    #[test]
+    fn should_name_each_alignment_the_way_the_plugin_expects() {
+        assert_eq!(TextAlign::Left.libobs_value(), "left");
+        assert_eq!(TextAlign::Center.libobs_value(), "center");
+        assert_eq!(TextAlign::Right.libobs_value(), "right");
+    }
+}

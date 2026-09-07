@@ -3,7 +3,7 @@
 
 use hikari_protocol::EngineMessage;
 
-use crate::{App, SceneSource, camera, emit, sources};
+use crate::{App, SceneSource, camera, emit, sources, text_ops};
 
 impl App {
     /// Moves a source one step in front of, or behind, the others in its scene.
@@ -118,6 +118,67 @@ impl App {
     /// L'ensemble des cachées retient l'EXCEPTION : une source dont personne n'a rien dit
     /// est montrée. C'est ce qui fait qu'une scène neuve n'a rien à écrire, et qu'une
     /// session d'avant cette brique se relit sans cacher quoi que ce soit.
+    /// Change l'apparence d'une source texte deja posee.
+    ///
+    /// Ne cherche QUE parmi les sources ordinaires : une camera n'est pas du texte, et la
+    /// chercher aussi ouvrirait un chemin ou l'on tenterait de poser une police sur un
+    /// appareil photo.
+    /// Change le CONTENU d'une source texte deja posee. Un texte se corrige plus souvent
+    /// qu'il ne se reecrit entierement — cette commande vit a part de `SetTextSettings` pour
+    /// que corriger une faute ne renvoie pas aussi la police et la couleur.
+    pub(crate) fn handle_set_text_content(&mut self, scene: String, name: String, text: &str) {
+        let Some(obs) = &mut self.obs else { return };
+        let runtime = obs.context.runtime().clone();
+        let item = obs
+            .scene_sources
+            .get(&scene)
+            .and_then(|list| list.iter().find(|source| source.name == name))
+            .map(|source| source.item.clone());
+        let Some(item) = item else {
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas dans « {scene} »"),
+            });
+            return;
+        };
+        if let Err(err) = text_ops::set_content(&runtime, &item, text) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+            return;
+        }
+        // `target_id` PORTE le texte pour cette famille de source (voir sa création dans
+        // `sources.rs`) — le mettre à jour ici est ce qui permet au panneau de rouvrir sur
+        // le texte réellement affiché, et non sur celui qu'il portait à l'ajout. Sans cette
+        // ligne, éditer un texte le changerait à l'écran mais jamais dans ce qui est relu.
+        if let Some(list) = obs.scene_sources.get_mut(&scene) {
+            if let Some(source) = list.iter_mut().find(|source| source.name == name) {
+                source.target_id = text.to_string();
+            }
+        }
+    }
+
+    pub(crate) fn handle_set_text_settings(
+        &mut self,
+        scene: String,
+        name: String,
+        settings: &hikari_protocol::TextSettings,
+    ) {
+        let Some(obs) = &mut self.obs else { return };
+        let runtime = obs.context.runtime().clone();
+        let item = obs
+            .scene_sources
+            .get(&scene)
+            .and_then(|list| list.iter().find(|source| source.name == name))
+            .map(|source| source.item.clone());
+        let Some(item) = item else {
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas dans « {scene} »"),
+            });
+            return;
+        };
+        if let Err(err) = text_ops::apply(&runtime, &item, settings) {
+            emit(&EngineMessage::Error { message: err.to_string() });
+        }
+    }
+
     pub(crate) fn handle_set_source_visible(&mut self, scene: String, name: String, visible: bool) {
         let camera = self.camera_item_by_name(&scene, &name).cloned();
         let Some(obs) = &mut self.obs else { return };

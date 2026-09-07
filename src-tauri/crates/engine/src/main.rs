@@ -34,6 +34,7 @@ mod outline;
 mod scene_ops;
 mod scenes;
 mod source_ops;
+mod text_ops;
 mod sources;
 mod stdin_reader;
 mod stream;
@@ -351,6 +352,8 @@ enum EngineEvent {
     SetSourceTransform { scene: String, name: String, x: i32, y: i32, scale_percent: i32 },
     SetSourceLocked { scene: String, name: String, locked: bool },
     SetSourceVisible { scene: String, name: String, visible: bool },
+    SetTextSettings { scene: String, name: String, settings: hikari_protocol::TextSettings },
+    SetTextContent { scene: String, name: String, text: String },
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on

@@ -58,6 +58,8 @@ pub fn run() {
             engine_scenes::set_source_transform,
             engine_scenes::set_source_locked,
             engine_scenes::set_source_visible,
+            engine_scenes::set_text_settings,
+            engine_scenes::set_text_content,
             engine_scenes::restart_camera,
             engine_lifecycle::start_stream,
             engine_lifecycle::stop_stream,

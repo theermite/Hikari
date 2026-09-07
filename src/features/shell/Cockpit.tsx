@@ -12,19 +12,19 @@ import type {
 import { DockviewReact } from "dockview-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "dockview-react/dist/styles/dockview.css";
-import { MorphicButton } from "@theermite/morphic-adapter/ui";
 import { useMorphicDensity } from "@theermite/morphic-adapter";
-import { watchForOverlay } from "../preview/domSuppression";
-import { gapForDensity } from "./density";
+import { MorphicButton } from "@theermite/morphic-adapter/ui";
 import { AudioPanel } from "../audio/AudioPanel";
 import { ChatPanel } from "../chat/ChatPanel";
 import { DeckPanel } from "../deck/DeckPanel";
 import { PreflightPanel } from "../preflight/PreflightPanel";
+import { watchForOverlay } from "../preview/domSuppression";
 import { PreviewPanel } from "../preview/PreviewPanel";
 import { PrepPanel } from "../scenes/PrepPanel";
 import { ScenesPanel } from "../scenes/ScenesPanel";
 import { UpdateBanner } from "../updates/UpdateBanner";
 import { VersionTag } from "../updates/VersionTag";
+import { gapForDensity } from "./density";
 import { EngineErrorBanner } from "./EngineErrorBanner";
 import { LiveBar } from "./LiveBar";
 import {

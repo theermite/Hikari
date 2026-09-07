@@ -239,6 +239,20 @@ pub enum ControllerCommand {
     /// Par scène, comme le verrou : la même caméra peut être visible ici et cachée
     /// ailleurs.
     SetSourceVisible { scene: String, name: String, visible: bool },
+    /// Change l'apparence d'une source TEXTE déjà posée : police, taille, couleur, contour,
+    /// alignement.
+    ///
+    /// Née du constat de Jay le 2026-09-07 : « une source de texte sans réglage, sans
+    /// personnalisation, je trouve ça très inutile ». Le greffon portait tous ces réglages
+    /// depuis toujours — rien ne les atteignait.
+    SetTextSettings { scene: String, name: String, settings: crate::sources::TextSettings },
+    /// Change le CONTENU d'une source texte déjà posée — jamais sa police, sa couleur ou son
+    /// contour, qui vivent dans `SetTextSettings`.
+    ///
+    /// Née du constat de Jay le 2026-09-07 : le texte n'était réglable qu'à la création,
+    /// jamais après. Un texte se corrige (une faute, un pseudo qui change) bien plus souvent
+    /// qu'il ne se réécrit entièrement.
+    SetTextContent { scene: String, name: String, text: String },
     /// Sets the volume the STREAMER hears, independently of what the audience hears.
     ///
     /// WHY it needs its own command and its own plumbing: libobs has ONE volume per source,

@@ -15,9 +15,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type DropVerdict, dropRate, dropVerdict } from "./frames";
 import { Badge } from "../../components/ui/Badge";
 import { ComingSoon } from "../../components/ui/ComingSoon";
+import { type DropVerdict, dropRate, dropVerdict } from "./frames";
 
 /** Les seuls messages moteur que cette barre lit. */
 type EngineMessage =

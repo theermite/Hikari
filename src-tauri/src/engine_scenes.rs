@@ -244,3 +244,28 @@ pub(crate) fn reorder_source(
 ) -> Result<(), String> {
     send_command(&state, ControllerCommand::ReorderSource { scene, name, direction })
 }
+
+/// Change l'apparence d'une source texte : police, taille, couleur, contour, alignement.
+///
+/// Ne dit RIEN du texte lui-même — le moteur fusionne les réglages nommés avec ceux qui ne
+/// le sont pas, donc le contenu reste ce qu'il est.
+#[tauri::command]
+pub(crate) fn set_text_settings(
+    state: State<EngineState>,
+    scene: String,
+    name: String,
+    settings: hikari_protocol::TextSettings,
+) -> Result<(), String> {
+    send_command(&state, ControllerCommand::SetTextSettings { scene, name, settings })
+}
+
+/// Change le contenu d'une source texte deja posee — jamais sa police ni sa couleur.
+#[tauri::command]
+pub(crate) fn set_text_content(
+    state: State<EngineState>,
+    scene: String,
+    name: String,
+    text: String,
+) -> Result<(), String> {
+    send_command(&state, ControllerCommand::SetTextContent { scene, name, text })
+}

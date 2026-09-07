@@ -15,6 +15,7 @@ import type {
   AudioSourceKind,
   NoiseMethod,
 } from "../audio/types";
+import type { TextSettings } from "./textSettings";
 import type { SceneInfo, SourceKind } from "./types";
 
 /** Une source telle qu'on la retrouvera au prochain lancement. */
@@ -28,6 +29,11 @@ export interface SavedSource {
   /** Figée à la souris. Absent des sessions écrites avant le 2026-08-06 : l'absence vaut
    * « libre », jamais « verrouillée » — personne n'a demandé à figer l'existant. */
   locked?: boolean;
+  /** L'apparence d'une source TEXTE. Absent partout ailleurs, et absent des sessions
+   * écrites avant le 2026-09-07 : la lecture complète alors avec les valeurs de départ,
+   * jamais avec du vide — un champ ajouté à une donnée déjà rangée sans défaut de lecture
+   * casse l'application de ceux qui ont l'ancienne version. */
+  text?: TextSettings;
 }
 
 export interface SavedScene {
@@ -103,6 +109,9 @@ export function toSession(
   scenes: SceneInfo[],
   active: string,
   audio: AudioSourceInfo[] = [],
+  /** Les réglages de texte, par scène puis par source. Portés par l'application : elle est
+   * leur seul auteur, le moteur ne fait que les appliquer. */
+  textSettings: Record<string, Record<string, TextSettings>> = {},
 ): SessionDoc {
   return {
     active,
@@ -117,6 +126,7 @@ export function toSession(
           name: source.name,
           kind: source.source_kind,
           targetId: source.target_id,
+          text: textSettings[scene.name]?.[source.name],
           x: source.x,
           y: source.y,
           scalePercent: source.scale_percent,
@@ -184,6 +194,14 @@ export type ReplayStep =
     }
   | { do: "addAudio"; audio: SavedAudio }
   | { do: "lock"; scene: string; name: string }
+  | {
+      /** Rejoue l'apparence d'une source texte. Après son ajout, jamais avant : le moteur
+       * n'a rien à régler tant que la source n'existe pas. */
+      do: "textSettings";
+      scene: string;
+      name: string;
+      settings: TextSettings;
+    }
   | { do: "switchScene"; scene: string };
 
 /** Le plan pour retrouver l'état sauvegardé, à partir de ce que le moteur a DÉJÀ.
@@ -217,6 +235,22 @@ export function buildReplay(
         kind: source.kind,
         targetId: source.targetId,
         name: source.name,
+      });
+    }
+  }
+
+  // L'apparence des textes se rejoue APRÈS leur ajout, et pour TOUTES les sources retenues
+  // — y compris celles qui existaient déjà dans le moteur. Ne la reposer que sur les
+  // nouvelles laisserait une source rejouée deux fois de suite avec l'apparence de la
+  // première session seulement.
+  for (const scene of saved.scenes) {
+    for (const source of scene.sources) {
+      if (source.kind !== "text" || !source.text) continue;
+      steps.push({
+        do: "textSettings",
+        scene: scene.name,
+        name: source.name,
+        settings: source.text,
       });
     }
   }

@@ -90,6 +90,12 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetSourceVisible { scene, name, visible } => {
                 self.handle_set_source_visible(scene, name, visible)
             }
+            EngineEvent::SetTextSettings { scene, name, settings } => {
+                self.handle_set_text_settings(scene, name, &settings)
+            }
+            EngineEvent::SetTextContent { scene, name, text } => {
+                self.handle_set_text_content(scene, name, &text)
+            }
         }
         // La composition a changé sans que la commande le dise : le dire à sa place.
         if self.scene_contents_fingerprint() != before {

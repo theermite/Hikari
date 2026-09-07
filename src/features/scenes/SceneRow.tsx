@@ -22,6 +22,8 @@ import { CameraControls } from "../camera/CameraControls";
 import { IconButton, OrderButton, SOURCE_ICON } from "./ScenesControls";
 import { SceneThumb } from "./SceneThumb";
 import { labelFor, type SceneLayout } from "./sceneLayout";
+import { TextControls } from "./TextControls";
+import { type TextSettings, withDefaults } from "./textSettings";
 import type { SceneInfo, SceneSourceInfo, SourceOrder } from "./types";
 
 /** One line saying what the scene holds, in plain words — the point of étape 3 point 4:
@@ -79,6 +81,14 @@ interface SceneRowProps {
   onOpenSettings: (scene: string, source: SceneSourceInfo) => void;
   /** Le nom de la source dont les réglages sont dépliés dans CETTE scène, s'il y en a une. */
   settingsOpenFor: string | null;
+  /** Les réglages de texte connus pour CETTE scène, par nom de source. Portés par le parent
+   * et non par la ligne : c'est lui qui les retient d'une session à l'autre. */
+  textSettings?: Record<string, TextSettings>;
+  onTextSettingsChange: (
+    scene: string,
+    name: string,
+    settings: TextSettings,
+  ) => void;
   onAddSource: (scene: string) => void;
   onRequestDelete: (name: string) => void;
   onCancelDelete: () => void;
@@ -110,6 +120,8 @@ export function SceneRow({
   onRemoveFromScene,
   onOpenSettings,
   settingsOpenFor,
+  textSettings,
+  onTextSettingsChange,
   onAddSource,
   onRequestDelete,
   onCancelDelete,
@@ -275,7 +287,8 @@ export function SceneRow({
                     {/* Les réglages sont là où la source est. Le 2026-09-06, une caméra
                     les portait dans un panneau à part, et ils sont devenus inatteignables
                     dès que ce panneau a perdu le fil de la scène en direct. */}
-                    {item.source_kind === "camera" ? (
+                    {item.source_kind === "camera" ||
+                    item.source_kind === "text" ? (
                       <button
                         type="button"
                         onClick={() => onOpenSettings(scene.name, item)}
@@ -335,6 +348,18 @@ export function SceneRow({
                   est une fenêtre NATIVE, elle se dessine au-dessus de tout contenu web,
                   donc une fenêtre par-dessus l'oblige à se retirer de l'écran. Régler une
                   caméra sans la voir n'a pas de sens (Jay, 2026-09-06). */}
+                  {settingsOpenFor === item.name &&
+                    item.source_kind === "text" && (
+                      <TextControls
+                        scene={scene.name}
+                        name={item.name}
+                        text={item.target_id}
+                        settings={withDefaults(textSettings?.[item.name])}
+                        onChange={(next) =>
+                          onTextSettingsChange(scene.name, item.name, next)
+                        }
+                      />
+                    )}
                   {settingsOpenFor === item.name &&
                     item.source_kind === "camera" && (
                       <CameraControls
