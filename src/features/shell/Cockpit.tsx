@@ -12,6 +12,7 @@ import type {
 import { DockviewReact } from "dockview-react";
 import { useCallback, useRef, useState } from "react";
 import "dockview-react/dist/styles/dockview.css";
+import { MorphicButton } from "@theermite/morphic-adapter/ui";
 import { AudioPanel } from "../audio/AudioPanel";
 import { ChatPanel } from "../chat/ChatPanel";
 import { DeckPanel } from "../deck/DeckPanel";
@@ -65,10 +66,12 @@ const PANEL_COMPONENTS: Record<
   // Paramètres (2026-07-24) ; le panneau "twitch-connect" lui-même n'est plus ajouté (voir
   // la migration dans `onReady`, qui le retire au premier chargement).
   "twitch-connect": AccountsPanel,
-  settings: SettingsPanel,
+  // Ni `settings` ni `preflight` ici : ce sont des ÉCRANS depuis le 2026-09-07, pas des
+  // panneaux du cockpit. Les laisser inscrits permettait à une disposition sauvegardée de
+  // les rouvrir dans le cockpit, où ils n'ont plus rien à faire (Jay, 2026-09-07 : « ils
+  // n'ont plus rien à faire dans un bloc du cockpit »).
   deck: DeckPanel,
   placeholder: PlaceholderPanel,
-  preflight: PreflightPanel,
   preview: PreviewPanel,
   scenes: ScenesPanel,
   audio: AudioPanel,
@@ -345,6 +348,13 @@ export function Cockpit() {
                 elle, la seule façon de savoir si on est à jour était de réinstaller —
                 le geste que la mise à jour dans l'app supprime (Jay, 2026-09-06). */}
               <VersionTag />
+              {/* Le bouton d'adaptation, tout à droite de la barre du haut (Jay,
+                  2026-09-07). Sa PLACE est une règle de l'écosystème : quelqu'un qui passe
+                  d'un produit Shinkofa à l'autre ne doit pas réapprendre où le chercher.
+                  C'est aussi le seul composant autorisé à dessiner un réglage de confort —
+                  thème, mouvement, contraste, densité, police — parce qu'un panneau fait
+                  main finit toujours par diverger de celui qui marche vraiment. */}
+              <MorphicButton />
             </header>
           </div>
           {/* Le cockpit reste MONTE en permanence, meme quand un autre ecran est

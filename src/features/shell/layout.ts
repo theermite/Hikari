@@ -25,8 +25,13 @@ const VERSION_KEY = "layoutVersion";
  * 3 : le Pré-vol et la Caméra quittent le cockpit (2026-09-06). Le premier s'ouvre depuis
  * la barre latérale ; la seconde est devenue une source parmi les autres. Une disposition
  * du 5 septembre les porte encore, et l'Aperçu de Jay s'y était retrouvé en onglet à côté
- * du Deck — la rebâtir lui rend la répartition de la maquette d'un coup. */
-export const LAYOUT_VERSION = 3;
+ * du Deck — la rebâtir lui rend la répartition de la maquette d'un coup.
+ *
+ * 4 : le Pré-vol et les Paramètres sortent du registre des panneaux (2026-09-07). Ce sont
+ * des écrans ; une disposition sauvegardée qui les porte encore désignerait des panneaux
+ * dont le composant n'existe plus. La rebâtir est plus sûr que de les retirer un par un —
+ * et c'est le même geste qui rend la répartition de la maquette. */
+export const LAYOUT_VERSION = 4;
 
 let storePromise: Promise<Store> | null = null;
 

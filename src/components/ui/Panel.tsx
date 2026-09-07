@@ -46,8 +46,16 @@ export function Panel({ title, badge, actions, children }: PanelProps) {
           première migration. Un panneau migré retire donc son propre `overflow`. */}
       {/* 18 px, la respiration que la maquette donne a une carte (`.card{ padding:18px }`).
           À 12 px le contenu touchait le bord et les cartes paraissaient serrées. */}
-      <div className="hikari-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-[18px]">
-        {children}
+      {/* DEUX enveloppes, et c'est voulu. La barre de défilement se dessine toujours au
+          bord de la boîte qui défile : si cette boîte est la carte, la barre se colle au
+          contour arrondi et paraît posée dessus (Jay, 2026-09-07 : « le module audio a
+          toujours une scrollbar à sa droite »). L'enveloppe extérieure ne défile PAS et
+          garde un peu d'espace à droite ; la barre s'affiche donc à l'intérieur de la
+          carte, à distance du bord. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col py-[18px] pl-[18px] pr-1.5">
+        <div className="hikari-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden pr-[12px]">
+          {children}
+        </div>
       </div>
     </section>
   );

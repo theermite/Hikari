@@ -150,18 +150,15 @@ export function Sidebar({ onOpenScreen, activeScreen }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Le pied de la maquette : langue et Adaptation. Dessinés et MARQUÉS « à venir »
-          plutôt qu'absents (Jay, 2026-09-05) — on voit ce qui arrive, et le squelette est
-          complet au lieu d'être rapiécé plus tard. */}
+      {/* Le pied de la maquette : la langue seule désormais.
+          « Adaptation » a quitté ce pied le 2026-09-07 : le vrai bouton vit en haut à
+          droite de la barre du cockpit, à la place que l'écosystème lui fixe. Le garder
+          ici en aurait fait DEUX — un vrai et un décoratif — et c'est exactement la
+          confusion qui a déjà fait déboguer le mauvais élément dans un autre dépôt. */}
       <div className="mt-auto flex gap-2 border-t border-hikari-line pt-3">
         <ComingSoon what="choisir la langue de l'interface">
-          <span className="flex items-center gap-1.5 rounded-[7px] border border-hikari-line px-2.5 py-1.5 text-[12.5px] text-hikari-txt-dim">
+          <span className="flex items-center gap-1.5 rounded-hikari-s border border-hikari-line px-2.5 py-1.5 text-[12.5px] text-hikari-txt-dim">
             <Flag lang="fr" /> FR ▾
-          </span>
-        </ComingSoon>
-        <ComingSoon what="adapter l'affichage à ton confort">
-          <span className="flex flex-1 items-center gap-1.5 rounded-[7px] border border-hikari-line px-2.5 py-1.5 text-[12.5px] text-hikari-txt-dim">
-            ✨ Adaptation
           </span>
         </ComingSoon>
       </div>

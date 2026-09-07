@@ -153,7 +153,21 @@
  * la même façon que celui d'un panneau qui ne défile pas, et deux cartes voisines ne se
  * ressemblent plus. */
 .hikari-scroll {
-  scrollbar-gutter: stable both-edges;
+  /* Réservée à DROITE seulement. `both-edges` réservait aussi à gauche, ce qui décalait
+   * le contenu d'un panneau qui défile par rapport à un panneau qui ne défile pas — deux
+   * cartes voisines ne se ressemblaient plus. */
+  scrollbar-gutter: stable;
+}
+
+/* Une barre plus fine que celle de Windows, dans les tons du fond, et un pouce qui ne se
+ * voit qu'au survol de la zone : la maquette n'en montre aucune au repos. */
+.hikari-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.hikari-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--color-hikari-line);
 }
 
 .dockview-theme-dark *::-webkit-scrollbar {

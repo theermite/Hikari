@@ -22,6 +22,7 @@
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-store": "^2.4.4",
     "@tauri-apps/plugin-updater": "^2.11.0",
+    "@theermite/morphic-adapter": "2.0.0-beta.1",
     "dockview-react": "^7.0.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
