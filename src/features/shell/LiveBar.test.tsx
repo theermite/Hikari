@@ -183,4 +183,41 @@ describe("formatElapsed", () => {
     // Un direct long ne doit pas repartir à zéro ni tronquer.
     expect(formatElapsed(36_000)).toBe("10:00:00");
   });
+
+  it("should_show_the_loss_rate_next_to_the_count", async () => {
+    // Jay, 2026-09-07 : son seuil est un TAUX (2 %), pas un compte. Devant « 378 images
+    // perdues » il ne pouvait pas juger seul — il a du me donner le nombre pour que je
+    // fasse la division. Un cockpit qui oblige a calculer ne pilote pas.
+    render(<LiveBar />);
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+    emit({ type: "started" });
+
+    emit({ type: "frames", dropped: 378, total: 54_000 });
+
+    expect(screen.getByText(/0,7\s*%|0\.7\s*%/)).toBeTruthy();
+  });
+
+  it("should_colour_the_rate_by_how_bad_it_is", async () => {
+    render(<LiveBar />);
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+    emit({ type: "started" });
+
+    emit({ type: "frames", dropped: 2_000, total: 54_000 });
+
+    // Au-dessus du seuil de Jay : la couleur doit crier, pas chuchoter.
+    const mesure = screen.getByTestId("taux-images-perdues");
+    expect(mesure.className).toContain("hikari-red");
+  });
+
+  it("should_show_no_rate_before_a_single_frame_has_been_sent", async () => {
+    // Zero image envoyee n'est pas zero pour cent de perte : c'est une absence de mesure.
+    // Afficher « 0 % » au demarrage donnerait une assurance que rien ne soutient.
+    render(<LiveBar />);
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+    emit({ type: "started" });
+
+    emit({ type: "frames", dropped: 0, total: 0 });
+
+    expect(screen.queryByTestId("taux-images-perdues")).toBeNull();
+  });
 });

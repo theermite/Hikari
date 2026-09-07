@@ -15,6 +15,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { type DropVerdict, dropRate, dropVerdict } from "./frames";
 import { Badge } from "../../components/ui/Badge";
 import { ComingSoon } from "../../components/ui/ComingSoon";
 
@@ -34,10 +35,35 @@ export function formatElapsed(seconds: number): string {
   return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+/** La couleur dit l'URGENCE, le titre dit QUOI FAIRE. Une couleur seule laisse deviner ;
+ * un rouge sans explication fait chercher la panne au mauvais endroit — ces images sont
+ * perdues par le RÉSEAU, jamais par la machine ni par l'encodage. */
+const COULEUR_VERDICT: Record<DropVerdict, string> = {
+  ok: "text-hikari-green",
+  attention: "text-hikari-accent",
+  critique: "text-hikari-red",
+};
+
+const TITRE_VERDICT: Record<DropVerdict, string> = {
+  ok: "Ta connexion suit le débit d'envoi.",
+  attention:
+    "Ta connexion commence à peiner — surveille avant que ça se voie à l'écran.",
+  critique:
+    "Ta connexion ne suit plus : tes spectateurs voient des saccades. Baisse le débit d'envoi.",
+};
+
+/** Une décimale, virgule française. Au-delà, la précision n'aide personne à décider. */
+function formatTaux(taux: number): string {
+  return `(${taux.toFixed(1).replace(".", ",")} %)`;
+}
+
 export function LiveBar() {
   const [liveSince, setLiveSince] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [dropped, setDropped] = useState<number | null>(null);
+  // Le moteur envoyait déjà le total ; seul le nombre perdu était retenu. Sans lui, pas de
+  // taux — et le seuil de Jay est un taux (2 %), pas un compte.
+  const [totalFrames, setTotalFrames] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   /** Une référence et non l'état : l'écoute du moteur est posée une seule fois et
@@ -59,6 +85,7 @@ export function LiveBar() {
       if (msg.type === "started") {
         setLiveSince(Date.now());
         setDropped(null);
+        setTotalFrames(0);
         setError(null);
         askEngine(false);
       }
@@ -68,6 +95,7 @@ export function LiveBar() {
       }
       if (msg.type === "frames" && "dropped" in msg) {
         setDropped(msg.dropped);
+        setTotalFrames(msg.total ?? 0);
       }
       // Seulement quand CETTE barre attend une réponse. Le moteur émet toutes ses
       // erreurs sur un canal unique : sans ce filtre, la barre du direct affiche les
@@ -112,6 +140,11 @@ export function LiveBar() {
     }
   }
 
+  // Calculés à chaque rendu et non stockés : ce sont des fonctions de `dropped` et
+  // `totalFrames`, et un état dérivé qu'on range finit par mentir sur son origine.
+  const taux = dropRate(dropped ?? 0, totalFrames);
+  const verdict = dropVerdict(taux);
+
   return (
     <div className="flex flex-shrink-0 items-center gap-3 border-b border-hikari-line px-4 py-2.5">
       {/* Le sélecteur de préréglage de la maquette (« LoL du soir ») : un préréglage
@@ -146,6 +179,18 @@ export function LiveBar() {
       {live && dropped !== null ? (
         <span className="text-[12.5px] text-hikari-txt-dim">
           {dropped} image{dropped > 1 ? "s" : ""} perdue{dropped > 1 ? "s" : ""}
+          {taux !== null ? (
+            <>
+              {" "}
+              <span
+                data-testid="taux-images-perdues"
+                className={COULEUR_VERDICT[verdict ?? "ok"]}
+                title={TITRE_VERDICT[verdict ?? "ok"]}
+              >
+                {formatTaux(taux)}
+              </span>
+            </>
+          ) : null}
         </span>
       ) : null}
 
