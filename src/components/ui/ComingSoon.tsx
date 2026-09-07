@@ -19,19 +19,38 @@ import type { ReactNode } from "react";
 interface ComingSoonProps {
   /** Ce que l'élément fera, en clair. Complète la phrase « Bientôt : … ». */
   what: string;
+  /** Enveloppe de BLOC quand le contenu en est un — une liste, une région.
+   *
+   * Pourquoi ce réglage existe : l'enveloppe est un `span`, donc seul du contenu en ligne
+   * peut y vivre. Un `ul` ou une région y seraient invalides, et le contournement (poser
+   * un rôle sur le `span`) déplace le problème sans le régler — un rôle de groupe réclame
+   * un vrai élément de groupe. Deux valeurs, jamais plus : le besoin est binaire. */
+  block?: boolean;
   children: ReactNode;
 }
 
 /** Enveloppe un élément non branché : il se voit, il ne se clique pas, et il le dit. */
-export function ComingSoon({ what, children }: ComingSoonProps) {
+export function ComingSoon({ what, block, children }: ComingSoonProps) {
+  const shared = {
+    "aria-disabled": true as const,
+    title: `Bientôt : ${what}`,
+  };
+  const marque = <span className="sr-only">(à venir)</span>;
+  const style =
+    "hikari-coming-soon relative cursor-not-allowed items-center opacity-45 [&_*]:pointer-events-none";
+
+  if (block) {
+    return (
+      <div {...shared} className={`${style} flex`}>
+        {children}
+        {marque}
+      </div>
+    );
+  }
   return (
-    <span
-      aria-disabled="true"
-      title={`Bientôt : ${what}`}
-      className="hikari-coming-soon relative inline-flex cursor-not-allowed items-center opacity-45 [&_*]:pointer-events-none"
-    >
+    <span {...shared} className={`${style} inline-flex`}>
       {children}
-      <span className="sr-only">(à venir)</span>
+      {marque}
     </span>
   );
 }

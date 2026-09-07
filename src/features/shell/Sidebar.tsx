@@ -7,7 +7,9 @@
 interface NavItem {
   label: string;
   built: boolean;
-  panelId?: string;
+  /** L'ÉCRAN que cette entrée ouvre. La barre latérale change toute l'interface de
+   * droite, elle n'ouvre pas un panneau dans le cockpit (Jay, 2026-09-07). */
+  screenId?: string;
   icon: NavIconName;
 }
 
@@ -16,19 +18,22 @@ interface NavGroup {
   items: NavItem[];
 }
 
+// Chaque entrée mène à un ÉCRAN, y compris celles qui ne sont pas construites : elles
+// ouvrent leur place, marquée « à venir », au lieu de ne rien faire. Un bouton mort
+// laisse croire à une panne ; un écran annoncé renseigne.
 const NAV_GROUPS: NavGroup[] = [
-  { label: "", items: [{ label: "Accueil", built: false, icon: "home" }] },
+  {
+    label: "",
+    items: [{ label: "Accueil", built: false, screenId: "home", icon: "home" }],
+  },
   {
     label: "Diffuser",
     items: [
-      { label: "Pré-vol", built: true, panelId: "preflight", icon: "prevol" },
-      // Ramène les panneaux du cockpit qui ont été fermés. Sans cette entrée, fermer
-      // l'onglet Aperçu le perdait pour de bon — le glisser-déposer des panneaux est
-      // cassé dans ce moteur d'affichage (Jay, 2026-09-06).
+      { label: "Pré-vol", built: true, screenId: "preflight", icon: "prevol" },
       {
         label: "Cockpit Live",
         built: true,
-        panelId: "__cockpit__",
+        screenId: "cockpit",
         icon: "cockpit",
       },
     ],
@@ -36,20 +41,33 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Produire",
     items: [
-      { label: "Édition", built: false, icon: "edition" },
-      { label: "Publication", built: false, icon: "publication" },
-      { label: "Deck mobile", built: false, icon: "deck" },
-      { label: "Automations", built: false, icon: "automations" },
+      { label: "Édition", built: false, screenId: "edition", icon: "edition" },
+      {
+        label: "Publication",
+        built: false,
+        screenId: "publication",
+        icon: "publication",
+      },
+      { label: "Deck mobile", built: false, screenId: "deck", icon: "deck" },
+      {
+        label: "Automations",
+        built: false,
+        screenId: "automations",
+        icon: "automations",
+      },
     ],
   },
-  { label: "Suivre", items: [{ label: "Suivi", built: false, icon: "suivi" }] },
+  {
+    label: "Suivre",
+    items: [{ label: "Suivi", built: false, screenId: "stats", icon: "suivi" }],
+  },
   {
     label: "Système",
     items: [
       {
         label: "Paramètres",
         built: true,
-        panelId: "settings",
+        screenId: "settings",
         icon: "parametres",
       },
     ],
@@ -57,16 +75,18 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 interface SidebarProps {
-  /** Ouvre (ou remet au premier plan) le panneau `panelId` du cockpit — passé par
-   * `Cockpit.tsx`, qui seul possède l'API dockview. */
-  onOpenPanel?: (panelId: string, title: string) => void;
+  /** Ouvre l'écran demandé. La zone de droite change ENTIÈREMENT — le cockpit est un
+   * écran parmi d'autres, jamais le tout (Jay, 2026-09-07). */
+  onOpenScreen?: (screenId: string) => void;
+  /** L'écran actuellement ouvert, pour que son entrée se distingue. */
+  activeScreen?: string;
 }
 
 import { ComingSoon } from "../../components/ui/ComingSoon";
 import { Flag } from "./Flag";
 import { NAV_ICONS, type NavIconName } from "./NavIcons";
 
-export function Sidebar({ onOpenPanel }: SidebarProps) {
+export function Sidebar({ onOpenScreen, activeScreen }: SidebarProps) {
   return (
     // `w-60` = 240 px, la largeur que la maquette fixe en fin de fichier (elle relève sa
     // valeur de 224 à 240). Les entrées les plus longues — « Deck mobile bientôt » — y
@@ -97,19 +117,23 @@ export function Sidebar({ onOpenPanel }: SidebarProps) {
             {group.items.map((item) => {
               const Icon = NAV_ICONS[item.icon];
               return (
+                // TOUTES les entrees sont cliquables, y compris celles qui ne sont pas
+                // construites : elles ouvrent leur ecran, marque « a venir ». Elles
+                // etaient desactivees, donc un clic ne faisait rien — et rien ressemble a
+                // une panne. Un ecran qui annonce ce qu'il fera renseigne.
                 <button
                   key={item.label}
                   type="button"
-                  disabled={!item.built}
-                  onClick={
-                    item.built && item.panelId
-                      ? () => onOpenPanel?.(item.panelId as string, item.label)
-                      : undefined
+                  onClick={() => onOpenScreen?.(item.screenId as string)}
+                  aria-current={
+                    activeScreen === item.screenId ? "page" : undefined
                   }
-                  className={`flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2.5 text-left text-[13.5px] font-medium transition ${
-                    item.built
+                  // Seule l'entree OUVERTE porte l'accent. Avant, toutes les entrees
+                  // construites l'avaient : on ne pouvait pas savoir ou l'on etait.
+                  className={`flex w-full items-center gap-2.5 rounded-hikari-s px-2.5 py-2.5 text-left text-[13.5px] font-medium transition ${
+                    activeScreen === item.screenId
                       ? "bg-hikari-accent/[.14] text-hikari-accent"
-                      : "cursor-not-allowed text-hikari-txt-faint"
+                      : "text-hikari-txt-dim hover:bg-hikari-bg-3 hover:text-hikari-txt"
                   }`}
                 >
                   <Icon />

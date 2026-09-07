@@ -20,25 +20,25 @@ import { ComingSoon } from "../../components/ui/ComingSoon";
 /** Les onglets de collections, tels que la maquette les pose au-dessus des scènes. */
 export function SceneCollections() {
   return (
-    <ComingSoon what="grouper tes scènes par collection">
-      {/* `role="group"` et non un `span` nu : c'est ce qui autorise le nom accessible, et
-      c'est exact — ces onglets forment un ensemble, pas trois libellés isolés. */}
-      <span
-        role="group"
+    <ComingSoon block what="grouper tes scènes par collection">
+      {/* Une vraie LISTE, pas un `span` portant un rôle : ces onglets forment un ensemble
+      ordonné, et un lecteur d'écran annonce alors « liste de 3 éléments ». Le `block` de
+      l'enveloppe existe pour ça — une liste dans un `span` serait invalide. */}
+      <ul
         aria-label="Collections de scènes"
         className="flex gap-1.5 text-[12px]"
       >
         {/* Les libellés de la maquette, gardés tels quels : ce sont des exemples de ce
         que l'utilisateur écrira, pas des valeurs que l'application invente. */}
         {["LoL", "Interview", "Pause"].map((collection) => (
-          <span
+          <li
             key={collection}
             className="rounded-full border border-hikari-line px-2.5 py-0.5 text-hikari-txt-dim"
           >
             {collection}
-          </span>
+          </li>
         ))}
-      </span>
+      </ul>
     </ComingSoon>
   );
 }
