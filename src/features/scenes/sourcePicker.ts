@@ -12,7 +12,8 @@ export interface SourceFamily {
   kind: SourceKind;
   label: string;
   hint: string;
-  /** Un fichier se choisit sur le disque, le reste se choisit dans une liste. */
+  /** Un fichier se choisit sur le disque, le reste se choisit dans une liste — sauf le
+   * texte, qui ne se choisit pas du tout : il s'écrit. */
   isFile: boolean;
 }
 
@@ -43,6 +44,15 @@ export const SOURCE_FAMILIES: SourceFamily[] = [
     kind: "camera",
     label: "Une caméra",
     hint: "Une webcam branchée sur cette machine.",
+    isFile: false,
+  },
+  {
+    // La seule famille dont le contenu vient de l'UTILISATEUR et non de la machine : ni
+    // liste à parcourir, ni fichier à choisir. On l'écrit, et c'est pour ça qu'elle a son
+    // propre chemin dans la fenêtre d'ajout.
+    kind: "text",
+    label: "Du texte",
+    hint: "Un titre, un pseudo, un message d'attente — écrit à l'écran.",
     isFile: false,
   },
   {

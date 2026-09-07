@@ -660,6 +660,64 @@ describe("ScenesPanel", () => {
     );
   });
 
+  it("should_demander_le_texte_a_ecrire_plutot_qu_une_cible", async () => {
+    // Le contenu d'une source texte vient de l'utilisateur, pas de la machine : ni liste
+    // de cibles, ni sélecteur de fichier. Un champ, et c'est tout.
+    const user = userEvent.setup();
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([scene({ name: "main" })]);
+
+    await user.click(
+      screen.getByRole("button", { name: "+ Ajouter une source" }),
+    );
+    emit({ type: "capture_targets", games: [], windows: [], monitors: [] });
+    await user.click(screen.getByRole("button", { name: "Du texte" }));
+
+    expect(
+      screen.getByRole("textbox", { name: /texte à afficher/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("should_poser_le_texte_ecrit_dans_la_scene", async () => {
+    const user = userEvent.setup();
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([scene({ name: "main" })]);
+
+    await user.click(
+      screen.getByRole("button", { name: "+ Ajouter une source" }),
+    );
+    emit({ type: "capture_targets", games: [], windows: [], monitors: [] });
+    await user.click(screen.getByRole("button", { name: "Du texte" }));
+    await user.type(
+      screen.getByRole("textbox", { name: /texte à afficher/i }),
+      "Bientôt de retour",
+    );
+    await user.click(screen.getByRole("button", { name: /Ajouter le texte/ }));
+
+    expect(invokeMock).toHaveBeenCalledWith("add_capture_source", {
+      scene: "main",
+      kind: "text",
+      targetId: "Bientôt de retour",
+      name: "Bientôt de retour",
+    });
+  });
+
+  it("should_refuser_d_ajouter_un_texte_vide", async () => {
+    // Une source texte vide est un rectangle invisible que l'utilisateur ne retrouvera
+    // pas — il la cherchera dans sa scène sans jamais la voir.
+    const user = userEvent.setup();
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([scene({ name: "main" })]);
+
+    await user.click(
+      screen.getByRole("button", { name: "+ Ajouter une source" }),
+    );
+    emit({ type: "capture_targets", games: [], windows: [], monitors: [] });
+    await user.click(screen.getByRole("button", { name: "Du texte" }));
+
+    expect(screen.getByRole("button", { name: /Ajouter le texte/ })).toBeDisabled();
+  });
+
   // Le refus du moteur appartient au bandeau du cockpit depuis le 2026-09-06
   // (`EngineErrorBanner`) : il arrive de façon asynchrone, souvent pendant qu'un autre
   // panneau est au premier plan. L'afficher ici EN PLUS le montrerait deux fois quand ce

@@ -280,7 +280,7 @@ ont été arbitrées en le faisant, et la trace de l'arbitrage vaut autant que l
 | 19 | Assistant d'accueil | B9 (reste) |
 | 20 | Marque | B8 |
 | 21 | Avatar | B13/B14 |
-| 20 | Confort — morphique, palette de commandes, accessibilité | B15 |
+| 22 | Confort — morphique, palette de commandes, accessibilité | B15 |
 
 **Ajoutés le 2026-09-07, après le premier direct long** : Jay a diffusé **1 h 51** avec
 Hikari, avec environ 2 % d'images perdues et une caméra figée en cours de route. Sa

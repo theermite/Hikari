@@ -146,6 +146,14 @@ pub fn add_capture_to_scene(
                 .set_bool("capture_cursor", true)
                 .context("réglage curseur")?;
         }
+        SourceKind::Text => {
+            // La « cible » d'une source texte est le texte lui-même, pas un
+            // appareil ni un fichier. C'est la seule famille dont le contenu
+            // vient de l'utilisateur et non de la machine.
+            settings
+                .set_string(hikari_protocol::TEXT_CONTENT_PROPERTY, target_id)
+                .context("réglage du texte")?;
+        }
         SourceKind::Image => {
             settings
                 .set_string(hikari_protocol::IMAGE_PATH_PROPERTY, target_id)

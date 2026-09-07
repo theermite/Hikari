@@ -17,6 +17,7 @@ export const SOURCE_ICON: Record<string, string> = {
   window_capture: "🪟",
   monitor_capture: "🖥️",
   dshow_input: "🎥",
+  text_gdiplus: "🔤",
 };
 
 export const KIND_TO_LIBOBS: Record<string, string> = {
@@ -24,6 +25,7 @@ export const KIND_TO_LIBOBS: Record<string, string> = {
   window: "window_capture",
   monitor: "monitor_capture",
   camera: "dshow_input",
+  text: "text_gdiplus",
 };
 
 /** Une flèche d'empilement, plus discrète que les boutons de scène pour ne pas confondre

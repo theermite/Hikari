@@ -90,6 +90,12 @@ pub enum SourceKind {
     /// source shared across scenes — never by `AddCaptureSource`, which would open the
     /// device a second time.
     Camera,
+    /// Du texte écrit à l'écran — un titre, un pseudo, un message d'attente.
+    ///
+    /// Ni une capture ni un fichier : la CIBLE est le texte lui-même, tapé par
+    /// l'utilisateur. C'est la seule famille dont le contenu ne vient pas de la
+    /// machine, et c'est pour ça qu'elle ne demande ni liste ni sélecteur.
+    Text,
 }
 
 impl SourceKind {
@@ -99,6 +105,7 @@ impl SourceKind {
             SourceKind::Game => GAME_CAPTURE_KIND,
             SourceKind::Window => WINDOW_CAPTURE_KIND,
             SourceKind::Monitor => MONITOR_CAPTURE_KIND,
+            SourceKind::Text => TEXT_SOURCE_KIND,
             SourceKind::Image => IMAGE_SOURCE_KIND,
             SourceKind::Video => VIDEO_SOURCE_KIND,
             SourceKind::Camera => CAMERA_KIND,
@@ -114,6 +121,17 @@ impl SourceKind {
 
 /// The libobs source-kind identifier for a still image — the real obs-studio image-source
 /// plugin id (verified 2026-08-05 against its source).
+/// L'identifiant du greffon de texte, LU DANS LE BINAIRE embarqué le 2026-09-07 —
+/// jamais recopié d'une documentation.
+///
+/// Pourquoi cette précaution : les versions récentes d'OBS ont publié `text_gdiplus_v2`
+/// puis `_v3`, et un identifiant inexistant ne provoque AUCUNE erreur — libobs rend
+/// simplement une source nulle, et l'utilisateur voit un ajout qui ne fait rien. Le
+/// greffon que nous embarquons n'expose que `text_gdiplus`, sans suffixe.
+pub const TEXT_SOURCE_KIND: &str = "text_gdiplus";
+/// La propriété qui porte le texte affiché, vérifiée dans le même binaire.
+pub const TEXT_CONTENT_PROPERTY: &str = "text";
+
 pub const IMAGE_SOURCE_KIND: &str = "image_source";
 /// The property carrying the image's path.
 pub const IMAGE_PATH_PROPERTY: &str = "file";

@@ -116,6 +116,8 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const [targetsError, setTargetsError] = useState<string | null>(null);
   const [chosenFamily, setFamily] = useState<SourceKind>("game");
   const [search, setSearch] = useState("");
+  /** Le texte en cours de saisie dans la fenêtre d'ajout. */
+  const [draftText, setDraftText] = useState("");
   const chosenIsFile =
     SOURCE_FAMILIES.find((f) => f.kind === chosenFamily)?.isFile ?? false;
   const renameInput = useRef<HTMLInputElement>(null);
@@ -399,6 +401,18 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     );
   };
 
+  /** Pose un texte dans la scène. Le texte SERT DE CIBLE et de nom : c'est ce que
+   * l'utilisateur reconnaîtra dans sa liste de sources, sans avoir à le nommer une
+   * seconde fois. */
+  const addText = (scene: string, texte: string) => {
+    setActionError(null);
+    setAddingTo(null);
+    setDraftText("");
+    addCaptureSource(scene, "text", texte, texte).catch((error: unknown) =>
+      setActionError(String(error)),
+    );
+  };
+
   /** Ouvre le sélecteur du système, puis pose le fichier choisi dans la scène. Un abandon
    * (aucun fichier retenu) ne fait rien et ne dit rien : ce n'est pas une erreur. */
   const pickFile = (scene: string, kind: SourceKind) => {
@@ -571,6 +585,9 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         layout={layout}
         chosenFamily={chosenFamily}
         chosenIsFile={chosenIsFile}
+        draftText={draftText}
+        onDraftTextChange={setDraftText}
+        onAddText={addText}
         targets={pickerTargets}
         targetsError={targetsError}
         search={search}

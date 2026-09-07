@@ -13,7 +13,11 @@ export type SourceKind =
   | "video"
   /** Une webcam — recréée par sa PROPRE commande, jamais comme une capture : un appareil
    * s'ouvre une fois et se partage entre les scènes qui l'affichent. */
-  | "camera";
+  | "camera"
+  /** Du texte écrit à l'écran. La seule famille dont le contenu vient de
+   * l'utilisateur et non de la machine : ni liste à parcourir, ni fichier à
+   * choisir — on l'écrit. */
+  | "text";
 
 /** Une chose capturable proposée par le moteur. `id` est la valeur exacte qu'il attend,
  * `label` est ce que l'utilisateur lit. */

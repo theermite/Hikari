@@ -27,6 +27,10 @@ interface AddSourceModalProps {
   layout: SceneLayout;
   chosenFamily: SourceKind;
   chosenIsFile: boolean;
+  /** Le texte en cours de saisie, quand la famille TEXTE est choisie. */
+  draftText: string;
+  onDraftTextChange: (value: string) => void;
+  onAddText: (scene: string, texte: string) => void;
   targets: CaptureTargets | null;
   targetsError: string | null;
   search: string;
@@ -47,6 +51,9 @@ export function AddSourceModal({
   layout,
   chosenFamily,
   chosenIsFile,
+  draftText,
+  onDraftTextChange,
+  onAddText,
   targets,
   targetsError,
   search,
@@ -90,7 +97,33 @@ export function AddSourceModal({
             ))}
           </div>
 
-          {chosenIsFile ? (
+          {/* Le TEXTE ne se choisit pas : il s'ecrit. Ni liste de cibles a
+          parcourir, ni selecteur de fichier — c'est la seule famille dont le
+          contenu vient de l'utilisateur et non de la machine. */}
+          {chosenFamily === "text" ? (
+            <>
+              <input
+                type="text"
+                data-autofocus
+                value={draftText}
+                onChange={(event) => onDraftTextChange(event.target.value)}
+                aria-label="Texte à afficher"
+                placeholder="Bientôt de retour…"
+                className="rounded-hikari-s border border-hikari-line bg-hikari-bg px-2 py-1.5 text-[12.5px] text-hikari-txt placeholder:text-hikari-txt-faint"
+              />
+              {/* Refuse un texte vide : une source texte sans texte est un
+              rectangle invisible que l'utilisateur cherchera dans sa scène sans
+              jamais le voir. */}
+              <button
+                type="button"
+                disabled={draftText.trim() === ""}
+                onClick={() => onAddText(addingTo, draftText.trim())}
+                className="self-start rounded-hikari-s bg-hikari-accent px-3 py-1.5 text-[12.5px] font-medium text-[#1a1206] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Ajouter le texte
+              </button>
+            </>
+          ) : chosenIsFile ? (
             <button
               type="button"
               data-autofocus

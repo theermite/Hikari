@@ -280,3 +280,29 @@ describe("targetsFor", () => {
     expect(targetsFor("video", targets)).toEqual([]);
   });
 });
+
+describe("la famille TEXTE", () => {
+  it("should_offer_text_next_to_the_other_families", () => {
+    expect(SOURCE_FAMILIES.map((f) => f.kind)).toContain("text");
+  });
+
+  it("should_not_ask_for_a_file_nor_a_list", () => {
+    // Le contenu d'une source texte vient de l'utilisateur, pas de la machine : ni
+    // sélecteur de fichier, ni liste de cibles à parcourir. On l'écrit.
+    const texte = SOURCE_FAMILIES.find((f) => f.kind === "text");
+
+    expect(texte?.isFile).toBe(false);
+    expect(targetsFor("text", {
+      games: [],
+      windows: [],
+      monitors: [],
+      cameras: [],
+    })).toEqual([]);
+  });
+
+  it("should_say_what_it_is_for_in_plain_words", () => {
+    const texte = SOURCE_FAMILIES.find((f) => f.kind === "text");
+
+    expect(texte?.hint.length).toBeGreaterThan(10);
+  });
+});
