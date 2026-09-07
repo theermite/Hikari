@@ -67,3 +67,13 @@ describe("showsPanel", () => {
     }
   });
 });
+
+describe("la carte Préparation", () => {
+  it("should_only_show_while_preparing", () => {
+    // Elle sert à décider s'il est temps de lancer. Une fois en direct, la question ne se
+    // pose plus — et la maquette la retire (`.card.only-setup`).
+    expect(showsPanel("preparation", "prep")).toBe(true);
+    expect(showsPanel("live", "prep")).toBe(false);
+    expect(showsPanel("focus", "prep")).toBe(false);
+  });
+});

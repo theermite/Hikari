@@ -46,9 +46,10 @@ export function resolvePreset(saved: string | null): PresetId {
  * ferme : un panneau fermé perd sa place, et le rouvrir le remonterait. Remonter l'Aperçu
  * relancerait le moteur et couperait la diffusion. */
 const SHOWN: Record<PresetId, readonly string[]> = {
-  // Tout ce qui sert à MONTER le direct. Le chat s'efface : personne ne regarde encore.
-  preparation: ["scenes", "preview", "audio", "deck"],
-  // Le direct : le chat revient, et tout reste sous la main.
+  // Tout ce qui sert à MONTER le direct : la carte Préparation apparaît, le chat
+  // s'efface — personne ne regarde encore.
+  preparation: ["scenes", "preview", "audio", "deck", "prep"],
+  // Le direct : le chat revient, la carte Préparation s'efface, et tout reste sous la main.
   live: ["scenes", "preview", "audio", "deck", "chat"],
   // Le strict nécessaire. Les scènes restent — basculer d'un clic est la promesse du
   // produit, et c'est le seul geste qu'on fait encore quand on est pris par le jeu.

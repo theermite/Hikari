@@ -30,8 +30,12 @@ const VERSION_KEY = "layoutVersion";
  * 4 : le Pré-vol et les Paramètres sortent du registre des panneaux (2026-09-07). Ce sont
  * des écrans ; une disposition sauvegardée qui les porte encore désignerait des panneaux
  * dont le composant n'existe plus. La rebâtir est plus sûr que de les retirer un par un —
- * et c'est le même geste qui rend la répartition de la maquette. */
-export const LAYOUT_VERSION = 4;
+ * et c'est le même geste qui rend la répartition de la maquette.
+ *
+ * 5 : la carte Préparation entre dans le cockpit (2026-09-07). Aucune disposition déjà
+ * enregistrée ne la connaît, et le rattrapage panneau par panneau la poserait sans sa
+ * place — la rebâtir la met là où la maquette la veut, sous les scènes. */
+export const LAYOUT_VERSION = 5;
 
 let storePromise: Promise<Store> | null = null;
 
@@ -102,6 +106,12 @@ export const COCKPIT_PANELS: CockpitPanel[] = [
     direction: "right",
   },
   { id: "chat", title: "Chat", anchor: ["preview"], direction: "right" },
+  {
+    id: "prep",
+    title: "Préparation",
+    anchor: ["scenes"],
+    direction: "below",
+  },
   {
     id: "audio",
     title: "Audio",

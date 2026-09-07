@@ -35,3 +35,25 @@ export function onAddRequested(panelId: string, handler: Handler): () => void {
 export function acceptsAdd(panelId: string): boolean {
   return (handlers.get(panelId)?.size ?? 0) > 0;
 }
+
+/** Les demandes de changement de disposition, même mécanisme et même raison.
+ *
+ * La carte « Préparation » vit DANS le cockpit ; les dispositions sont pilotées par la
+ * coque, au-dessus. Le bouton « Passer en mode Live » doit donc demander, pas décider —
+ * exactement comme le « + » d'un onglet. */
+type PresetHandler = (preset: string) => void;
+
+const presetHandlers = new Set<PresetHandler>();
+
+/** Demande à la coque de basculer sur `preset`. Sans écouteur, ne fait rien. */
+export function requestPreset(preset: string): void {
+  for (const handler of presetHandlers) handler(preset);
+}
+
+/** Abonne la coque aux demandes de disposition. Renvoie de quoi se désabonner. */
+export function onPresetRequested(handler: PresetHandler): () => void {
+  presetHandlers.add(handler);
+  return () => {
+    presetHandlers.delete(handler);
+  };
+}

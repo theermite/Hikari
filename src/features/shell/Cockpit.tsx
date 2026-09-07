@@ -10,7 +10,7 @@ import type {
   IDockviewPanelProps,
 } from "dockview-react";
 import { DockviewReact } from "dockview-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "dockview-react/dist/styles/dockview.css";
 import { MorphicButton } from "@theermite/morphic-adapter/ui";
 import { AudioPanel } from "../audio/AudioPanel";
@@ -18,6 +18,7 @@ import { ChatPanel } from "../chat/ChatPanel";
 import { DeckPanel } from "../deck/DeckPanel";
 import { PreflightPanel } from "../preflight/PreflightPanel";
 import { PreviewPanel } from "../preview/PreviewPanel";
+import { PrepPanel } from "../scenes/PrepPanel";
 import { ScenesPanel } from "../scenes/ScenesPanel";
 import { UpdateBanner } from "../updates/UpdateBanner";
 import { VersionTag } from "../updates/VersionTag";
@@ -31,10 +32,17 @@ import {
   saveLayout,
 } from "./layout";
 import { PanelTab } from "./PanelTab";
+import { onPresetRequested } from "./panelActions";
 import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
 import { SettingsPanel } from "./panels/SettingsPanel";
-import { PRESETS, type PresetId, resolvePreset, showsPanel } from "./presets";
+import {
+  isKnownPreset,
+  PRESETS,
+  type PresetId,
+  resolvePreset,
+  showsPanel,
+} from "./presets";
 import { ScreenFrame } from "./ScreenFrame";
 import { ScreenPlaceholder } from "./ScreenPlaceholder";
 import { Sidebar } from "./Sidebar";
@@ -74,6 +82,7 @@ const PANEL_COMPONENTS: Record<
   placeholder: PlaceholderPanel,
   preview: PreviewPanel,
   scenes: ScenesPanel,
+  prep: PrepPanel,
   audio: AudioPanel,
   chat: ChatPanel,
 };
@@ -154,6 +163,15 @@ function buildDefaultLayout(api: DockviewApi): void {
     component: "deck",
     title: "Deck",
     position: { referencePanel: audio.id, direction: "right" },
+  });
+
+  // La carte Préparation ferme la colonne de gauche, sous les scènes — la place
+  // que la maquette lui donne. Elle ne se voit qu'en disposition Préparation.
+  api.addPanel({
+    id: "prep",
+    component: "prep",
+    title: "Préparation",
+    position: { referencePanel: scenes.id, direction: "below" },
   });
 
   // Ni Pré-vol ni Caméra dans la disposition du direct (2026-09-06) :
@@ -246,6 +264,18 @@ export function Cockpit() {
       saveLayout(event.api).catch(() => {
         // La sauvegarde échoue rarement (coffre local) ; ne jamais bloquer l'UI dessus.
       });
+    });
+  }, []);
+
+  // La carte Préparation DEMANDE la bascule ; la coque décide. Elle vit dans le
+  // cockpit et ne peut donc pas piloter les dispositions elle-même — même raison
+  // que le « + » d'un onglet, dessiné hors de l'arbre du panneau.
+  useEffect(() => {
+    return onPresetRequested((preset) => {
+      if (isKnownPreset(preset)) {
+        setActivePreset(preset);
+        applyPreset(apiRef.current, preset);
+      }
     });
   }, []);
 
