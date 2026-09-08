@@ -72,7 +72,7 @@ pub(crate) async fn open_settings_window(
         urlencoding_component(initial.as_deref().unwrap_or("")),
     );
 
-    let window = WebviewWindowBuilder::new(
+    WebviewWindowBuilder::new(
         &app,
         &label,
         WebviewUrl::App(format!("index.html?{query}").into()),
@@ -84,14 +84,6 @@ pub(crate) async fn open_settings_window(
     .decorations(true)
     .build()
     .map_err(|err| err.to_string())?;
-
-    // Jay, 2026-09-07 : la fenêtre s'ouvrait blanche, et impossible à fermer — un verrou
-    // (voir la doc de cette fonction), pas un défaut du contenu. Ouvrir les
-    // outils de développement AUTOMATIQUEMENT en debug est le seul moyen de voir l'erreur
-    // réelle sans deviner davantage — deviner une seconde fois sans preuve coûterait plus
-    // cher que la mesurer.
-    #[cfg(debug_assertions)]
-    window.open_devtools();
 
     Ok(())
 }
