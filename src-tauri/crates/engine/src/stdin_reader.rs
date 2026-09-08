@@ -59,8 +59,8 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::CreateScene { name }) => {
                     let _ = proxy.send_event(EngineEvent::CreateScene { name });
                 }
-                Ok(ControllerCommand::SwitchScene { name }) => {
-                    let _ = proxy.send_event(EngineEvent::SwitchScene { name });
+                Ok(ControllerCommand::SwitchScene { name, duration_ms }) => {
+                    let _ = proxy.send_event(EngineEvent::SwitchScene { name, duration_ms });
                 }
                 Ok(ControllerCommand::DeleteScene { name }) => {
                     let _ = proxy.send_event(EngineEvent::DeleteScene { name });

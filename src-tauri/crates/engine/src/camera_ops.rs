@@ -120,6 +120,16 @@ impl App {
     /// n'est relâché (sa source et ses filtres détruits) que lorsque plus aucune scène ne
     /// le montre.
     pub(crate) fn handle_remove_camera(&mut self, device_id: String, scene: String) {
+        // Un glissement en vol vers CET élément précis (2026-09-09, relecture — second
+        // défaut trouvé sur `camera_slide`) n'a plus rien à rejoindre : le retirer plutôt
+        // que le laisser tourner, sinon un ajout ultérieur du même appareil dans la même
+        // scène hériterait d'un glissement qui ne parle pas de lui, et sa fin l'annoncerait
+        // comme la vérité.
+        if let Some(slide) = &self.camera_slide {
+            if slide.scene == scene && slide.device_id == device_id {
+                self.camera_slide = None;
+            }
+        }
         let Some(obs) = &mut self.obs else {
             emit(&EngineMessage::Error { message: "réglage caméra avant l'initialisation".into() });
             return;

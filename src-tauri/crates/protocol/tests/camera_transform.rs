@@ -6,7 +6,7 @@
 use hikari_protocol::{
     CAMERA_POSITION_BOUND, CAMERA_SCALE_MAX, CAMERA_SCALE_MIN, CAMERA_SOURCE_NAME,
     ControllerCommand, EngineMessage, clamp_camera_position, clamp_camera_scale,
-    parse_controller_command, parse_engine_message, to_line,
+    lerp_camera_transform, parse_controller_command, parse_engine_message, to_line,
 };
 use proptest::prelude::*;
 
@@ -92,6 +92,33 @@ fn should_roundtrip_camera_transform_message() {
     assert_eq!(parse_engine_message(&line).expect("parses"), msg);
 }
 
+#[test]
+fn should_start_lerp_at_the_from_placement() {
+    assert_eq!(lerp_camera_transform((100, 200, 1.0), (300, 400, 1.5), 0.0), (100, 200, 1.0));
+}
+
+#[test]
+fn should_end_lerp_at_the_to_placement() {
+    assert_eq!(lerp_camera_transform((100, 200, 1.0), (300, 400, 1.5), 1.0), (300, 400, 1.5));
+}
+
+#[test]
+fn should_land_halfway_at_half_progress() {
+    assert_eq!(lerp_camera_transform((0, 0, 1.0), (100, 200, 2.0), 0.5), (50, 100, 1.5));
+}
+
+#[test]
+fn should_clamp_progress_past_one_to_the_to_placement() {
+    // A tick landing after the animation's own deadline (a slow frame, a paused process)
+    // must still resolve exactly on `to` — never overshoot past it.
+    assert_eq!(lerp_camera_transform((0, 0, 1.0), (100, 100, 2.0), 1.8), (100, 100, 2.0));
+}
+
+#[test]
+fn should_clamp_negative_progress_to_the_from_placement() {
+    assert_eq!(lerp_camera_transform((10, 20, 1.0), (30, 40, 2.0), -0.5), (10, 20, 1.0));
+}
+
 proptest! {
     #[test]
     fn should_never_exceed_bound_for_any_position(x in any::<i32>(), y in any::<i32>()) {
@@ -112,5 +139,16 @@ proptest! {
         let line = to_line(&msg).expect("serializes");
         prop_assert!(!line.contains('\n'));
         prop_assert_eq!(parse_engine_message(&line).expect("parses"), msg);
+    }
+
+    #[test]
+    fn should_stay_between_from_and_to_for_any_progress(
+        from_x in -1000i32..1000, from_y in -1000i32..1000,
+        to_x in -1000i32..1000, to_y in -1000i32..1000,
+        progress in 0.0f32..=1.0f32,
+    ) {
+        let (x, y, _) = lerp_camera_transform((from_x, from_y, 1.0), (to_x, to_y, 1.0), progress);
+        prop_assert!(x >= from_x.min(to_x) && x <= from_x.max(to_x));
+        prop_assert!(y >= from_y.min(to_y) && y <= from_y.max(to_y));
     }
 }

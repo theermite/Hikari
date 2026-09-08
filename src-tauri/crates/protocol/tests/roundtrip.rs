@@ -65,7 +65,8 @@ fn controller_command_strategy() -> impl Strategy<Value = ControllerCommand> {
         Just(ControllerCommand::StartStream),
         Just(ControllerCommand::StopStream),
         Just(ControllerCommand::Stop),
-        any::<String>().prop_map(|name| ControllerCommand::SwitchScene { name }),
+        (any::<String>(), any::<u32>())
+            .prop_map(|(name, duration_ms)| ControllerCommand::SwitchScene { name, duration_ms }),
     ]
 }
 

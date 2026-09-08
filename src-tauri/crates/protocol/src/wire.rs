@@ -167,9 +167,14 @@ pub enum ControllerCommand {
     /// Grows (`true`) or shrinks (`false`) the placement of the camera `device_id` within
     /// `scene` by one fixed step (B7). Same per-camera, per-scene scope as `NudgeCamera`.
     ScaleCamera { device_id: String, scene: String, grow: bool },
-    /// Switches the live scene (multi-scene, tranche 1) — an instant cut on the output
-    /// channel (`obs_set_output_source`), never a transition (that's B7's remaining scope).
-    SwitchScene { name: String },
+    /// Switches the live scene through a fondu (B7). `duration_ms` comes from
+    /// [`crate::TRANSITION_DURATIONS_MS`], clamped again on the engine side
+    /// (`clamp_transition_duration_ms`) — `0` is an instant cut, never a fade with no
+    /// visible motion. A camera shown in both the outgoing and the incoming scene glides
+    /// from its old placement to the one already saved for the incoming scene, over the
+    /// same duration (option A, Jay 2026-09-08 — full manual/automation-triggered movement
+    /// is the later target, tracked as B7's remaining scope).
+    SwitchScene { name: String, duration_ms: u32 },
     /// Deletes the scene named `name` and everything scene-local it carried (its camera
     /// placement, its own filter preferences). The shared physical webcam survives as long
     /// as another scene still shows it — same release rule as `RemoveCamera`.
@@ -253,12 +258,15 @@ pub enum ControllerCommand {
     /// jamais après. Un texte se corrige (une faute, un pseudo qui change) bien plus souvent
     /// qu'il ne se réécrit entièrement.
     SetTextContent { scene: String, name: String, text: String },
-    /// Redemande l'inventaire actuel des scenes, sans rien changer.
+    /// Redemande l'inventaire actuel des scenes ET du mixeur, sans rien changer.
     ///
-    /// Le moteur n'annonce `SceneList` que sur un vrai changement — une fenetre qui
-    /// s'ouvre APRES le dernier changement attendrait sinon indefiniment le prochain,
-    /// qui peut ne jamais arriver sur une scene statique (Jay, 2026-09-07 : une fenetre
-    /// de reglages caméra restee bloquee sur « en attente du moteur »).
+    /// Le moteur n'annonce `SceneList`/`AudioSources` que sur un vrai changement — une
+    /// fenetre qui s'ouvre APRES le dernier changement attendrait sinon indefiniment le
+    /// prochain, qui peut ne jamais arriver sur une scene statique (Jay, 2026-09-07 : une
+    /// fenetre de reglages caméra restee bloquee sur « en attente du moteur »). Le mixeur
+    /// rejoint la demande le 2026-09-08 : un rechargement du panneau principal SANS
+    /// redémarrage du moteur (rechargement Vite, actualisation manuelle) le laissait vide
+    /// pour la même raison — rien côté moteur ne renvoie son état de lui-même.
     RequestSceneList,
     /// Sets the volume the STREAMER hears, independently of what the audience hears.
     ///

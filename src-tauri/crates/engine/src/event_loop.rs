@@ -11,7 +11,7 @@ use winit::window::WindowId;
 
 use crate::stream::{FRAME_STATS_INTERVAL, report_frame_stats};
 use crate::multistream::report_platform_frame_stats;
-use crate::{App, AUDIO_LEVEL_INTERVAL, EngineEvent, emit, fit_size};
+use crate::{App, AUDIO_LEVEL_INTERVAL, CAMERA_SLIDE_TICK, EngineEvent, emit, fit_size};
 use hikari_protocol::EngineMessage;
 
 impl ApplicationHandler<EngineEvent> for App {
@@ -53,7 +53,7 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::NudgeCamera { device_id, scene, dx, dy } => self.handle_nudge_camera(device_id, scene, dx, dy),
             EngineEvent::ScaleCamera { device_id, scene, grow } => self.handle_scale_camera(device_id, scene, grow),
             EngineEvent::CreateScene { name } => self.handle_create_scene(name),
-            EngineEvent::SwitchScene { name } => self.handle_switch_scene(name),
+            EngineEvent::SwitchScene { name, duration_ms } => self.handle_switch_scene(name, duration_ms),
             EngineEvent::DeleteScene { name } => self.handle_delete_scene(name),
             EngineEvent::ListAudioDevices => self.handle_list_audio_devices(),
             EngineEvent::AddAudioSource { device_id, kind, name } => {
@@ -96,7 +96,12 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetTextContent { scene, name, text } => {
                 self.handle_set_text_content(scene, name, &text)
             }
-            EngineEvent::RequestSceneList => self.emit_scene_list(),
+            EngineEvent::RequestSceneList => {
+                self.emit_scene_list();
+                // Le mixeur aussi (2026-09-08) : une fenêtre rechargée sans que le moteur
+                // redémarre n'a aucune autre façon de retrouver ce qu'elle affichait.
+                self.emit_audio_sources();
+            }
         }
         // La composition a changé sans que la commande le dise : le dire à sa place.
         if self.scene_contents_fingerprint() != before {
@@ -106,10 +111,15 @@ impl ApplicationHandler<EngineEvent> for App {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         // Periodic reporting: frame drops while streaming (B2a: continuous health, not the
-        // spike's single end-of-run sample) and audio levels while the mixer holds sources
-        // (B6). Fully idle — no stream, no multistream, no audio — never wakes the loop.
+        // spike's single end-of-run sample), audio levels while the mixer holds sources
+        // (B6), and the camera glide while one is in flight (B7, option A). Fully idle — no
+        // stream, no multistream, no audio, no glide — never wakes the loop.
         let has_audio = self.obs.as_ref().is_some_and(|obs| !obs.audio.is_empty());
-        if self.stream.is_none() && self.multistream.is_empty() && !has_audio {
+        let has_slide = self.camera_slide.is_some();
+        if has_slide {
+            self.advance_camera_slide();
+        }
+        if self.stream.is_none() && self.multistream.is_empty() && !has_audio && !has_slide {
             event_loop.set_control_flow(ControlFlow::Wait);
             return;
         }
@@ -134,9 +144,16 @@ impl ApplicationHandler<EngineEvent> for App {
             self.emit_audio_levels();
             self.audio_last_levels_at = Instant::now();
         }
-        // Wake on the SHORTEST pending deadline: the audio meter is far more frequent than
-        // the frame counters, and sleeping for the longer one would make the bars lurch.
-        let next = if has_audio { AUDIO_LEVEL_INTERVAL } else { FRAME_STATS_INTERVAL };
+        // Wake on the SHORTEST pending deadline: a glide in flight is far more frequent
+        // than the audio meter, which is itself far more frequent than the frame counters
+        // — sleeping for a longer one would make the faster one visibly stutter.
+        let next = if has_slide {
+            CAMERA_SLIDE_TICK
+        } else if has_audio {
+            AUDIO_LEVEL_INTERVAL
+        } else {
+            FRAME_STATS_INTERVAL
+        };
         event_loop.set_control_flow(ControlFlow::WaitUntil(Instant::now() + next));
     }
 

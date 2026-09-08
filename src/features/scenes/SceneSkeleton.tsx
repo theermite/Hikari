@@ -1,21 +1,16 @@
-// Ce que la maquette dessine dans le panneau Scènes et qui n'est pas encore branché.
+// Ce que la maquette dessine dans le panneau Scènes.
 //
-// Décision de Jay, 2026-09-05 : dessiner le squelette complet et le marquer « à venir »,
-// plutôt que de laisser des trous. Trois raisons qu'il donne — on sait ce qui arrive, on
-// voit à quoi ça ressemblera, et le squelette tient debout au lieu d'être rapiécé brique
-// après brique.
+// Décision de Jay, 2026-09-05 : dessiner le squelette complet et le marquer « à venir »
+// quand une pièce n'est pas encore branchée, plutôt que de laisser des trous.
 //
-// Les deux éléments d'ici attendent leur brique :
+// Un seul élément attend encore sa brique ici :
 //   — les COLLECTIONS groupent les scènes par contexte (jeu, interview, pause). Rien ne
-//     les porte côté moteur ;
-//   — la TRANSITION choisit ce qui se passe entre deux scènes. C'est la brique qui suit
-//     les automations dans l'ordre de travail de Jay.
-//
-// Tous deux passent par `ComingSoon`, la seule façon autorisée de dire « ça arrive » :
-// si chaque écran inventait la sienne, l'utilisateur devrait deviner lesquelles sont des
-// promesses.
+//     les porte côté moteur.
+// La TRANSITION (fondu au changement de scène, B7) est branchée depuis 2026-09-08 —
+// `ScenesPanel` lui passe la durée choisie et le changement.
 
 import { ComingSoon } from "../../components/ui/ComingSoon";
+import { TRANSITION_DURATION_LABEL, TRANSITION_DURATIONS_MS } from "./types";
 
 /** Les onglets de collections, tels que la maquette les pose au-dessus des scènes. */
 export function SceneCollections() {
@@ -43,18 +38,32 @@ export function SceneCollections() {
   );
 }
 
-/** La ligne « Transition », en bas du panneau, comme dans la maquette. */
-export function SceneTransition() {
+/** La ligne « Transition », en bas du panneau — la durée du fondu appliqué au prochain
+ * changement de scène (B7). `value` est TOUJOURS l'une de `TRANSITION_DURATIONS_MS` : le
+ * `<select>` n'offre que ces options, donc rien d'autre ne peut en sortir. */
+export function SceneTransition({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (durationMs: number) => void;
+}) {
   return (
     <div className="mt-1 border-t border-hikari-line pt-2">
-      <ComingSoon what="choisir la transition entre deux scènes">
-        <span className="flex items-center gap-2 text-[12px] text-hikari-txt-dim">
-          🎬 Transition
-          <span className="rounded-[6px] border border-hikari-line px-2 py-0.5">
-            Fondu <span className="text-hikari-accent">0,3 s</span> ▾
-          </span>
-        </span>
-      </ComingSoon>
+      <label className="flex items-center gap-2 text-[12px] text-hikari-txt-dim">
+        🎬 Transition
+        <select
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="rounded-[6px] border border-hikari-line bg-hikari-bg px-2 py-0.5 text-hikari-txt"
+        >
+          {TRANSITION_DURATIONS_MS.map((ms) => (
+            <option key={ms} value={ms}>
+              {TRANSITION_DURATION_LABEL[ms]}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

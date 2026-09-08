@@ -76,3 +76,40 @@ pub fn validate_scene_name(name: &str, existing: &[String]) -> Result<(), SceneN
     }
     Ok(())
 }
+
+/// The durations the panel offers (B7, transitions) — coupe sèche, then three fades. A
+/// closed list rather than a free field: an unbounded slider lets a stray value hang a
+/// switch on a live stream, exactly the class of mistake `clamp_transition_duration_ms`
+/// exists to catch even if a future caller bypasses the panel.
+pub const TRANSITION_DURATIONS_MS: [u32; 4] = [0, 300, 500, 1000];
+
+/// Clamps a requested transition duration to a safe ceiling (B7). Pure and total, so both
+/// the panel (before sending) and the engine (before obeying) refuse the same runaway
+/// value — a duration meant in milliseconds but typed in seconds, or a corrupted wire
+/// value, would otherwise hang the output on the last frame of the outgoing scene for that
+/// long, live, with no way to cut it short.
+///
+/// `0` always means an instant cut (never "no transition specified"): it is the first
+/// entry of [`TRANSITION_DURATIONS_MS`] and the engine's own no-fade path.
+pub fn clamp_transition_duration_ms(requested_ms: u32) -> u32 {
+    const MAX_TRANSITION_MS: u32 = 2_000;
+    requested_ms.min(MAX_TRANSITION_MS)
+}
+
+#[cfg(test)]
+mod transition_duration_tests {
+    use super::*;
+
+    #[test]
+    fn should_pass_through_when_within_ceiling() {
+        assert_eq!(clamp_transition_duration_ms(0), 0);
+        assert_eq!(clamp_transition_duration_ms(500), 500);
+        assert_eq!(clamp_transition_duration_ms(2_000), 2_000);
+    }
+
+    #[test]
+    fn should_clamp_when_above_ceiling() {
+        assert_eq!(clamp_transition_duration_ms(60_000), 2_000);
+        assert_eq!(clamp_transition_duration_ms(u32::MAX), 2_000);
+    }
+}

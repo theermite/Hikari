@@ -124,7 +124,11 @@ describe("ScenesPanel", () => {
 
     await user.click(screen.getByRole("button", { name: "brb" }));
 
-    expect(invokeMock).toHaveBeenCalledWith("switch_scene", { name: "brb" });
+    // 300 = le défaut affiché (`TRANSITION_DURATIONS_MS[1]`, « Fondu 0,3 s »).
+    expect(invokeMock).toHaveBeenCalledWith("switch_scene", {
+      name: "brb",
+      durationMs: 300,
+    });
   });
 
   it("should_creer_une_scene_quand_le_nom_n_est_pas_vide", async () => {
@@ -571,15 +575,18 @@ describe("ScenesPanel", () => {
     expect(screen.getByText(/Transition/)).toBeInTheDocument();
   });
 
-  it("should_marquer_la_transition_comme_pas_encore_branchee", () => {
-    // Les transitions sont la brique qui suit les automations dans l'ordre de Jay. Un
-    // sélecteur qui FAIT SEMBLANT de marcher tromperait.
+  it("should_changer_la_scene_avec_la_duree_choisie_dans_le_selecteur", async () => {
+    const user = userEvent.setup();
     render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
-    ready([scene({ name: "main" })]);
+    ready([scene({ name: "main" }), scene({ name: "brb" })], "main");
 
-    expect(
-      screen.getByText(/Transition/).closest('[aria-disabled="true"]'),
-    ).not.toBeNull();
+    await user.selectOptions(screen.getByRole("combobox"), "0");
+    await user.click(screen.getByRole("button", { name: "brb" }));
+
+    expect(invokeMock).toHaveBeenCalledWith("switch_scene", {
+      name: "brb",
+      durationMs: 0,
+    });
   });
 
   it("should_dessiner_les_collections_de_scenes", () => {
@@ -779,6 +786,173 @@ describe("ScenesPanel", () => {
 
     const destructive = saveSessionMock.mock.calls.filter(
       ([doc]) => (doc?.audio?.length ?? 0) === 0,
+    );
+    expect(destructive).toHaveLength(0);
+  });
+
+  it("should_never_save_a_partial_replay_while_a_failed_step_is_still_retrying", async () => {
+    // Troisième versant du même défaut (2026-09-08), vécu en direct : une SEULE commande du
+    // rejeu en échec (appareil audio ou caméra momentanément indisponible — vu ce soir dans
+    // les journaux, instabilité WASAPI) arrêtait tout le reste, et l'inventaire tronqué qui
+    // restait devenait la vérité enregistrée au prochain message du moteur.
+    loadSessionMock.mockResolvedValue({
+      active: "main",
+      audio: [],
+      scenes: [
+        { name: "main", sources: [], cameras: [] },
+        { name: "Dofus", sources: [], cameras: [] },
+      ],
+    });
+    let createSceneCalls = 0;
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "create_scene") {
+        createSceneCalls += 1;
+        // Échoue au premier essai (l'appareil), réussit au second (le retenter suffit).
+        return createSceneCalls === 1
+          ? Promise.reject(new Error("appareil momentanément indisponible"))
+          : Promise.resolve(undefined);
+      }
+      return Promise.resolve(undefined);
+    });
+
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    emit({ type: "ready" });
+    emit({
+      type: "scene_list",
+      active: "main",
+      scenes: [scene({ name: "main" })],
+    });
+    // Le premier essai échoue à `create_scene` : `restoreOk` doit rester FAUX pendant
+    // toute cette fenêtre, avant même que le second essai n'ait eu la chance de tourner.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const destructiveWhileRetrying = saveSessionMock.mock.calls.filter(
+      ([doc]) => (doc?.scenes?.length ?? 0) < 2,
+    );
+    expect(destructiveWhileRetrying).toHaveLength(0);
+
+    // Le second essai tourne à son tour et réussit — la session complète est maintenant
+    // rejouée, plus rien ne doit avoir été enregistré de tronqué entre-temps.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(createSceneCalls).toBe(2);
+    const destructive = saveSessionMock.mock.calls.filter(
+      ([doc]) => (doc?.scenes?.length ?? 0) < 2,
+    );
+    expect(destructive).toHaveLength(0);
+  });
+
+  it("should_surface_an_error_when_the_replay_fails_twice_in_a_row", async () => {
+    loadSessionMock.mockResolvedValue({
+      active: "main",
+      audio: [],
+      scenes: [
+        { name: "main", sources: [], cameras: [] },
+        { name: "Dofus", sources: [], cameras: [] },
+      ],
+    });
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === "create_scene"
+        ? Promise.reject(new Error("appareil indisponible"))
+        : Promise.resolve(undefined),
+    );
+
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    emit({ type: "ready" });
+    emit({
+      type: "scene_list",
+      active: "main",
+      scenes: [scene({ name: "main" })],
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Jamais avalée : Jay doit voir que son cadrage n'a peut-être pas été retrouvé plutôt
+    // que de le découvrir en direct.
+    expect(screen.getByText(/2 essais/)).toBeInTheDocument();
+  });
+
+  it("should_never_save_the_dead_engine_replay_when_the_engine_restarts_mid_replay", async () => {
+    // Défaut trouvé en relecture indépendante (2026-09-08) : un moteur qui redémarre
+    // PENDANT un rejeu voyait son propre rejeu jeté (`replaying` restait vrai côté ancien
+    // rejeu), et c'était l'ANCIEN rejeu — celui du moteur mort — qui finissait par écrire
+    // `restoreOk = true` et sauvegarder l'inventaire nu du NOUVEAU moteur par-dessus la
+    // vraie session.
+    loadSessionMock.mockResolvedValue({
+      active: "main",
+      audio: [],
+      scenes: [
+        { name: "main", sources: [], cameras: [] },
+        { name: "Dofus", sources: [], cameras: [] },
+      ],
+    });
+    const pending: { release: (() => void) | null } = { release: null };
+    let createSceneCalls = 0;
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "create_scene") {
+        createSceneCalls += 1;
+        if (createSceneCalls === 1) {
+          // Le PREMIER essai ne se termine jamais tout seul — c'est le moteur qui
+          // redémarre pendant qu'il attend, exactement le scénario du défaut.
+          return new Promise<void>((resolve) => {
+            pending.release = resolve;
+          });
+        }
+      }
+      return Promise.resolve(undefined);
+    });
+
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    emit({ type: "ready" });
+    emit({
+      type: "scene_list",
+      active: "main",
+      scenes: [scene({ name: "main" })],
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(createSceneCalls).toBe(1);
+
+    // Le moteur redémarre EN PLEIN MILIEU du premier rejeu : nouveau signal de démarrage,
+    // puis un inventaire nu — le second rejeu qu'il déclenche ne peut pas encore tourner
+    // (`replaying` est toujours vrai pour le premier).
+    emit({ type: "ready" });
+    emit({
+      type: "scene_list",
+      active: "main",
+      scenes: [scene({ name: "main" })],
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Le premier essai, mort, se termine ENFIN — sa réussite ne doit RIEN écrire pour le
+    // moteur actuel.
+    pending.release?.();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Le relais a dû relancer un vrai second rejeu pour le bon moteur.
+    expect(createSceneCalls).toBe(2);
+    const destructive = saveSessionMock.mock.calls.filter(
+      ([doc]) => (doc?.scenes?.length ?? 0) < 2,
     );
     expect(destructive).toHaveLength(0);
   });

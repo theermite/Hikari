@@ -38,7 +38,7 @@ fn should_roundtrip_create_scene_command() {
 
 #[test]
 fn should_roundtrip_switch_scene_command() {
-    let cmd = ControllerCommand::SwitchScene { name: "Discussion".to_string() };
+    let cmd = ControllerCommand::SwitchScene { name: "Discussion".to_string(), duration_ms: 500 };
     let line = to_line(&cmd).expect("serializes");
     assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
 }

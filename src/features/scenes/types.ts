@@ -29,6 +29,21 @@ export interface CaptureTarget {
 /** Vers l'avant (dessine par-dessus) ou vers l'arrière (passe dessous). */
 export type SourceOrder = "front" | "back";
 
+/** Les durées de fondu que le panneau propose (B7), miroir de
+ * `hikari_protocol::TRANSITION_DURATIONS_MS` — un jeu fermé plutôt qu'un champ libre,
+ * même raison que côté moteur : une valeur hors de ce jeu se ferait quand même clamper là-bas,
+ * autant que l'écran propose seulement ce qui tient. `0` = coupe sèche, jamais un fondu à
+ * durée nulle. */
+export const TRANSITION_DURATIONS_MS = [0, 300, 500, 1000] as const;
+
+/** L'étiquette que lit l'utilisateur pour chaque durée de `TRANSITION_DURATIONS_MS`. */
+export const TRANSITION_DURATION_LABEL: Record<number, string> = {
+  0: "Coupe sèche",
+  300: "Fondu 0,3 s",
+  500: "Fondu 0,5 s",
+  1000: "Fondu 1 s",
+};
+
 /** Une source posée dans une scène. `kind` est l'identifiant libobs, jamais deviné.
  *
  * Porte tout ce qu'il faut pour la RECRÉER au prochain lancement : sa famille, ce qu'elle

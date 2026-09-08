@@ -6,52 +6,28 @@
 // voir `sceneLayout.ts` pour le pourquoi). Une scène n'est donc jamais renommée côté
 // moteur — son identifiant y reste fixe à vie.
 
-import { listen } from "@tauri-apps/api/event";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useRef, useState } from "react";
 import { Panel } from "../../components/ui/Panel";
-import {
-  addAudioSource,
-  setAudioMonitoring,
-  setAudioMuted,
-  setAudioVolume,
-  setMonitorVolume,
-  setNoiseSettings,
-} from "../audio/api";
-import type { AudioEngineMessage, AudioSourceInfo } from "../audio/types";
-import {
-  addCameraSource,
-  setBackgroundRemoval,
-  setCircleMask,
-} from "../camera/api";
+import type { AudioSourceInfo } from "../audio/types";
 import { onAddRequested } from "../shell/panelActions";
 import { AddSourceModal } from "./AddSourceModal";
-import {
-  addCaptureSource,
-  createScene,
-  listCaptureTargets,
-  openSettingsWindow,
-  setSourceLocked,
-  setSourceTransform,
-  setTextSettings as setTextSettingsOnEngine,
-  switchScene,
-} from "./api";
+import { createScene, openSettingsWindow } from "./api";
 import { SceneRow } from "./SceneRow";
 import { SceneCollections, SceneTransition } from "./SceneSkeleton";
 import {
   EMPTY_LAYOUT,
   loadSceneLayout,
-  loadSession,
   moveScene,
   orderScenes,
   type SceneLayout,
   saveSceneLayout,
-  saveSession,
 } from "./sceneLayout";
-import { buildReplay, toSession } from "./session";
 import { withDefaults } from "./textSettings";
-import type { EngineMessage, SceneInfo } from "./types";
+import type { SceneInfo } from "./types";
+import { TRANSITION_DURATIONS_MS } from "./types";
 import { useAddSource } from "./useAddSource";
+import { useEngineSessionSync } from "./useEngineSessionSync";
 import { useSceneActions } from "./useSceneActions";
 import { useSceneRename } from "./useSceneRename";
 import { useTextSettings } from "./useTextSettings";
@@ -74,6 +50,12 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
+  /** La durée de fondu appliquée au PROCHAIN changement de scène (B7) — locale à l'écran,
+   * jamais persistée : c'est un réglage du geste, pas de la scène elle-même. Deuxième
+   * valeur de `TRANSITION_DURATIONS_MS` (0,3 s), même défaut que la maquette. */
+  const [transitionMs, setTransitionMs] = useState<number>(
+    TRANSITION_DURATIONS_MS[1],
+  );
   /** Les scènes dont les sources sont dépliées. Fermées par défaut : avant, chaque scène
    * déroulait tout son contenu en permanence et trois scènes remplissaient le panneau.
    * La scène EN DIRECT s'ouvre d'office — c'est celle qu'on regarde. */
@@ -85,6 +67,19 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   /** Vrai une fois le rejeu lancé. Tant qu'il est faux, on ne SAUVEGARDE pas : l'état nu du
    * moteur au démarrage écraserait la session qu'on s'apprête justement à lui rendre. */
   const restored = useRef(false);
+  /** Vrai seulement quand le rejeu s'est terminé SANS erreur (2026-09-08). Distinct de
+   * `restored` : celui-ci passe vrai dès le LANCEMENT du rejeu, avant même sa fin, pour
+   * empêcher un second rejeu de démarrer par-dessus. Sans `restoreOk`, une seule commande
+   * en échec (un micro pas encore prêt, une caméra momentanément occupée — vu ce soir dans
+   * les journaux) arrêtait le rejeu en plein milieu, et l'état TRONQUÉ qui restait devenait
+   * la vérité enregistrée au prochain inventaire — écrasant la vraie session sur le disque.
+   * Ce champ garde la sauvegarde bloquée tant que ce n'est pas arrivé pour de vrai. */
+  const restoreOk = useRef(false);
+  /** Le numéro du moteur EN COURS (2026-09-09, relecture) — une vraie ref et non une
+   * variable locale à l'effet : sous `React.StrictMode` (`src/main.tsx`), l'effet monte,
+   * démonte, remonte, et une variable locale n'aurait plus été LA MÊME entre un rejeu lancé
+   * au premier montage et l'incrément suivant. Voir `useEngineSessionSync.ts` pour l'usage. */
+  const engineGeneration = useRef(0);
   /** L'état vu par le rejeu. Une référence et non l'état React : le rejeu démarre depuis une
    * fonction de rappel qui a capturé un état déjà périmé. */
   const stateRef = useRef<SceneInfo[]>([]);
@@ -125,173 +120,24 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     [],
   );
 
-  useEffect(() => {
-    /** Rend au moteur la session d'avant : il repart vierge à chaque lancement.
-     *
-     * Définie DANS l'effet, et non au-dessus : elle n'est appelée que par l'écoute qui vit
-     * ici, et une fonction déclarée dehors serait recréée à chaque rendu — l'écoute devrait
-     * alors se réabonner sans cesse, ou mentir sur ce dont elle dépend.
-     *
-     * Les étapes sont jouées EN SÉRIE et non en parallèle : chacune dépend de la précédente
-     * (on ne remplit pas une scène qui n'existe pas encore), et le moteur les traite dans
-     * l'ordre où elles arrivent. */
-    const restoreSession = async () => {
-      if (replaying.current) return;
-      replaying.current = true;
-      try {
-        const saved = await loadSession();
-        const steps = buildReplay(saved, stateRef.current);
-        for (const step of steps) {
-          if (step.do === "createScene") await createScene(step.scene);
-          if (step.do === "addSource") {
-            await addCaptureSource(
-              step.scene,
-              step.kind,
-              step.targetId,
-              step.name,
-            );
-          }
-          if (step.do === "transform") {
-            await setSourceTransform(
-              step.scene,
-              step.name,
-              step.x,
-              step.y,
-              step.scalePercent,
-            );
-          }
-          if (step.do === "addCamera") {
-            await addCameraSource(step.deviceId, step.scene);
-          }
-          if (step.do === "cameraFilters") {
-            await setBackgroundRemoval(
-              step.deviceId,
-              step.scene,
-              step.background,
-            );
-            await setCircleMask(step.deviceId, step.scene, step.circle);
-          }
-          if (step.do === "addAudio") {
-            const a = step.audio;
-            await addAudioSource(a.deviceId, a.kind, a.name);
-            await setAudioVolume(a.name, a.volumePercent);
-            await setMonitorVolume(a.name, a.monitorVolumePercent);
-            await setAudioMonitoring(a.name, a.monitoring);
-            await setAudioMuted(a.name, a.muted);
-            if (a.kind === "input") {
-              await setNoiseSettings(
-                a.name,
-                a.noiseSuppression,
-                a.noiseMethod,
-                a.noiseLevelDb,
-              );
-            }
-          }
-          if (step.do === "lock") {
-            await setSourceLocked(step.scene, step.name, true);
-          }
-          if (step.do === "textSettings") {
-            // Retenu AUSSI en mémoire : le panneau doit rouvrir sur les vraies valeurs,
-            // sinon il afficherait celles de départ sur un texte déjà réglé.
-            setTextSettingsFromReplay((avant) => ({
-              ...avant,
-              [step.scene]: {
-                ...(avant[step.scene] ?? {}),
-                [step.name]: step.settings,
-              },
-            }));
-            await setTextSettingsOnEngine(step.scene, step.name, step.settings);
-          }
-          if (step.do === "switchScene") await switchScene(step.scene);
-        }
-      } catch (error: unknown) {
-        // Une session qu'on ne peut pas rendre est signalée, jamais avalée : l'utilisateur
-        // doit savoir que son cadrage n'a pas été retrouvé plutôt que de le découvrir en direct.
-        setActionError(`Session non restaurée : ${String(error)}`);
-      } finally {
-        replaying.current = false;
-      }
-    };
-
-    const unlisten = listen<EngineMessage>("engine-message", (event) => {
-      const msg = event.payload;
-      if (msg.type === "scene_list" && msg.scenes && msg.active) {
-        setState({ status: "ready", scenes: msg.scenes, active: msg.active });
-        stateRef.current = msg.scenes;
-        activeRef.current = msg.active;
-        // Le rejeu part d'ICI, au premier inventaire reçu, et non du signal de démarrage :
-        // il calcule ce qui MANQUE au moteur, donc il lui faut d'abord savoir ce que le
-        // moteur a. Lancé trop tôt il croyait le moteur vide et redemandait tout, ce qui
-        // affichait « Monitor Capture existe déjà » à chaque lancement (Jay, 2026-08-06).
-        //
-        // Recevoir un inventaire suffit — inutile d'attendre en plus le signal de démarrage,
-        // qu'une page rechargée en cours de session a déjà manqué : le rejeu resterait alors
-        // en attente pour toujours, et avec lui la sauvegarde.
-        if (!restored.current) {
-          restored.current = true;
-          restoreSession();
-          return;
-        }
-        // Retenu à CHAQUE changement plutôt qu'à la fermeture : une app fermée brutalement
-        // ne sauvegarde rien, et c'est précisément le moment où l'on perd le plus.
-        // Jamais AVANT d'avoir rejoué : la session d'avant serait écrasée par l'état nu du
-        // moteur au démarrage. Ni PENDANT, où l'état est à moitié reconstruit.
-        if (restored.current && !replaying.current) {
-          saveSession(
-            toSession(msg.scenes, msg.active, audioRef.current),
-          ).catch(() => undefined);
-        }
-      }
-      // Le mixeur change dans un autre panneau : on l'écoute ici parce que la session est
-      // UNE chose, et qu'un seul endroit doit décider de ce qu'on retient.
-      const audioMsg = msg as AudioEngineMessage;
-      if (audioMsg.type === "audio_sources" && audioMsg.items) {
-        audioRef.current = audioMsg.items;
-        // `restored.current` et non seulement « pas de rejeu en cours » : entre le
-        // démarrage d'un moteur neuf et le début du rejeu, aucun rejeu ne tourne encore, et
-        // c'est précisément là que le mixeur vide du moteur passait — il a effacé les
-        // appareils de Jay le 2026-09-07. Une seule règle vaut pour les deux versants :
-        // RIEN ne s'écrit tant que la session de CE moteur n'a pas été rejouée.
-        if (
-          restored.current &&
-          !replaying.current &&
-          stateRef.current.length > 0
-        ) {
-          saveSession(
-            toSession(stateRef.current, activeRef.current, audioMsg.items),
-          ).catch(() => undefined);
-        }
-      }
-      // Le moteur refuse lui-même la suppression interdite : on affiche SA raison plutôt
-      // que d'inventer un message côté écran.
-      // Le moteur vient de démarrer : c'est le seul moment où il PEUT répondre. Sans ce
-      // rattrapage, ouvrir l'Aperçu après la fenêtre d'ajout laisserait celle-ci vide.
-      if (msg.type === "ready") {
-        listCaptureTargets().catch(() => undefined);
-        // Un moteur NEUF ne connaît que « main ». Sans cette ligne, l'écran prenait son
-        // inventaire nu pour la nouvelle vérité et l'écrivait par-dessus les vraies scènes
-        // — ce qui a DÉTRUIT la session de Jay le 2026-09-07 quand une correction s'est
-        // mise à relancer le moteur en cours de route.
-        //
-        // La garde d'origine demandait « a-t-on déjà rejoué ? », vraie une fois pour
-        // toutes. La bonne question est « ce moteur est-il neuf ? » : elle ferme la
-        // famille entière, y compris un moteur qui redémarrerait de lui-même.
-        restored.current = false;
-      }
-      if (msg.type === "capture_targets") {
-        setTargets({
-          games: msg.games ?? [],
-          windows: msg.windows ?? [],
-          monitors: msg.monitors ?? [],
-        });
-        setTargetsError(null);
-      }
-    });
-
-    return () => {
-      unlisten.then((f) => f());
-    };
-  }, []);
+  // L'écoute du moteur + le rejeu de session vivent dans `useEngineSessionSync` (extrait
+  // le 2026-09-08, plafond de lignes) — comportement inchangé, y compris le garde-fou
+  // `restoreOk` qui bloque la sauvegarde tant qu'un rejeu n'a pas RÉUSSI (jamais un rejeu
+  // seulement lancé, ou un seul essai sur deux).
+  useEngineSessionSync({
+    setState,
+    stateRef,
+    audioRef,
+    activeRef,
+    replaying,
+    restored,
+    restoreOk,
+    engineGeneration,
+    setTextSettingsFromReplay,
+    setActionError,
+    setTargets,
+    setTargetsError,
+  });
 
   useEffect(() => {
     loadSceneLayout()
@@ -399,10 +245,10 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                 onDraftLabelChange={setDraftLabel}
                 renameInputRef={renameInput}
                 confirmingDelete={confirmingDelete}
-                onActivate={activate}
                 onStartRename={startRename}
                 onSubmitRename={submitRename}
                 onCancelRename={cancelRename}
+                onActivate={(name) => activate(name, transitionMs)}
                 onReorder={reorder}
                 onReorderInScene={reorderInScene}
                 onToggleLock={toggleLock}
@@ -437,7 +283,9 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         </ul>
       )}
 
-      {state.status === "ready" && <SceneTransition />}
+      {state.status === "ready" && (
+        <SceneTransition value={transitionMs} onChange={setTransitionMs} />
+      )}
 
       <AddSourceModal
         addingTo={addingTo}

@@ -25,6 +25,7 @@ pub(crate) fn run() -> Result<()> {
         cursor: None,
         fitted: (PREVIEW_START_WIDTH, PREVIEW_START_HEIGHT),
         drag: None,
+        camera_slide: None,
     };
     event_loop.run_app(&mut app)?;
     Ok(())

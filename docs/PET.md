@@ -984,7 +984,29 @@ instantanée).
     échelle depuis l'ancrage, placement), dont 4 proptest — l'un épingle la propriété qui
     rend le geste prévisible : *le coin opposé ne bouge jamais, quelle que soit la taille*.
   - **Prouvé à l'écran par Jay** : déplacement, redimensionnement, curseur, et fluidité.
-- **Reste B7** : transitions au changement de scène · auto-move. Non commencés.
+- **Fait, codé mais pas encore prouvé à l'écran (2026-09-08)** : fondu au changement de
+  scène, et glissement de caméra option A.
+  - **Transition** : une source `fade_transition` unique, posée sur le canal de sortie pour
+    toute la vie de l'app (jamais reconstruite) — chaque `SwitchScene` fond À TRAVERS elle
+    au lieu qu'une scène touche le canal directement. `libobs-wrapper` 9.0.4 n'enveloppe ni
+    `obs_transition_start` ni `obs_transition_set` (vérifié dans sa source) : FFI brute,
+    dispatchée sur le fil OBS comme `filters::set_enabled` déjà le fait. `duration_ms == 0`
+    = coupe sèche par un chemin dédié (`obs_transition_start` à durée nulle peut garder la
+    dernière image de la scène de DÉPART affichée — un vrai travers de libobs).
+  - **Option A (auto-move, choix de Jay 2026-09-08 — l'option B, un déplacement déclenché à
+    la main ou par automation, est la vraie cible, notée pour plus tard)** : une caméra
+    présente dans la scène de départ ET la scène d'arrivée glisse de sa position dans la
+    première vers sa PROPRE position déjà enregistrée dans la seconde, au lieu de sauter.
+    Un pas de 16 ms (`about_to_wait`), jamais une fonction de temporisation bloquante — la
+    même horloge que les compteurs d'images et le mesureur audio.
+  - **Fichiers** : `crates/engine/src/transitions.rs` (nouveau) · `scenes.rs` · `scene_ops.rs`
+    (`start_camera_slide`/`advance_camera_slide`) · `crates/protocol/src/scenes.rs`
+    (`clamp_transition_duration_ms`) · `crates/protocol/src/geometry.rs`
+    (`lerp_camera_transform`) · sélecteur de durée dans `SceneSkeleton.tsx`.
+  - **Tests** : 9 tests purs (clamp de durée, interpolation, dont 1 proptest) — le rendu
+    libobs réel n'est pas testable hors écran (règle du projet).
+  - **Reste B7** : preuve à l'écran par Jay · option B (déplacement manuel/automation) ·
+    d'autres formes de transition que le fondu, si demandées.
 
 ### B-sources — Sources de scène · Standard · 🟢 (livrée 2026-08-05)
 

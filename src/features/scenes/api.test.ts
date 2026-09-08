@@ -29,13 +29,14 @@ describe("scenes api", () => {
     });
   });
 
-  it("should_call_switch_scene_command_with_name_when_switching", async () => {
+  it("should_call_switch_scene_command_with_name_and_duration_when_switching", async () => {
     vi.mocked(invoke).mockResolvedValueOnce(undefined);
 
-    await switchScene("Discussion");
+    await switchScene("Discussion", 300);
 
     expect(invoke).toHaveBeenCalledExactlyOnceWith("switch_scene", {
       name: "Discussion",
+      durationMs: 300,
     });
   });
 

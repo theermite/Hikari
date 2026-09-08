@@ -10,10 +10,10 @@ export function createScene(name: string): Promise<void> {
   return invoke("create_scene", { name });
 }
 
-/** Switches the live scene to `name` — an instant cut, never a transition
- * (`switch_scene`, `engine_lifecycle.rs`). Requires the engine running. */
-export function switchScene(name: string): Promise<void> {
-  return invoke("switch_scene", { name });
+/** Switches the live scene to `name` through a fondu of `durationMs` (`0` = coupe sèche) —
+ * `switch_scene`, `engine_scenes.rs`. Requires the engine running. */
+export function switchScene(name: string, durationMs: number): Promise<void> {
+  return invoke("switch_scene", { name, durationMs });
 }
 
 /** Deletes the scene `name` and everything scene-local it carried, its camera placement and
@@ -125,4 +125,15 @@ export function openSettingsWindow(
     name,
     initial: initial ? JSON.stringify(initial) : null,
   });
+}
+
+/** Redemande l'inventaire actuel des scènes ET du mixeur, sans rien changer.
+ *
+ * Le moteur ne renvoie `SceneList`/`AudioSources` que sur un vrai changement — un panneau
+ * qui vient de recharger (rechargement Vite, actualisation manuelle) SANS que le moteur ne
+ * redémarre attendrait sinon indéfiniment un message qui ne viendra jamais, sur un moteur
+ * resté statique (2026-09-08 : vécu en direct, écran vide malgré une session intacte sur
+ * le disque). */
+export function requestSceneList(): Promise<void> {
+  return invoke("request_scene_list");
 }

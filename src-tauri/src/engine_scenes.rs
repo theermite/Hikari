@@ -125,15 +125,20 @@ pub(crate) fn create_scene(state: State<EngineState>, name: String) -> Result<()
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi CreateScene au moteur: {err}"))
 }
 
-/// Switches the live scene (multi-scene, tranche 1) — an instant cut. Requires the engine
-/// running.
+/// Switches the live scene through a fondu (B7). `duration_ms` should come from
+/// `hikari_protocol::TRANSITION_DURATIONS_MS` — the engine re-clamps it regardless
+/// (`clamp_transition_duration_ms`), `0` being an instant cut. Requires the engine running.
 #[tauri::command]
-pub(crate) fn switch_scene(state: State<EngineState>, name: String) -> Result<(), String> {
+pub(crate) fn switch_scene(
+    state: State<EngineState>,
+    name: String,
+    duration_ms: u32,
+) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::SwitchScene { name }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::SwitchScene { name, duration_ms }).map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi SwitchScene au moteur: {err}"))
 }
 

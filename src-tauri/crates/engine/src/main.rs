@@ -38,6 +38,7 @@ mod text_ops;
 mod sources;
 mod stdin_reader;
 mod stream;
+mod transitions;
 
 use std::io::Write;
 
@@ -62,6 +63,9 @@ const TARGET_ASPECT: f32 = 16.0 / 9.0;
 /// voice rather than lagging behind it, slow enough not to flood the pipe — the frame
 /// counters' two-second beat would make the bars lurch, hence a separate cadence.
 const AUDIO_LEVEL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
+/// How often an in-progress camera glide is advanced (B7, option A) — a 60fps step, fast
+/// enough that the motion reads as continuous rather than a series of jumps.
+const CAMERA_SLIDE_TICK: std::time::Duration = std::time::Duration::from_millis(16);
 
 /// Emit one protocol message as a single JSON line on stdout. A serialization failure is
 /// reported on stderr rather than swallowed (it must never crash the engine). `pub(crate)`
@@ -135,6 +139,11 @@ pub(crate) fn fit_size(win_w: u32, win_h: u32) -> (u32, u32) {
 struct ObsInner {
     display: ObsDisplayRef,
     context: libobs_wrapper::context::ObsContext,
+    /// The one fade transition Hikari keeps on the output channel for the app's whole life
+    /// (B7) — created once at `try_init`, never rebuilt per switch. Every `SwitchScene`
+    /// fades THROUGH it (`transitions::start_transition`) instead of a scene ever touching
+    /// the output channel directly.
+    transition: ObsSourceRef,
     /// The real, currently-composed scene sources — grown by `handle_add_camera`. Kept
     /// here (never re-derived from libobs) so every `Sources` emission reflects the whole
     /// scene, never just the last-added delta.
@@ -325,7 +334,7 @@ enum EngineEvent {
     NudgeCamera { device_id: String, scene: String, dx: i32, dy: i32 },
     ScaleCamera { device_id: String, scene: String, grow: bool },
     CreateScene { name: String },
-    SwitchScene { name: String },
+    SwitchScene { name: String, duration_ms: u32 },
     DeleteScene { name: String },
     ListAudioDevices,
     AddAudioSource { device_id: String, kind: hikari_protocol::AudioSourceKind, name: String },
@@ -385,7 +394,24 @@ struct App {
     fitted: (u32, u32),
     /// The drag in progress, if any (B7, glisser-souris).
     drag: Option<DragState>,
+    /// The camera glide in progress, if any (B7, option A — `SwitchScene` when a device is
+    /// shown in both the outgoing and the incoming scene). `about_to_wait` advances it every
+    /// tick; unrelated to `drag`, which is a mouse gesture, never an automatic one.
+    camera_slide: Option<CameraSlide>,
     obs: Option<ObsInner>,
+}
+
+/// A camera gliding from its placement in the scene just left to its OWN saved placement in
+/// the scene just entered (B7, option A) — never a placement invented for the occasion:
+/// `to` is read from the incoming scene's own scene item BEFORE the slide starts, exactly
+/// what it already held.
+struct CameraSlide {
+    scene: String,
+    device_id: String,
+    from: (i32, i32, f32),
+    to: (i32, i32, f32),
+    started_at: std::time::Instant,
+    duration: std::time::Duration,
 }
 
 fn main() -> Result<()> {

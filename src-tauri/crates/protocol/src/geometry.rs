@@ -72,6 +72,25 @@ pub fn clamp_camera_scale(scale: f32) -> f32 {
     scale.clamp(CAMERA_SCALE_MIN, CAMERA_SCALE_MAX)
 }
 
+/// Interpolates a camera's placement between `from` and `to` at `progress` (B7, option A —
+/// a camera shown in both the outgoing and the incoming scene glides between its two saved
+/// placements instead of jumping). Pure and total: `progress` is clamped first, so a caller
+/// racing past `1.0` (a late tick after the animation's own deadline) still lands exactly
+/// on `to`, never overshoots it.
+pub fn lerp_camera_transform(
+    from: (i32, i32, f32),
+    to: (i32, i32, f32),
+    progress: f32,
+) -> (i32, i32, f32) {
+    let t = progress.clamp(0.0, 1.0);
+    let (from_x, from_y, from_scale) = from;
+    let (to_x, to_y, to_scale) = to;
+    let x = from_x as f32 + (to_x - from_x) as f32 * t;
+    let y = from_y as f32 + (to_y - from_y) as f32 * t;
+    let scale = from_scale + (to_scale - from_scale) * t;
+    (x.round() as i32, y.round() as i32, scale)
+}
+
 /// Converts a point in the preview window into canvas coordinates (B7, glisser-souris).
 ///
 /// The preview shows the whole canvas shrunk to the fitted area, so one preview pixel is

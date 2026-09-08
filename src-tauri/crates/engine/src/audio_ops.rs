@@ -338,8 +338,12 @@ impl App {
         }
     }
 
-    /// Emits the mixer's real state — shared tail of every command that changes it.
-    fn emit_audio_sources(&mut self) {
+    /// Emits the mixer's real state — shared tail of every command that changes it, and of
+    /// `RequestSceneList` (2026-09-08): a webview reload with NO engine restart (Vite HMR,
+    /// a manual refresh) left the panel showing nothing forever, because nothing engine-side
+    /// spontaneously resends state on its own — the mixer needed the same catch-up scenes
+    /// already had.
+    pub(crate) fn emit_audio_sources(&mut self) {
         let Some(obs) = &mut self.obs else { return };
         let items = obs
             .audio

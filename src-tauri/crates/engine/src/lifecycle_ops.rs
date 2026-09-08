@@ -7,7 +7,7 @@ use libobs_simple::sources::windows::MonitorCaptureSourceBuilder;
 use libobs_wrapper::context::ObsContext;
 use libobs_wrapper::data::output::ObsOutputTrait;
 use libobs_wrapper::display::{ObsDisplayCreationData, ObsDisplayRef, ObsWindowHandle};
-use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemTrait};
+use libobs_wrapper::scenes::{ObsSceneItemRef, ObsSceneRef, SceneItemTrait};
 use libobs_wrapper::sources::ObsSourceRef;
 use libobs_wrapper::unsafe_send::Sendable;
 use std::time::Instant;
@@ -17,7 +17,7 @@ use winit::window::Window;
 
 use crate::multistream::{start_multistream, stop_one};
 use crate::stream::{StreamState, start_stream};
-use crate::{App, MONITOR_CAPTURE_NAME, ObsInner, PREVIEW_START_HEIGHT, PREVIEW_START_WIDTH, SceneSource, emit, outline, sources};
+use crate::{App, MONITOR_CAPTURE_NAME, ObsInner, PREVIEW_START_HEIGHT, PREVIEW_START_WIDTH, SceneSource, emit, outline, sources, transitions};
 
 /// Build the "main" scene with a screen capture, as an ORDINARY source.
 ///
@@ -28,8 +28,11 @@ use crate::{App, MONITOR_CAPTURE_NAME, ObsInner, PREVIEW_START_HEIGHT, PREVIEW_S
 /// modèle finit toujours par se voir à l'écran.
 fn build_scene_with_capture(
     context: &mut ObsContext,
-) -> Result<(Vec<SourceInfo>, ObsSceneItemRef<ObsSourceRef>, String)> {
-    context.scene("main", Some(0))?;
+) -> Result<(Vec<SourceInfo>, ObsSceneItemRef<ObsSourceRef>, String, ObsSceneRef)> {
+    // Never `Some(0)` any more (B7): the output channel belongs to the fade transition
+    // now, permanently — `try_init` puts "main" into it right after, through the same
+    // `transitions::set_transition_immediate` every later `SwitchScene` reuses.
+    let scene = context.scene("main", None)?;
     let monitors = MonitorCaptureSourceBuilder::get_monitors()?;
     let first = monitors.first().context("no monitor available to capture")?;
     let monitor_id = first.0.name.clone();
@@ -42,7 +45,7 @@ fn build_scene_with_capture(
     )?;
     // Mise au cadre : un écran 4K sur un canevas 1080p déborderait sans ça.
     item.fit_source_to_screen()?;
-    Ok((vec![SourceInfo::monitor_capture(MONITOR_CAPTURE_NAME)], item, monitor_id))
+    Ok((vec![SourceInfo::monitor_capture(MONITOR_CAPTURE_NAME)], item, monitor_id, scene))
 }
 
 /// Creates the preview window + its `obs_display`. Transcribed from the B1b spike
@@ -101,9 +104,17 @@ impl App {
         .context("init libobs")?;
         emit(&EngineMessage::Ready);
 
-        let (sources, scene_item, startup_monitor) =
+        let (sources, scene_item, startup_monitor, main_scene) =
             build_scene_with_capture(&mut context).context("construction scène")?;
         emit(&EngineMessage::Sources { items: sources.clone() });
+
+        // B7 : la transition prend le canal de sortie une fois pour toute la vie de
+        // l'app — "main" y entre SANS animation (rien n'existait avant elle à fondre).
+        let transition = transitions::create_fade_transition(&context).context("création transition")?;
+        transitions::put_transition_on_output(&transition).context("pose transition sur canal")?;
+        let main_source_ptr = main_scene.get_scene_source_ptr().context("pointeur scène main")?;
+        transitions::set_transition_immediate(&transition, main_source_ptr)
+            .context("pose immédiate de la scène de départ")?;
 
         // Without this, libobs has NO monitoring device and "écouter" would be accepted
         // while producing nothing — a setting that lies is worse than a missing one.
@@ -126,6 +137,7 @@ impl App {
         self.obs = Some(ObsInner {
             display,
             context,
+            transition,
             sources,
             cameras: std::collections::HashMap::new(),
             camera_items: std::collections::HashMap::new(),

@@ -23,9 +23,11 @@ export function useSceneActions(
   persist: (next: SceneLayout) => void,
   setConfirmingDelete: (name: string | null) => void,
 ) {
-  const activate = (name: string) => {
+  const activate = (name: string, transitionMs: number) => {
     setActionError(null);
-    switchScene(name).catch((error: unknown) => setActionError(String(error)));
+    switchScene(name, transitionMs).catch((error: unknown) =>
+      setActionError(String(error)),
+    );
   };
 
   const confirmDelete = (name: string) => {
