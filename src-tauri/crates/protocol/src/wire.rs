@@ -253,6 +253,13 @@ pub enum ControllerCommand {
     /// jamais après. Un texte se corrige (une faute, un pseudo qui change) bien plus souvent
     /// qu'il ne se réécrit entièrement.
     SetTextContent { scene: String, name: String, text: String },
+    /// Redemande l'inventaire actuel des scenes, sans rien changer.
+    ///
+    /// Le moteur n'annonce `SceneList` que sur un vrai changement — une fenetre qui
+    /// s'ouvre APRES le dernier changement attendrait sinon indefiniment le prochain,
+    /// qui peut ne jamais arriver sur une scene statique (Jay, 2026-09-07 : une fenetre
+    /// de reglages caméra restee bloquee sur « en attente du moteur »).
+    RequestSceneList,
     /// Sets the volume the STREAMER hears, independently of what the audience hears.
     ///
     /// WHY it needs its own command and its own plumbing: libobs has ONE volume per source,

@@ -96,6 +96,7 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetTextContent { scene, name, text } => {
                 self.handle_set_text_content(scene, name, &text)
             }
+            EngineEvent::RequestSceneList => self.emit_scene_list(),
         }
         // La composition a changé sans que la commande le dise : le dire à sa place.
         if self.scene_contents_fingerprint() != before {

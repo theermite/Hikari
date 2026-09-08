@@ -269,3 +269,10 @@ pub(crate) fn set_text_content(
 ) -> Result<(), String> {
     send_command(&state, ControllerCommand::SetTextContent { scene, name, text })
 }
+
+/// Redemande l'inventaire actuel des scenes, sans rien changer — utilise par une fenetre
+/// de reglages qui vient de s'ouvrir et n'a pas assiste au dernier changement.
+#[tauri::command]
+pub(crate) fn request_scene_list(state: State<EngineState>) -> Result<(), String> {
+    send_command(&state, ControllerCommand::RequestSceneList)
+}

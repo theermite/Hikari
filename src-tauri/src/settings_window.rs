@@ -37,8 +37,18 @@ fn window_label(kind: &str, scene: &str, name: &str) -> String {
 /// `initial` porte l'état de départ à donner à l'écran de réglages — sérialisé en JSON par
 /// l'appelant, jamais construit ici : ce module ne connaît pas la forme des réglages d'une
 /// caméra ou d'un texte, et n'a pas à la connaître.
+///
+/// ASYNC, et ce n'est pas cosmétique : une commande ordinaire (« bloquante ») s'exécute
+/// EN LIGNE sur le fil qui reçoit l'appel — le même fil que celui qui traite les messages
+/// de la fenêtre appelante. Construire une fenêtre y appelle `run_on_main_thread` en
+/// interne et ATTEND sa réponse ; si l'appelant EST déjà ce fil principal, il attend une
+/// réponse qu'il ne pourra jamais se donner à lui-même. Vécu le 2026-09-07 : la fenêtre
+/// apparaissait (titre posé), mais rien à l'intérieur ne se construisait jamais — la
+/// preuve directe de ce verrou, confirmée en lisant l'arbre d'accessibilité de la fenêtre
+/// bloquée (aucun élément web, seulement le cadre natif). `async fn` fait exécuter cette
+/// commande sur une tâche à part, qui peut attendre sans bloquer le fil qu'elle attend.
 #[tauri::command]
-pub(crate) fn open_settings_window(
+pub(crate) async fn open_settings_window(
     app: AppHandle,
     kind: String,
     scene: String,
@@ -62,7 +72,7 @@ pub(crate) fn open_settings_window(
         urlencoding_component(initial.as_deref().unwrap_or("")),
     );
 
-    WebviewWindowBuilder::new(
+    let window = WebviewWindowBuilder::new(
         &app,
         &label,
         WebviewUrl::App(format!("index.html?{query}").into()),
@@ -74,6 +84,14 @@ pub(crate) fn open_settings_window(
     .decorations(true)
     .build()
     .map_err(|err| err.to_string())?;
+
+    // Jay, 2026-09-07 : la fenêtre s'ouvrait blanche, et impossible à fermer — un verrou
+    // (voir la doc de cette fonction), pas un défaut du contenu. Ouvrir les
+    // outils de développement AUTOMATIQUEMENT en debug est le seul moyen de voir l'erreur
+    // réelle sans deviner davantage — deviner une seconde fois sans preuve coûterait plus
+    // cher que la mesurer.
+    #[cfg(debug_assertions)]
+    window.open_devtools();
 
     Ok(())
 }

@@ -354,6 +354,7 @@ enum EngineEvent {
     SetSourceVisible { scene: String, name: String, visible: bool },
     SetTextSettings { scene: String, name: String, settings: hikari_protocol::TextSettings },
     SetTextContent { scene: String, name: String, text: String },
+    RequestSceneList,
 }
 
 /// `stream` and `multistream` MUST be declared before `obs`: their outputs depend on

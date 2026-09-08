@@ -66,6 +66,23 @@ describe("readSettingsWindowParams", () => {
 });
 
 describe("SettingsWindow — caméra", () => {
+  it("should_ask_the_engine_for_a_fresh_inventory_once_on_mount", () => {
+    // Le moteur n'annonce `scene_list` que sur un vrai changement. Une fenêtre de
+    // réglages qui s'ouvre APRÈS le dernier changement attendrait sinon indéfiniment le
+    // prochain — qui peut ne jamais arriver sur une scène statique (Jay, 2026-09-07 :
+    // « en attente du moteur » resté bloqué).
+    render(
+      <SettingsWindow
+        kind="camera"
+        scene="main"
+        name="Krom Kam"
+        initial={null}
+      />,
+    );
+
+    expect(invokeMock).toHaveBeenCalledWith("request_scene_list");
+  });
+
   it("should_apply_a_filter_to_this_camera_in_this_scene", async () => {
     // Les filtres appartiennent à la caméra ET à la scène : deux caméras d'une même scène
     // peuvent avoir deux allures, et la même caméra deux allures selon la scène.

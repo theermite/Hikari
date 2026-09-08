@@ -10,6 +10,7 @@
 // Rust) : quelle source, dans quelle scène, avec quel réglage de départ pour les axes que
 // le moteur ne rapporte pas lui-même (l'apparence d'un texte).
 
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import { CameraControls, type PlacedCamera } from "../camera/CameraControls";
@@ -105,6 +106,16 @@ export function SettingsWindow({
   const [textSettings, setTextSettings] = useState<TextSettings>(
     initial?.settings ?? withDefaults(undefined),
   );
+
+  // Le moteur n'annonce `scene_list` que sur un vrai CHANGEMENT. Une fenêtre qui s'ouvre
+  // après le dernier changement attendrait sinon indéfiniment le prochain — qui peut ne
+  // jamais arriver sur une scène statique (Jay, 2026-09-07 : « en attente du moteur »
+  // resté bloqué). Redemandée une seule fois, au montage.
+  useEffect(() => {
+    invoke("request_scene_list").catch((error: unknown) => {
+      console.error("settings-window: request_scene_list failed", error);
+    });
+  }, []);
 
   // Caméra et texte lisent leur état RÉEL dans le flux du moteur, jamais dans une copie
   // figée à l'ouverture : une autre fenêtre ou le rejeu de session peut avoir changé la

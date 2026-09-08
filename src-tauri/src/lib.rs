@@ -62,6 +62,7 @@ pub fn run() {
             settings_window::open_settings_window,
             engine_scenes::set_text_settings,
             engine_scenes::set_text_content,
+            engine_scenes::request_scene_list,
             engine_scenes::restart_camera,
             engine_lifecycle::start_stream,
             engine_lifecycle::stop_stream,

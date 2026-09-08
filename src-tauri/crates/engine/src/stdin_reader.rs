@@ -115,6 +115,9 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::SetTextContent { scene, name, text }) => {
                     let _ = proxy.send_event(EngineEvent::SetTextContent { scene, name, text });
                 }
+                Ok(ControllerCommand::RequestSceneList) => {
+                    let _ = proxy.send_event(EngineEvent::RequestSceneList);
+                }
                 Ok(ControllerCommand::SetSourceVisible { scene, name, visible }) => {
                     let _ = proxy.send_event(EngineEvent::SetSourceVisible { scene, name, visible });
                 }
