@@ -41,7 +41,7 @@ tauri-plugin-store = "2.4.4"
 
 [package]
 name = "hikari"
-version = "0.5.3"
+version = "0.5.4"
 description = "Hikari — cockpit stream open-source"
 edition = "2021"
 
