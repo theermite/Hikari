@@ -1,7 +1,7 @@
 ---
 title: Hikari Stream — PET (Plan d'Exécution Technique)
 created: 2026-07-11
-updated: 2026-07-17
+updated: 2026-09-08
 status: active
 type: pet
 version: 1.8.1
@@ -189,7 +189,7 @@ project: Hikari Stream
 | B3 | Multistream + vertical simultané | Critique | 🟧 horizontal fait (2026-07-19) · vertical prêt à coder (B0.2 GO 2026-07-21) |
 | B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | 🟧 tranches 1-3 livrées (mixeur · suppression de bruit réglable · volumes casque/public séparés + fenêtre de réglages), **prouvées à l'écran 2026-08-04/05** sauf 2 points listés en fiche · ducking et waveformes restent |
 | B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | 🟧 déplacer/redimensionner par boutons (2026-07-24) **et à la souris, avec curseur adaptatif — prouvés 2026-08-04** · transitions/auto-move restent |
-| **B-sources** *(hors numérotation PET — né d'un constat de Jay 2026-08-05)* | Sources de scène : ajouter/retirer/réordonner jeu, fenêtre, écran, image, vidéo · déplacer et redimensionner à la souris · liseré · aimantation · recherche · **verrouillage par scène** | Standard | ✅ **livrée et prouvée à l'écran 2026-08-05** · **verrouillage prouvé 2026-08-07** (pose, portée par scène, survie au redémarrage) · restent texte, navigateur, poignées visibles |
+| **B-sources** *(hors numérotation PET — né d'un constat de Jay 2026-08-05)* | Sources de scène : ajouter/retirer/réordonner jeu, fenêtre, écran, image, vidéo · déplacer et redimensionner à la souris · liseré · aimantation · recherche · **verrouillage par scène** | Standard | ✅ **livrée et prouvée à l'écran 2026-08-05** · **verrouillage prouvé 2026-08-07** (pose, portée par scène, survie au redémarrage) · **texte livré et prouvé à l'écran 2026-09-07/08** (ajout, réglages complets — police, taille, couleur, contour, alignement — et édition du contenu, le tout dans une vraie fenêtre native séparée) · restent navigateur (bloqué : greffon non embarqué, décision de Jay) et poignées visibles |
 | B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | 🟧 détection + ajout scène + masque cercle + fond IA + retrait/rajout fait (2026-07-23/24) · multi-scène **prouvée à l'écran 2026-08-04** · **caméras MULTIPLES prouvées à l'écran 2026-09-06** (un appareil = une source, filtres par caméra ET par scène) · **la caméra est devenue une source ORDINAIRE 2026-09-06** : ajout par « + Ajouter une source », retrait et réglages sur sa ligne dans la scène, panneau Caméra supprimé — **codé, à prouver à l'écran** · restent l'ordre d'empilement (refusé pour une caméra : le moteur les range à part) et la cam mobile |
 | **Multi-scènes** *(hors numérotation PET — apparu en session)* | Créer/lister/basculer entre scènes (F-005/F-006, sol pour B7 transitions) | Standard | 🟧 étape 1 (créer/lister/basculer) **prouvée à l'écran** 2026-07-24 · étape 2 (caméra unique, filtres par scène) **prouvée à l'écran** 2026-08-04 · étape 3 (panneau dédié) livrée 2026-08-04, **partiellement prouvée** : suppression + renommage vus à l'écran ; ordre persisté et bascule-avant-suppression **restent à vérifier** |
 | **B-persist** *(hors numérotation PET — demandée par Jay 2026-08-06, « importante et cruciale »)* | La session survit à la fermeture : scènes, sources (famille, cible, position, échelle), caméra (position, échelle, filtres par scène), mixeur audio (appareil, volumes, sourdine, écoute, anti-bruit). Rejeu = **différentiel**, jamais écrasement ; bascule vers la scène en direct **en dernier** | Sensible | 🟧 scènes + sources **prouvées à l'écran 2026-08-06** (`bc20e3f`) · caméra + audio **codées, JAMAIS lancées à l'écran** (`605293a`) → 🔴 point rouge d'ouverture de la session suivante |
@@ -265,7 +265,7 @@ ont été arbitrées en le faisant, et la trace de l'arbitrage vaut autant que l
 | 4 | Le moteur se ferme avec la fenêtre | dette |
 | 5 | Automations — l'écran pour les composer | B-auto (interface) |
 | 6 | Scènes — transitions, mouvements automatiques | B7 (reste) |
-| 7 | Sources — texte, page web, poignées visibles | B-sources (reste) |
+| 7 | Sources — ~~texte~~ ✅, page web (bloquée), poignées visibles | B-sources (reste) |
 | 8 | Filtres de sources | **brique neuve, à définir** |
 | 9 | Chat — messages, modération, alertes, bandeaux, objectifs | B10 |
 | 10 | Deck mobile | B5 |
@@ -1042,7 +1042,7 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
   clouerait la source au cadre par défaut. Un test épingle cet ordre.
 - **État de preuve** : **prouvé à l'écran par Jay 2026-08-07** — pose, portée par scène, et
   survie au redémarrage (vérifiée aussi dans le fichier de session réécrit après le rejeu).
-- **Reste** : sources texte et navigateur ; poignées visibles.
+- **Reste** : source navigateur (bloquée — greffon non embarqué) ; poignées visibles. La source TEXTE est livrée et prouvée (2026-09-07/08).
 
 ### B-cam — Caméra · Standard · 🟡 (API à confirmer)
 - **Objectif** : caméra perso, masques (cercle), fond sans écran vert, cam mobile (F-024, F-036).
