@@ -29,7 +29,7 @@ use serde::Deserialize;
 use crate::accounts::oauth::{
     code_challenge_from_verifier, generate_code_verifier, generate_state,
 };
-use crate::accounts::vault::{now_unix, Secret, StoredToken};
+use crate::accounts::vault::{merge_refreshed, now_unix, Secret, StoredToken};
 
 /// Fixed loopback port for the local redirect listener. Google requires the exact redirect
 /// URI to be pre-registered in Cloud Console (no documented wildcard-port exception found
@@ -327,6 +327,53 @@ async fn exchange_code_for_token(
         // YouTube : le nom du compte n'est pas encore lu (brique a part).
         account_name: None,
     })
+}
+
+/// Renouvelle un jeton YouTube arrivé à expiration, à partir du jeton de rafraîchissement
+/// déjà rangé dans le coffre — même geste que `twitch::refresh`, même endpoint que
+/// `exchange_code_for_token` mais un `grant_type` différent (RFC 6749 §6, vérifié sur la
+/// doc Google : `refresh_token` remplace `code`/`code_verifier`, le secret client reste
+/// requis pour ce type de client).
+///
+/// `client_secret` n'est PAS optionnel ici, contrairement à Twitch (voir l'en-tête de ce
+/// fichier : un client "Desktop app" Google en porte un, même s'il n'est pas confidentiel).
+pub async fn refresh(
+    stored: &StoredToken,
+    client_id: &str,
+    client_secret: &Secret,
+    http: &reqwest::Client,
+) -> Result<StoredToken, YouTubeAuthError> {
+    let params = [
+        ("client_id", client_id),
+        ("client_secret", client_secret.expose()),
+        ("refresh_token", stored.refresh_token.expose()),
+        ("grant_type", "refresh_token"),
+    ];
+    let response = http
+        .post(TOKEN_ENDPOINT)
+        .form(&params)
+        .send()
+        .await
+        .map_err(|err| YouTubeAuthError::TokenExchangeFailed(err.to_string()))?;
+    if !response.status().is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Err(YouTubeAuthError::TokenExchangeFailed(body));
+    }
+    // Google ne renvoie PAS systématiquement un nouveau jeton de rafraîchissement sur ce
+    // chemin — `TokenResponse.refresh_token` reste donc un `Option`, contrairement à
+    // `exchange_code_for_token` où son absence est une vraie erreur (`MissingRefreshToken`) :
+    // ici, `merge_refreshed` garde l'ancien à sa place, jamais un compte condamné.
+    let token: TokenResponse = response
+        .json()
+        .await
+        .map_err(|err| YouTubeAuthError::TokenExchangeFailed(err.to_string()))?;
+    Ok(merge_refreshed(
+        stored,
+        &token.access_token,
+        token.expires_in,
+        token.refresh_token.as_deref(),
+        now_unix(),
+    ))
 }
 
 #[cfg(test)]

@@ -103,6 +103,38 @@ pub fn now_unix() -> u64 {
         .unwrap_or(0)
 }
 
+/// Construit le jeton à ranger après un renouvellement réussi — partagé entre toutes les
+/// plateformes (extrait de `twitch.rs` le 2026-09-09 pour que YouTube l'utilise aussi).
+///
+/// Aucune plateforme ne renvoie systématiquement un nouveau jeton de rafraîchissement : le
+/// champ est optionnel dans leurs réponses respectives. Écraser l'ancien avec du vide
+/// condamnerait le compte — le renouvellement suivant n'aurait plus rien à présenter, et
+/// l'utilisateur devrait se reconnecter à la main sans comprendre pourquoi. On garde donc
+/// l'ancien quand la plateforme n'en donne pas.
+///
+/// Fonction pure : c'est la seule partie du renouvellement qui se teste sans réseau, et
+/// c'est aussi la seule où une erreur coûte un compte mort.
+/// Prend le jeton PRÉCÉDENT en entier et non son seul champ de rafraîchissement : il porte
+/// aussi le nom du compte, qui n'a aucune raison de changer au renouvellement. Le passer en
+/// morceaux, c'était programmer l'oubli du nom toutes les quelques heures.
+pub fn merge_refreshed(
+    previous: &StoredToken,
+    access_token: &str,
+    expires_in_secs: u64,
+    new_refresh: Option<&str>,
+    now: u64,
+) -> StoredToken {
+    StoredToken {
+        access_token: Secret::new(access_token),
+        refresh_token: match new_refresh {
+            Some(value) => Secret::new(value),
+            None => previous.refresh_token.clone(),
+        },
+        expires_at: now + expires_in_secs,
+        account_name: previous.account_name.clone(),
+    }
+}
+
 /// Serializes a token to the flat `access_token\trefresh_token\texpires_at` line the vault
 /// stores. Pure, so the encode/decode round-trip is unit-tested without touching the OS
 /// credential store. A `\t`/`\n` inside a token field shifts the delimiters, but the last
@@ -305,5 +337,49 @@ mod tests {
     #[test]
     fn should_use_distinct_vault_keys_per_platform() {
         assert_ne!(Platform::Twitch.vault_key(), Platform::YouTube.vault_key());
+    }
+
+    // `merge_refreshed` est partagé entre toutes les plateformes (extrait de `twitch.rs` le
+    // 2026-09-09 pour que YouTube l'utilise aussi) — testé ici une seule fois.
+
+    #[test]
+    fn should_keep_the_account_name_across_a_refresh() {
+        // Sans cela, le nom du compte disparaîtrait de l'écran à chaque renouvellement,
+        // c'est-à-dire toutes les quelques heures — et Jay ne saurait plus sur quel compte
+        // il est au moment où ça compte le plus, juste avant un direct.
+        let mut previous = token("acces-vieux", "refresh", 0);
+        previous.account_name = Some("KromKam".to_string());
+        let merged = merge_refreshed(&previous, "acces-neuf", 60, Some("refresh-neuf"), 0);
+        assert_eq!(merged.account_name.as_deref(), Some("KromKam"));
+    }
+
+    #[test]
+    fn should_keep_the_previous_refresh_token_when_the_platform_returns_none() {
+        // Aucune plateforme ne renvoie SYSTÉMATIQUEMENT un nouveau jeton de
+        // rafraîchissement. Écraser avec du vide tuerait le compte définitivement : le
+        // renouvellement suivant n'aurait plus rien à présenter, et l'utilisateur devrait
+        // se reconnecter à la main sans jamais savoir pourquoi.
+        let previous = token("acces-vieux", "refresh-d-origine", 0);
+        let merged = merge_refreshed(&previous, "acces-neuf", 3_600, None, 1_000);
+        assert_eq!(merged.refresh_token.expose(), "refresh-d-origine");
+        assert_eq!(merged.access_token.expose(), "acces-neuf");
+        assert_eq!(merged.expires_at, 4_600);
+    }
+
+    #[test]
+    fn should_adopt_the_new_refresh_token_when_the_platform_returns_one() {
+        let previous = token("acces-vieux", "refresh-d-origine", 0);
+        let merged = merge_refreshed(&previous, "acces-neuf", 60, Some("refresh-neuf"), 10);
+        assert_eq!(merged.refresh_token.expose(), "refresh-neuf");
+        assert_eq!(merged.expires_at, 70);
+    }
+
+    #[test]
+    fn should_never_leak_a_refreshed_token_in_debug_output() {
+        let previous = token("acces-vieux", "refresh-tres-secret", 0);
+        let merged = merge_refreshed(&previous, "acces-tres-secret", 60, None, 0);
+        let debug = format!("{merged:?}");
+        assert!(!debug.contains("acces-tres-secret"));
+        assert!(!debug.contains("refresh-tres-secret"));
     }
 }

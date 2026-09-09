@@ -22,7 +22,7 @@ use anyhow::{Context, Result};
 use twitch_oauth2::tokens::DeviceUserTokenBuilder;
 use twitch_oauth2::Scope;
 
-use crate::accounts::vault::{now_unix, Secret, StoredToken};
+use crate::accounts::vault::{merge_refreshed, now_unix, Secret, StoredToken};
 
 /// Hikari's own Twitch application identity — a "Public" client type (dev.twitch.tv
 /// console), registered 2026-07-18 by Jay. A `client_id` identifies the APP, not a user
@@ -123,37 +123,6 @@ pub async fn wait_for_authorization(
     })
 }
 
-/// Construit le jeton a ranger apres un renouvellement reussi.
-///
-/// Twitch ne renvoie pas systematiquement un nouveau jeton de rafraichissement : le champ
-/// est optionnel dans sa reponse. Ecraser l'ancien avec du vide condamnerait le compte —
-/// le renouvellement suivant n'aurait plus rien a presenter, et l'utilisateur devrait se
-/// reconnecter a la main sans comprendre pourquoi. On garde donc l'ancien quand Twitch
-/// n'en donne pas.
-///
-/// Fonction pure : c'est la seule partie du renouvellement qui se teste sans reseau, et
-/// c'est aussi la seule ou une erreur coute un compte mort.
-/// Prend le jeton PRECEDENT en entier et non son seul champ de rafraichissement : il porte
-/// aussi le nom du compte, qui n'a aucune raison de changer au renouvellement. Le passer en
-/// morceaux, c'etait programmer l'oubli du nom toutes les quelques heures.
-pub fn merge_refreshed(
-    previous: &StoredToken,
-    access_token: &str,
-    expires_in_secs: u64,
-    new_refresh: Option<&str>,
-    now: u64,
-) -> StoredToken {
-    StoredToken {
-        access_token: Secret::new(access_token),
-        refresh_token: match new_refresh {
-            Some(value) => Secret::new(value),
-            None => previous.refresh_token.clone(),
-        },
-        expires_at: now + expires_in_secs,
-        account_name: previous.account_name.clone(),
-    }
-}
-
 /// Renouvelle un jeton Twitch arrive a expiration, a partir du jeton de rafraichissement
 /// deja range dans le coffre.
 ///
@@ -196,26 +165,12 @@ fn token_expires_in_secs(token: &twitch_oauth2::UserToken) -> u64 {
 
 #[cfg(test)]
 mod tests {
-
-    fn stored(access: &str, refresh: &str, nom: Option<&str>) -> StoredToken {
-        StoredToken {
-            access_token: Secret::new(access),
-            refresh_token: Secret::new(refresh),
-            expires_at: 0,
-            account_name: nom.map(str::to_string),
-        }
-    }
-
-    #[test]
-    fn should_keep_the_account_name_across_a_refresh() {
-        // Sans cela, le nom du compte disparaitrait de l'ecran a chaque renouvellement,
-        // c'est-a-dire toutes les quelques heures — et Jay ne saurait plus sur quel compte
-        // il est au moment ou ca compte le plus, juste avant un direct.
-        let previous = stored("acces-vieux", "refresh", Some("KromKam"));
-        let merged = merge_refreshed(&previous, "acces-neuf", 60, Some("refresh-neuf"), 0);
-        assert_eq!(merged.account_name.as_deref(), Some("KromKam"));
-    }
     use super::*;
+
+    // Le comportement de fusion lui-même (nom conservé, ancien jeton de rafraîchissement
+    // gardé quand la plateforme n'en redonne pas, jamais de fuite en debug) est testé une
+    // seule fois, dans `vault.rs` — `merge_refreshed` est partagé, pas propre à Twitch
+    // (extrait le 2026-09-09 pour que YouTube l'utilise aussi).
 
     #[test]
     fn should_request_only_the_stream_key_scope() {
@@ -224,35 +179,5 @@ mod tests {
         // to), this test catches it. Widening scope is a deliberate choice, not a drift.
         let scopes = required_scopes();
         assert_eq!(scopes, vec![Scope::ChannelReadStreamKey]);
-    }
-
-    #[test]
-    fn should_keep_the_previous_refresh_token_when_twitch_returns_none() {
-        // Twitch ne renvoie PAS systematiquement un nouveau jeton de rafraichissement.
-        // Ecraser avec du vide tuerait le compte definitivement : le renouvellement
-        // suivant n'aurait plus rien a presenter, et Jay devrait se reconnecter a la main
-        // sans jamais savoir pourquoi.
-        let previous = stored("acces-vieux", "refresh-d-origine", None);
-        let merged = merge_refreshed(&previous, "acces-neuf", 3_600, None, 1_000);
-        assert_eq!(merged.refresh_token.expose(), "refresh-d-origine");
-        assert_eq!(merged.access_token.expose(), "acces-neuf");
-        assert_eq!(merged.expires_at, 4_600);
-    }
-
-    #[test]
-    fn should_adopt_the_new_refresh_token_when_twitch_returns_one() {
-        let previous = stored("acces-vieux", "refresh-d-origine", None);
-        let merged = merge_refreshed(&previous, "acces-neuf", 60, Some("refresh-neuf"), 10);
-        assert_eq!(merged.refresh_token.expose(), "refresh-neuf");
-        assert_eq!(merged.expires_at, 70);
-    }
-
-    #[test]
-    fn should_never_leak_a_refreshed_token_in_debug_output() {
-        let previous = stored("acces-vieux", "refresh-tres-secret", None);
-        let merged = merge_refreshed(&previous, "acces-tres-secret", 60, None, 0);
-        let debug = format!("{merged:?}");
-        assert!(!debug.contains("acces-tres-secret"));
-        assert!(!debug.contains("refresh-tres-secret"));
     }
 }
