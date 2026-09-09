@@ -80,7 +80,7 @@ fn should_carry_each_scene_own_camera_and_filter_state() {
             // Les filtres appartiennent à la CAMÉRA depuis le 2026-09-06 : deux caméras
             // dans une scène peuvent avoir deux allures différentes.
             background_removal: true,
-            circle_mask: false,
+            mask_shape: hikari_protocol::MaskShape::None,
             visible: true,
         }],
     };

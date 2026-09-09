@@ -31,9 +31,11 @@ export function describeContent(scene: SceneInfo): string {
   // Plusieurs caméras : on annonce le nombre plutôt que d'énumérer des filtres qui ne
   // s'appliqueraient pas tous à la même — un résumé faux serait pire qu'un résumé court.
   if (cameras.length > 1) return `${cameras.length} caméras`;
+  const shape = cameras[0].mask_shape;
   const filters = [
     cameras[0].background_removal ? "fond IA" : null,
-    cameras[0].circle_mask ? "masque cercle" : null,
+    shape.kind === "circle" ? "masque cercle" : null,
+    shape.kind === "rounded" ? "coins arrondis" : null,
   ].filter(Boolean);
   return filters.length
     ? `Caméra · ${filters.join(" · ")}`

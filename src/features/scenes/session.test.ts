@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildReplay, camerasOf, toSession } from "./session";
-import type { SceneInfo, SceneSourceInfo } from "./types";
+import { NO_MASK, type SceneInfo, type SceneSourceInfo } from "./types";
 
 const source = (over: Partial<SceneSourceInfo> = {}): SceneSourceInfo => ({
   name: "Jeu",
@@ -12,7 +12,7 @@ const source = (over: Partial<SceneSourceInfo> = {}): SceneSourceInfo => ({
   scale_percent: 100,
   locked: false,
   background_removal: false,
-  circle_mask: false,
+  mask_shape: NO_MASK,
   visible: true,
   ...over,
 });
@@ -132,15 +132,19 @@ describe("toSession", () => {
         name: "Brio",
         source_kind: "camera",
         target_id: "cam:2",
-        circle_mask: true,
+        mask_shape: { kind: "circle" },
       }),
     ]);
 
     const doc = toSession([withCameras], "Jeu");
 
     expect(doc.scenes[0].cameras).toMatchObject([
-      { deviceId: "cam:1", backgroundRemoval: true, circleMask: false },
-      { deviceId: "cam:2", backgroundRemoval: false, circleMask: true },
+      { deviceId: "cam:1", backgroundRemoval: true, maskShape: NO_MASK },
+      {
+        deviceId: "cam:2",
+        backgroundRemoval: false,
+        maskShape: { kind: "circle" },
+      },
     ]);
   });
 

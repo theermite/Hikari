@@ -59,10 +59,10 @@ fn should_say_which_camera_a_removal_targets() {
 
 #[test]
 fn should_say_which_camera_a_filter_toggle_targets() {
-    let cmd = ControllerCommand::SetCircleMask {
+    let cmd = ControllerCommand::SetMaskShape {
         device_id: "usb#vid_046d".to_string(),
         scene: "Jeu".to_string(),
-        enabled: true,
+        shape: hikari_protocol::MaskShape::Circle,
     };
     let line = to_line(&cmd).expect("serializes");
     assert_eq!(parse_controller_command(&line).expect("parses"), cmd);

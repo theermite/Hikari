@@ -8,7 +8,7 @@ use crate::audio::{
     AudioDevice, AudioLevel, AudioMonitoring, AudioSourceInfo, AudioSourceKind, NoiseMethod,
 };
 use crate::scenes::SceneInfo;
-use crate::sources::{CameraDevice, CaptureTarget, SourceInfo, SourceKind, SourceOrder};
+use crate::sources::{CameraDevice, CaptureTarget, MaskShape, SourceInfo, SourceKind, SourceOrder};
 
 /// Messages the engine emits toward the controller (engine -> controller), one per line.
 ///
@@ -140,12 +140,14 @@ pub enum ControllerCommand {
         scene: String,
         enabled: bool,
     },
-    /// Sets whether the circular alpha mask filter is enabled for the camera `device_id` in
-    /// `scene`. Same per-camera, per-scene toggle contract as `SetBackgroundRemoval`.
-    SetCircleMask {
+    /// Sets which mask SHAPE (aucun/cercle/coins arrondis) applies to the camera `device_id`
+    /// in `scene`. Same per-camera, per-scene contract as `SetBackgroundRemoval` — each scene
+    /// keeps its own desired shape, applied whenever that scene becomes live. Replaces
+    /// `SetCircleMask` (2026-09-09) : une source n'a qu'une forme à la fois.
+    SetMaskShape {
         device_id: String,
         scene: String,
-        enabled: bool,
+        shape: MaskShape,
     },
     /// Removes the camera `device_id` from `scene` only — other scenes keep showing that
     /// camera with their own filter state untouched, and the other cameras of `scene` are

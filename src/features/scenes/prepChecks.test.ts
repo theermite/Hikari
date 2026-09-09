@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { prepChecks } from "./prepChecks";
-import type { SceneInfo, SceneSourceInfo } from "./types";
+import { NO_MASK, type SceneInfo, type SceneSourceInfo } from "./types";
 
 function source(over: Partial<SceneSourceInfo> = {}): SceneSourceInfo {
   return {
@@ -19,7 +19,7 @@ function source(over: Partial<SceneSourceInfo> = {}): SceneSourceInfo {
     scale_percent: 100,
     locked: false,
     background_removal: false,
-    circle_mask: false,
+    mask_shape: NO_MASK,
     visible: true,
     ...over,
   };

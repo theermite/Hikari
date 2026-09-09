@@ -1,6 +1,8 @@
 //! Pure canvas math for the mouse-driven camera (B7): snapping, clamping, the
 //! window-to-canvas conversion, hit testing, and corner-based resize.
 
+use crate::sources::{MASK_RADIUS_MAX, MASK_RADIUS_MIN};
+
 /// Distance d'accroche de l'aimantation, en pixels de canevas (B7).
 ///
 /// Assez large pour attraper sans viser, assez courte pour qu'une source posée volontairement
@@ -211,4 +213,48 @@ pub fn resize_box(
             anchor_y - new_h
         },
     )
+}
+
+/// Le calcul du masque à coins arrondis — fonction de distance signée (SDF) sur un carré,
+/// la même famille de technique que le plugin OBS Advanced Masks (crédit original de la
+/// formule : Inigo Quilez, « Rounded Box - exact »). Pur, donc testable sans image ni
+/// fichier : chaque pixel est dedans (blanc opaque), dehors (transparent), ou sur un bord
+/// lissé sur ~1px pour éviter un crénelage visible sur un aperçu réduit.
+///
+/// `radius_percent` (bornes [`MASK_RADIUS_MIN`]..=[`MASK_RADIUS_MAX`], hors bornes = borné
+/// sans avertir) est un pourcentage du DEMI-côté : à `MASK_RADIUS_MAX`, la forme est un
+/// cercle inscrit dans le carré. `size` est la largeur ET la hauteur du carré produit, en
+/// pixels — l'appelant l'étire ensuite sur la vidéo réelle (même contrat que le masque
+/// cercle existant, `mask_filter` + `stretch: true`).
+///
+/// Rendu en RGB blanc constant, alpha variable, JAMAIS prémultiplié — la couleur ne doit
+/// jamais teinter la vidéo, seule la découpe compte.
+pub fn generate_rounded_mask_rgba(radius_percent: i32, size: u32) -> Vec<u8> {
+    let radius_percent = radius_percent.clamp(MASK_RADIUS_MIN, MASK_RADIUS_MAX);
+    let half = size as f32 / 2.0;
+    let radius = half * (radius_percent as f32 / MASK_RADIUS_MAX as f32);
+
+    let mut pixels = vec![0u8; (size as usize) * (size as usize) * 4];
+    for y in 0..size {
+        for x in 0..size {
+            // Coordonnée centrée sur le canevas — la formule de distance suppose une
+            // origine au milieu du carré, pas dans son coin haut-gauche.
+            let px = (x as f32 + 0.5) - half;
+            let py = (y as f32 + 0.5) - half;
+            let qx = px.abs() - half + radius;
+            let qy = py.abs() - half + radius;
+            let dist =
+                (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt() + qx.max(qy).min(0.0) - radius;
+            // Négatif = dedans. Lissé sur un pixel plutôt qu'un seuil dur, pour un bord qui
+            // ne crénèle pas une fois étiré sur la vidéo.
+            let alpha = (0.5 - dist).clamp(0.0, 1.0);
+
+            let idx = ((y as usize) * (size as usize) + (x as usize)) * 4;
+            pixels[idx] = 255;
+            pixels[idx + 1] = 255;
+            pixels[idx + 2] = 255;
+            pixels[idx + 3] = (alpha * 255.0).round() as u8;
+        }
+    }
+    pixels
 }

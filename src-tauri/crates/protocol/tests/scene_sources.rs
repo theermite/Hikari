@@ -4,8 +4,8 @@
 
 use hikari_protocol::{
     parse_controller_command, parse_engine_message, to_line, validate_source_name, CaptureTarget,
-    ControllerCommand, EngineMessage, SceneInfo, SceneNameError, SceneSourceInfo, SourceKind,
-    SourceOrder,
+    ControllerCommand, EngineMessage, MaskShape, SceneInfo, SceneNameError, SceneSourceInfo,
+    SourceKind, SourceOrder,
 };
 use proptest::prelude::*;
 
@@ -34,7 +34,7 @@ fn should_carry_everything_needed_to_rebuild_a_source() {
         scale_percent: 75,
         locked: true,
         background_removal: false,
-        circle_mask: false,
+        mask_shape: MaskShape::None,
         visible: true,
     };
     let line = to_line(&source).expect("serializes");
@@ -197,7 +197,7 @@ fn should_carry_each_scenes_own_source_list() {
                 scale_percent: 100,
                 locked: false,
                 background_removal: false,
-                circle_mask: false,
+                mask_shape: MaskShape::None,
                 visible: true,
             },
             SceneSourceInfo {
@@ -210,7 +210,7 @@ fn should_carry_each_scenes_own_source_list() {
                 scale_percent: 100,
                 locked: true,
                 background_removal: false,
-                circle_mask: false,
+                mask_shape: MaskShape::None,
                 visible: true,
             },
         ],

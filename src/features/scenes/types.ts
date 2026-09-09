@@ -29,6 +29,19 @@ export interface CaptureTarget {
 /** Vers l'avant (dessine par-dessus) ou vers l'arrière (passe dessous). */
 export type SourceOrder = "front" | "back";
 
+/** La forme du masque appliqué à une source — miroir de `hikari_protocol::MaskShape`. Une
+ * SEULE forme à la fois (2026-09-09, clarifié avec Jay : « le masque en est un [filtre] »).
+ * `radius_percent` va de 0 (angles droits) à 50 (cercle inscrit dans le carré). */
+export type MaskShape =
+  | { kind: "none" }
+  | { kind: "circle" }
+  | { kind: "rounded"; radius_percent: number };
+
+export const MASK_RADIUS_MIN = 0;
+export const MASK_RADIUS_MAX = 50;
+
+export const NO_MASK: MaskShape = { kind: "none" };
+
 /** Les durées de fondu que le panneau propose (B7), miroir de
  * `hikari_protocol::TRANSITION_DURATIONS_MS` — un jeu fermé plutôt qu'un champ libre,
  * même raison que côté moteur : une valeur hors de ce jeu se ferait quand même clamper là-bas,
@@ -66,8 +79,9 @@ export interface SceneSourceInfo {
    * Par caméra depuis le 2026-09-06 — deux caméras d'une même scène peuvent avoir deux
    * allures. Toujours faux sur une source ordinaire. */
   background_removal: boolean;
-  /** Pour une CAMÉRA : le masque circulaire voulu par cette scène. Même contrat. */
-  circle_mask: boolean;
+  /** Pour une CAMÉRA : la forme de masque voulue par cette scène. Même contrat que
+   * `background_removal`. */
+  mask_shape: MaskShape;
   /** Montrée à l'écran, ou cachée sans être retirée (l'œil de la maquette). Cachée, la
    * source garde son cadrage, ses filtres et sa place dans la pile — c'est ce qui
    * distingue le geste du direct de la décision de retirer. */

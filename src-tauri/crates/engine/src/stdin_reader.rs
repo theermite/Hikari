@@ -49,15 +49,15 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                         enabled,
                     });
                 }
-                Ok(ControllerCommand::SetCircleMask {
+                Ok(ControllerCommand::SetMaskShape {
                     device_id,
                     scene,
-                    enabled,
+                    shape,
                 }) => {
-                    let _ = proxy.send_event(EngineEvent::SetCircleMask {
+                    let _ = proxy.send_event(EngineEvent::SetMaskShape {
                         device_id,
                         scene,
-                        enabled,
+                        shape,
                     });
                 }
                 Ok(ControllerCommand::RemoveCamera { device_id, scene }) => {

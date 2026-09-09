@@ -1,6 +1,7 @@
 // Camera Tauri bridge (B-cam tranche 1) — thin `invoke` wrapper, no logic here.
 
 import { invoke } from "@tauri-apps/api/core";
+import type { MaskShape } from "../scenes/types";
 import type { CameraDevice } from "./types";
 
 /** Lists the real camera devices detected on this machine (`list_cameras`,
@@ -32,13 +33,14 @@ export function setBackgroundRemoval(
   return invoke("set_background_removal", { deviceId, scene, enabled });
 }
 
-/** Active ou coupe le masque circulaire. Même contrat que `setBackgroundRemoval`. */
-export function setCircleMask(
+/** Règle la forme de masque (aucun/cercle/coins arrondis). Même contrat que
+ * `setBackgroundRemoval` — une seule forme active à la fois. */
+export function setMaskShape(
   deviceId: string,
   scene: string,
-  enabled: boolean,
+  shape: MaskShape,
 ): Promise<void> {
-  return invoke("set_circle_mask", { deviceId, scene, enabled });
+  return invoke("set_mask_shape", { deviceId, scene, shape });
 }
 
 /** Relance l'appareil `deviceId` sans le retirer d'aucune scène.

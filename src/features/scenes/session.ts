@@ -16,7 +16,12 @@ import type {
   NoiseMethod,
 } from "../audio/types";
 import type { TextSettings } from "./textSettings";
-import type { SceneInfo, SourceKind } from "./types";
+import {
+  type MaskShape,
+  NO_MASK,
+  type SceneInfo,
+  type SourceKind,
+} from "./types";
 
 /** Une source telle qu'on la retrouvera au prochain lancement. */
 export interface SavedSource {
@@ -64,12 +69,27 @@ export interface SavedCamera {
    * aucune commande au rejeu. Absent des sessions écrites avant le 2026-08-06. */
   name?: string;
   backgroundRemoval: boolean;
-  circleMask: boolean;
+  /** La forme de masque, depuis le 2026-09-09. Absent des sessions écrites avant cette
+   * date — lire `maskShapeOf(camera)`, jamais ce champ directement. */
+  maskShape?: MaskShape;
+  /** Le SEUL champ qu'écrivaient les sessions d'avant le 2026-09-09 (un simple cercle
+   * on/off). Gardé en lecture seule, comme `camera?` plus haut : le supprimer ferait
+   * perdre le masque de Jay au premier lancement de cette version. Jamais réécrit —
+   * `maskShapeOf` migre vers `maskShape` dès la première sauvegarde qui suit. */
+  circleMask?: boolean;
   x: number;
   y: number;
   scalePercent: number;
   /** Figée à la souris dans cette scène. Même règle d'absence que pour les captures. */
   locked?: boolean;
+}
+
+/** La forme de masque d'une caméra enregistrée, quel que soit l'âge du fichier — même
+ * rôle que `camerasOf` pour les caméras elles-mêmes. */
+export function maskShapeOf(camera: SavedCamera): MaskShape {
+  if (camera.maskShape) return camera.maskShape;
+  if (camera.circleMask) return { kind: "circle" };
+  return NO_MASK;
 }
 
 /** Le nom de repli quand une session ancienne ne porte pas celui de sa caméra
@@ -157,7 +177,7 @@ function camerasIn(scene: SceneInfo): SavedCamera[] {
       // Les filtres appartiennent à la caméra depuis le 2026-09-06 : deux caméras d'une
       // même scène peuvent avoir deux allures, qu'un réglage par scène ne saurait dire.
       backgroundRemoval: camera.background_removal,
-      circleMask: camera.circle_mask,
+      maskShape: camera.mask_shape,
       x: camera.x,
       y: camera.y,
       scalePercent: camera.scale_percent,
@@ -190,7 +210,7 @@ export type ReplayStep =
       scene: string;
       deviceId: string;
       background: boolean;
-      circle: boolean;
+      mask: MaskShape;
     }
   | { do: "addAudio"; audio: SavedAudio }
   | { do: "lock"; scene: string; name: string }
@@ -277,7 +297,7 @@ export function buildReplay(
         scene: scene.name,
         deviceId: camera.deviceId,
         background: camera.backgroundRemoval,
-        circle: camera.circleMask,
+        mask: maskShapeOf(camera),
       });
     }
   }

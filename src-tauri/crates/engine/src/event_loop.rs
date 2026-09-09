@@ -53,11 +53,11 @@ impl ApplicationHandler<EngineEvent> for App {
                 scene,
                 enabled,
             } => self.handle_set_background_removal(device_id, scene, enabled),
-            EngineEvent::SetCircleMask {
+            EngineEvent::SetMaskShape {
                 device_id,
                 scene,
-                enabled,
-            } => self.handle_set_circle_mask(device_id, scene, enabled),
+                shape,
+            } => self.handle_set_mask_shape(device_id, scene, shape),
             EngineEvent::RemoveCamera { device_id, scene } => {
                 self.handle_remove_camera(device_id, scene)
             }

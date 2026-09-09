@@ -38,7 +38,7 @@ pub fn run() {
             engine_lifecycle::hide_preview,
             engine_scenes::add_camera_source,
             engine_scenes::set_background_removal,
-            engine_scenes::set_circle_mask,
+            engine_scenes::set_mask_shape,
             engine_scenes::remove_camera_source,
             engine_scenes::nudge_camera,
             engine_scenes::scale_camera,

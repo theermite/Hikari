@@ -22,10 +22,10 @@ pub(crate) enum EngineEvent {
         scene: String,
         enabled: bool,
     },
-    SetCircleMask {
+    SetMaskShape {
         device_id: String,
         scene: String,
-        enabled: bool,
+        shape: hikari_protocol::MaskShape,
     },
     RemoveCamera {
         device_id: String,

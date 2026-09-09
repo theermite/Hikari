@@ -82,14 +82,14 @@ pub(crate) fn set_background_removal(
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi au moteur: {err}"))
 }
 
-/// Sets whether a circular alpha mask is applied to the webcam (B-cam, F-036). Same
-/// rebuild-based toggle and requirements as `set_background_removal`.
+/// Sets which mask SHAPE (aucun/cercle/coins arrondis) applies to the webcam (B-filtres,
+/// F-036). Same rebuild-based toggle and requirements as `set_background_removal`.
 #[tauri::command]
-pub(crate) fn set_circle_mask(
+pub(crate) fn set_mask_shape(
     state: State<EngineState>,
     device_id: String,
     scene: String,
-    enabled: bool,
+    shape: hikari_protocol::MaskShape,
 ) -> Result<(), String> {
     let mut guard = state
         .0
@@ -98,10 +98,10 @@ pub(crate) fn set_circle_mask(
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::SetCircleMask {
+    let line = to_line(&ControllerCommand::SetMaskShape {
         device_id,
         scene,
-        enabled,
+        shape,
     })
     .map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi au moteur: {err}"))

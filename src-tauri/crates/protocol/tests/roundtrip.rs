@@ -53,6 +53,16 @@ fn engine_message_strategy() -> impl Strategy<Value = EngineMessage> {
     ]
 }
 
+/// Strategy building an arbitrary `MaskShape` across every variant.
+fn mask_shape_strategy() -> impl Strategy<Value = hikari_protocol::MaskShape> {
+    prop_oneof![
+        Just(hikari_protocol::MaskShape::None),
+        Just(hikari_protocol::MaskShape::Circle),
+        any::<i32>()
+            .prop_map(|radius_percent| hikari_protocol::MaskShape::Rounded { radius_percent }),
+    ]
+}
+
 /// Strategy building an arbitrary `ControllerCommand` across every variant.
 fn controller_command_strategy() -> impl Strategy<Value = ControllerCommand> {
     prop_oneof![
@@ -69,12 +79,12 @@ fn controller_command_strategy() -> impl Strategy<Value = ControllerCommand> {
                 }
             }
         ),
-        (any::<String>(), any::<String>(), any::<bool>()).prop_map(
-            |(device_id, scene, enabled)| {
-                ControllerCommand::SetCircleMask {
+        (any::<String>(), any::<String>(), mask_shape_strategy()).prop_map(
+            |(device_id, scene, shape)| {
+                ControllerCommand::SetMaskShape {
                     device_id,
                     scene,
-                    enabled,
+                    shape,
                 }
             }
         ),

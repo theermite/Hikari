@@ -14,7 +14,12 @@ import userEvent from "@testing-library/user-event";
 import type { IDockviewPanelProps } from "dockview-react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ScenesPanel } from "./ScenesPanel";
-import type { CaptureTarget, EngineMessage, SceneInfo } from "./types";
+import {
+  type CaptureTarget,
+  type EngineMessage,
+  NO_MASK,
+  type SceneInfo,
+} from "./types";
 
 const invokeMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
@@ -321,7 +326,7 @@ describe("ScenesPanel", () => {
             scale_percent: 100,
             locked: false,
             background_removal: false,
-            circle_mask: false,
+            mask_shape: NO_MASK,
             visible: true,
           },
         ],
@@ -363,7 +368,7 @@ describe("ScenesPanel", () => {
             scale_percent: 100,
             locked: false,
             background_removal: false,
-            circle_mask: false,
+            mask_shape: NO_MASK,
             visible: true,
           },
         ],
@@ -407,7 +412,7 @@ describe("ScenesPanel", () => {
             scale_percent: 100,
             locked: false,
             background_removal: false,
-            circle_mask: false,
+            mask_shape: NO_MASK,
             visible: true,
           },
         ],
@@ -445,7 +450,7 @@ describe("ScenesPanel", () => {
             scale_percent: 100,
             locked: false,
             background_removal: false,
-            circle_mask: false,
+            mask_shape: NO_MASK,
             visible: true,
           },
         ],
@@ -480,7 +485,7 @@ describe("ScenesPanel", () => {
             scale_percent: 100,
             locked: false,
             background_removal: false,
-            circle_mask: false,
+            mask_shape: NO_MASK,
             visible: true,
           },
         ],
@@ -515,7 +520,7 @@ describe("ScenesPanel", () => {
             scale_percent: 100,
             locked: false,
             background_removal: false,
-            circle_mask: false,
+            mask_shape: NO_MASK,
             visible: false,
           },
         ],
@@ -550,7 +555,7 @@ describe("ScenesPanel", () => {
             scale_percent: 100,
             locked: false,
             background_removal: false,
-            circle_mask: false,
+            mask_shape: NO_MASK,
             visible: false,
           },
         ],

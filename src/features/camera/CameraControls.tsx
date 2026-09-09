@@ -11,24 +11,34 @@
 // appareils sont posés dans la même scène.
 
 import { useState } from "react";
+import { Segmented } from "../../components/ui/Segmented";
+import {
+  MASK_RADIUS_MAX,
+  MASK_RADIUS_MIN,
+  type MaskShape,
+  NO_MASK,
+} from "../scenes/types";
 import {
   nudgeCamera,
   restartCamera,
   scaleCamera,
   setBackgroundRemoval,
-  setCircleMask,
+  setMaskShape,
 } from "./api";
 
 /** Pas fixe en pixels par clic de flèche — un glissement brut a été écarté (celui de la
  * bibliothèque de panneaux casse en silence dans cette vue web, vécu le 2026-07-23). */
 const NUDGE_STEP = 40;
 
+/** Rayon de départ en passant sur « coins arrondis » — visible sans être un cercle. */
+const DEFAULT_ROUNDED_RADIUS = 20;
+
 /** Une caméra posée dans une scène, telle que le moteur la décrit. */
 export interface PlacedCamera {
   deviceId: string;
   name: string;
   backgroundRemoval: boolean;
-  circleMask: boolean;
+  maskShape: MaskShape;
 }
 
 interface Props {
@@ -56,7 +66,25 @@ export function CameraControls({ camera, scene }: Props) {
       .finally(() => setPending(null));
   };
 
-  const { deviceId, name, backgroundRemoval, circleMask } = camera;
+  const { deviceId, name, backgroundRemoval, maskShape } = camera;
+
+  /** Change de forme et l'envoie au moteur — un seul geste, jamais deux filtres actifs à
+   * la fois (2026-09-09, une source n'a qu'une forme). */
+  const applyShape = (shape: MaskShape) =>
+    run("mask", setMaskShape(deviceId, scene, shape));
+
+  const handleShapeChange = (kind: MaskShape["kind"]) => {
+    if (kind === "none") return applyShape(NO_MASK);
+    if (kind === "circle") return applyShape({ kind: "circle" });
+    // En reprenant coins arrondis après cercle ou aucun, un rayon de départ raisonnable —
+    // jamais 0 (angles droits, indiscernable de « aucun » à l'écran) ni le maximum (déjà
+    // un cercle, à quoi bon le proposer à part).
+    const radius =
+      maskShape.kind === "rounded"
+        ? maskShape.radius_percent
+        : DEFAULT_ROUNDED_RADIUS;
+    return applyShape({ kind: "rounded", radius_percent: radius });
+  };
 
   return (
     <section
@@ -78,17 +106,52 @@ export function CameraControls({ camera, scene }: Props) {
         >
           {backgroundRemoval ? "Fond IA activé ✓" : "Activer fond IA"}
         </button>
-        <button
-          type="button"
-          onClick={() =>
-            run("mask", setCircleMask(deviceId, scene, !circleMask))
-          }
-          disabled={pending === "mask"}
-          className={circleMask ? BUTTON_ON : BUTTON}
-        >
-          {circleMask ? "Masque cercle activé ✓" : "Activer masque cercle"}
-        </button>
       </div>
+
+      <Segmented
+        label="Masque"
+        value={maskShape.kind}
+        onChange={handleShapeChange}
+        disabled={pending === "mask"}
+        options={[
+          { id: "none", label: "Aucun" },
+          { id: "circle", label: "Cercle" },
+          { id: "rounded", label: "Coins arrondis" },
+        ]}
+      />
+
+      {maskShape.kind === "rounded" && (
+        <div className="flex w-full items-center gap-2 px-1">
+          <label
+            htmlFor={`radius-${deviceId}`}
+            className="text-[12px] text-hikari-txt-dim"
+          >
+            Rayon
+          </label>
+          <input
+            id={`radius-${deviceId}`}
+            type="range"
+            min={MASK_RADIUS_MIN}
+            max={MASK_RADIUS_MAX}
+            step={1}
+            value={maskShape.radius_percent}
+            onChange={(event) =>
+              applyShape({
+                kind: "rounded",
+                radius_percent: Number(event.target.value),
+              })
+            }
+            aria-label="Rayon des coins arrondis"
+            className="flex-1 accent-hikari-accent"
+          />
+          <span
+            aria-hidden="true"
+            className="w-9 shrink-0 text-right text-[11.5px] text-hikari-txt-faint"
+          >
+            {maskShape.radius_percent}%
+          </span>
+        </div>
+      )}
 
       <p className="text-[12px] text-hikari-txt-faint">
         Position et taille dans cette scène

@@ -14,7 +14,7 @@ import {
   removeCameraSource,
   scaleCamera,
   setBackgroundRemoval,
-  setCircleMask,
+  setMaskShape,
 } from "./api";
 
 describe("camera api", () => {
@@ -66,15 +66,15 @@ describe("camera api", () => {
     });
   });
 
-  it("should_call_set_circle_mask_command_with_the_camera_it_targets", async () => {
+  it("should_call_set_mask_shape_command_with_the_camera_it_targets", async () => {
     vi.mocked(invoke).mockResolvedValueOnce(undefined);
 
-    await setCircleMask("usb#vid_046d", "Jeu", false);
+    await setMaskShape("usb#vid_046d", "Jeu", { kind: "circle" });
 
-    expect(invoke).toHaveBeenCalledExactlyOnceWith("set_circle_mask", {
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("set_mask_shape", {
       deviceId: "usb#vid_046d",
       scene: "Jeu",
-      enabled: false,
+      shape: { kind: "circle" },
     });
   });
 

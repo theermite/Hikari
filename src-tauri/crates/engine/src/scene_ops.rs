@@ -89,13 +89,13 @@ impl App {
     /// detoured, one framed in a circle), so a single pair of booleans could not describe it.
     pub(crate) fn apply_scene_filter_state(&mut self, scene: &str) {
         let Some(obs) = &mut self.obs else { return };
-        let wanted: Vec<(String, (bool, bool))> = obs
+        let wanted: Vec<(String, (bool, hikari_protocol::MaskShape))> = obs
             .scene_filter_state
             .iter()
             .filter(|((shown_in, _), _)| shown_in == scene)
             .map(|((_, device_id), state)| (device_id.clone(), *state))
             .collect();
-        for (device_id, (background_removal_on, circle_mask_on)) in wanted {
+        for (device_id, (background_removal_on, mask_shape)) in wanted {
             let Some(opened) = obs.cameras.get(&device_id) else {
                 continue;
             };
@@ -107,9 +107,7 @@ impl App {
                     message: err.to_string(),
                 });
             }
-            if let Err(err) =
-                camera::set_filter_enabled(&opened.filters.circle_mask, circle_mask_on)
-            {
+            if let Err(err) = camera::set_mask_shape(&opened.filters.mask, mask_shape) {
                 emit(&EngineMessage::Error {
                     message: err.to_string(),
                 });
@@ -216,7 +214,7 @@ impl App {
                                 // Une capture n'a pas de filtre caméra : la case existe pour
                                 // toutes les sources, elle ne vaut quelque chose que pour une caméra.
                                 background_removal: false,
-                                circle_mask: false,
+                                mask_shape: hikari_protocol::MaskShape::None,
                                 visible: !obs.hidden.contains(&(name.clone(), source.name.clone())),
                             },
                         )
@@ -241,11 +239,11 @@ impl App {
                         .get(device_id)
                         .map(|opened| opened.name.clone())
                         .unwrap_or_else(|| camera::CAMERA_SOURCE_NAME.to_string());
-                    let (background_removal, circle_mask) = obs
+                    let (background_removal, mask_shape) = obs
                         .scene_filter_state
                         .get(&(name.clone(), device_id.clone()))
                         .copied()
-                        .unwrap_or((false, false));
+                        .unwrap_or((false, hikari_protocol::MaskShape::None));
                     // En vol : la vérité annoncée est la destination du glissement, jamais
                     // la position interpolée que libobs affiche réellement à cet instant.
                     let in_flight = slide_target
@@ -280,7 +278,7 @@ impl App {
                             scale_percent,
                             locked: obs.locked.contains(&(name.clone(), camera_name.clone())),
                             background_removal,
-                            circle_mask,
+                            mask_shape,
                             visible: !obs.hidden.contains(&(name.clone(), camera_name.clone())),
                             name: camera_name,
                         },

@@ -172,6 +172,42 @@ pub enum SourceOrder {
     Back,
 }
 
+/// La forme du masque appliqué à une source — remplace le booléen `circle_mask`
+/// (clarifié avec Jay, 2026-09-09 : « le masque en est un [filtre] », une SEULE forme à la
+/// fois, jamais un bouton par forme). Une seule pièce de réglage, jamais deux formes actives
+/// ensemble.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum MaskShape {
+    /// Aucun masque : la source garde sa forme native.
+    None,
+    /// Le masque circulaire déjà prouvé à l'écran (2026-07-23).
+    Circle,
+    /// Un rectangle aux coins arrondis, réglable en continu — jamais une image figée par
+    /// palier : le rayon se règle en direct, sans fichier à préparer pour chaque valeur.
+    Rounded { radius_percent: i32 },
+}
+
+impl Default for MaskShape {
+    /// Une source neuve n'a pas de masque — la même valeur que `circle_mask: false` hier.
+    fn default() -> Self {
+        MaskShape::None
+    }
+}
+
+/// Bornes du rayon d'un masque à coins arrondis, en pourcentage du plus petit côté de la
+/// source. `0` = angles droits (revient à « aucun masque » visuellement, mais reste
+/// distinguable pour l'interface) ; `50` = un cercle ou une capsule complète selon les
+/// proportions de la source.
+pub const MASK_RADIUS_MIN: i32 = 0;
+pub const MASK_RADIUS_MAX: i32 = 50;
+
+/// Un rayon de masque utilisable — jamais un chiffre tapé de travers qui déborderait la
+/// forme ou l'annulerait silencieusement.
+pub fn clamp_mask_radius(percent: i32) -> i32 {
+    percent.clamp(MASK_RADIUS_MIN, MASK_RADIUS_MAX)
+}
+
 /// One source inside a scene, as the engine really holds it.
 ///
 /// Carries everything needed to RECREATE it identically at the next launch — kind, what it
@@ -210,9 +246,10 @@ pub struct SceneSourceInfo {
     /// as "filter off" rather than refuse the whole scene.
     #[serde(default)]
     pub background_removal: bool,
-    /// Same contract as `background_removal`, for the circular mask filter.
+    /// Même contrat que `background_removal`, pour le filtre de masque — quelle forme est
+    /// active, jamais un simple on/off (2026-09-09, une source n'a qu'une forme à la fois).
     #[serde(default)]
-    pub circle_mask: bool,
+    pub mask_shape: MaskShape,
     /// Montrée à l'écran, ou cachée sans être retirée. Cachée, la source garde son
     /// cadrage, ses filtres et sa place dans la pile — c'est ce qui distingue le geste du
     /// direct (masquer le temps d'une manipulation) de la décision de retirer.

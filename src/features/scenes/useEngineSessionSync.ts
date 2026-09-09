@@ -16,7 +16,7 @@ import type { AudioEngineMessage, AudioSourceInfo } from "../audio/types";
 import {
   addCameraSource,
   setBackgroundRemoval,
-  setCircleMask,
+  setMaskShape,
 } from "../camera/api";
 import {
   addCaptureSource,
@@ -147,7 +147,7 @@ export function useEngineSessionSync(params: {
               step.scene,
               step.background,
             );
-            await setCircleMask(step.deviceId, step.scene, step.circle);
+            await setMaskShape(step.deviceId, step.scene, step.mask);
           }
           if (step.do === "addAudio") {
             const a = step.audio;

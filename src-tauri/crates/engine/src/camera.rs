@@ -343,14 +343,18 @@ pub fn create_background_removal_filter(source: &ObsSourceRef) -> Result<ObsFilt
     Ok(filter)
 }
 
-/// Creates a circular alpha mask filter (`mask_filter`, image-based — OBS has no built-in
-/// geometric circle shape, verified via the real `mask-filter.c` source) on `source`,
-/// using the circle PNG shipped next to the engine binary, attached DISABLED. Same
-/// create-once-then-toggle contract as `create_background_removal_filter`.
-pub fn create_circle_mask_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> {
+/// Creates the mask filter (`mask_filter`, image-based — OBS has no built-in geometric
+/// shape, verified via the real `mask-filter.c` source) on `source`, attached DISABLED.
+/// Created ONCE per camera, then reconfigured in place by [`set_mask_shape`] — never
+/// recreated when the user changes shape or radius (même contrat que
+/// `create_background_removal_filter`).
+///
+/// La forme initiale (cercle) est arbitraire : le filtre part désactivé, donc invisible tant
+/// qu'aucune scène ne demande une forme réelle.
+pub fn create_mask_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> {
     let runtime = source.runtime().clone();
     let mask_path = circle_mask_path().context("chemin masque cercle")?;
-    let mut settings = ObsData::new(runtime.clone()).context("réglages masque cercle")?;
+    let mut settings = ObsData::new(runtime.clone()).context("réglages masque")?;
     settings
         .set_string("type", "mask_alpha_filter.effect")
         .context("réglage type masque")?
@@ -364,7 +368,7 @@ pub fn create_circle_mask_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> 
         .context("réglage étirement masque")?;
     let filter = ObsFilterRef::new(
         "mask_filter",
-        "Masque cercle",
+        "Masque",
         Some(settings.into()),
         None,
         runtime,
@@ -375,6 +379,34 @@ pub fn create_circle_mask_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> 
         .context("attache filtre masque")?;
     set_filter_enabled(&filter, false).context("désactivation initiale filtre masque")?;
     Ok(filter)
+}
+
+/// Reconfigure un filtre de masque déjà attaché pour porter `shape` — jamais une recréation,
+/// jamais un aller-retour de fichier pour le cercle (image fixe, déjà prouvée à l'écran).
+///
+/// `Aucun` désactive le filtre : la vidéo reprend sa forme native, exactement comme avant
+/// que ce système n'existe. Toute autre forme l'active et pointe `image_path` vers le bon
+/// fichier — le cercle vers l'image shipée avec le moteur, les coins arrondis vers un
+/// fichier calculé et mis en cache par rayon (voir [`rounded_mask_path`]).
+pub fn set_mask_shape(filter: &ObsFilterRef, shape: hikari_protocol::MaskShape) -> Result<()> {
+    let path = match shape {
+        hikari_protocol::MaskShape::None => {
+            return set_filter_enabled(filter, false).context("désactivation du masque");
+        }
+        hikari_protocol::MaskShape::Circle => circle_mask_path().context("chemin masque cercle")?,
+        hikari_protocol::MaskShape::Rounded { radius_percent } => {
+            rounded_mask_path(radius_percent).context("génération masque coins arrondis")?
+        }
+    };
+    let runtime = filter.runtime().clone();
+    let mut settings = ObsData::new(runtime).context("réglages masque")?;
+    settings
+        .set_string("image_path", path.to_string_lossy().to_string())
+        .context("réglage image masque")?;
+    filter
+        .update_settings(settings)
+        .context("mise à jour de l'image du masque")?;
+    set_filter_enabled(filter, true).context("activation du masque")
 }
 
 /// Toggles a camera filter on/off in place. The implementation moved to
@@ -396,4 +428,28 @@ fn circle_mask_path() -> Result<std::path::PathBuf> {
         .parent()
         .context("résolution du dossier de l'exécutable")?;
     Ok(dir.join("assets").join("circle-mask.png"))
+}
+
+/// La taille du carré généré pour un masque calculé — même résolution que le masque cercle
+/// déjà livré (1024×1024), pour une qualité comparable une fois étiré sur la vidéo.
+const ROUNDED_MASK_SIZE: u32 = 1024;
+
+/// Le chemin de l'image de masque à coins arrondis pour CE rayon.
+///
+/// Générée une seule fois par rayon, puis relue à chaque appel suivant : le nom de fichier
+/// PORTE le rayon (`hikari-mask-rounded-<rayon>.png`), donc il ne peut jamais pointer vers un
+/// contenu périmé — pas de cache à invalider, la clé du cache EST le contenu. Écrite dans le
+/// dossier temporaire du système : contrairement au masque cercle, ce fichier n'a pas besoin
+/// d'être embarqué par l'installeur (il se recrée tout seul au premier réglage).
+fn rounded_mask_path(radius_percent: i32) -> Result<std::path::PathBuf> {
+    let radius_percent = hikari_protocol::clamp_mask_radius(radius_percent);
+    let path = std::env::temp_dir().join(format!("hikari-mask-rounded-{radius_percent}.png"));
+    if path.exists() {
+        return Ok(path);
+    }
+    let pixels = hikari_protocol::generate_rounded_mask_rgba(radius_percent, ROUNDED_MASK_SIZE);
+    let image = image::RgbaImage::from_raw(ROUNDED_MASK_SIZE, ROUNDED_MASK_SIZE, pixels)
+        .context("assemblage de l'image de masque")?;
+    image.save(&path).context("écriture du masque calculé")?;
+    Ok(path)
 }

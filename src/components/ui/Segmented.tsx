@@ -17,6 +17,9 @@ interface SegmentedProps<T extends string> {
   options: SegmentedOption<T>[];
   value: T;
   onChange: (id: T) => void;
+  /** Un envoi est déjà en cours : le groupe entier se fige plutôt que d'empiler une
+   * deuxième demande par-dessus la première. */
+  disabled?: boolean;
 }
 
 export function Segmented<T extends string>({
@@ -24,6 +27,7 @@ export function Segmented<T extends string>({
   options,
   value,
   onChange,
+  disabled = false,
 }: SegmentedProps<T>) {
   return (
     // `<fieldset>` plutôt que `role="group"` : l'élément natif porte déjà le rôle, et un
@@ -39,9 +43,11 @@ export function Segmented<T extends string>({
             key={option.id}
             type="button"
             aria-pressed={active}
+            disabled={disabled}
             onClick={() => onChange(option.id)}
             className={`rounded-full px-3 py-1 text-[12.5px] font-medium transition
               focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-hikari-accent
+              disabled:cursor-not-allowed disabled:opacity-50
               ${
                 active
                   ? "bg-hikari-accent text-[#1a1206]"

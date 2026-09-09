@@ -163,10 +163,11 @@ struct ObsInner {
     /// Which (scene, device) pairs are on screen, and their own scene item. Position and
     /// scale are per pair: one device can sit differently in each scene that shows it.
     camera_items: std::collections::HashMap<(String, String), CameraItem>,
-    /// Each (scene, device) pair's OWN desired filter state (fond IA, masque) — applied to
-    /// that camera's filters only when the scene is live on the output channel
+    /// Each (scene, device) pair's OWN desired filter state (fond IA, forme de masque) —
+    /// applied to that camera's filters only when the scene is live on the output channel
     /// (`SwitchScene`), the "scene automation toggles my filters" flow Jay uses in OBS.
-    scene_filter_state: std::collections::HashMap<(String, String), (bool, bool)>,
+    scene_filter_state:
+        std::collections::HashMap<(String, String), (bool, hikari_protocol::MaskShape)>,
     /// The scene currently live on the output channel (multi-scene, tranche 1) — libobs
     /// exposes no "which scene is on this channel" getter, so this is the one piece of
     /// state the engine must track itself rather than read back.
@@ -302,11 +303,12 @@ enum DragState {
     },
 }
 
-/// The two one-way filters a camera source carries once created — kept together since
-/// they're always created and toggled as a pair alongside their camera.
+/// The filters a camera source carries once created — kept together since they're always
+/// created alongside their camera. `mask` porte n'importe quelle forme (Aucun/Cercle/Coins
+/// arrondis, `hikari_protocol::MaskShape`) — reconfiguré en place, jamais recréé.
 struct CameraFilters {
     background_removal: libobs_wrapper::sources::ObsFilterRef,
-    circle_mask: libobs_wrapper::sources::ObsFilterRef,
+    mask: libobs_wrapper::sources::ObsFilterRef,
 }
 
 /// The scene item of one camera in one scene — its placement, as libobs holds it.

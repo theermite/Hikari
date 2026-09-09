@@ -35,10 +35,10 @@ impl App {
         let name = camera::camera_source_name(&device_name, &taken);
         let source = camera::build_camera_source(&mut obs.context, &name, device_id)?;
         let background_removal = camera::create_background_removal_filter(&source)?;
-        let circle_mask = camera::create_circle_mask_filter(&source)?;
+        let mask = camera::create_mask_filter(&source)?;
         let filters = CameraFilters {
             background_removal,
-            circle_mask,
+            mask,
         };
         obs.cameras.insert(
             device_id.to_string(),
@@ -89,7 +89,9 @@ impl App {
         };
         let key = (scene.clone(), device_id.clone());
         obs.camera_items.insert(key.clone(), item);
-        obs.scene_filter_state.entry(key).or_insert((false, false));
+        obs.scene_filter_state
+            .entry(key)
+            .or_insert((false, hikari_protocol::MaskShape::None));
         // Une caméra est apparue dans cette scène : tout rectangle en cache est périmé.
         obs.item_rects = None;
         if scene == obs.active_scene {
@@ -116,14 +118,15 @@ impl App {
         self.set_camera_filter(device_id, scene, |state| state.0 = enabled);
     }
 
-    /// Règle le masque circulaire. Même contrat par caméra et par scène.
-    pub(crate) fn handle_set_circle_mask(
+    /// Règle la forme du masque (Aucun/Cercle/Coins arrondis). Même contrat par caméra et
+    /// par scène que le fond IA — une seule forme active à la fois (2026-09-09).
+    pub(crate) fn handle_set_mask_shape(
         &mut self,
         device_id: String,
         scene: String,
-        enabled: bool,
+        shape: hikari_protocol::MaskShape,
     ) {
-        self.set_camera_filter(device_id, scene, |state| state.1 = enabled);
+        self.set_camera_filter(device_id, scene, |state| state.1 = shape);
     }
 
     /// Le tronc commun des deux réglages de filtre : même garde, même portée, même
@@ -132,7 +135,7 @@ impl App {
         &mut self,
         device_id: String,
         scene: String,
-        change: impl FnOnce(&mut (bool, bool)),
+        change: impl FnOnce(&mut (bool, hikari_protocol::MaskShape)),
     ) {
         let Some(obs) = &mut self.obs else {
             emit(&EngineMessage::Error {
@@ -147,7 +150,11 @@ impl App {
             });
             return;
         }
-        change(obs.scene_filter_state.entry(key).or_insert((false, false)));
+        change(
+            obs.scene_filter_state
+                .entry(key)
+                .or_insert((false, hikari_protocol::MaskShape::None)),
+        );
         if scene == obs.active_scene {
             self.apply_scene_filter_state(&scene);
         }

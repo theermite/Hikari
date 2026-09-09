@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import { CameraControls, type PlacedCamera } from "../camera/CameraControls";
 import { TextControls } from "../scenes/TextControls";
 import { type TextSettings, withDefaults } from "../scenes/textSettings";
+import { type MaskShape, NO_MASK } from "../scenes/types";
 import { emitTextSettingsChanged } from "../scenes/useTextSettings";
 
 /** Les seuls messages moteur que cette fenêtre lit — juste assez pour retrouver l'état
@@ -28,7 +29,7 @@ interface SceneListMessage {
       name: string;
       target_id: string;
       background_removal: boolean;
-      circle_mask: boolean;
+      mask_shape: MaskShape;
     }[];
   }[];
 }
@@ -101,7 +102,7 @@ export function SettingsWindow({
   const [sourceState, setSourceState] = useState<{
     targetId: string;
     backgroundRemoval: boolean;
-    circleMask: boolean;
+    maskShape: MaskShape;
   } | null>(null);
   const [textSettings, setTextSettings] = useState<TextSettings>(
     initial?.settings ?? withDefaults(undefined),
@@ -131,7 +132,7 @@ export function SettingsWindow({
         setSourceState({
           targetId: found.target_id,
           backgroundRemoval: found.background_removal,
-          circleMask: found.circle_mask,
+          maskShape: found.mask_shape ?? NO_MASK,
         });
       }
     });
@@ -182,7 +183,7 @@ function CameraCard({
   live: {
     targetId: string;
     backgroundRemoval: boolean;
-    circleMask: boolean;
+    maskShape: MaskShape;
   } | null;
 }) {
   if (!live) {
@@ -196,7 +197,7 @@ function CameraCard({
     deviceId: live.targetId,
     name,
     backgroundRemoval: live.backgroundRemoval,
-    circleMask: live.circleMask,
+    maskShape: live.maskShape,
   };
   return <CameraControls camera={camera} scene={scene} />;
 }
