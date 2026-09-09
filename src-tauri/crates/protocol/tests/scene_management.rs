@@ -3,15 +3,18 @@
 //! the engine), same split as every other libobs-backed brick in this codebase.
 
 use hikari_protocol::{
-    ControllerCommand, EngineMessage, SceneDeleteError, SceneInfo, SceneNameError,
-    SceneSourceInfo, SourceKind, parse_controller_command, parse_engine_message, to_line,
-    validate_scene_deletion, validate_scene_name,
+    parse_controller_command, parse_engine_message, to_line, validate_scene_deletion,
+    validate_scene_name, ControllerCommand, EngineMessage, SceneDeleteError, SceneInfo,
+    SceneNameError, SceneSourceInfo, SourceKind,
 };
 use proptest::prelude::*;
 
 #[test]
 fn should_accept_new_unique_name() {
-    assert_eq!(validate_scene_name("Jeu", &["Discussion".to_string()]), Ok(()));
+    assert_eq!(
+        validate_scene_name("Jeu", &["Discussion".to_string()]),
+        Ok(())
+    );
 }
 
 #[test]
@@ -30,7 +33,9 @@ fn should_reject_duplicate_name() {
 
 #[test]
 fn should_roundtrip_create_scene_command() {
-    let cmd = ControllerCommand::CreateScene { name: "Jeu".to_string() };
+    let cmd = ControllerCommand::CreateScene {
+        name: "Jeu".to_string(),
+    };
     let line = to_line(&cmd).expect("serializes");
     assert!(!line.contains('\n'));
     assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
@@ -38,7 +43,10 @@ fn should_roundtrip_create_scene_command() {
 
 #[test]
 fn should_roundtrip_switch_scene_command() {
-    let cmd = ControllerCommand::SwitchScene { name: "Discussion".to_string(), duration_ms: 500 };
+    let cmd = ControllerCommand::SwitchScene {
+        name: "Discussion".to_string(),
+        duration_ms: 500,
+    };
     let line = to_line(&cmd).expect("serializes");
     assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
 }
@@ -91,7 +99,9 @@ fn should_carry_each_scene_own_camera_and_filter_state() {
 
 #[test]
 fn should_roundtrip_delete_scene_command() {
-    let cmd = ControllerCommand::DeleteScene { name: "Jeu".to_string() };
+    let cmd = ControllerCommand::DeleteScene {
+        name: "Jeu".to_string(),
+    };
     let line = to_line(&cmd).expect("serializes");
     assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
 }

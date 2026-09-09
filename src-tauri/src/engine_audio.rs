@@ -7,7 +7,7 @@ use tauri::State;
 
 use hikari_protocol::ControllerCommand;
 
-use crate::engine_lifecycle::{EngineState, send_command};
+use crate::engine_lifecycle::{send_command, EngineState};
 
 /// Asks the engine for the machine's real audio devices (B6).
 #[tauri::command]
@@ -23,7 +23,14 @@ pub(crate) fn add_audio_source(
     kind: hikari_protocol::AudioSourceKind,
     name: String,
 ) -> Result<(), String> {
-    send_command(&state, ControllerCommand::AddAudioSource { device_id, kind, name })
+    send_command(
+        &state,
+        ControllerCommand::AddAudioSource {
+            device_id,
+            kind,
+            name,
+        },
+    )
 }
 
 /// Removes an audio source from the mixer (B6).
@@ -59,7 +66,10 @@ pub(crate) fn set_audio_monitoring(
     name: String,
     monitoring: hikari_protocol::AudioMonitoring,
 ) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetAudioMonitoring { name, monitoring })
+    send_command(
+        &state,
+        ControllerCommand::SetAudioMonitoring { name, monitoring },
+    )
 }
 
 /// Sets room-noise suppression for a microphone: on/off, method, and Speex's strength (B6).
@@ -71,7 +81,15 @@ pub(crate) fn set_noise_settings(
     method: hikari_protocol::NoiseMethod,
     level_db: f32,
 ) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetNoiseSettings { name, enabled, method, level_db })
+    send_command(
+        &state,
+        ControllerCommand::SetNoiseSettings {
+            name,
+            enabled,
+            method,
+            level_db,
+        },
+    )
 }
 
 /// Sets the volume the streamer hears, independently of the audience's (B6).
@@ -81,5 +99,8 @@ pub(crate) fn set_monitor_volume(
     name: String,
     percent: i32,
 ) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetMonitorVolume { name, percent })
+    send_command(
+        &state,
+        ControllerCommand::SetMonitorVolume { name, percent },
+    )
 }

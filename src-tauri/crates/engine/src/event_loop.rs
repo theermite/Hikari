@@ -2,16 +2,16 @@
 //! to its `handle_*` method, and every native window event (resize, cursor, click) to the
 //! drag machinery.
 
-use std::time::Instant;
 use libobs_wrapper::display::WindowPositionTrait;
+use std::time::Instant;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::window::WindowId;
 
-use crate::stream::{FRAME_STATS_INTERVAL, report_frame_stats};
 use crate::multistream::report_platform_frame_stats;
-use crate::{App, AUDIO_LEVEL_INTERVAL, CAMERA_SLIDE_TICK, EngineEvent, emit, fit_size};
+use crate::stream::{report_frame_stats, FRAME_STATS_INTERVAL};
+use crate::{emit, fit_size, App, EngineEvent, AUDIO_LEVEL_INTERVAL, CAMERA_SLIDE_TICK};
 use hikari_protocol::EngineMessage;
 
 impl ApplicationHandler<EngineEvent> for App {
@@ -21,7 +21,9 @@ impl ApplicationHandler<EngineEvent> for App {
         // if that assumption ever breaks — `env_logger::try_init` tolerates a repeat call.
         let _ = env_logger::try_init();
         if let Err(err) = self.try_init(event_loop) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
             event_loop.exit();
         }
     }
@@ -46,19 +48,42 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::StartMultistream { targets } => self.handle_start_multistream(targets),
             EngineEvent::StopMultistream => self.handle_stop_multistream(),
             EngineEvent::AddCamera { device_id, scene } => self.handle_add_camera(device_id, scene),
-            EngineEvent::SetBackgroundRemoval { device_id, scene, enabled } => self.handle_set_background_removal(device_id, scene, enabled),
-            EngineEvent::SetCircleMask { device_id, scene, enabled } => self.handle_set_circle_mask(device_id, scene, enabled),
-            EngineEvent::RemoveCamera { device_id, scene } => self.handle_remove_camera(device_id, scene),
+            EngineEvent::SetBackgroundRemoval {
+                device_id,
+                scene,
+                enabled,
+            } => self.handle_set_background_removal(device_id, scene, enabled),
+            EngineEvent::SetCircleMask {
+                device_id,
+                scene,
+                enabled,
+            } => self.handle_set_circle_mask(device_id, scene, enabled),
+            EngineEvent::RemoveCamera { device_id, scene } => {
+                self.handle_remove_camera(device_id, scene)
+            }
             EngineEvent::RestartCamera { device_id } => self.handle_restart_camera(device_id),
-            EngineEvent::NudgeCamera { device_id, scene, dx, dy } => self.handle_nudge_camera(device_id, scene, dx, dy),
-            EngineEvent::ScaleCamera { device_id, scene, grow } => self.handle_scale_camera(device_id, scene, grow),
+            EngineEvent::NudgeCamera {
+                device_id,
+                scene,
+                dx,
+                dy,
+            } => self.handle_nudge_camera(device_id, scene, dx, dy),
+            EngineEvent::ScaleCamera {
+                device_id,
+                scene,
+                grow,
+            } => self.handle_scale_camera(device_id, scene, grow),
             EngineEvent::CreateScene { name } => self.handle_create_scene(name),
-            EngineEvent::SwitchScene { name, duration_ms } => self.handle_switch_scene(name, duration_ms),
+            EngineEvent::SwitchScene { name, duration_ms } => {
+                self.handle_switch_scene(name, duration_ms)
+            }
             EngineEvent::DeleteScene { name } => self.handle_delete_scene(name),
             EngineEvent::ListAudioDevices => self.handle_list_audio_devices(),
-            EngineEvent::AddAudioSource { device_id, kind, name } => {
-                self.handle_add_audio_source(device_id, kind, name)
-            }
+            EngineEvent::AddAudioSource {
+                device_id,
+                kind,
+                name,
+            } => self.handle_add_audio_source(device_id, kind, name),
             EngineEvent::RemoveAudioSource { name } => self.handle_remove_audio_source(name),
             EngineEvent::SetAudioVolume { name, percent } => {
                 self.handle_set_audio_volume(name, percent)
@@ -67,32 +92,50 @@ impl ApplicationHandler<EngineEvent> for App {
             EngineEvent::SetAudioMonitoring { name, monitoring } => {
                 self.handle_set_audio_monitoring(name, monitoring)
             }
-            EngineEvent::SetNoiseSettings { name, enabled, method, level_db } => {
-                self.handle_set_noise_settings(name, enabled, method, level_db)
-            }
+            EngineEvent::SetNoiseSettings {
+                name,
+                enabled,
+                method,
+                level_db,
+            } => self.handle_set_noise_settings(name, enabled, method, level_db),
             EngineEvent::SetMonitorVolume { name, percent } => {
                 self.handle_set_monitor_volume(name, percent)
             }
             EngineEvent::ListCaptureTargets => self.handle_list_capture_targets(),
-            EngineEvent::AddCaptureSource { scene, kind, target_id, name } => {
-                self.handle_add_capture_source(scene, kind, target_id, name)
-            }
+            EngineEvent::AddCaptureSource {
+                scene,
+                kind,
+                target_id,
+                name,
+            } => self.handle_add_capture_source(scene, kind, target_id, name),
             EngineEvent::RemoveSource { scene, name } => self.handle_remove_source(scene, name),
-            EngineEvent::ReorderSource { scene, name, direction } => {
-                self.handle_reorder_source(scene, name, direction)
-            }
-            EngineEvent::SetSourceTransform { scene, name, x, y, scale_percent } => {
-                self.handle_set_source_transform(scene, name, x, y, scale_percent)
-            }
-            EngineEvent::SetSourceLocked { scene, name, locked } => {
-                self.handle_set_source_locked(scene, name, locked)
-            }
-            EngineEvent::SetSourceVisible { scene, name, visible } => {
-                self.handle_set_source_visible(scene, name, visible)
-            }
-            EngineEvent::SetTextSettings { scene, name, settings } => {
-                self.handle_set_text_settings(scene, name, &settings)
-            }
+            EngineEvent::ReorderSource {
+                scene,
+                name,
+                direction,
+            } => self.handle_reorder_source(scene, name, direction),
+            EngineEvent::SetSourceTransform {
+                scene,
+                name,
+                x,
+                y,
+                scale_percent,
+            } => self.handle_set_source_transform(scene, name, x, y, scale_percent),
+            EngineEvent::SetSourceLocked {
+                scene,
+                name,
+                locked,
+            } => self.handle_set_source_locked(scene, name, locked),
+            EngineEvent::SetSourceVisible {
+                scene,
+                name,
+                visible,
+            } => self.handle_set_source_visible(scene, name, visible),
+            EngineEvent::SetTextSettings {
+                scene,
+                name,
+                settings,
+            } => self.handle_set_text_settings(scene, name, &settings),
             EngineEvent::SetTextContent { scene, name, text } => {
                 self.handle_set_text_content(scene, name, &text)
             }
@@ -133,7 +176,9 @@ impl ApplicationHandler<EngineEvent> for App {
                 stream.last_stats_at = Instant::now();
             }
         }
-        if !self.multistream.is_empty() && self.multistream_last_stats_at.elapsed() >= FRAME_STATS_INTERVAL {
+        if !self.multistream.is_empty()
+            && self.multistream_last_stats_at.elapsed() >= FRAME_STATS_INTERVAL
+        {
             let obs = self.obs.as_ref().expect("obs checked just above");
             for platform_stream in &self.multistream {
                 report_platform_frame_stats(&obs.context, platform_stream);
@@ -194,7 +239,11 @@ impl ApplicationHandler<EngineEvent> for App {
                     self.update_cursor_icon();
                 }
             }
-            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => match state {
+            WindowEvent::MouseInput {
+                state,
+                button: MouseButton::Left,
+                ..
+            } => match state {
                 ElementState::Pressed => self.begin_drag(),
                 ElementState::Released => {
                     self.drag = None;

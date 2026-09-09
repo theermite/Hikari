@@ -3,10 +3,10 @@
 //! integration regime, proven by running the app.
 
 use hikari_protocol::{
-    AudioDevice, AudioLevel, AudioMonitoring, AudioSourceInfo, AudioSourceKind, ControllerCommand,
-    EngineMessage, METER_FLOOR_DB, NOISE_LEVEL_DEFAULT_DB, NOISE_LEVEL_MAX_DB, NOISE_LEVEL_MIN_DB,
-    NoiseMethod, clamp_noise_level, db_to_meter_fraction, parse_controller_command,
-    parse_engine_message, percent_to_volume, to_line, volume_to_percent,
+    clamp_noise_level, db_to_meter_fraction, parse_controller_command, parse_engine_message,
+    percent_to_volume, to_line, volume_to_percent, AudioDevice, AudioLevel, AudioMonitoring,
+    AudioSourceInfo, AudioSourceKind, ControllerCommand, EngineMessage, NoiseMethod,
+    METER_FLOOR_DB, NOISE_LEVEL_DEFAULT_DB, NOISE_LEVEL_MAX_DB, NOISE_LEVEL_MIN_DB,
 };
 use proptest::prelude::*;
 
@@ -116,8 +116,14 @@ fn should_send_silence_as_the_floor_rather_than_an_illegal_json_number() {
     let level = AudioLevel::new("Micro", f32::NEG_INFINITY);
     assert_eq!(level.magnitude_db, METER_FLOOR_DB);
 
-    let line = to_line(&EngineMessage::AudioLevels { levels: vec![level] }).expect("serializes");
-    assert!(!line.contains("null"), "le silence ne doit jamais partir en null : {line}");
+    let line = to_line(&EngineMessage::AudioLevels {
+        levels: vec![level],
+    })
+    .expect("serializes");
+    assert!(
+        !line.contains("null"),
+        "le silence ne doit jamais partir en null : {line}"
+    );
     parse_engine_message(&line).expect("un niveau silencieux doit se relire");
 }
 
@@ -126,11 +132,16 @@ fn should_send_a_broken_reading_as_the_floor_rather_than_breaking_the_whole_mess
     // NaN vient d'une lecture cassée. Un seul micro défaillant ne doit pas priver les
     // autres de leurs barres.
     let line = to_line(&EngineMessage::AudioLevels {
-        levels: vec![AudioLevel::new("Cassé", f32::NAN), AudioLevel::new("Micro", -12.0)],
+        levels: vec![
+            AudioLevel::new("Cassé", f32::NAN),
+            AudioLevel::new("Micro", -12.0),
+        ],
     })
     .expect("serializes");
     let parsed = parse_engine_message(&line).expect("parses");
-    let EngineMessage::AudioLevels { levels } = parsed else { panic!("expected audio_levels") };
+    let EngineMessage::AudioLevels { levels } = parsed else {
+        panic!("expected audio_levels")
+    };
     assert_eq!(levels[0].magnitude_db, METER_FLOOR_DB);
     assert_eq!(levels[1].magnitude_db, -12.0);
 }
@@ -149,7 +160,10 @@ fn should_roundtrip_the_noise_settings_command() {
 
 #[test]
 fn should_roundtrip_the_monitor_volume_command() {
-    let cmd = ControllerCommand::SetMonitorVolume { name: "Micro".to_string(), percent: 65 };
+    let cmd = ControllerCommand::SetMonitorVolume {
+        name: "Micro".to_string(),
+        percent: 65,
+    };
     let line = to_line(&cmd).expect("serializes");
     assert_eq!(parse_controller_command(&line).expect("parses"), cmd);
 }
@@ -231,9 +245,17 @@ fn should_roundtrip_every_mixer_command() {
             kind: AudioSourceKind::Input,
             name: "Micro".to_string(),
         },
-        ControllerCommand::RemoveAudioSource { name: "Micro".to_string() },
-        ControllerCommand::SetAudioVolume { name: "Micro".to_string(), percent: 60 },
-        ControllerCommand::SetAudioMuted { name: "Micro".to_string(), muted: true },
+        ControllerCommand::RemoveAudioSource {
+            name: "Micro".to_string(),
+        },
+        ControllerCommand::SetAudioVolume {
+            name: "Micro".to_string(),
+            percent: 60,
+        },
+        ControllerCommand::SetAudioMuted {
+            name: "Micro".to_string(),
+            muted: true,
+        },
     ];
     for cmd in commands {
         let line = to_line(&cmd).expect("serializes");

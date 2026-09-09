@@ -82,14 +82,15 @@ pub fn read_status() -> AccountStatus {
     // l'affichage suit — un seul endroit a changer.
     let (twitch, twitch_account) = read_one(vault::Platform::Twitch, now, true);
     let (youtube, youtube_account) = read_one(vault::Platform::YouTube, now, false);
-    AccountStatus { twitch, youtube, twitch_account, youtube_account }
+    AccountStatus {
+        twitch,
+        youtube,
+        twitch_account,
+        youtube_account,
+    }
 }
 
-fn read_one(
-    platform: vault::Platform,
-    now: u64,
-    renewable: bool,
-) -> (Connection, Option<String>) {
+fn read_one(platform: vault::Platform, now: u64, renewable: bool) -> (Connection, Option<String>) {
     match vault::load(platform) {
         Ok(stored) => (
             connection_state(stored.as_ref(), now, renewable),
@@ -123,14 +124,20 @@ mod tests {
 
     #[test]
     fn should_report_live_when_a_valid_token_is_stored() {
-        assert_eq!(connection_state(Some(&token(200)), 100, false), Connection::Live);
+        assert_eq!(
+            connection_state(Some(&token(200)), 100, false),
+            Connection::Live
+        );
     }
 
     #[test]
     fn should_report_live_when_an_expired_token_can_renew_itself() {
         // Twitch : un jeton perime se renouvelle tout seul. L'annoncer deconnecte
         // enverrait l'utilisateur refaire un geste dont la machine n'a pas besoin.
-        assert_eq!(connection_state(Some(&token(50)), 100, true), Connection::Live);
+        assert_eq!(
+            connection_state(Some(&token(50)), 100, true),
+            Connection::Live
+        );
     }
 
     #[test]
@@ -139,6 +146,9 @@ mod tests {
         // ne sait le renouveler. Jay : « YouTube dit que je suis connecte alors que je ne
         // me suis connecte a rien du tout. » Diffuser depuis la aurait echoue sans raison
         // lisible.
-        assert_eq!(connection_state(Some(&token(50)), 100, false), Connection::ARenouveler);
+        assert_eq!(
+            connection_state(Some(&token(50)), 100, false),
+            Connection::ARenouveler
+        );
     }
 }

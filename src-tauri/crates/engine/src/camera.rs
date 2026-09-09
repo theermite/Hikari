@@ -56,7 +56,9 @@ pub fn probe_camera_devices(context: &ObsContext) -> Result<Vec<CameraDevice>> {
         .context("préparation sonde caméra")?
         .build()
         .context("sonde caméra dshow_input")?;
-    let properties = probe.get_properties().context("liste des propriétés dshow_input")?;
+    let properties = probe
+        .get_properties()
+        .context("liste des propriétés dshow_input")?;
 
     let Some(ObsProperty::List(list)) = properties.get("video_device_id") else {
         return Ok(Vec::new());
@@ -65,9 +67,10 @@ pub fn probe_camera_devices(context: &ObsContext) -> Result<Vec<CameraDevice>> {
         .items()
         .iter()
         .filter_map(|item| match item.value() {
-            ObsListItemValue::String(device_id) => {
-                Some(CameraDevice { name: item.name().clone(), device_id: device_id.clone() })
-            }
+            ObsListItemValue::String(device_id) => Some(CameraDevice {
+                name: item.name().clone(),
+                device_id: device_id.clone(),
+            }),
             _ => None,
         })
         .collect())
@@ -78,7 +81,7 @@ pub fn probe_camera_devices(context: &ObsContext) -> Result<Vec<CameraDevice>> {
 /// Défini dans `hikari-protocol` : l'app s'en sert aussi (repli du rejeu de session), et ce
 /// binaire ne tourne aucun test, donc une constante gardée ici ne serait épinglée par aucun.
 /// Ré-exporté pour que le code caméra garde son propre vocabulaire.
-pub use hikari_protocol::{CAMERA_SOURCE_NAME, camera_source_name};
+pub use hikari_protocol::{camera_source_name, CAMERA_SOURCE_NAME};
 
 /// Builds the `dshow_input` source for `device_id` under `source_name` — called ONCE per
 /// DEVICE, the first time that device is added to any scene. Does not add it to a scene
@@ -164,10 +167,18 @@ pub fn add_existing_camera_to_scene(
 /// Moves the camera by `(dx, dy)` scene pixels from its current position (B7), clamped by
 /// `hikari_protocol::clamp_camera_position`. Returns the real, post-clamp transform (never
 /// the requested delta) so the caller reports what actually happened.
-pub fn nudge_camera(item: &ObsSceneItemRef<ObsSourceRef>, dx: i32, dy: i32) -> Result<(i32, i32, i32)> {
-    let current = item.get_source_position().context("lecture position caméra")?;
-    let (x, y) = hikari_protocol::clamp_camera_position(*current.x() as i32 + dx, *current.y() as i32 + dy);
-    item.set_source_position(Vec2::new(x as f32, y as f32)).context("déplacement caméra")?;
+pub fn nudge_camera(
+    item: &ObsSceneItemRef<ObsSourceRef>,
+    dx: i32,
+    dy: i32,
+) -> Result<(i32, i32, i32)> {
+    let current = item
+        .get_source_position()
+        .context("lecture position caméra")?;
+    let (x, y) =
+        hikari_protocol::clamp_camera_position(*current.x() as i32 + dx, *current.y() as i32 + dy);
+    item.set_source_position(Vec2::new(x as f32, y as f32))
+        .context("déplacement caméra")?;
     let scale = item.get_source_scale().context("lecture échelle caméra")?;
     Ok((x, y, (scale.x() * 100.0).round() as i32))
 }
@@ -183,7 +194,8 @@ pub fn set_camera_position(
     y: i32,
 ) -> Result<(i32, i32, i32)> {
     let (x, y) = hikari_protocol::clamp_camera_position(x, y);
-    item.set_source_position(Vec2::new(x as f32, y as f32)).context("déplacement caméra")?;
+    item.set_source_position(Vec2::new(x as f32, y as f32))
+        .context("déplacement caméra")?;
     let scale = item.get_source_scale().context("lecture échelle caméra")?;
     Ok((x, y, (scale.x() * 100.0).round() as i32))
 }
@@ -199,8 +211,10 @@ pub fn set_camera_transform(
     scale: f32,
 ) -> Result<(i32, i32, i32)> {
     let (x, y) = hikari_protocol::clamp_camera_position(x, y);
-    item.set_source_scale(Vec2::new(scale, scale)).context("mise à l'échelle caméra")?;
-    item.set_source_position(Vec2::new(x as f32, y as f32)).context("déplacement caméra")?;
+    item.set_source_scale(Vec2::new(scale, scale))
+        .context("mise à l'échelle caméra")?;
+    item.set_source_position(Vec2::new(x as f32, y as f32))
+        .context("déplacement caméra")?;
     Ok((x, y, (scale * 100.0).round() as i32))
 }
 
@@ -261,12 +275,23 @@ pub fn canvas_size(runtime: &libobs_wrapper::runtime::ObsRuntime) -> Result<(u32
 /// `hikari_protocol::clamp_camera_scale`. Same "return the real result" contract as
 /// `nudge_camera`.
 pub fn scale_camera(item: &ObsSceneItemRef<ObsSourceRef>, grow: bool) -> Result<(i32, i32, i32)> {
-    let position = item.get_source_position().context("lecture position caméra")?;
+    let position = item
+        .get_source_position()
+        .context("lecture position caméra")?;
     let current_scale = item.get_source_scale().context("lecture échelle caméra")?;
-    let factor = if grow { 1.0 + hikari_protocol::CAMERA_SCALE_STEP } else { 1.0 / (1.0 + hikari_protocol::CAMERA_SCALE_STEP) };
+    let factor = if grow {
+        1.0 + hikari_protocol::CAMERA_SCALE_STEP
+    } else {
+        1.0 / (1.0 + hikari_protocol::CAMERA_SCALE_STEP)
+    };
     let new_scale = hikari_protocol::clamp_camera_scale(current_scale.x() * factor);
-    item.set_source_scale(Vec2::new(new_scale, new_scale)).context("mise à l'échelle caméra")?;
-    Ok((*position.x() as i32, *position.y() as i32, (new_scale * 100.0).round() as i32))
+    item.set_source_scale(Vec2::new(new_scale, new_scale))
+        .context("mise à l'échelle caméra")?;
+    Ok((
+        *position.x() as i32,
+        *position.y() as i32,
+        (new_scale * 100.0).round() as i32,
+    ))
 }
 
 /// Detaches `item` from `scene_name` — the real removal, not merely dropping our own
@@ -284,7 +309,9 @@ pub fn remove_camera_from_scene(
         .get_scene(scene_name)
         .context("recherche scène")?
         .context("scène introuvable")?;
-    scene.remove_scene_item(item).context("retrait caméra de la scène")
+    scene
+        .remove_scene_item(item)
+        .context("retrait caméra de la scène")
 }
 
 /// Creates the real NVIDIA background-removal filter (`nv_greenscreen_filter`) on `source`
@@ -298,10 +325,20 @@ pub fn remove_camera_from_scene(
 pub fn create_background_removal_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> {
     let runtime = source.runtime().clone();
     let mut settings = ObsData::new(runtime.clone()).context("réglages fond IA")?;
-    settings.set_int("mode", 0).context("réglage mode fond IA")?; // S_MODE_QUALITY
-    let filter = ObsFilterRef::new("nv_greenscreen_filter", "Fond IA", Some(settings.into()), None, runtime)
-        .context("création filtre fond IA")?;
-    source.apply_filter(&filter).context("attache filtre fond IA")?;
+    settings
+        .set_int("mode", 0)
+        .context("réglage mode fond IA")?; // S_MODE_QUALITY
+    let filter = ObsFilterRef::new(
+        "nv_greenscreen_filter",
+        "Fond IA",
+        Some(settings.into()),
+        None,
+        runtime,
+    )
+    .context("création filtre fond IA")?;
+    source
+        .apply_filter(&filter)
+        .context("attache filtre fond IA")?;
     set_filter_enabled(&filter, false).context("désactivation initiale filtre fond IA")?;
     Ok(filter)
 }
@@ -325,9 +362,17 @@ pub fn create_circle_mask_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> 
         // fully unmasked (the vertical strips Jay saw either side of the circle).
         .set_bool("stretch", true)
         .context("réglage étirement masque")?;
-    let filter = ObsFilterRef::new("mask_filter", "Masque cercle", Some(settings.into()), None, runtime)
-        .context("création filtre masque")?;
-    source.apply_filter(&filter).context("attache filtre masque")?;
+    let filter = ObsFilterRef::new(
+        "mask_filter",
+        "Masque cercle",
+        Some(settings.into()),
+        None,
+        runtime,
+    )
+    .context("création filtre masque")?;
+    source
+        .apply_filter(&filter)
+        .context("attache filtre masque")?;
     set_filter_enabled(&filter, false).context("désactivation initiale filtre masque")?;
     Ok(filter)
 }
@@ -347,6 +392,8 @@ pub use crate::filters::set_enabled as set_filter_enabled;
 /// l'installeur ne l'embarquait pas. Le dossier `assets/` est désormais livré avec.
 fn circle_mask_path() -> Result<std::path::PathBuf> {
     let exe = std::env::current_exe().context("résolution du chemin de l'exécutable")?;
-    let dir = exe.parent().context("résolution du dossier de l'exécutable")?;
+    let dir = exe
+        .parent()
+        .context("résolution du dossier de l'exécutable")?;
     Ok(dir.join("assets").join("circle-mask.png"))
 }

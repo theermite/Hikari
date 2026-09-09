@@ -1,6 +1,6 @@
 //! Aimantation des sources (B7) — logique pure, prouvée sans moteur.
 
-use hikari_protocol::{SNAP_DISTANCE, snap_position};
+use hikari_protocol::{snap_position, SNAP_DISTANCE};
 use proptest::prelude::*;
 
 /// Un canevas 1920×1080 et une source 400×200, les valeurs les plus parlantes à relire.

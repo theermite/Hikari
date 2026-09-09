@@ -9,20 +9,28 @@ use std::io::Write;
 
 use tauri::State;
 
-use hikari_protocol::{ControllerCommand, to_line};
+use hikari_protocol::{to_line, ControllerCommand};
 
-use crate::engine_lifecycle::{EngineState, send_command};
+use crate::engine_lifecycle::{send_command, EngineState};
 
 /// Adds a webcam source to the live scene (B-cam) by sending `AddCamera` to the already-
 /// running engine. Requires the engine to be running (Aperçu panel open) — a clear error
 /// beats a silent no-op if it isn't, since there's no queue to "add it once started".
 #[tauri::command]
-pub(crate) fn add_camera_source(state: State<EngineState>, device_id: String, scene: String) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+pub(crate) fn add_camera_source(
+    state: State<EngineState>,
+    device_id: String,
+    scene: String,
+) -> Result<(), String> {
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::AddCamera { device_id, scene }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::AddCamera { device_id, scene })
+        .map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi AddCamera au moteur: {err}"))
 }
 
@@ -34,11 +42,15 @@ pub(crate) fn remove_camera_source(
     device_id: String,
     scene: String,
 ) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::RemoveCamera { device_id, scene }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::RemoveCamera { device_id, scene })
+        .map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi RemoveCamera au moteur: {err}"))
 }
 
@@ -54,11 +66,19 @@ pub(crate) fn set_background_removal(
     scene: String,
     enabled: bool,
 ) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::SetBackgroundRemoval { device_id, scene, enabled }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::SetBackgroundRemoval {
+        device_id,
+        scene,
+        enabled,
+    })
+    .map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi au moteur: {err}"))
 }
 
@@ -71,11 +91,19 @@ pub(crate) fn set_circle_mask(
     scene: String,
     enabled: bool,
 ) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::SetCircleMask { device_id, scene, enabled }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::SetCircleMask {
+        device_id,
+        scene,
+        enabled,
+    })
+    .map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi au moteur: {err}"))
 }
 
@@ -90,11 +118,20 @@ pub(crate) fn nudge_camera(
     dx: i32,
     dy: i32,
 ) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::NudgeCamera { device_id, scene, dx, dy }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::NudgeCamera {
+        device_id,
+        scene,
+        dx,
+        dy,
+    })
+    .map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi NudgeCamera au moteur: {err}"))
 }
 
@@ -106,18 +143,29 @@ pub(crate) fn scale_camera(
     scene: String,
     grow: bool,
 ) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::ScaleCamera { device_id, scene, grow }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::ScaleCamera {
+        device_id,
+        scene,
+        grow,
+    })
+    .map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi ScaleCamera au moteur: {err}"))
 }
 
 /// Creates a new, empty scene (multi-scene, tranche 1). Requires the engine running.
 #[tauri::command]
 pub(crate) fn create_scene(state: State<EngineState>, name: String) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
@@ -134,11 +182,15 @@ pub(crate) fn switch_scene(
     name: String,
     duration_ms: u32,
 ) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
-    let line = to_line(&ControllerCommand::SwitchScene { name, duration_ms }).map_err(|err| err.to_string())?;
+    let line = to_line(&ControllerCommand::SwitchScene { name, duration_ms })
+        .map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi SwitchScene au moteur: {err}"))
 }
 
@@ -147,7 +199,10 @@ pub(crate) fn switch_scene(
 /// `Error` message rather than obeying — this command only carries the intent.
 #[tauri::command]
 pub(crate) fn delete_scene(state: State<EngineState>, name: String) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
@@ -170,7 +225,15 @@ pub(crate) fn add_capture_source(
     target_id: String,
     name: String,
 ) -> Result<(), String> {
-    send_command(&state, ControllerCommand::AddCaptureSource { scene, kind, target_id, name })
+    send_command(
+        &state,
+        ControllerCommand::AddCaptureSource {
+            scene,
+            kind,
+            target_id,
+            name,
+        },
+    )
 }
 
 /// Removes a capture from one scene (brique Sources).
@@ -196,7 +259,13 @@ pub(crate) fn set_source_transform(
 ) -> Result<(), String> {
     send_command(
         &state,
-        ControllerCommand::SetSourceTransform { scene, name, x, y, scale_percent },
+        ControllerCommand::SetSourceTransform {
+            scene,
+            name,
+            x,
+            y,
+            scale_percent,
+        },
     )
 }
 
@@ -210,7 +279,14 @@ pub(crate) fn set_source_locked(
     name: String,
     locked: bool,
 ) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetSourceLocked { scene, name, locked })
+    send_command(
+        &state,
+        ControllerCommand::SetSourceLocked {
+            scene,
+            name,
+            locked,
+        },
+    )
 }
 
 /// Relance l'appareil derrière une caméra, sans la retirer d'aucune scène.
@@ -218,10 +294,7 @@ pub(crate) fn set_source_locked(
 /// Elle garde son cadrage, ses filtres et sa place dans la pile — c'est ce qui
 /// distingue ce geste du retrait-remise que Jay a dû faire en plein direct.
 #[tauri::command]
-pub(crate) fn restart_camera(
-    state: State<EngineState>,
-    device_id: String,
-) -> Result<(), String> {
+pub(crate) fn restart_camera(state: State<EngineState>, device_id: String) -> Result<(), String> {
     send_command(&state, ControllerCommand::RestartCamera { device_id })
 }
 
@@ -236,7 +309,14 @@ pub(crate) fn set_source_visible(
     name: String,
     visible: bool,
 ) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetSourceVisible { scene, name, visible })
+    send_command(
+        &state,
+        ControllerCommand::SetSourceVisible {
+            scene,
+            name,
+            visible,
+        },
+    )
 }
 
 /// Moves a source one step in front of, or behind, the others in its scene (brique Sources).
@@ -247,7 +327,14 @@ pub(crate) fn reorder_source(
     name: String,
     direction: hikari_protocol::SourceOrder,
 ) -> Result<(), String> {
-    send_command(&state, ControllerCommand::ReorderSource { scene, name, direction })
+    send_command(
+        &state,
+        ControllerCommand::ReorderSource {
+            scene,
+            name,
+            direction,
+        },
+    )
 }
 
 /// Change l'apparence d'une source texte : police, taille, couleur, contour, alignement.
@@ -261,7 +348,14 @@ pub(crate) fn set_text_settings(
     name: String,
     settings: hikari_protocol::TextSettings,
 ) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetTextSettings { scene, name, settings })
+    send_command(
+        &state,
+        ControllerCommand::SetTextSettings {
+            scene,
+            name,
+            settings,
+        },
+    )
 }
 
 /// Change le contenu d'une source texte deja posee — jamais sa police ni sa couleur.
@@ -272,7 +366,10 @@ pub(crate) fn set_text_content(
     name: String,
     text: String,
 ) -> Result<(), String> {
-    send_command(&state, ControllerCommand::SetTextContent { scene, name, text })
+    send_command(
+        &state,
+        ControllerCommand::SetTextContent { scene, name, text },
+    )
 }
 
 /// Redemande l'inventaire actuel des scenes, sans rien changer — utilise par une fenetre

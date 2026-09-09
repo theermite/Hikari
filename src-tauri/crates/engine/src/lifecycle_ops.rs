@@ -16,8 +16,11 @@ use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 use crate::multistream::{start_multistream, stop_one};
-use crate::stream::{StreamState, start_stream};
-use crate::{App, MONITOR_CAPTURE_NAME, ObsInner, PREVIEW_START_HEIGHT, PREVIEW_START_WIDTH, SceneSource, emit, outline, sources, transitions};
+use crate::stream::{start_stream, StreamState};
+use crate::{
+    emit, outline, sources, transitions, App, ObsInner, SceneSource, MONITOR_CAPTURE_NAME,
+    PREVIEW_START_HEIGHT, PREVIEW_START_WIDTH,
+};
 
 /// Build the "main" scene with a screen capture, as an ORDINARY source.
 ///
@@ -28,13 +31,20 @@ use crate::{App, MONITOR_CAPTURE_NAME, ObsInner, PREVIEW_START_HEIGHT, PREVIEW_S
 /// modèle finit toujours par se voir à l'écran.
 fn build_scene_with_capture(
     context: &mut ObsContext,
-) -> Result<(Vec<SourceInfo>, ObsSceneItemRef<ObsSourceRef>, String, ObsSceneRef)> {
+) -> Result<(
+    Vec<SourceInfo>,
+    ObsSceneItemRef<ObsSourceRef>,
+    String,
+    ObsSceneRef,
+)> {
     // Never `Some(0)` any more (B7): the output channel belongs to the fade transition
     // now, permanently — `try_init` puts "main" into it right after, through the same
     // `transitions::set_transition_immediate` every later `SwitchScene` reuses.
     let scene = context.scene("main", None)?;
     let monitors = MonitorCaptureSourceBuilder::get_monitors()?;
-    let first = monitors.first().context("no monitor available to capture")?;
+    let first = monitors
+        .first()
+        .context("no monitor available to capture")?;
     let monitor_id = first.0.name.clone();
     let item = sources::add_capture_to_scene(
         context,
@@ -45,7 +55,12 @@ fn build_scene_with_capture(
     )?;
     // Mise au cadre : un écran 4K sur un canevas 1080p déborderait sans ça.
     item.fit_source_to_screen()?;
-    Ok((vec![SourceInfo::monitor_capture(MONITOR_CAPTURE_NAME)], item, monitor_id, scene))
+    Ok((
+        vec![SourceInfo::monitor_capture(MONITOR_CAPTURE_NAME)],
+        item,
+        monitor_id,
+        scene,
+    ))
 }
 
 /// Creates the preview window + its `obs_display`. Transcribed from the B1b spike
@@ -71,8 +86,13 @@ impl App {
     pub(crate) fn try_init(&mut self, event_loop: &ActiveEventLoop) -> Result<()> {
         let attrs = Window::default_attributes()
             .with_title("Hikari engine — aperçu")
-            .with_inner_size(winit::dpi::LogicalSize::new(PREVIEW_START_WIDTH, PREVIEW_START_HEIGHT));
-        let window = event_loop.create_window(attrs).context("création fenêtre d'aperçu")?;
+            .with_inner_size(winit::dpi::LogicalSize::new(
+                PREVIEW_START_WIDTH,
+                PREVIEW_START_HEIGHT,
+            ));
+        let window = event_loop
+            .create_window(attrs)
+            .context("création fenêtre d'aperçu")?;
 
         // La definition et la cadence viennent de la MACHINE, plus des valeurs par
         // defaut du moteur. Personne ne les avait choisies : ni Jay, ni nous.
@@ -98,28 +118,34 @@ impl App {
             .fps_num(reglage.fps)
             .fps_den(1)
             .build();
-        let mut context = ObsContext::new(
-            libobs_wrapper::utils::StartupInfo::new().set_video_info(video),
-        )
-        .context("init libobs")?;
+        let mut context =
+            ObsContext::new(libobs_wrapper::utils::StartupInfo::new().set_video_info(video))
+                .context("init libobs")?;
         emit(&EngineMessage::Ready);
 
         let (sources, scene_item, startup_monitor, main_scene) =
             build_scene_with_capture(&mut context).context("construction scène")?;
-        emit(&EngineMessage::Sources { items: sources.clone() });
+        emit(&EngineMessage::Sources {
+            items: sources.clone(),
+        });
 
         // B7 : la transition prend le canal de sortie une fois pour toute la vie de
         // l'app — "main" y entre SANS animation (rien n'existait avant elle à fondre).
-        let transition = transitions::create_fade_transition(&context).context("création transition")?;
+        let transition =
+            transitions::create_fade_transition(&context).context("création transition")?;
         transitions::put_transition_on_output(&transition).context("pose transition sur canal")?;
-        let main_source_ptr = main_scene.get_scene_source_ptr().context("pointeur scène main")?;
+        let main_source_ptr = main_scene
+            .get_scene_source_ptr()
+            .context("pointeur scène main")?;
         transitions::set_transition_immediate(&transition, main_source_ptr)
             .context("pose immédiate de la scène de départ")?;
 
         // Without this, libobs has NO monitoring device and "écouter" would be accepted
         // while producing nothing — a setting that lies is worse than a missing one.
         if let Err(err) = crate::audio::use_default_monitoring_device(context.runtime()) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
         }
 
         let display = create_preview(&mut context, &window).context("création aperçu")?;
@@ -127,12 +153,16 @@ impl App {
         // fenêtre native couvrant tout contenu web. Un échec coûte le contour, jamais
         // l'aperçu : signalé, puis on continue.
         if let Err(err) = outline::attach(context.runtime(), &display) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
         }
         let RawWindowHandle::Win32(handle) = window.window_handle()?.as_raw() else {
             anyhow::bail!("moteur Windows uniquement : handle de fenêtre Win32 attendu");
         };
-        emit(&EngineMessage::PreviewReady { hwnd: handle.hwnd.get() as i64 });
+        emit(&EngineMessage::PreviewReady {
+            hwnd: handle.hwnd.get() as i64,
+        });
 
         self.obs = Some(ObsInner {
             display,
@@ -177,23 +207,36 @@ impl App {
     /// `StartStream` while one is already live is a no-op (never double-attach an output).
     pub(crate) fn handle_start_stream(&mut self) {
         let Some(obs) = &mut self.obs else {
-            emit(&EngineMessage::Error { message: "StartStream avant l'initialisation".into() });
+            emit(&EngineMessage::Error {
+                message: "StartStream avant l'initialisation".into(),
+            });
             return;
         };
         if self.stream.is_some() {
             return;
         }
         match start_stream(&mut obs.context) {
-            Ok(output) => self.stream = Some(StreamState { output, last_stats_at: Instant::now() }),
-            Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
+            Ok(output) => {
+                self.stream = Some(StreamState {
+                    output,
+                    last_stats_at: Instant::now(),
+                })
+            }
+            Err(err) => emit(&EngineMessage::Error {
+                message: err.to_string(),
+            }),
         }
     }
 
     /// Stops the current stream, if any. A `StopStream` with nothing running is a no-op.
     pub(crate) fn handle_stop_stream(&mut self) {
-        let Some(mut stream) = self.stream.take() else { return };
+        let Some(mut stream) = self.stream.take() else {
+            return;
+        };
         if let Err(err) = stream.output.stop() {
-            emit(&EngineMessage::Error { message: format!("arrêt de la diffusion: {err}") });
+            emit(&EngineMessage::Error {
+                message: format!("arrêt de la diffusion: {err}"),
+            });
         }
         emit(&EngineMessage::StreamStopped);
     }
@@ -204,7 +247,9 @@ impl App {
     /// same "never double-attach" rule as `handle_start_stream`.
     pub(crate) fn handle_start_multistream(&mut self, targets: Vec<hikari_protocol::StreamTarget>) {
         let Some(obs) = &mut self.obs else {
-            emit(&EngineMessage::Error { message: "StartMultistream avant l'initialisation".into() });
+            emit(&EngineMessage::Error {
+                message: "StartMultistream avant l'initialisation".into(),
+            });
             return;
         };
         if !self.multistream.is_empty() {

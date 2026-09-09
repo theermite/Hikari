@@ -3,7 +3,7 @@
 //! by running the app); everything decidable without libobs is proven here.
 
 use hikari_protocol::{
-    CORNER_GRAB_MARGIN, Corner, corner_at, is_inside, resize_box, resize_scale, window_to_canvas,
+    corner_at, is_inside, resize_box, resize_scale, window_to_canvas, Corner, CORNER_GRAB_MARGIN,
 };
 use proptest::prelude::*;
 
@@ -16,12 +16,18 @@ fn should_map_the_preview_origin_to_the_canvas_origin() {
 fn should_scale_a_preview_point_up_to_canvas_pixels() {
     // Aperçu deux fois plus petit que le canevas : un pixel d'aperçu vaut deux pixels de
     // canevas. Sans ce facteur, la caméra suivrait la souris à moitié vitesse.
-    assert_eq!(window_to_canvas(480.0, 270.0, 960, 540, 1920, 1080), (960.0, 540.0));
+    assert_eq!(
+        window_to_canvas(480.0, 270.0, 960, 540, 1920, 1080),
+        (960.0, 540.0)
+    );
 }
 
 #[test]
 fn should_map_the_preview_corner_to_the_canvas_corner() {
-    assert_eq!(window_to_canvas(960.0, 540.0, 960, 540, 1920, 1080), (1920.0, 1080.0));
+    assert_eq!(
+        window_to_canvas(960.0, 540.0, 960, 540, 1920, 1080),
+        (1920.0, 1080.0)
+    );
 }
 
 #[test]
@@ -67,10 +73,22 @@ fn should_report_nothing_inside_an_empty_rectangle() {
 #[test]
 fn should_find_each_corner_under_the_cursor() {
     // Rectangle 0,0 → 400×400, marge 32.
-    assert_eq!(corner_at(5.0, 5.0, 0.0, 0.0, 400.0, 400.0, 32.0), Some(Corner::TopLeft));
-    assert_eq!(corner_at(395.0, 5.0, 0.0, 0.0, 400.0, 400.0, 32.0), Some(Corner::TopRight));
-    assert_eq!(corner_at(5.0, 395.0, 0.0, 0.0, 400.0, 400.0, 32.0), Some(Corner::BottomLeft));
-    assert_eq!(corner_at(395.0, 395.0, 0.0, 0.0, 400.0, 400.0, 32.0), Some(Corner::BottomRight));
+    assert_eq!(
+        corner_at(5.0, 5.0, 0.0, 0.0, 400.0, 400.0, 32.0),
+        Some(Corner::TopLeft)
+    );
+    assert_eq!(
+        corner_at(395.0, 5.0, 0.0, 0.0, 400.0, 400.0, 32.0),
+        Some(Corner::TopRight)
+    );
+    assert_eq!(
+        corner_at(5.0, 395.0, 0.0, 0.0, 400.0, 400.0, 32.0),
+        Some(Corner::BottomLeft)
+    );
+    assert_eq!(
+        corner_at(395.0, 395.0, 0.0, 0.0, 400.0, 400.0, 32.0),
+        Some(Corner::BottomRight)
+    );
 }
 
 #[test]
@@ -113,7 +131,10 @@ fn should_derive_the_scale_from_the_distance_to_the_anchor() {
 fn should_derive_the_same_scale_whichever_side_the_cursor_is_on() {
     // Tirer à gauche de l'ancrage donne la même taille que tirer à droite : c'est la
     // distance qui compte, pas le sens.
-    assert_eq!(resize_scale(500.0, 1140.0, 1280), resize_scale(500.0, -140.0, 1280));
+    assert_eq!(
+        resize_scale(500.0, 1140.0, 1280),
+        resize_scale(500.0, -140.0, 1280)
+    );
 }
 
 #[test]
@@ -124,9 +145,15 @@ fn should_return_zero_scale_rather_than_infinity_on_a_zero_width_source() {
 #[test]
 fn should_grow_away_from_the_pinned_corner() {
     // Ancrage en haut à gauche (100,100) : la boîte part de l'ancrage.
-    assert_eq!(resize_box(100.0, 100.0, true, true, 200.0, 150.0), (100.0, 100.0));
+    assert_eq!(
+        resize_box(100.0, 100.0, true, true, 200.0, 150.0),
+        (100.0, 100.0)
+    );
     // Ancrage en bas à droite : la boîte finit sur l'ancrage.
-    assert_eq!(resize_box(100.0, 100.0, false, false, 200.0, 150.0), (-100.0, -50.0));
+    assert_eq!(
+        resize_box(100.0, 100.0, false, false, 200.0, 150.0),
+        (-100.0, -50.0)
+    );
 }
 
 proptest! {

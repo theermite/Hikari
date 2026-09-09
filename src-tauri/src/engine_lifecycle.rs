@@ -17,12 +17,12 @@ use std::process::{Child, ChildStdin, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use hikari_protocol::{ControllerCommand, EngineMessage, parse_engine_message, to_line};
+use hikari_protocol::{parse_engine_message, to_line, ControllerCommand, EngineMessage};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::accounts::twitch::{self, TWITCH_CLIENT_ID};
-use crate::accounts::vault::{self, Platform, Secret, StoredToken};
 use crate::accounts::twitch_stream;
+use crate::accounts::vault::{self, Platform, Secret, StoredToken};
 use crate::engine_bridge::engine_command;
 use crate::preview_bridge::{graft_preview_window, hide_preview_window, position_preview_window};
 
@@ -60,7 +60,12 @@ pub(crate) struct EngineRuntime {
 
 impl Default for EngineRuntime {
     fn default() -> Self {
-        Self { handle: None, preview_hwnd: None, panel_rect: FALLBACK_RECT, streaming: false }
+        Self {
+            handle: None,
+            preview_hwnd: None,
+            panel_rect: FALLBACK_RECT,
+            streaming: false,
+        }
     }
 }
 
@@ -79,7 +84,10 @@ pub struct EngineState(pub(crate) Mutex<EngineRuntime>);
 /// grafts the preview into the Aperçu panel's last-known rect as soon as `PreviewReady`
 /// arrives.
 #[tauri::command]
-pub(crate) async fn start_engine(app: AppHandle, state: State<'_, EngineState>) -> Result<(), String> {
+pub(crate) async fn start_engine(
+    app: AppHandle,
+    state: State<'_, EngineState>,
+) -> Result<(), String> {
     start_engine_inner(&app, &state).await
 }
 
@@ -94,7 +102,10 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
     // devient un refus au moment de DIFFUSER, avec ses mots (voir `broadcast::resolve_target`).
     let target = resolve_broadcast_target().await;
 
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     if guard.handle.is_some() {
         return Ok(());
     }
@@ -104,7 +115,9 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
     // cockpit — the exact defect Jay reported on 2026-09-04.
     let mut command = engine_command().map_err(|err| err.to_string())?;
     if let Some((server, key)) = &target {
-        command.env("HIKARI_RTMP_SERVER", server).env("HIKARI_RTMP_KEY", key.expose());
+        command
+            .env("HIKARI_RTMP_SERVER", server)
+            .env("HIKARI_RTMP_KEY", key.expose());
     }
     let mut child = command
         .stdin(Stdio::piped())
@@ -170,10 +183,8 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
                         initialized,
                         stopping_reader.load(Ordering::Relaxed),
                     ) {
-                        let _ = app.emit(
-                            "engine-message",
-                            &EngineMessage::Error { message: shown },
-                        );
+                        let _ =
+                            app.emit("engine-message", &EngineMessage::Error { message: shown });
                     }
                     eprintln!("[engine] WARN unparsable line {line:?} ({err})")
                 }
@@ -181,7 +192,11 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
         }
     });
 
-    guard.handle = Some(EngineHandle { child, stdin, stopping });
+    guard.handle = Some(EngineHandle {
+        child,
+        stdin,
+        stopping,
+    });
     Ok(())
 }
 
@@ -194,7 +209,10 @@ pub(crate) fn stop_engine(state: State<EngineState>) -> Result<(), String> {
 }
 
 fn stop_engine_inner(state: &EngineState) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     guard.preview_hwnd = None;
     guard.streaming = false;
     let Some(mut handle) = guard.handle.take() else {
@@ -205,7 +223,10 @@ fn stop_engine_inner(state: &EngineState) -> Result<(), String> {
     handle.stopping.store(true, Ordering::Relaxed);
     let line = to_line(&ControllerCommand::Stop).map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi Stop au moteur: {err}"))?;
-    handle.child.wait().map_err(|err| format!("attente arrêt moteur: {err}"))?;
+    handle
+        .child
+        .wait()
+        .map_err(|err| format!("attente arrêt moteur: {err}"))?;
     Ok(())
 }
 
@@ -242,7 +263,10 @@ pub(crate) fn send(
     command: ControllerCommand,
     name: &str,
 ) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
@@ -262,7 +286,10 @@ pub(crate) fn position_preview(
     width: u32,
     height: u32,
 ) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     guard.panel_rect = (x, y, width, height);
     if let Some(engine_hwnd) = guard.preview_hwnd {
         position_preview_window(engine_hwnd, x, y, width, height);
@@ -274,7 +301,10 @@ pub(crate) fn position_preview(
 /// Aperçu panel's tab becomes inactive (another tab in the same dock group is now shown).
 #[tauri::command]
 pub(crate) fn hide_preview(state: State<EngineState>) -> Result<(), String> {
-    let guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+    let guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     if let Some(engine_hwnd) = guard.preview_hwnd {
         hide_preview_window(engine_hwnd);
     }
@@ -284,8 +314,14 @@ pub(crate) fn hide_preview(state: State<EngineState>) -> Result<(), String> {
 /// Sends one mixer command to the engine (B6). Shared body of the five audio commands
 /// below: they differ only by the payload, and repeating the lock/guard/serialize dance five
 /// times is where a divergence would eventually creep in.
-pub(crate) fn send_command(state: &State<EngineState>, command: ControllerCommand) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+pub(crate) fn send_command(
+    state: &State<EngineState>,
+    command: ControllerCommand,
+) -> Result<(), String> {
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| "verrou moteur corrompu".to_string())?;
     let Some(handle) = guard.handle.as_mut() else {
         return Err("le moteur n'est pas démarré — ouvre le panneau Aperçu d'abord".to_string());
     };
@@ -305,7 +341,9 @@ fn graft_into_panel_rect(app: &AppHandle, engine_hwnd: i64) {
         return;
     };
     let state = app.state::<EngineState>();
-    let Ok(mut guard) = state.0.lock() else { return };
+    let Ok(mut guard) = state.0.lock() else {
+        return;
+    };
     let (x, y, w, h) = guard.panel_rect;
     if let Err(err) = graft_preview_window(engine_hwnd, host_hwnd.0 as i64, x, y, w, h) {
         eprintln!("[preview] graft failed: {err}");
@@ -348,7 +386,9 @@ async fn resolve_broadcast_target() -> Option<(String, Secret)> {
                 renewed
             }
             Err(err) => {
-                eprintln!("[twitch] renouvellement refusé ({err}) — reconnecte le compte dans Paramètres");
+                eprintln!(
+                    "[twitch] renouvellement refusé ({err}) — reconnecte le compte dans Paramètres"
+                );
                 return None;
             }
         }
@@ -363,7 +403,10 @@ async fn resolve_broadcast_target() -> Option<(String, Secret)> {
             // c'est un confort d'affichage, jamais une condition.
             if let Some(nom) = nom {
                 if token.account_name.as_deref() != Some(nom.as_str()) {
-                    let renseigne = StoredToken { account_name: Some(nom), ..token };
+                    let renseigne = StoredToken {
+                        account_name: Some(nom),
+                        ..token
+                    };
                     if let Err(err) = vault::store(Platform::Twitch, &renseigne) {
                         eprintln!("[twitch] nom du compte non range ({err})");
                     }
@@ -392,7 +435,10 @@ pub(crate) async fn reload_broadcast_target(
     state: &EngineState,
 ) -> Result<TargetReload, String> {
     let plan = {
-        let guard = state.0.lock().map_err(|_| "verrou moteur corrompu".to_string())?;
+        let guard = state
+            .0
+            .lock()
+            .map_err(|_| "verrou moteur corrompu".to_string())?;
         plan_target_reload(guard.handle.is_some(), guard.streaming)
     };
     if plan == TargetReload::Restart {
@@ -448,7 +494,10 @@ mod tests {
     fn should_never_restart_the_engine_during_a_live() {
         // Un direct coute plus cher qu'une cle a jour : celle-ci ne sert qu'au direct
         // SUIVANT, alors que relancer couperait celui qui est en cours.
-        assert_eq!(plan_target_reload(true, true), TargetReload::RefusedWhileLive);
+        assert_eq!(
+            plan_target_reload(true, true),
+            TargetReload::RefusedWhileLive
+        );
     }
 
     #[test]

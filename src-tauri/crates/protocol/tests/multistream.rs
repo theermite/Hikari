@@ -3,13 +3,16 @@
 //! message serialized then parsed must equal the original, one JSON object per line.
 
 use hikari_protocol::{
-    ControllerCommand, EngineMessage, MultistreamError, StreamTarget, parse_controller_command,
-    parse_engine_message, to_line, validate_targets,
+    parse_controller_command, parse_engine_message, to_line, validate_targets, ControllerCommand,
+    EngineMessage, MultistreamError, StreamTarget,
 };
 use proptest::prelude::*;
 
 fn target(id: &str, server: &str) -> StreamTarget {
-    StreamTarget { id: id.to_string(), server: server.to_string() }
+    StreamTarget {
+        id: id.to_string(),
+        server: server.to_string(),
+    }
 }
 
 fn stream_target_strategy() -> impl Strategy<Value = StreamTarget> {
@@ -25,14 +28,21 @@ fn should_open_n_outputs_when_multistream() {
         target("twitch", "rtmp://live.twitch.tv/app"),
         target("youtube", "rtmp://a.rtmp.youtube.com/live2"),
     ];
-    assert!(validate_targets(&targets).is_ok(), "2 distinct targets must validate");
+    assert!(
+        validate_targets(&targets).is_ok(),
+        "2 distinct targets must validate"
+    );
 
-    let cmd = ControllerCommand::StartMultistream { targets: targets.clone() };
+    let cmd = ControllerCommand::StartMultistream {
+        targets: targets.clone(),
+    };
     let line = to_line(&cmd).expect("serialization must not fail");
     assert!(!line.contains('\n'), "one JSON object per line");
     let parsed = parse_controller_command(&line).expect("valid JSON must parse");
     match parsed {
-        ControllerCommand::StartMultistream { targets: parsed_targets } => {
+        ControllerCommand::StartMultistream {
+            targets: parsed_targets,
+        } => {
             assert_eq!(parsed_targets.len(), 2, "N/N targets survive the wire");
             assert_eq!(parsed_targets, targets);
         }
@@ -50,7 +60,9 @@ fn should_reject_duplicate_target_ids() {
     let targets = vec![target("twitch", "rtmp://a"), target("twitch", "rtmp://b")];
     assert_eq!(
         validate_targets(&targets),
-        Err(MultistreamError::DuplicateId { id: "twitch".to_string() })
+        Err(MultistreamError::DuplicateId {
+            id: "twitch".to_string()
+        })
     );
 }
 

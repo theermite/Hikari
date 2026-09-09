@@ -4,8 +4,8 @@
 //! "la 1ʳᵉ intégration OAuth mérite une validation humaine"). This module is the reusable,
 //! provider-independent half — pure and unit-tested, no network, no platform secret.
 
-use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
 use rand::RngCore;
 use sha2::{Digest, Sha256};
 
@@ -69,7 +69,10 @@ mod tests {
     fn should_generate_state_independently_from_verifier() {
         let verifier = generate_code_verifier();
         let state = generate_state();
-        assert_ne!(verifier, state, "state must never be derivable from the verifier");
+        assert_ne!(
+            verifier, state,
+            "state must never be derivable from the verifier"
+        );
     }
 
     #[test]

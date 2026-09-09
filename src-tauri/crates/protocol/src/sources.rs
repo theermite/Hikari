@@ -3,9 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::platform::{
-    CAMERA_KIND, GAME_CAPTURE_KIND, MONITOR_CAPTURE_KIND, WINDOW_CAPTURE_KIND,
-};
+use crate::platform::{CAMERA_KIND, GAME_CAPTURE_KIND, MONITOR_CAPTURE_KIND, WINDOW_CAPTURE_KIND};
 
 /// The historic name of the single webcam source, kept as a FALLBACK (2026-09-06).
 ///
@@ -28,7 +26,11 @@ pub const CAMERA_SOURCE_NAME: &str = "Webcam";
 /// against the names already in use.
 pub fn camera_source_name(device_name: &str, taken: &[String]) -> String {
     let trimmed = device_name.trim();
-    let base = if trimmed.is_empty() { CAMERA_SOURCE_NAME } else { trimmed };
+    let base = if trimmed.is_empty() {
+        CAMERA_SOURCE_NAME
+    } else {
+        trimmed
+    };
     if !taken.iter().any(|name| name == base) {
         return base.to_string();
     }
@@ -54,12 +56,18 @@ impl SourceInfo {
     /// Describe a monitor (screen) capture source. Pure: no libobs, so the engine's
     /// source-listing logic is unit-testable without the OBS runtime.
     pub fn monitor_capture(name: impl Into<String>) -> Self {
-        Self { name: name.into(), kind: MONITOR_CAPTURE_KIND.to_string() }
+        Self {
+            name: name.into(),
+            kind: MONITOR_CAPTURE_KIND.to_string(),
+        }
     }
 
     /// Describe a webcam (DirectShow) source. Pure, same reason as `monitor_capture`.
     pub fn camera(name: impl Into<String>) -> Self {
-        Self { name: name.into(), kind: CAMERA_KIND.to_string() }
+        Self {
+            name: name.into(),
+            kind: CAMERA_KIND.to_string(),
+        }
     }
 }
 
@@ -226,7 +234,10 @@ fn shown() -> bool {
 /// Same two rules as a scene name, and the same reason to enforce them early: libobs
 /// silently renames a duplicate ("Webcam 2"), after which the panel no longer finds the
 /// source it thinks it is naming.
-pub fn validate_source_name(name: &str, existing: &[String]) -> Result<(), crate::scenes::SceneNameError> {
+pub fn validate_source_name(
+    name: &str,
+    existing: &[String],
+) -> Result<(), crate::scenes::SceneNameError> {
     crate::scenes::validate_scene_name(name, existing)
 }
 

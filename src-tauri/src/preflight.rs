@@ -31,9 +31,18 @@ pub enum PreflightError {
 /// the engine process (separate, ADR-013) can even compile against.
 pub fn pick_safe_encoder(available: &[String]) -> Option<SafeEncoder> {
     if let Some(nvenc) = available.iter().find(|e| e.contains("NVENC")) {
-        return Some(SafeEncoder { name: nvenc.clone(), hardware: true });
+        return Some(SafeEncoder {
+            name: nvenc.clone(),
+            hardware: true,
+        });
     }
-    available.iter().find(|e| e.contains("X264")).map(|x264| SafeEncoder { name: x264.clone(), hardware: false })
+    available
+        .iter()
+        .find(|e| e.contains("X264"))
+        .map(|x264| SafeEncoder {
+            name: x264.clone(),
+            hardware: false,
+        })
 }
 
 /// The Go Live gate: allowed only when a safe encoder was actually detected. An empty or
@@ -52,7 +61,13 @@ mod tests {
     fn should_detect_available_encoders() {
         let available = vec!["OBS_NVENC_H264_TEX".to_string(), "OBS_X264".to_string()];
         let picked = pick_safe_encoder(&available).expect("NVENC present must be detected");
-        assert_eq!(picked, SafeEncoder { name: "OBS_NVENC_H264_TEX".to_string(), hardware: true });
+        assert_eq!(
+            picked,
+            SafeEncoder {
+                name: "OBS_NVENC_H264_TEX".to_string(),
+                hardware: true
+            }
+        );
     }
 
     #[test]
@@ -61,7 +76,13 @@ mod tests {
         // reported as non-hardware — never silently claimed as accelerated.
         let available = vec!["OBS_X264".to_string()];
         let picked = pick_safe_encoder(&available).expect("X264 present must be detected");
-        assert_eq!(picked, SafeEncoder { name: "OBS_X264".to_string(), hardware: false });
+        assert_eq!(
+            picked,
+            SafeEncoder {
+                name: "OBS_X264".to_string(),
+                hardware: false
+            }
+        );
     }
 
     #[test]
@@ -69,7 +90,10 @@ mod tests {
         // Order in the list must not matter: NVENC wins even listed second.
         let available = vec!["OBS_X264".to_string(), "OBS_NVENC_H264_TEX".to_string()];
         let picked = pick_safe_encoder(&available).expect("both present, NVENC must win");
-        assert!(picked.hardware, "hardware encoder must be preferred over software");
+        assert!(
+            picked.hardware,
+            "hardware encoder must be preferred over software"
+        );
     }
 
     #[test]
@@ -84,6 +108,9 @@ mod tests {
         // A non-empty list that contains neither NVENC nor X264 (an encoder family this
         // preflight step doesn't know how to judge safe) must still block, not guess.
         let available = vec!["OBS_QSV_H264".to_string()];
-        assert_eq!(go_live_allowed(&available), Err(PreflightError::NoEncoderDetected));
+        assert_eq!(
+            go_live_allowed(&available),
+            Err(PreflightError::NoEncoderDetected)
+        );
     }
 }

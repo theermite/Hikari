@@ -54,7 +54,11 @@ pub fn composition(screen_width: u32, screen_height: u32) -> Composition {
     } else {
         PLANCHER
     };
-    Composition { width, height, fps: FPS_HAUT }
+    Composition {
+        width,
+        height,
+        fps: FPS_HAUT,
+    }
 }
 
 /// Le débit, en kilobits par seconde, pour cette composition et cette machine.
@@ -100,7 +104,11 @@ mod tests {
     fn should_compose_in_full_hd_on_a_full_hd_screen() {
         assert_eq!(
             composition(2560, 1440),
-            Composition { width: 1920, height: 1080, fps: 60 }
+            Composition {
+                width: 1920,
+                height: 1080,
+                fps: 60
+            }
         );
     }
 
@@ -150,7 +158,13 @@ mod tests {
         // 6000 kbit/s est le plafond public pour un compte ordinaire. Au-dela, la
         // plateforme refuse ou coupe — et l'image saccade sans que personne ne sache
         // pourquoi.
-        for (w, h) in [(3840, 2160), (2560, 1440), (1920, 1080), (1280, 720), (640, 480)] {
+        for (w, h) in [
+            (3840, 2160),
+            (2560, 1440),
+            (1920, 1080),
+            (1280, 720),
+            (640, 480),
+        ] {
             for materiel in [true, false] {
                 let debit = bitrate_kbps(composition(w, h), materiel);
                 assert!(debit <= 6000, "{w}x{h} materiel={materiel} -> {debit}");

@@ -12,8 +12,8 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 
-use anyhow::{Context, Result, bail};
-use hikari_protocol::{CameraDevice, EngineMessage, parse_engine_message};
+use anyhow::{bail, Context, Result};
+use hikari_protocol::{parse_engine_message, CameraDevice, EngineMessage};
 
 /// Maximum number of automatic relaunches before the controller gives up (B0.0 policy).
 pub const MAX_RELAUNCH: usize = 1;
@@ -61,12 +61,18 @@ pub enum SupervisorAction {
 /// Decide the next supervisor action from the engine's exit and the relaunch budget.
 ///
 /// Pure and total: no I/O, no process. This is the logic proven by unit tests.
-pub fn decide_next(exited_success: bool, relaunched: usize, max_relaunch: usize) -> SupervisorAction {
+pub fn decide_next(
+    exited_success: bool,
+    relaunched: usize,
+    max_relaunch: usize,
+) -> SupervisorAction {
     if exited_success {
         return SupervisorAction::Done;
     }
     if relaunched < max_relaunch {
-        return SupervisorAction::Relaunch { attempt: relaunched + 1 };
+        return SupervisorAction::Relaunch {
+            attempt: relaunched + 1,
+        };
     }
     SupervisorAction::GiveUp
 }
@@ -76,7 +82,11 @@ pub fn decide_next(exited_success: bool, relaunched: usize, max_relaunch: usize)
 pub fn engine_path() -> Result<PathBuf> {
     let exe = env::current_exe().context("resolving current executable path")?;
     let dir = exe.parent().context("resolving executable directory")?;
-    let name = if cfg!(windows) { "hikari-engine.exe" } else { "hikari-engine" };
+    let name = if cfg!(windows) {
+        "hikari-engine.exe"
+    } else {
+        "hikari-engine"
+    };
     Ok(dir.join(name))
 }
 
@@ -85,10 +95,12 @@ pub fn engine_path() -> Result<PathBuf> {
 /// separate debt, see PET B1 "Dette restante"). Pure: no process, no libobs — testable
 /// headless like `relay_reader`'s parsing.
 fn extract_encoders(stdout: &str) -> Option<Vec<String>> {
-    stdout.lines().find_map(|line| match parse_engine_message(line) {
-        Ok(EngineMessage::Encoders { available }) => Some(available),
-        _ => None,
-    })
+    stdout
+        .lines()
+        .find_map(|line| match parse_engine_message(line) {
+            Ok(EngineMessage::Encoders { available }) => Some(available),
+            _ => None,
+        })
 }
 
 /// Runs the engine once in one-shot detection mode (`--detect-encoders`, never the
@@ -107,10 +119,12 @@ pub fn run_detect_encoders() -> Result<Vec<String>> {
 /// Scans one-shot engine stdout for the `Cameras` message (B-cam tranche 1, same option-A
 /// shape as `extract_encoders`). Pure: no process, no libobs — testable headless.
 fn extract_cameras(stdout: &str) -> Option<Vec<CameraDevice>> {
-    stdout.lines().find_map(|line| match parse_engine_message(line) {
-        Ok(EngineMessage::Cameras { devices }) => Some(devices),
-        _ => None,
-    })
+    stdout
+        .lines()
+        .find_map(|line| match parse_engine_message(line) {
+            Ok(EngineMessage::Cameras { devices }) => Some(devices),
+            _ => None,
+        })
 }
 
 /// Runs the engine once in one-shot detection mode (`--detect-cameras`) and returns the
@@ -179,7 +193,10 @@ pub fn supervise(args: &[String]) -> Result<()> {
     let engine = engine_path()?;
     let mut relaunched = 0usize;
     loop {
-        eprintln!("[controller] launching engine (separate process): {}", engine.display());
+        eprintln!(
+            "[controller] launching engine (separate process): {}",
+            engine.display()
+        );
         let status = run_engine_once(&engine, args)?;
         match decide_next(status.success(), relaunched, MAX_RELAUNCH) {
             SupervisorAction::Done => {
@@ -209,7 +226,10 @@ mod tests {
         // is skipped; the valid protocol messages still relay.
         let data: &[u8] = b"{\"type\":\"ready\"}\n\xff\xfe\n{\"type\":\"stopped\"}\n";
         let relayed = relay_reader(Cursor::new(data));
-        assert_eq!(relayed, 2, "non-UTF8 line skipped, both valid messages still relayed");
+        assert_eq!(
+            relayed, 2,
+            "non-UTF8 line skipped, both valid messages still relayed"
+        );
     }
 
     #[test]
@@ -238,15 +258,25 @@ mod tests {
     #[test]
     fn should_give_up_when_relaunches_exhausted() {
         // Second death after one relaunch -> give up (never loop forever).
-        assert_eq!(decide_next(false, 1, MAX_RELAUNCH), SupervisorAction::GiveUp);
-        assert_eq!(decide_next(false, 2, MAX_RELAUNCH), SupervisorAction::GiveUp);
+        assert_eq!(
+            decide_next(false, 1, MAX_RELAUNCH),
+            SupervisorAction::GiveUp
+        );
+        assert_eq!(
+            decide_next(false, 2, MAX_RELAUNCH),
+            SupervisorAction::GiveUp
+        );
     }
 
     #[test]
     fn should_extract_encoders_from_one_shot_stdout() {
-        let stdout = "{\"type\":\"encoders\",\"available\":[\"OBS_NVENC_H264_TEX\",\"OBS_X264\"]}\n";
+        let stdout =
+            "{\"type\":\"encoders\",\"available\":[\"OBS_NVENC_H264_TEX\",\"OBS_X264\"]}\n";
         let encoders = extract_encoders(stdout).expect("encoders line present");
-        assert_eq!(encoders, vec!["OBS_NVENC_H264_TEX".to_string(), "OBS_X264".to_string()]);
+        assert_eq!(
+            encoders,
+            vec!["OBS_NVENC_H264_TEX".to_string(), "OBS_X264".to_string()]
+        );
     }
 
     #[test]
@@ -285,8 +315,14 @@ mod tests {
     #[test]
     fn should_point_engine_path_at_neighbor_binary() {
         let path = engine_path().expect("engine path resolves");
-        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-        assert!(name.starts_with("hikari-engine"), "engine is the neighbor binary, got {name:?}");
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
+        assert!(
+            name.starts_with("hikari-engine"),
+            "engine is the neighbor binary, got {name:?}"
+        );
         assert!(path.is_absolute(), "engine path must be absolute");
     }
 }

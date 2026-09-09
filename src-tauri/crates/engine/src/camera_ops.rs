@@ -9,13 +9,16 @@
 use anyhow::{Context, Result};
 use hikari_protocol::{EngineMessage, SourceInfo};
 
-use crate::{App, CameraFilters, CameraItem, OpenCamera, camera, emit};
+use crate::{camera, emit, App, CameraFilters, CameraItem, OpenCamera};
 
 impl App {
     /// Ouvre l'appareil `device_id` : une source libobs et ses deux filtres, une seule fois
     /// par appareil. Ne la pose dans aucune scène — c'est le travail de `handle_add_camera`.
     fn open_camera(&mut self, device_id: &str) -> Result<()> {
-        let obs = self.obs.as_mut().context("AddCamera avant l'initialisation")?;
+        let obs = self
+            .obs
+            .as_mut()
+            .context("AddCamera avant l'initialisation")?;
         // Le nom lisible vient du moteur lui-même, jamais du fil : c'est la seule source qui
         // dise la vérité si l'appareil a été rebranché sous un autre libellé.
         let device_name = camera::probe_camera_devices(&obs.context)
@@ -24,13 +27,27 @@ impl App {
             .find(|device| device.device_id == device_id)
             .map(|device| device.name)
             .unwrap_or_default();
-        let taken: Vec<String> = obs.cameras.values().map(|camera| camera.name.clone()).collect();
+        let taken: Vec<String> = obs
+            .cameras
+            .values()
+            .map(|camera| camera.name.clone())
+            .collect();
         let name = camera::camera_source_name(&device_name, &taken);
         let source = camera::build_camera_source(&mut obs.context, &name, device_id)?;
         let background_removal = camera::create_background_removal_filter(&source)?;
         let circle_mask = camera::create_circle_mask_filter(&source)?;
-        let filters = CameraFilters { background_removal, circle_mask };
-        obs.cameras.insert(device_id.to_string(), OpenCamera { source, name, filters });
+        let filters = CameraFilters {
+            background_removal,
+            circle_mask,
+        };
+        obs.cameras.insert(
+            device_id.to_string(),
+            OpenCamera {
+                source,
+                name,
+                filters,
+            },
+        );
         Ok(())
     }
 
@@ -39,22 +56,34 @@ impl App {
     /// scène — donc son propre cadrage, exactement comme OBS traite une source partagée.
     pub(crate) fn handle_add_camera(&mut self, device_id: String, scene: String) {
         if self.obs.is_none() {
-            emit(&EngineMessage::Error { message: "AddCamera avant l'initialisation".into() });
+            emit(&EngineMessage::Error {
+                message: "AddCamera avant l'initialisation".into(),
+            });
             return;
         }
-        if !self.obs.as_ref().is_some_and(|obs| obs.cameras.contains_key(&device_id)) {
+        if !self
+            .obs
+            .as_ref()
+            .is_some_and(|obs| obs.cameras.contains_key(&device_id))
+        {
             if let Err(err) = self.open_camera(&device_id) {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
                 return;
             }
         }
         let Some(obs) = &mut self.obs else { return };
-        let Some(opened) = obs.cameras.get(&device_id) else { return };
+        let Some(opened) = obs.cameras.get(&device_id) else {
+            return;
+        };
         let (source, name) = (opened.source.clone(), opened.name.clone());
         let item = match camera::add_existing_camera_to_scene(&mut obs.context, source, &scene) {
             Ok(item) => item,
             Err(err) => {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
                 return;
             }
         };
@@ -70,7 +99,9 @@ impl App {
         if !obs.sources.iter().any(|source| source.name == name) {
             obs.sources.push(SourceInfo::camera(name));
         }
-        emit(&EngineMessage::Sources { items: obs.sources.clone() });
+        emit(&EngineMessage::Sources {
+            items: obs.sources.clone(),
+        });
     }
 
     /// Règle le fond détouré (NVIDIA) pour la caméra `device_id` DANS `scene` (B-cam,
@@ -86,7 +117,12 @@ impl App {
     }
 
     /// Règle le masque circulaire. Même contrat par caméra et par scène.
-    pub(crate) fn handle_set_circle_mask(&mut self, device_id: String, scene: String, enabled: bool) {
+    pub(crate) fn handle_set_circle_mask(
+        &mut self,
+        device_id: String,
+        scene: String,
+        enabled: bool,
+    ) {
         self.set_camera_filter(device_id, scene, |state| state.1 = enabled);
     }
 
@@ -99,7 +135,9 @@ impl App {
         change: impl FnOnce(&mut (bool, bool)),
     ) {
         let Some(obs) = &mut self.obs else {
-            emit(&EngineMessage::Error { message: "réglage caméra avant l'initialisation".into() });
+            emit(&EngineMessage::Error {
+                message: "réglage caméra avant l'initialisation".into(),
+            });
             return;
         };
         let key = (scene.clone(), device_id);
@@ -131,22 +169,33 @@ impl App {
             }
         }
         let Some(obs) = &mut self.obs else {
-            emit(&EngineMessage::Error { message: "réglage caméra avant l'initialisation".into() });
+            emit(&EngineMessage::Error {
+                message: "réglage caméra avant l'initialisation".into(),
+            });
             return;
         };
         let key = (scene.clone(), device_id.clone());
-        let Some(item) = obs.camera_items.remove(&key) else { return };
+        let Some(item) = obs.camera_items.remove(&key) else {
+            return;
+        };
         if let Err(err) = camera::remove_camera_from_scene(&mut obs.context, &scene, item) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
         }
         obs.scene_filter_state.remove(&key);
         obs.item_rects = None;
-        let still_shown = obs.camera_items.keys().any(|(_, shown)| shown == &device_id);
+        let still_shown = obs
+            .camera_items
+            .keys()
+            .any(|(_, shown)| shown == &device_id);
         if !still_shown {
             // La prochaine caméra peut être un autre appareil, avec sa propre définition.
             if let Some(closed) = obs.cameras.remove(&device_id) {
                 obs.sources.retain(|source| source.name != closed.name);
-                emit(&EngineMessage::Sources { items: obs.sources.clone() });
+                emit(&EngineMessage::Sources {
+                    items: obs.sources.clone(),
+                });
             }
         }
         // La scène ne porte plus cette caméra : le dire. Sans ça l'écran gardait la caméra
@@ -167,10 +216,14 @@ impl App {
     /// geste sans conséquence.
     pub(crate) fn handle_restart_camera(&mut self, device_id: String) {
         let Some(obs) = &mut self.obs else { return };
-        let Some(ouverte) = obs.cameras.get(&device_id) else { return };
+        let Some(ouverte) = obs.cameras.get(&device_id) else {
+            return;
+        };
         let source = ouverte.source.clone();
         if let Err(err) = camera::restart_camera(&mut obs.context, &source, &device_id) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
             return;
         }
         // Le cadrage cliquable repart de zéro : une source relancée peut revenir
@@ -182,7 +235,9 @@ impl App {
     /// Les caméras posées dans `scene`, chacune sous son nom — triées, pour que la pile de
     /// sources ne change pas d'ordre d'un lancement à l'autre.
     pub(crate) fn cameras_in_scene(&self, scene: &str) -> Vec<(String, &CameraItem)> {
-        let Some(obs) = self.obs.as_ref() else { return Vec::new() };
+        let Some(obs) = self.obs.as_ref() else {
+            return Vec::new();
+        };
         let mut found: Vec<_> = obs
             .camera_items
             .iter()
@@ -200,7 +255,9 @@ impl App {
     /// Existe pour les appelants qui tiennent déjà un emprunt mutable du moteur : ils ne
     /// peuvent pas relire `self` en même temps, et une liste possédée les en dispense.
     pub(crate) fn camera_names_in_scene(&self, scene: &str) -> Vec<(String, String)> {
-        let Some(obs) = self.obs.as_ref() else { return Vec::new() };
+        let Some(obs) = self.obs.as_ref() else {
+            return Vec::new();
+        };
         let mut found: Vec<(String, String)> = obs
             .camera_items
             .keys()
@@ -236,13 +293,17 @@ impl App {
     /// pour toutes les sources, et une chaîne vide dit « ceci n'est pas une caméra » sans
     /// inventer un identifiant qui ne désignerait rien.
     pub(crate) fn camera_device_id_by_name(&self, scene: &str, name: &str) -> String {
-        let Some(obs) = self.obs.as_ref() else { return String::new() };
+        let Some(obs) = self.obs.as_ref() else {
+            return String::new();
+        };
         let trouve = obs
             .camera_items
             .keys()
             .filter(|(shown_in, _)| shown_in == scene)
             .find(|(_, device_id)| {
-                obs.cameras.get(device_id).is_some_and(|opened| opened.name == name)
+                obs.cameras
+                    .get(device_id)
+                    .is_some_and(|opened| opened.name == name)
             })
             .map(|(_, device_id)| device_id.clone());
         // Silencieux quand ça marche, bavard quand ça rate. Un refus de retrait resté
@@ -275,7 +336,9 @@ impl App {
             .cameras
             .keys()
             .filter(|device_id| {
-                !obs.camera_items.keys().any(|(_, shown)| &shown == device_id)
+                !obs.camera_items
+                    .keys()
+                    .any(|(_, shown)| &shown == device_id)
             })
             .cloned()
             .collect();
@@ -287,12 +350,20 @@ impl App {
                 obs.sources.retain(|source| source.name != closed.name);
             }
         }
-        emit(&EngineMessage::Sources { items: obs.sources.clone() });
+        emit(&EngineMessage::Sources {
+            items: obs.sources.clone(),
+        });
     }
 
     /// Déplace la caméra `device_id` DANS `scene` de `(dx, dy)` pixels (B7). Un refus
     /// explicite, jamais un abandon silencieux, si cette scène ne la montre pas.
-    pub(crate) fn handle_nudge_camera(&mut self, device_id: String, scene: String, dx: i32, dy: i32) {
+    pub(crate) fn handle_nudge_camera(
+        &mut self,
+        device_id: String,
+        scene: String,
+        dx: i32,
+        dy: i32,
+    ) {
         self.transform_camera(device_id, scene, |item| camera::nudge_camera(item, dx, dy));
     }
 
@@ -310,7 +381,9 @@ impl App {
         apply: impl FnOnce(&CameraItem) -> Result<(i32, i32, i32)>,
     ) {
         let Some(obs) = &mut self.obs else {
-            emit(&EngineMessage::Error { message: "réglage caméra avant l'initialisation".into() });
+            emit(&EngineMessage::Error {
+                message: "réglage caméra avant l'initialisation".into(),
+            });
             return;
         };
         let Some(item) = obs.camera_items.get(&(scene.clone(), device_id.clone())) else {
@@ -322,9 +395,17 @@ impl App {
         match apply(item) {
             Ok((x, y, scale_percent)) => {
                 self.scene_layout_changed();
-                emit(&EngineMessage::CameraTransform { device_id, scene, x, y, scale_percent })
+                emit(&EngineMessage::CameraTransform {
+                    device_id,
+                    scene,
+                    x,
+                    y,
+                    scale_percent,
+                })
             }
-            Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
+            Err(err) => emit(&EngineMessage::Error {
+                message: err.to_string(),
+            }),
         }
     }
 }

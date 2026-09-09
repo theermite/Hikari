@@ -34,10 +34,10 @@ mod outline;
 mod scene_ops;
 mod scenes;
 mod source_ops;
-mod text_ops;
 mod sources;
 mod stdin_reader;
 mod stream;
+mod text_ops;
 mod transitions;
 
 use std::io::Write;
@@ -113,8 +113,7 @@ pub(crate) fn set_composition(screen_width: u32, screen_height: u32) {
     let _ = COMPOSITION.set(choisi);
 }
 
-static COMPOSITION: std::sync::OnceLock<hikari_protocol::Composition> =
-    std::sync::OnceLock::new();
+static COMPOSITION: std::sync::OnceLock<hikari_protocol::Composition> = std::sync::OnceLock::new();
 
 /// Keeps the 16:9 aspect ratio when the controller resizes the grafted window (cross-process
 /// `MoveWindow`, proven at the spike). Pure aspect-fit math, transcribed unchanged.
@@ -279,7 +278,11 @@ enum DragState {
     /// Moving. `grab_offset` is where inside the source the user grabbed it, in canvas
     /// pixels. Keeping that offset is what makes the source follow the cursor instead of
     /// jumping so its corner snaps under the pointer on the first move.
-    Move { name: String, grab_offset_x: f32, grab_offset_y: f32 },
+    Move {
+        name: String,
+        grab_offset_x: f32,
+        grab_offset_y: f32,
+    },
     /// Resizing from a corner. `anchor` is the OPPOSITE corner, in canvas pixels — it stays
     /// pinned for the whole gesture, so the source grows away from a fixed point instead of
     /// sliding while it resizes. Read once at press time: re-deriving it from the live
@@ -324,31 +327,83 @@ enum EngineEvent {
     Exit,
     StartStream,
     StopStream,
-    StartMultistream { targets: Vec<hikari_protocol::StreamTarget> },
+    StartMultistream {
+        targets: Vec<hikari_protocol::StreamTarget>,
+    },
     StopMultistream,
-    AddCamera { device_id: String, scene: String },
-    SetBackgroundRemoval { device_id: String, scene: String, enabled: bool },
-    SetCircleMask { device_id: String, scene: String, enabled: bool },
-    RemoveCamera { device_id: String, scene: String },
-    RestartCamera { device_id: String },
-    NudgeCamera { device_id: String, scene: String, dx: i32, dy: i32 },
-    ScaleCamera { device_id: String, scene: String, grow: bool },
-    CreateScene { name: String },
-    SwitchScene { name: String, duration_ms: u32 },
-    DeleteScene { name: String },
+    AddCamera {
+        device_id: String,
+        scene: String,
+    },
+    SetBackgroundRemoval {
+        device_id: String,
+        scene: String,
+        enabled: bool,
+    },
+    SetCircleMask {
+        device_id: String,
+        scene: String,
+        enabled: bool,
+    },
+    RemoveCamera {
+        device_id: String,
+        scene: String,
+    },
+    RestartCamera {
+        device_id: String,
+    },
+    NudgeCamera {
+        device_id: String,
+        scene: String,
+        dx: i32,
+        dy: i32,
+    },
+    ScaleCamera {
+        device_id: String,
+        scene: String,
+        grow: bool,
+    },
+    CreateScene {
+        name: String,
+    },
+    SwitchScene {
+        name: String,
+        duration_ms: u32,
+    },
+    DeleteScene {
+        name: String,
+    },
     ListAudioDevices,
-    AddAudioSource { device_id: String, kind: hikari_protocol::AudioSourceKind, name: String },
-    RemoveAudioSource { name: String },
-    SetAudioVolume { name: String, percent: i32 },
-    SetAudioMuted { name: String, muted: bool },
-    SetAudioMonitoring { name: String, monitoring: hikari_protocol::AudioMonitoring },
+    AddAudioSource {
+        device_id: String,
+        kind: hikari_protocol::AudioSourceKind,
+        name: String,
+    },
+    RemoveAudioSource {
+        name: String,
+    },
+    SetAudioVolume {
+        name: String,
+        percent: i32,
+    },
+    SetAudioMuted {
+        name: String,
+        muted: bool,
+    },
+    SetAudioMonitoring {
+        name: String,
+        monitoring: hikari_protocol::AudioMonitoring,
+    },
     SetNoiseSettings {
         name: String,
         enabled: bool,
         method: hikari_protocol::NoiseMethod,
         level_db: f32,
     },
-    SetMonitorVolume { name: String, percent: i32 },
+    SetMonitorVolume {
+        name: String,
+        percent: i32,
+    },
     ListCaptureTargets,
     AddCaptureSource {
         scene: String,
@@ -356,13 +411,42 @@ enum EngineEvent {
         target_id: String,
         name: String,
     },
-    RemoveSource { scene: String, name: String },
-    ReorderSource { scene: String, name: String, direction: hikari_protocol::SourceOrder },
-    SetSourceTransform { scene: String, name: String, x: i32, y: i32, scale_percent: i32 },
-    SetSourceLocked { scene: String, name: String, locked: bool },
-    SetSourceVisible { scene: String, name: String, visible: bool },
-    SetTextSettings { scene: String, name: String, settings: hikari_protocol::TextSettings },
-    SetTextContent { scene: String, name: String, text: String },
+    RemoveSource {
+        scene: String,
+        name: String,
+    },
+    ReorderSource {
+        scene: String,
+        name: String,
+        direction: hikari_protocol::SourceOrder,
+    },
+    SetSourceTransform {
+        scene: String,
+        name: String,
+        x: i32,
+        y: i32,
+        scale_percent: i32,
+    },
+    SetSourceLocked {
+        scene: String,
+        name: String,
+        locked: bool,
+    },
+    SetSourceVisible {
+        scene: String,
+        name: String,
+        visible: bool,
+    },
+    SetTextSettings {
+        scene: String,
+        name: String,
+        settings: hikari_protocol::TextSettings,
+    },
+    SetTextContent {
+        scene: String,
+        name: String,
+        text: String,
+    },
     RequestSceneList,
 }
 
@@ -425,7 +509,9 @@ fn main() -> Result<()> {
     if let Err(err) = outcome {
         // Report the failure on the wire before dying, so the controller never sees a
         // silent death (B0.0 lesson: a mute failure costs a day).
-        emit(&EngineMessage::Error { message: err.to_string() });
+        emit(&EngineMessage::Error {
+            message: err.to_string(),
+        });
         std::io::stdout().flush().ok();
         return Err(err);
     }

@@ -28,9 +28,7 @@ pub fn snap_position(
             .filter(|target| target.is_finite() && (value - target).abs() <= SNAP_DISTANCE)
             // Le repère le plus proche gagne, jamais le premier trouvé : deux repères
             // voisins (un bord et le centre sur une petite source) doivent départager.
-            .min_by(|a, b| {
-                (value - a).abs().total_cmp(&(value - b).abs())
-            })
+            .min_by(|a, b| (value - a).abs().total_cmp(&(value - b).abs()))
             .unwrap_or(value)
     };
     let (canvas_w, canvas_h) = (canvas_w as f32, canvas_h as f32);
@@ -63,7 +61,10 @@ pub const CAMERA_SCALE_MAX: f32 = 3.0;
 /// Clamps a candidate camera position to `CAMERA_POSITION_BOUND` on both axes. Pure, so
 /// the sanity bound is proven by unit tests without a real engine process.
 pub fn clamp_camera_position(x: i32, y: i32) -> (i32, i32) {
-    (x.clamp(-CAMERA_POSITION_BOUND, CAMERA_POSITION_BOUND), y.clamp(-CAMERA_POSITION_BOUND, CAMERA_POSITION_BOUND))
+    (
+        x.clamp(-CAMERA_POSITION_BOUND, CAMERA_POSITION_BOUND),
+        y.clamp(-CAMERA_POSITION_BOUND, CAMERA_POSITION_BOUND),
+    )
 }
 
 /// Clamps a candidate camera scale factor to `[CAMERA_SCALE_MIN, CAMERA_SCALE_MAX]`. Pure,
@@ -199,7 +200,15 @@ pub fn resize_box(
     new_h: f32,
 ) -> (f32, f32) {
     (
-        if anchor_is_left { anchor_x } else { anchor_x - new_w },
-        if anchor_is_top { anchor_y } else { anchor_y - new_h },
+        if anchor_is_left {
+            anchor_x
+        } else {
+            anchor_x - new_w
+        },
+        if anchor_is_top {
+            anchor_y
+        } else {
+            anchor_y - new_h
+        },
     )
 }

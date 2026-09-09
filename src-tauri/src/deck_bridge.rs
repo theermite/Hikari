@@ -62,11 +62,18 @@ fn deck_sink(_action: Action) {
 /// Deck-eligible automations as deck keys — thin `Automation` -> `DeckKey` projection,
 /// split out of the Tauri command so it is unit-testable without a Tauri runtime.
 pub fn list_deck_keys(engine: &AutomationEngine) -> Vec<DeckKey> {
-    engine.deck_eligible_automations().into_iter().map(deck_key_of).collect()
+    engine
+        .deck_eligible_automations()
+        .into_iter()
+        .map(deck_key_of)
+        .collect()
 }
 
 fn deck_key_of(automation: &Automation) -> DeckKey {
-    DeckKey { id: automation.id.clone(), label: automation.name.clone() }
+    DeckKey {
+        id: automation.id.clone(),
+        label: automation.name.clone(),
+    }
 }
 
 /// Core dispatch: decide, then spawn isolated execution WITHOUT awaiting it. The <100ms
@@ -74,14 +81,17 @@ fn deck_key_of(automation: &Automation) -> DeckKey {
 /// own duration (e.g. `Wait{millis:5000}`) must never make the button itself feel slow.
 pub fn trigger_key(engine: &AutomationEngine, id: &str) -> Result<DeckTriggerOutcome, DeckError> {
     let context = Context::new();
-    let decision =
-        engine.decide(&id.to_string(), &context).map_err(|err| DeckError(format!("{err:?}")))?;
+    let decision = engine
+        .decide(&id.to_string(), &context)
+        .map_err(|err| DeckError(format!("{err:?}")))?;
     Ok(match decision {
         Decision::Run(actions) => {
             hikari_automation::spawn_isolated(actions, deck_sink);
             DeckTriggerOutcome::Dispatched
         }
-        Decision::Refused(reason) => DeckTriggerOutcome::Refused { reason: format!("{reason:?}") },
+        Decision::Refused(reason) => DeckTriggerOutcome::Refused {
+            reason: format!("{reason:?}"),
+        },
     })
 }
 
@@ -90,7 +100,10 @@ pub fn trigger_key(engine: &AutomationEngine, id: &str) -> Result<DeckTriggerOut
 /// spirit as `hikari_automation::execution`); the recovered state is still valid data,
 /// just possibly mid-write when the panic happened.
 fn lock_engine<'a>(state: &'a State<'a, DeckState>) -> std::sync::MutexGuard<'a, AutomationEngine> {
-    state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    state
+        .0
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 #[tauri::command]
@@ -133,7 +146,9 @@ mod tests {
         Automation {
             id: id.to_string(),
             name: format!("Event {id}"),
-            trigger: Trigger::Event { event_name: "follow".to_string() },
+            trigger: Trigger::Event {
+                event_name: "follow".to_string(),
+            },
             conditions: vec![],
             actions: vec![],
             active: true,
@@ -146,12 +161,22 @@ mod tests {
         // hikari-automation/src/model.rs) — this test proves the DECK CONSUMES that rule
         // through `deck_eligible_automations()` rather than re-deriving it itself.
         let mut engine = AutomationEngine::new(ChatCommandWhitelist::default());
-        engine.register(button_automation("marker")).expect("valid button automation registers");
-        engine.register(event_automation("on-follow")).expect("valid event automation registers");
+        engine
+            .register(button_automation("marker"))
+            .expect("valid button automation registers");
+        engine
+            .register(event_automation("on-follow"))
+            .expect("valid event automation registers");
 
         let keys = list_deck_keys(&engine);
 
-        assert_eq!(keys, vec![DeckKey { id: "marker".to_string(), label: "Automation marker".to_string() }]);
+        assert_eq!(
+            keys,
+            vec![DeckKey {
+                id: "marker".to_string(),
+                label: "Automation marker".to_string()
+            }]
+        );
     }
 
     #[test]
@@ -165,7 +190,9 @@ mod tests {
     #[tokio::test]
     async fn should_dispatch_when_active_button_pressed() {
         let mut engine = AutomationEngine::new(ChatCommandWhitelist::default());
-        engine.register(button_automation("marker")).expect("valid button automation registers");
+        engine
+            .register(button_automation("marker"))
+            .expect("valid button automation registers");
 
         let outcome = trigger_key(&engine, "marker").expect("known id decides");
 
@@ -177,11 +204,18 @@ mod tests {
         let mut engine = AutomationEngine::new(ChatCommandWhitelist::default());
         let mut inactive = button_automation("marker");
         inactive.active = false;
-        engine.register(inactive).expect("valid automation registers even inactive");
+        engine
+            .register(inactive)
+            .expect("valid automation registers even inactive");
 
         let outcome = trigger_key(&engine, "marker").expect("known id decides");
 
-        assert_eq!(outcome, DeckTriggerOutcome::Refused { reason: format!("{:?}", RefusalReason::Inactive) });
+        assert_eq!(
+            outcome,
+            DeckTriggerOutcome::Refused {
+                reason: format!("{:?}", RefusalReason::Inactive)
+            }
+        );
     }
 
     #[test]
@@ -203,14 +237,19 @@ mod tests {
         // github.com/tauri-apps/tauri/issues/13419, no fix/workaround as of 2026-07-19)
         // — untestable on this platform today, not a gap left uninvestigated.
         let mut engine = AutomationEngine::new(ChatCommandWhitelist::default());
-        engine.register(button_automation("marker")).expect("valid button automation registers");
+        engine
+            .register(button_automation("marker"))
+            .expect("valid button automation registers");
 
         let started = Instant::now();
         let outcome = trigger_key(&engine, "marker").expect("known id decides");
         let elapsed = started.elapsed();
 
         assert_eq!(outcome, DeckTriggerOutcome::Dispatched);
-        assert!(elapsed < Duration::from_millis(100), "trigger_key took {elapsed:?}, budget is 100ms");
+        assert!(
+            elapsed < Duration::from_millis(100),
+            "trigger_key took {elapsed:?}, budget is 100ms"
+        );
     }
 
     #[tokio::test]
@@ -224,12 +263,17 @@ mod tests {
         let mut engine = AutomationEngine::new(ChatCommandWhitelist::default());
         let mut automation = button_automation("marker");
         automation.actions = vec![
-            Action::SendChatMessage { message: "brb".to_string() },
+            Action::SendChatMessage {
+                message: "brb".to_string(),
+            },
             Action::Wait { millis: 0 },
         ];
-        engine.register(automation).expect("valid button automation registers");
+        engine
+            .register(automation)
+            .expect("valid button automation registers");
 
-        let outcome = trigger_key(&engine, "marker").expect("known id decides without any network I/O");
+        let outcome =
+            trigger_key(&engine, "marker").expect("known id decides without any network I/O");
 
         assert_eq!(outcome, DeckTriggerOutcome::Dispatched);
     }
@@ -252,7 +296,10 @@ mod tests {
 
         // Recovering directly on the inner Mutex proves the SAME strategy `lock_engine`
         // uses; `lock_engine` itself needs a live Tauri `State<T>`, out of reach headless.
-        let recovered = state.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let recovered = state
+            .0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         assert_eq!(list_deck_keys(&recovered), Vec::<DeckKey>::new());
     }
 }

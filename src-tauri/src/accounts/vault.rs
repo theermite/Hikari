@@ -97,7 +97,10 @@ pub fn is_expired(token: &StoredToken, now: u64) -> bool {
 /// The current time as a Unix timestamp — the only non-pure input `is_expired` needs, kept
 /// as a thin wrapper so call sites don't reach for `SystemTime` directly.
 pub fn now_unix() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 /// Serializes a token to the flat `access_token\trefresh_token\texpires_at` line the vault
@@ -133,22 +136,34 @@ fn decode(raw: &str) -> Result<StoredToken> {
         .context("expiration manquante")?
         .parse()
         .context("expiration non numérique")?;
-    let account_name = parts.next().filter(|nom| !nom.is_empty()).map(str::to_string);
-    Ok(StoredToken { access_token, refresh_token, expires_at, account_name })
+    let account_name = parts
+        .next()
+        .filter(|nom| !nom.is_empty())
+        .map(str::to_string);
+    Ok(StoredToken {
+        access_token,
+        refresh_token,
+        expires_at,
+        account_name,
+    })
 }
 
 /// Stores a token for `platform` in the OS credential store. Overwrites any prior entry
 /// (a fresh login/refresh replaces the old token, never accumulates stale ones).
 pub fn store(platform: Platform, token: &StoredToken) -> Result<()> {
-    let entry = Entry::new("hikari", platform.vault_key()).context("ouverture du coffre système")?;
-    entry.set_password(&encode(token)).context("écriture du jeton dans le coffre")?;
+    let entry =
+        Entry::new("hikari", platform.vault_key()).context("ouverture du coffre système")?;
+    entry
+        .set_password(&encode(token))
+        .context("écriture du jeton dans le coffre")?;
     Ok(())
 }
 
 /// Loads the token for `platform`, if one was ever stored. `Ok(None)` means "never
 /// connected" — not an error.
 pub fn load(platform: Platform) -> Result<Option<StoredToken>> {
-    let entry = Entry::new("hikari", platform.vault_key()).context("ouverture du coffre système")?;
+    let entry =
+        Entry::new("hikari", platform.vault_key()).context("ouverture du coffre système")?;
     match entry.get_password() {
         Ok(raw) => Ok(Some(decode(&raw)?)),
         Err(keyring::Error::NoEntry) => Ok(None),
@@ -159,7 +174,8 @@ pub fn load(platform: Platform) -> Result<Option<StoredToken>> {
 /// Removes the stored token for `platform` (account disconnect). Removing an entry that
 /// doesn't exist is not an error — disconnecting an already-disconnected account is a no-op.
 pub fn remove(platform: Platform) -> Result<()> {
-    let entry = Entry::new("hikari", platform.vault_key()).context("ouverture du coffre système")?;
+    let entry =
+        Entry::new("hikari", platform.vault_key()).context("ouverture du coffre système")?;
     match entry.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(err) => Err(err).context("suppression du jeton dans le coffre"),
@@ -212,7 +228,10 @@ mod tests {
     #[test]
     fn should_refuse_stream_when_token_expired() {
         let t = token("a", "r", 1_000);
-        assert!(is_expired(&t, 1_000), "expires_at reached exactly -> expired");
+        assert!(
+            is_expired(&t, 1_000),
+            "expires_at reached exactly -> expired"
+        );
         assert!(is_expired(&t, 1_001), "past expiry -> expired");
         assert!(!is_expired(&t, 999), "before expiry -> still valid");
     }
@@ -239,15 +258,24 @@ mod tests {
         // field ("real-expiry", non-numeric) must fail to parse — never a silent, wrong
         // round-trip. Adversarial input from the review, verified rather than assumed.
         let raw = format!("evil\taccess\trefresh\t{}", "not-real-expiry");
-        assert!(decode(&raw).is_err(), "shifted fields must fail to parse, never corrupt silently");
+        assert!(
+            decode(&raw).is_err(),
+            "shifted fields must fail to parse, never corrupt silently"
+        );
     }
 
     #[test]
     fn should_never_leak_tokens_in_debug_output() {
         let t = token("super-secret-access", "super-secret-refresh", 1);
         let debug = format!("{t:?}");
-        assert!(!debug.contains("super-secret-access"), "access token must be redacted");
-        assert!(!debug.contains("super-secret-refresh"), "refresh token must be redacted");
+        assert!(
+            !debug.contains("super-secret-access"),
+            "access token must be redacted"
+        );
+        assert!(
+            !debug.contains("super-secret-refresh"),
+            "refresh token must be redacted"
+        );
     }
 
     #[test]
@@ -257,7 +285,11 @@ mod tests {
         let secret = Secret::new("super-secret-value");
         let displayed = format!("{secret}");
         assert!(!displayed.contains("super-secret-value"));
-        assert_eq!(secret.expose(), "super-secret-value", "expose() is still the true value");
+        assert_eq!(
+            secret.expose(),
+            "super-secret-value",
+            "expose() is still the true value"
+        );
     }
 
     #[test]

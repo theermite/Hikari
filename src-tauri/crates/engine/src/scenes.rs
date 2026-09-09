@@ -26,7 +26,9 @@ pub fn list_scene_names(context: &mut ObsContext) -> Result<Vec<String>> {
 /// `switch_scene` activates it — matches how "main" itself starts live only because
 /// `try_init` explicitly puts it on channel 0.
 pub fn create_scene(context: &mut ObsContext, name: &str) -> Result<()> {
-    context.scene(name.to_string(), None).context("création scène")?;
+    context
+        .scene(name.to_string(), None)
+        .context("création scène")?;
     Ok(())
 }
 

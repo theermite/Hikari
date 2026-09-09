@@ -71,14 +71,26 @@ mod tests {
 
     #[test]
     fn should_refuse_when_only_half_the_destination_is_there() {
-        assert_eq!(resolve_target(Some("rtmp://x.example/app"), None), Err(TargetError::Incomplete));
-        assert_eq!(resolve_target(None, Some("cle")), Err(TargetError::Incomplete));
+        assert_eq!(
+            resolve_target(Some("rtmp://x.example/app"), None),
+            Err(TargetError::Incomplete)
+        );
+        assert_eq!(
+            resolve_target(None, Some("cle")),
+            Err(TargetError::Incomplete)
+        );
     }
 
     #[test]
     fn should_treat_an_empty_value_as_a_forgotten_one() {
-        assert_eq!(resolve_target(Some(""), Some("")), Err(TargetError::Missing));
-        assert_eq!(resolve_target(Some("   "), Some("cle")), Err(TargetError::Incomplete));
+        assert_eq!(
+            resolve_target(Some(""), Some("")),
+            Err(TargetError::Missing)
+        );
+        assert_eq!(
+            resolve_target(Some("   "), Some("cle")),
+            Err(TargetError::Incomplete)
+        );
     }
 
     #[test]

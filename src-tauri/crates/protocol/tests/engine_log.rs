@@ -16,7 +16,10 @@ fn should_show_the_reason_a_camera_stays_black() {
     let shown = user_visible_engine_log(line).expect("un échec doit être montré");
 
     assert!(shown.contains("bandwidth"), "shown = {shown}");
-    assert!(!shown.starts_with("[Warning]"), "le marqueur est retiré : {shown}");
+    assert!(
+        !shown.starts_with("[Warning]"),
+        "le marqueur est retiré : {shown}"
+    );
 }
 
 #[test]
@@ -99,5 +102,8 @@ fn should_stay_silent_on_the_ordinary_chatter() {
 fn should_ignore_the_indentation_the_engine_writes() {
     let line = "   [Error] quelque chose a cassé";
 
-    assert_eq!(user_visible_engine_log(line).as_deref(), Some("quelque chose a cassé"));
+    assert_eq!(
+        user_visible_engine_log(line).as_deref(),
+        Some("quelque chose a cassé")
+    );
 }

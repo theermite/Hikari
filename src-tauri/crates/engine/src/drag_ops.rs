@@ -6,7 +6,7 @@ use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemTrait};
 use libobs_wrapper::sources::ObsSourceRef;
 use winit::window::CursorIcon;
 
-use crate::{App, DragState, ItemRect, camera, emit, outline, sources};
+use crate::{camera, emit, outline, sources, App, DragState, ItemRect};
 use hikari_protocol::EngineMessage;
 
 impl App {
@@ -21,14 +21,23 @@ impl App {
 
     /// Every grabbable source of the ACTIVE scene with its rectangle, front-first.
     fn active_item_rects(&mut self) -> &[ItemRect] {
-        if self.obs.as_ref().is_some_and(|obs| obs.item_rects.is_some()) {
-            return self.obs.as_ref().map_or(&[], |obs| {
-                obs.item_rects.as_deref().unwrap_or(&[])
-            });
+        if self
+            .obs
+            .as_ref()
+            .is_some_and(|obs| obs.item_rects.is_some())
+        {
+            return self
+                .obs
+                .as_ref()
+                .map_or(&[], |obs| obs.item_rects.as_deref().unwrap_or(&[]));
         }
         // Les caméras de la scène sont relevées AVANT l'emprunt mutable ci-dessous : leur
         // lecture passe par `self`, et les deux emprunts ne peuvent pas coexister.
-        let scene = self.obs.as_ref().map(|obs| obs.active_scene.clone()).unwrap_or_default();
+        let scene = self
+            .obs
+            .as_ref()
+            .map(|obs| obs.active_scene.clone())
+            .unwrap_or_default();
         let cameras = self.camera_names_in_scene(&scene);
         let Some(obs) = &mut self.obs else { return &[] };
         let runtime = obs.context.runtime().clone();
@@ -44,9 +53,7 @@ impl App {
             .get(&scene)
             .map(|list| {
                 list.iter()
-                    .filter(|source| {
-                        !obs.locked.contains(&(scene.clone(), source.name.clone()))
-                    })
+                    .filter(|source| !obs.locked.contains(&(scene.clone(), source.name.clone())))
                     .map(|source| (source.name.clone(), &source.item))
                     .collect()
             })
@@ -139,7 +146,9 @@ impl App {
     ///
     /// Walks the stack from the top down and stops at the first hit: the user aims at what
     /// they SEE, so a source hidden behind another must never be the one that answers.
-    fn hit_test(&mut self) -> Option<(String, f32, f32, f32, f32, Option<hikari_protocol::Corner>)> {
+    fn hit_test(
+        &mut self,
+    ) -> Option<(String, f32, f32, f32, f32, Option<hikari_protocol::Corner>)> {
         let cursor = self.cursor?;
         let (cx, cy) = self.cursor_in_canvas(cursor)?;
         for rect in self.active_item_rects() {
@@ -171,7 +180,9 @@ impl App {
             }
             None => outline::hide(),
         }
-        let Some((_, _, _, _, _, corner)) = hit else { return CursorIcon::Default };
+        let Some((_, _, _, _, _, corner)) = hit else {
+            return CursorIcon::Default;
+        };
         match corner {
             // The double-headed diagonal arrows Windows itself uses for a corner resize:
             // "↘↖" on the two corners of one diagonal, "↙↗" on the other.
@@ -205,8 +216,12 @@ impl App {
     /// nothing — the rest of the canvas is not interactive yet.
     pub(crate) fn begin_drag(&mut self) {
         let Some(cursor) = self.cursor else { return };
-        let Some((cx, cy)) = self.cursor_in_canvas(cursor) else { return };
-        let Some((name, x, y, w, h, corner)) = self.hit_test() else { return };
+        let Some((cx, cy)) = self.cursor_in_canvas(cursor) else {
+            return;
+        };
+        let Some((name, x, y, w, h, corner)) = self.hit_test() else {
+            return;
+        };
         self.drag = Some(match corner {
             Some(corner) => {
                 let (anchor_is_left, anchor_is_top) = corner.anchor_side();
@@ -218,30 +233,44 @@ impl App {
                     anchor_is_top,
                 }
             }
-            None => DragState::Move { name, grab_offset_x: cx - x, grab_offset_y: cy - y },
+            None => DragState::Move {
+                name,
+                grab_offset_x: cx - x,
+                grab_offset_y: cy - y,
+            },
         });
     }
 
     /// Cursor moved during a gesture — applies whichever one is in progress.
     pub(crate) fn continue_drag(&mut self) {
         let Some(cursor) = self.cursor else { return };
-        let Some((cx, cy)) = self.cursor_in_canvas(cursor) else { return };
+        let Some((cx, cy)) = self.cursor_in_canvas(cursor) else {
+            return;
+        };
         // Cloné plutôt qu'emprunté : le geste appelle ensuite des méthodes qui empruntent
         // `self` en entier.
         let drag = match &self.drag {
-            Some(DragState::Move { name, grab_offset_x, grab_offset_y }) => {
-                Some((name.clone(), None, (*grab_offset_x, *grab_offset_y)))
-            }
-            Some(DragState::Resize { name, anchor_x, anchor_y, anchor_is_left, anchor_is_top }) => {
-                Some((
-                    name.clone(),
-                    Some((*anchor_x, *anchor_y, *anchor_is_left, *anchor_is_top)),
-                    (0.0, 0.0),
-                ))
-            }
+            Some(DragState::Move {
+                name,
+                grab_offset_x,
+                grab_offset_y,
+            }) => Some((name.clone(), None, (*grab_offset_x, *grab_offset_y))),
+            Some(DragState::Resize {
+                name,
+                anchor_x,
+                anchor_y,
+                anchor_is_left,
+                anchor_is_top,
+            }) => Some((
+                name.clone(),
+                Some((*anchor_x, *anchor_y, *anchor_is_left, *anchor_is_top)),
+                (0.0, 0.0),
+            )),
             None => None,
         };
-        let Some((name, resize, (grab_x, grab_y))) = drag else { return };
+        let Some((name, resize, (grab_x, grab_y))) = drag else {
+            return;
+        };
         match resize {
             Some((anchor_x, anchor_y, anchor_is_left, anchor_is_top)) => {
                 self.apply_resize(&name, cx, anchor_x, anchor_y, anchor_is_left, anchor_is_top)
@@ -258,7 +287,9 @@ impl App {
     /// ne corrigeant jamais au-delà de sa portée.
     fn apply_move(&mut self, name: &str, x: f32, y: f32) {
         let (x, y) = self.snapped(name, x, y);
-        let Some(item) = self.active_item(name) else { return };
+        let Some(item) = self.active_item(name) else {
+            return;
+        };
         let result = camera::set_camera_position(item, x as i32, y as i32);
         self.report_transform(name, result);
     }
@@ -295,8 +326,12 @@ impl App {
     ) {
         let Some(obs) = &self.obs else { return };
         let runtime = obs.context.runtime().clone();
-        let Some(item) = self.active_item(name) else { return };
-        let Ok((base_w, base_h)) = sources::item_base_size(&runtime, item) else { return };
+        let Some(item) = self.active_item(name) else {
+            return;
+        };
+        let Ok((base_w, base_h)) = sources::item_base_size(&runtime, item) else {
+            return;
+        };
         if base_w == 0 || base_h == 0 {
             return;
         }
@@ -311,7 +346,9 @@ impl App {
             base_w as f32 * scale,
             base_h as f32 * scale,
         );
-        let Some(item) = self.active_item(name) else { return };
+        let Some(item) = self.active_item(name) else {
+            return;
+        };
         let result = camera::set_camera_transform(item, new_x as i32, new_y as i32, scale);
         self.report_transform(name, result);
     }
@@ -328,7 +365,11 @@ impl App {
     /// La question « est-ce une caméra ? » se pose donc AVANT de demander son identifiant,
     /// avec la même fonction qui répond déjà oui/non ailleurs dans ce fichier.
     fn report_transform(&mut self, name: &str, result: Result<(i32, i32, i32)>) {
-        let scene = self.obs.as_ref().map(|obs| obs.active_scene.clone()).unwrap_or_default();
+        let scene = self
+            .obs
+            .as_ref()
+            .map(|obs| obs.active_scene.clone())
+            .unwrap_or_default();
         let device_id = if self.camera_item_by_name(&scene, name).is_some() {
             self.camera_device_id_by_name(&scene, name)
         } else {
@@ -337,9 +378,17 @@ impl App {
         match result {
             Ok((x, y, scale_percent)) => {
                 self.scene_layout_changed();
-                emit(&EngineMessage::CameraTransform { device_id, scene, x, y, scale_percent })
+                emit(&EngineMessage::CameraTransform {
+                    device_id,
+                    scene,
+                    x,
+                    y,
+                    scale_percent,
+                })
             }
-            Err(err) => emit(&EngineMessage::Error { message: err.to_string() }),
+            Err(err) => emit(&EngineMessage::Error {
+                message: err.to_string(),
+            }),
         }
     }
 }

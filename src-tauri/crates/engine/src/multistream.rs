@@ -9,9 +9,9 @@
 use anyhow::{Context, Result};
 use hikari_protocol::{EngineMessage, StreamTarget};
 use libobs_wrapper::context::ObsContext;
-use libobs_wrapper::data::ObsDataSetters;
 use libobs_wrapper::data::object::ObsObjectTrait;
 use libobs_wrapper::data::output::{ObsOutputRef, ObsOutputTrait};
+use libobs_wrapper::data::ObsDataSetters;
 use libobs_wrapper::encoders::{ObsAudioEncoderType, ObsContextEncoders, ObsVideoEncoderType};
 use libobs_wrapper::run_with_obs;
 use libobs_wrapper::sys as obs;
@@ -45,7 +45,9 @@ fn start_one(context: &mut ObsContext, target: &StreamTarget) -> Result<ObsOutpu
     let output_name = format!("hikari-stream-{}", target.id);
 
     let output_info = OutputInfo::new("rtmp_output", output_name, None, None);
-    let mut output = context.output(output_info).context("création sortie RTMP")?;
+    let mut output = context
+        .output(output_info)
+        .context("création sortie RTMP")?;
 
     let available = context
         .available_video_encoders()
@@ -70,7 +72,9 @@ fn start_one(context: &mut ObsContext, target: &StreamTarget) -> Result<ObsOutpu
         Some(video_settings),
         None,
     );
-    output.create_and_set_video_encoder(video_info).context("encodeur vidéo")?;
+    output
+        .create_and_set_video_encoder(video_info)
+        .context("encodeur vidéo")?;
 
     let mut audio_settings = context.data().context("réglages encodeur audio")?;
     audio_settings.set_string("rate_control", "CBR")?;
@@ -81,14 +85,18 @@ fn start_one(context: &mut ObsContext, target: &StreamTarget) -> Result<ObsOutpu
         Some(audio_settings),
         None,
     );
-    output.create_and_set_audio_encoder(audio_info, 0).context("encodeur audio")?;
+    output
+        .create_and_set_audio_encoder(audio_info, 0)
+        .context("encodeur audio")?;
 
     let output_ptr = output.as_ptr();
     let runtime = context.runtime().clone();
-    let server_c = std::ffi::CString::new(target.server.as_str()).context("serveur RTMP invalide (NUL)")?;
+    let server_c =
+        std::ffi::CString::new(target.server.as_str()).context("serveur RTMP invalide (NUL)")?;
     let key_c = std::ffi::CString::new(key.as_str()).context("clé RTMP invalide (NUL)")?;
     let service_name = format!("hikari-service-{}", target.id);
-    let service_name_c = std::ffi::CString::new(service_name).context("nom de service invalide (NUL)")?;
+    let service_name_c =
+        std::ffi::CString::new(service_name).context("nom de service invalide (NUL)")?;
     run_with_obs!(runtime, (output_ptr), move || {
         // SAFETY: exécuté sur le fil libobs (garanti par `run_with_obs!`) ; `output_ptr`
         // reste valide tant que `output` (possédé par l'appelant) n'est pas droppé — même
@@ -111,7 +119,10 @@ fn start_one(context: &mut ObsContext, target: &StreamTarget) -> Result<ObsOutpu
     .context("attache du service RTMP")?;
 
     output.start().context("démarrage de la diffusion")?;
-    emit(&EngineMessage::PlatformStarted { id: target.id.clone(), hardware });
+    emit(&EngineMessage::PlatformStarted {
+        id: target.id.clone(),
+        hardware,
+    });
     Ok(output)
 }
 
@@ -120,13 +131,22 @@ fn start_one(context: &mut ObsContext, target: &StreamTarget) -> Result<ObsOutpu
 /// silencieux" — a silent partial start would be the opposite failure). Returns the
 /// successfully started subset; an empty return means every target failed (each already
 /// reported its own `PlatformError`).
-pub fn start_multistream(context: &mut ObsContext, targets: &[StreamTarget]) -> Vec<PlatformStream> {
+pub fn start_multistream(
+    context: &mut ObsContext,
+    targets: &[StreamTarget],
+) -> Vec<PlatformStream> {
     targets
         .iter()
         .filter_map(|target| match start_one(context, target) {
-            Ok(output) => Some(PlatformStream { id: target.id.clone(), output }),
+            Ok(output) => Some(PlatformStream {
+                id: target.id.clone(),
+                output,
+            }),
             Err(err) => {
-                emit(&EngineMessage::PlatformError { id: target.id.clone(), message: err.to_string() });
+                emit(&EngineMessage::PlatformError {
+                    id: target.id.clone(),
+                    message: err.to_string(),
+                });
                 None
             }
         })
@@ -137,10 +157,15 @@ pub fn start_multistream(context: &mut ObsContext, targets: &[StreamTarget]) -> 
 /// way `stream::start_stream`'s caller tolerates a missing stream (no panic, no silent gap).
 pub fn stop_one(stream: &mut PlatformStream) {
     if let Err(err) = stream.output.stop() {
-        emit(&EngineMessage::PlatformError { id: stream.id.clone(), message: err.to_string() });
+        emit(&EngineMessage::PlatformError {
+            id: stream.id.clone(),
+            message: err.to_string(),
+        });
         return;
     }
-    emit(&EngineMessage::PlatformStopped { id: stream.id.clone() });
+    emit(&EngineMessage::PlatformStopped {
+        id: stream.id.clone(),
+    });
 }
 
 /// Reads the network frame-drop counters for one target's output — transcribed from
@@ -157,10 +182,15 @@ pub fn report_platform_frame_stats(context: &ObsContext, stream: &PlatformStream
         )
     });
     match result {
-        Ok((dropped, total)) => {
-            emit(&EngineMessage::PlatformFrames { id: stream.id.clone(), dropped, total })
-        }
-        Err(err) => eprintln!("[engine] lecture stats images échouée ({}): {err}", stream.id),
+        Ok((dropped, total)) => emit(&EngineMessage::PlatformFrames {
+            id: stream.id.clone(),
+            dropped,
+            total,
+        }),
+        Err(err) => eprintln!(
+            "[engine] lecture stats images échouée ({}): {err}",
+            stream.id
+        ),
     }
 }
 

@@ -12,7 +12,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::model::{Action, Automation, AutomationId, Context, ConditionError};
+use crate::model::{Action, Automation, AutomationId, ConditionError, Context};
 use crate::triggers::{self, ChatCommandWhitelist, TriggerError};
 
 /// Anti-loop ceiling: how many `RunAutomation` hops a single trigger may cross before
@@ -45,7 +45,9 @@ pub enum Decision {
 pub enum RefusalReason {
     Inactive,
     ConditionFalse,
-    ConditionUnevaluable { variable: String },
+    ConditionUnevaluable {
+        variable: String,
+    },
     SequenceDepthExceeded,
     /// A `RunAutomation` action pointed at an id that is no longer registered
     /// (defensive: cycle detection assumes the graph is stable, this guards the case
@@ -62,7 +64,10 @@ pub struct AutomationEngine {
 
 impl AutomationEngine {
     pub fn new(chat_whitelist: ChatCommandWhitelist) -> Self {
-        Self { automations: HashMap::new(), chat_whitelist }
+        Self {
+            automations: HashMap::new(),
+            chat_whitelist,
+        }
     }
 
     /// Parses one automation from a JSON line and registers it. An unrecognized
@@ -96,8 +101,12 @@ impl AutomationEngine {
     /// it is ever stored.
     fn assert_no_cycle(&self, candidate: &Automation) -> Result<(), EngineError> {
         let mut visited = HashSet::new();
-        let mut stack: Vec<AutomationId> =
-            candidate.actions.iter().filter_map(Action::referenced_automation).cloned().collect();
+        let mut stack: Vec<AutomationId> = candidate
+            .actions
+            .iter()
+            .filter_map(Action::referenced_automation)
+            .cloned()
+            .collect();
         while let Some(next_id) = stack.pop() {
             if next_id == candidate.id {
                 return Err(EngineError::CycleDetected(candidate.id.clone()));
@@ -107,7 +116,10 @@ impl AutomationEngine {
             }
             if let Some(next) = self.automations.get(&next_id) {
                 stack.extend(
-                    next.actions.iter().filter_map(Action::referenced_automation).cloned(),
+                    next.actions
+                        .iter()
+                        .filter_map(Action::referenced_automation)
+                        .cloned(),
                 );
             }
         }
@@ -116,8 +128,10 @@ impl AutomationEngine {
 
     /// Pure decision for one automation against one context (see module doc).
     pub fn decide(&self, id: &AutomationId, context: &Context) -> Result<Decision, EngineError> {
-        let automation =
-            self.automations.get(id).ok_or_else(|| EngineError::UnknownAutomation(id.clone()))?;
+        let automation = self
+            .automations
+            .get(id)
+            .ok_or_else(|| EngineError::UnknownAutomation(id.clone()))?;
         if !automation.active {
             return Ok(Decision::Refused(RefusalReason::Inactive));
         }
@@ -133,7 +147,11 @@ impl AutomationEngine {
     /// Expands nested `RunAutomation` actions into a flat, ordered sequence,
     /// depth-bounded (CDC §8 anti-loop ceiling). A missing referenced automation
     /// refuses closed rather than silently dropping the step.
-    fn expand_actions(&self, actions: &[Action], depth: usize) -> Result<Vec<Action>, RefusalReason> {
+    fn expand_actions(
+        &self,
+        actions: &[Action],
+        depth: usize,
+    ) -> Result<Vec<Action>, RefusalReason> {
         if depth > MAX_SEQUENCE_DEPTH {
             return Err(RefusalReason::SequenceDepthExceeded);
         }
@@ -141,10 +159,9 @@ impl AutomationEngine {
         for action in actions {
             match action.referenced_automation() {
                 Some(referenced_id) => {
-                    let referenced = self
-                        .automations
-                        .get(referenced_id)
-                        .ok_or_else(|| RefusalReason::ReferencedAutomationMissing(referenced_id.clone()))?;
+                    let referenced = self.automations.get(referenced_id).ok_or_else(|| {
+                        RefusalReason::ReferencedAutomationMissing(referenced_id.clone())
+                    })?;
                     expanded.extend(self.expand_actions(&referenced.actions, depth + 1)?);
                 }
                 None => expanded.push(action.clone()),
@@ -156,7 +173,10 @@ impl AutomationEngine {
     /// Automations eligible for deck assignment: button-triggered ones only
     /// (ADR-012). Single query point — B4 never re-derives the rule itself.
     pub fn deck_eligible_automations(&self) -> Vec<&Automation> {
-        self.automations.values().filter(|a| a.trigger.is_deck_eligible()).collect()
+        self.automations
+            .values()
+            .filter(|a| a.trigger.is_deck_eligible())
+            .collect()
     }
 }
 

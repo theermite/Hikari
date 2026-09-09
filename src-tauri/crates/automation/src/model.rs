@@ -73,13 +73,13 @@ impl Condition {
     pub fn evaluate(&self, context: &Context) -> Result<bool, ConditionError> {
         match self {
             Condition::Always => Ok(true),
-            Condition::VariableExists { variable } => {
-                Ok(context.variables.contains_key(variable))
-            }
+            Condition::VariableExists { variable } => Ok(context.variables.contains_key(variable)),
             Condition::VariableEquals { variable, value } => {
                 match context.variables.get(variable) {
                     Some(current) => Ok(current == value),
-                    None => Err(ConditionError::Unevaluable { variable: variable.clone() }),
+                    None => Err(ConditionError::Unevaluable {
+                        variable: variable.clone(),
+                    }),
                 }
             }
         }
@@ -93,21 +93,38 @@ impl Condition {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Action {
-    SwitchScene { scene: String },
-    SetSourceVisibility { source: String, visible: bool },
-    SendChatMessage { message: String },
-    PlaySound { sound_id: String },
+    SwitchScene {
+        scene: String,
+    },
+    SetSourceVisibility {
+        source: String,
+        visible: bool,
+    },
+    SendChatMessage {
+        message: String,
+    },
+    PlaySound {
+        sound_id: String,
+    },
     /// CDC §8 FMEA: the path is a value chosen by the user (a file picker, at the UI
     /// layer) — the engine only carries it, it never builds one from an event.
-    LaunchApplication { path: String },
+    LaunchApplication {
+        path: String,
+    },
     /// CDC §8 FMEA: the target is a value the user typed explicitly — the engine
     /// never derives it from a chat message or injects a token into it.
-    HttpRequest { url: String },
+    HttpRequest {
+        url: String,
+    },
     /// Chains to another automation's actions (sequencing). This is the ONLY
     /// variant that can create a cycle — `AutomationEngine::assert_no_cycle` walks
     /// exactly these edges.
-    RunAutomation { automation_id: AutomationId },
-    Wait { millis: u64 },
+    RunAutomation {
+        automation_id: AutomationId,
+    },
+    Wait {
+        millis: u64,
+    },
 }
 
 impl Action {
@@ -176,7 +193,9 @@ mod tests {
         };
         assert_eq!(
             condition.evaluate(&context),
-            Err(ConditionError::Unevaluable { variable: "sub_tier".to_string() })
+            Err(ConditionError::Unevaluable {
+                variable: "sub_tier".to_string()
+            })
         );
     }
 
@@ -186,23 +205,29 @@ mod tests {
         // and `Context::with_variable` actually depositing the value — a mutant
         // swapping either would flip this to false/Unevaluable instead of true.
         let context = Context::new().with_variable("sub_tier", "3");
-        let condition =
-            Condition::VariableEquals { variable: "sub_tier".to_string(), value: "3".to_string() };
+        let condition = Condition::VariableEquals {
+            variable: "sub_tier".to_string(),
+            value: "3".to_string(),
+        };
         assert_eq!(condition.evaluate(&context), Ok(true));
     }
 
     #[test]
     fn should_evaluate_false_when_variable_equals_different_value() {
         let context = Context::new().with_variable("sub_tier", "1");
-        let condition =
-            Condition::VariableEquals { variable: "sub_tier".to_string(), value: "3".to_string() };
+        let condition = Condition::VariableEquals {
+            variable: "sub_tier".to_string(),
+            value: "3".to_string(),
+        };
         assert_eq!(condition.evaluate(&context), Ok(false));
     }
 
     #[test]
     fn should_evaluate_false_when_variable_exists_but_missing() {
         let context = Context::new();
-        let condition = Condition::VariableExists { variable: "raid_from".to_string() };
+        let condition = Condition::VariableExists {
+            variable: "raid_from".to_string(),
+        };
         // Existence is always evaluable, unlike equality — never an error.
         assert_eq!(condition.evaluate(&context), Ok(false));
     }
@@ -210,11 +235,15 @@ mod tests {
     #[test]
     fn should_never_expose_event_trigger_as_deck_key() {
         // ADR-012, the Beyoncé-rule test named in the PET verbatim.
-        let event = Trigger::Event { event_name: "follow".to_string() };
+        let event = Trigger::Event {
+            event_name: "follow".to_string(),
+        };
         assert!(!event.is_deck_eligible());
         let timer = Trigger::Timer { interval_secs: 60 };
         assert!(!timer.is_deck_eligible());
-        let chat = Trigger::ChatCommand { command: "!hype".to_string() };
+        let chat = Trigger::ChatCommand {
+            command: "!hype".to_string(),
+        };
         assert!(!chat.is_deck_eligible());
         let button = Trigger::Button;
         assert!(button.is_deck_eligible());
@@ -222,8 +251,13 @@ mod tests {
 
     #[test]
     fn should_find_referenced_automation_when_run_automation_action() {
-        let action = Action::RunAutomation { automation_id: "hype-train".to_string() };
-        assert_eq!(action.referenced_automation(), Some(&"hype-train".to_string()));
+        let action = Action::RunAutomation {
+            automation_id: "hype-train".to_string(),
+        };
+        assert_eq!(
+            action.referenced_automation(),
+            Some(&"hype-train".to_string())
+        );
         let leaf = Action::Wait { millis: 500 };
         assert_eq!(leaf.referenced_automation(), None);
     }

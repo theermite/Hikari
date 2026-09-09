@@ -6,8 +6,8 @@
 //! `should_reject_unknown_trigger_type` · `should_never_expose_event_trigger_as_deck_key`.
 
 use hikari_automation::{
-    Action, Automation, AutomationEngine, Condition, Context, Decision, EngineError,
-    RefusalReason, Trigger, MAX_SEQUENCE_DEPTH,
+    Action, Automation, AutomationEngine, Condition, Context, Decision, EngineError, RefusalReason,
+    Trigger, MAX_SEQUENCE_DEPTH,
 };
 
 fn button_automation(id: &str, active: bool) -> Automation {
@@ -16,7 +16,9 @@ fn button_automation(id: &str, active: bool) -> Automation {
         name: "test".to_string(),
         trigger: Trigger::Button,
         conditions: vec![],
-        actions: vec![Action::SwitchScene { scene: "Just Chatting".to_string() }],
+        actions: vec![Action::SwitchScene {
+            scene: "Just Chatting".to_string(),
+        }],
         active,
     }
 }
@@ -24,34 +26,50 @@ fn button_automation(id: &str, active: bool) -> Automation {
 #[test]
 fn should_run_action_when_condition_true() {
     let mut engine = AutomationEngine::default();
-    engine.register(button_automation("clip-hype", true)).expect("registers cleanly");
-    let decision = engine.decide(&"clip-hype".to_string(), &Context::new()).expect("known id");
+    engine
+        .register(button_automation("clip-hype", true))
+        .expect("registers cleanly");
+    let decision = engine
+        .decide(&"clip-hype".to_string(), &Context::new())
+        .expect("known id");
     assert_eq!(
         decision,
-        Decision::Run(vec![Action::SwitchScene { scene: "Just Chatting".to_string() }])
+        Decision::Run(vec![Action::SwitchScene {
+            scene: "Just Chatting".to_string()
+        }])
     );
 }
 
 #[test]
 fn should_refuse_when_inactive() {
     let mut engine = AutomationEngine::default();
-    engine.register(button_automation("disabled", false)).expect("registers cleanly");
-    let decision = engine.decide(&"disabled".to_string(), &Context::new()).expect("known id");
+    engine
+        .register(button_automation("disabled", false))
+        .expect("registers cleanly");
+    let decision = engine
+        .decide(&"disabled".to_string(), &Context::new())
+        .expect("known id");
     assert_eq!(decision, Decision::Refused(RefusalReason::Inactive));
 }
 
 #[test]
 fn should_refuse_when_condition_unevaluable() {
     let mut automation = button_automation("sub-only", true);
-    automation.conditions =
-        vec![Condition::VariableEquals { variable: "sub_tier".to_string(), value: "3".to_string() }];
+    automation.conditions = vec![Condition::VariableEquals {
+        variable: "sub_tier".to_string(),
+        value: "3".to_string(),
+    }];
     let mut engine = AutomationEngine::default();
     engine.register(automation).expect("registers cleanly");
     // The context never deposited `sub_tier` — closed refusal, never a silent run.
-    let decision = engine.decide(&"sub-only".to_string(), &Context::new()).expect("known id");
+    let decision = engine
+        .decide(&"sub-only".to_string(), &Context::new())
+        .expect("known id");
     assert_eq!(
         decision,
-        Decision::Refused(RefusalReason::ConditionUnevaluable { variable: "sub_tier".to_string() })
+        Decision::Refused(RefusalReason::ConditionUnevaluable {
+            variable: "sub_tier".to_string()
+        })
     );
 }
 
@@ -59,10 +77,16 @@ fn should_refuse_when_condition_unevaluable() {
 fn should_reject_cycle_at_save() {
     let mut engine = AutomationEngine::default();
     let mut a = button_automation("a", true);
-    a.actions = vec![Action::RunAutomation { automation_id: "b".to_string() }];
+    a.actions = vec![Action::RunAutomation {
+        automation_id: "b".to_string(),
+    }];
     let mut b = button_automation("b", true);
-    b.actions = vec![Action::RunAutomation { automation_id: "a".to_string() }];
-    engine.register(a).expect("a registers before the cycle closes");
+    b.actions = vec![Action::RunAutomation {
+        automation_id: "a".to_string(),
+    }];
+    engine
+        .register(a)
+        .expect("a registers before the cycle closes");
     let result = engine.register(b);
     assert_eq!(result, Err(EngineError::CycleDetected("b".to_string())));
 }
@@ -71,8 +95,13 @@ fn should_reject_cycle_at_save() {
 fn should_reject_self_referencing_cycle_at_save() {
     let mut engine = AutomationEngine::default();
     let mut looped = button_automation("loop", true);
-    looped.actions = vec![Action::RunAutomation { automation_id: "loop".to_string() }];
-    assert_eq!(engine.register(looped), Err(EngineError::CycleDetected("loop".to_string())));
+    looped.actions = vec![Action::RunAutomation {
+        automation_id: "loop".to_string(),
+    }];
+    assert_eq!(
+        engine.register(looped),
+        Err(EngineError::CycleDetected("loop".to_string()))
+    );
 }
 
 #[test]
@@ -93,7 +122,9 @@ fn should_reject_unknown_trigger_type() {
 #[test]
 fn should_reject_duplicate_id_at_save() {
     let mut engine = AutomationEngine::default();
-    engine.register(button_automation("dup", true)).expect("first registers");
+    engine
+        .register(button_automation("dup", true))
+        .expect("first registers");
     let result = engine.register(button_automation("dup", true));
     assert_eq!(result, Err(EngineError::DuplicateId("dup".to_string())));
 }
@@ -104,7 +135,9 @@ fn register_chain(engine: &mut AutomationEngine, len: usize) {
     for i in (0..len).rev() {
         let mut step = button_automation(&format!("step-{i}"), true);
         if i + 1 < len {
-            step.actions = vec![Action::RunAutomation { automation_id: format!("step-{}", i + 1) }];
+            step.actions = vec![Action::RunAutomation {
+                automation_id: format!("step-{}", i + 1),
+            }];
         }
         engine.register(step).expect("acyclic chain registers");
     }
@@ -117,8 +150,13 @@ fn should_allow_sequence_exactly_at_max_depth() {
     // on either would refuse here where the real code must not).
     let mut engine = AutomationEngine::default();
     register_chain(&mut engine, MAX_SEQUENCE_DEPTH + 1);
-    let decision = engine.decide(&"step-0".to_string(), &Context::new()).expect("known id");
-    assert!(matches!(decision, Decision::Run(_)), "expected Run at exactly the depth ceiling, got {decision:?}");
+    let decision = engine
+        .decide(&"step-0".to_string(), &Context::new())
+        .expect("known id");
+    assert!(
+        matches!(decision, Decision::Run(_)),
+        "expected Run at exactly the depth ceiling, got {decision:?}"
+    );
 }
 
 #[test]
@@ -127,18 +165,33 @@ fn should_reject_sequence_one_past_max_depth() {
     // earlier or later (kills the `==` and `>=` mutants on the same comparison).
     let mut engine = AutomationEngine::default();
     register_chain(&mut engine, MAX_SEQUENCE_DEPTH + 2);
-    let decision = engine.decide(&"step-0".to_string(), &Context::new()).expect("known id");
-    assert_eq!(decision, Decision::Refused(RefusalReason::SequenceDepthExceeded));
+    let decision = engine
+        .decide(&"step-0".to_string(), &Context::new())
+        .expect("known id");
+    assert_eq!(
+        decision,
+        Decision::Refused(RefusalReason::SequenceDepthExceeded)
+    );
 }
 
 #[test]
 fn should_never_expose_event_trigger_as_deck_key() {
     let mut engine = AutomationEngine::default();
-    engine.register(button_automation("deck-worthy", true)).expect("registers cleanly");
+    engine
+        .register(button_automation("deck-worthy", true))
+        .expect("registers cleanly");
     let mut event_automation = button_automation("silent-follow", true);
-    event_automation.trigger = Trigger::Event { event_name: "follow".to_string() };
-    engine.register(event_automation).expect("registers cleanly");
-    let deck_ids: Vec<&str> = engine.deck_eligible_automations().iter().map(|a| a.id.as_str()).collect();
+    event_automation.trigger = Trigger::Event {
+        event_name: "follow".to_string(),
+    };
+    engine
+        .register(event_automation)
+        .expect("registers cleanly");
+    let deck_ids: Vec<&str> = engine
+        .deck_eligible_automations()
+        .iter()
+        .map(|a| a.id.as_str())
+        .collect();
     assert_eq!(deck_ids, vec!["deck-worthy"]);
 }
 
@@ -146,7 +199,10 @@ fn should_never_expose_event_trigger_as_deck_key() {
 fn should_refuse_when_unknown_automation_id() {
     let engine = AutomationEngine::default();
     let result = engine.decide(&"ghost".to_string(), &Context::new());
-    assert_eq!(result, Err(EngineError::UnknownAutomation("ghost".to_string())));
+    assert_eq!(
+        result,
+        Err(EngineError::UnknownAutomation("ghost".to_string()))
+    );
 }
 
 #[test]
@@ -157,11 +213,19 @@ fn should_refuse_when_referenced_automation_missing_at_decide_time() {
     // data", `RefusalReason::ReferencedAutomationMissing`).
     let mut engine = AutomationEngine::default();
     let mut a = button_automation("a", true);
-    a.actions = vec![Action::RunAutomation { automation_id: "ghost".to_string() }];
-    engine.register(a).expect("a forward reference to an unregistered id still registers");
-    let decision = engine.decide(&"a".to_string(), &Context::new()).expect("known id");
+    a.actions = vec![Action::RunAutomation {
+        automation_id: "ghost".to_string(),
+    }];
+    engine
+        .register(a)
+        .expect("a forward reference to an unregistered id still registers");
+    let decision = engine
+        .decide(&"a".to_string(), &Context::new())
+        .expect("known id");
     assert_eq!(
         decision,
-        Decision::Refused(RefusalReason::ReferencedAutomationMissing("ghost".to_string()))
+        Decision::Refused(RefusalReason::ReferencedAutomationMissing(
+            "ghost".to_string()
+        ))
     );
 }

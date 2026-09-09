@@ -6,6 +6,6 @@
 //! `engine_bridge` and future Tauri commands reference `crate::protocol::…`.
 
 pub use hikari_protocol::{
-    ControllerCommand, EngineMessage, SourceInfo, parse_controller_command, parse_engine_message,
-    parse_line, to_line,
+    parse_controller_command, parse_engine_message, parse_line, to_line, ControllerCommand,
+    EngineMessage, SourceInfo,
 };

@@ -26,7 +26,9 @@ use std::fmt;
 
 use serde::Deserialize;
 
-use crate::accounts::oauth::{code_challenge_from_verifier, generate_code_verifier, generate_state};
+use crate::accounts::oauth::{
+    code_challenge_from_verifier, generate_code_verifier, generate_state,
+};
 use crate::accounts::vault::{now_unix, Secret, StoredToken};
 
 /// Fixed loopback port for the local redirect listener. Google requires the exact redirect
@@ -63,11 +65,19 @@ pub enum YouTubeAuthError {
 impl fmt::Display for YouTubeAuthError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            YouTubeAuthError::StateMismatch => write!(f, "réponse Google suspecte (state incohérent)"),
+            YouTubeAuthError::StateMismatch => {
+                write!(f, "réponse Google suspecte (state incohérent)")
+            }
             YouTubeAuthError::Denied(msg) => write!(f, "autorisation refusée: {msg}"),
-            YouTubeAuthError::CallbackFailed(msg) => write!(f, "réception de la redirection échouée: {msg}"),
-            YouTubeAuthError::TokenExchangeFailed(msg) => write!(f, "échange du jeton échoué: {msg}"),
-            YouTubeAuthError::MissingRefreshToken => write!(f, "Google n'a pas rendu de jeton de rafraîchissement"),
+            YouTubeAuthError::CallbackFailed(msg) => {
+                write!(f, "réception de la redirection échouée: {msg}")
+            }
+            YouTubeAuthError::TokenExchangeFailed(msg) => {
+                write!(f, "échange du jeton échoué: {msg}")
+            }
+            YouTubeAuthError::MissingRefreshToken => {
+                write!(f, "Google n'a pas rendu de jeton de rafraîchissement")
+            }
         }
     }
 }
@@ -92,12 +102,21 @@ pub fn start_authorization(client_id: &str) -> PendingAuthorization {
     let state = generate_state();
     let challenge = code_challenge_from_verifier(&code_verifier);
     let authorization_url = build_authorization_url(client_id, &redirect_uri(), &state, &challenge);
-    PendingAuthorization { authorization_url, code_verifier: Secret::new(code_verifier), state }
+    PendingAuthorization {
+        authorization_url,
+        code_verifier: Secret::new(code_verifier),
+        state,
+    }
 }
 
 /// Pure URL construction, split out from `start_authorization` so it's unit-testable without
 /// generating real random PKCE material each time.
-fn build_authorization_url(client_id: &str, redirect_uri: &str, state: &str, code_challenge: &str) -> String {
+fn build_authorization_url(
+    client_id: &str,
+    redirect_uri: &str,
+    state: &str,
+    code_challenge: &str,
+) -> String {
     let params = [
         ("client_id", client_id),
         ("redirect_uri", redirect_uri),
@@ -137,8 +156,12 @@ fn parse_callback_query(query: &str) -> Result<CallbackParams, YouTubeAuthError>
     let mut state = None;
     let mut error = None;
     for pair in query.split('&') {
-        let Some((key, value)) = pair.split_once('=') else { continue };
-        let value = urlencoding::decode(value).map(|v| v.into_owned()).unwrap_or_default();
+        let Some((key, value)) = pair.split_once('=') else {
+            continue;
+        };
+        let value = urlencoding::decode(value)
+            .map(|v| v.into_owned())
+            .unwrap_or_default();
         match key {
             "code" => code = Some(value),
             "state" => state = Some(value),
@@ -165,7 +188,14 @@ pub async fn finish_authorization(
     http: &reqwest::Client,
 ) -> Result<StoredToken, YouTubeAuthError> {
     let code = receive_redirect(&pending.state)?;
-    exchange_code_for_token(client_id, client_secret, &code, pending.code_verifier.expose(), http).await
+    exchange_code_for_token(
+        client_id,
+        client_secret,
+        &code,
+        pending.code_verifier.expose(),
+        http,
+    )
+    .await
 }
 
 /// The exact path segment of the redirect URI (`redirect_uri()` ends in this) — used to
@@ -186,8 +216,9 @@ const AUTHORIZATION_TIMEOUT: std::time::Duration = std::time::Duration::from_sec
 /// (path mismatch) is answered 404 and ignored — the wait continues, bounded by
 /// `AUTHORIZATION_TIMEOUT`.
 fn receive_redirect(expected_state: &str) -> Result<String, YouTubeAuthError> {
-    let server = tiny_http::Server::http(("127.0.0.1", REDIRECT_PORT))
-        .map_err(|err| YouTubeAuthError::CallbackFailed(format!("port {REDIRECT_PORT} indisponible: {err}")))?;
+    let server = tiny_http::Server::http(("127.0.0.1", REDIRECT_PORT)).map_err(|err| {
+        YouTubeAuthError::CallbackFailed(format!("port {REDIRECT_PORT} indisponible: {err}"))
+    })?;
     receive_redirect_on(&server, expected_state, AUTHORIZATION_TIMEOUT)
 }
 
@@ -203,12 +234,17 @@ fn receive_redirect_on(
     let params = loop {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
         if remaining.is_zero() {
-            return Err(YouTubeAuthError::CallbackFailed(format!("délai d'autorisation dépassé ({}s)", timeout.as_secs())));
+            return Err(YouTubeAuthError::CallbackFailed(format!(
+                "délai d'autorisation dépassé ({}s)",
+                timeout.as_secs()
+            )));
         }
         let request = server
             .recv_timeout(remaining)
             .map_err(|err| YouTubeAuthError::CallbackFailed(format!("erreur réseau: {err}")))?
-            .ok_or_else(|| YouTubeAuthError::CallbackFailed("délai d'autorisation dépassé (5 min)".into()))?;
+            .ok_or_else(|| {
+                YouTubeAuthError::CallbackFailed("délai d'autorisation dépassé (5 min)".into())
+            })?;
 
         let (path, query) = request.url().split_once('?').unwrap_or((request.url(), ""));
         if path != CALLBACK_PATH {
@@ -223,7 +259,13 @@ fn receive_redirect_on(
         };
         let response = tiny_http::Response::from_string(body)
             .with_status_code(status)
-            .with_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html; charset=utf-8"[..]).unwrap());
+            .with_header(
+                tiny_http::Header::from_bytes(
+                    &b"Content-Type"[..],
+                    &b"text/html; charset=utf-8"[..],
+                )
+                .unwrap(),
+            );
         let _ = request.respond(response);
         break params;
     };
@@ -271,9 +313,13 @@ async fn exchange_code_for_token(
         let body = response.text().await.unwrap_or_default();
         return Err(YouTubeAuthError::TokenExchangeFailed(body));
     }
-    let token: TokenResponse =
-        response.json().await.map_err(|err| YouTubeAuthError::TokenExchangeFailed(err.to_string()))?;
-    let refresh_token = token.refresh_token.ok_or(YouTubeAuthError::MissingRefreshToken)?;
+    let token: TokenResponse = response
+        .json()
+        .await
+        .map_err(|err| YouTubeAuthError::TokenExchangeFailed(err.to_string()))?;
+    let refresh_token = token
+        .refresh_token
+        .ok_or(YouTubeAuthError::MissingRefreshToken)?;
     Ok(StoredToken {
         access_token: Secret::new(token.access_token),
         refresh_token: Secret::new(refresh_token),
@@ -289,18 +335,27 @@ mod tests {
 
     #[test]
     fn should_build_authorization_url_with_pkce_and_offline_access() {
-        let url = build_authorization_url("my-client-id", "http://127.0.0.1:8731/callback", "the-state", "the-challenge");
+        let url = build_authorization_url(
+            "my-client-id",
+            "http://127.0.0.1:8731/callback",
+            "the-state",
+            "the-challenge",
+        );
         assert!(url.starts_with(AUTH_ENDPOINT));
         assert!(url.contains("client_id=my-client-id"));
         assert!(url.contains("code_challenge=the-challenge"));
         assert!(url.contains("code_challenge_method=S256"));
-        assert!(url.contains("access_type=offline"), "must request offline access for a refresh token");
+        assert!(
+            url.contains("access_type=offline"),
+            "must request offline access for a refresh token"
+        );
         assert!(url.contains(&urlencoding::encode(SCOPE).into_owned()));
     }
 
     #[test]
     fn should_parse_successful_callback_query() {
-        let params = parse_callback_query("code=abc123&state=xyz789&scope=foo").expect("valid query parses");
+        let params =
+            parse_callback_query("code=abc123&state=xyz789&scope=foo").expect("valid query parses");
         assert_eq!(params.code, "abc123");
         assert_eq!(params.state, "xyz789");
     }
@@ -327,7 +382,8 @@ mod tests {
     fn should_decode_url_encoded_values() {
         // Google URL-encodes state/code in practice — a raw '%' in an unencoded value must
         // not be assumed; verify decoding actually happens rather than passing through raw.
-        let params = parse_callback_query("code=a%2Bb&state=hello%20world").expect("encoded query parses");
+        let params =
+            parse_callback_query("code=a%2Bb&state=hello%20world").expect("encoded query parses");
         assert_eq!(params.code, "a+b");
         assert_eq!(params.state, "hello world");
     }

@@ -105,7 +105,11 @@ pub fn set_transition_immediate(transition: &ObsSourceRef, dest: SceneSourcePtr)
 /// — this function trusts its caller rather than re-clamping, since both callers
 /// (`scenes::switch_scene`) already go through the shared validation, and duplicating the
 /// clamp here would let the two silently drift to different ceilings.
-pub fn start_transition(transition: &ObsSourceRef, dest: SceneSourcePtr, duration_ms: u32) -> Result<()> {
+pub fn start_transition(
+    transition: &ObsSourceRef,
+    dest: SceneSourcePtr,
+    duration_ms: u32,
+) -> Result<()> {
     let runtime = transition.runtime().clone();
     let transition_ptr = transition.as_ptr();
     runtime

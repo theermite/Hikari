@@ -11,12 +11,16 @@
 
 use windows::Win32::Foundation::LPARAM;
 use windows::Win32::Graphics::Gdi::{
-    DEFAULT_CHARSET, EnumFontFamiliesExW, GetDC, LOGFONTW, ReleaseDC, TEXTMETRICW,
+    EnumFontFamiliesExW, GetDC, ReleaseDC, DEFAULT_CHARSET, LOGFONTW, TEXTMETRICW,
 };
 
 /// Lit le nom de police dans `lfFaceName` (UTF-16, terminé par zéro ou plein).
 fn face_name(logfont: &LOGFONTW) -> String {
-    let fin = logfont.lfFaceName.iter().position(|&c| c == 0).unwrap_or(logfont.lfFaceName.len());
+    let fin = logfont
+        .lfFaceName
+        .iter()
+        .position(|&c| c == 0)
+        .unwrap_or(logfont.lfFaceName.len());
     String::from_utf16_lossy(&logfont.lfFaceName[..fin])
 }
 
@@ -45,7 +49,10 @@ unsafe extern "system" fn collect(
 /// jeu de caractères qu'elles supportent — d'où le doublon à filtrer : une police portant
 /// à la fois le latin et le cyrillique apparaît deux fois sous le même nom.
 pub fn list_installed_fonts() -> Vec<String> {
-    let logfont = LOGFONTW { lfCharSet: DEFAULT_CHARSET, ..Default::default() };
+    let logfont = LOGFONTW {
+        lfCharSet: DEFAULT_CHARSET,
+        ..Default::default()
+    };
 
     let mut noms: Vec<String> = Vec::new();
     // Safety: `GetDC(None)` rend le contexte de l'écran, valide pour la durée de cet appel
@@ -97,6 +104,9 @@ mod tests {
 
         // Arial est une police système Windows depuis toujours — sa présence prouve que
         // l'énumération a vraiment parcouru le système, pas un sous-ensemble vide.
-        assert!(fonts.iter().any(|f| f == "Arial"), "Arial absente — l'énumération n'a rien lu");
+        assert!(
+            fonts.iter().any(|f| f == "Arial"),
+            "Arial absente — l'énumération n'a rien lu"
+        );
     }
 }

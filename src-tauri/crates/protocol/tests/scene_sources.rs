@@ -3,9 +3,9 @@
 //! intégration, prouvée en lançant l'app.
 
 use hikari_protocol::{
-    SourceKind, CaptureTarget, ControllerCommand, EngineMessage, SceneInfo, SceneNameError,
-    SceneSourceInfo, SourceOrder, parse_controller_command, parse_engine_message, to_line,
-    validate_source_name,
+    parse_controller_command, parse_engine_message, to_line, validate_source_name, CaptureTarget,
+    ControllerCommand, EngineMessage, SceneInfo, SceneNameError, SceneSourceInfo, SourceKind,
+    SourceOrder,
 };
 use proptest::prelude::*;
 
@@ -42,8 +42,15 @@ fn should_carry_everything_needed_to_rebuild_a_source() {
 
     assert_eq!(back.source_kind, SourceKind::Game, "la famille survit");
     assert_eq!(back.target_id, "LoL", "ce qu'elle capture survit");
-    assert_eq!((back.x, back.y, back.scale_percent), (120, -40, 75), "le placement survit");
-    assert!(back.locked, "le verrou survit — sinon il se rouvre seul au lancement suivant");
+    assert_eq!(
+        (back.x, back.y, back.scale_percent),
+        (120, -40, 75),
+        "le placement survit"
+    );
+    assert!(
+        back.locked,
+        "le verrou survit — sinon il se rouvre seul au lancement suivant"
+    );
 }
 
 #[test]
@@ -111,9 +118,18 @@ fn should_reject_a_source_name_already_used_in_the_same_scene() {
 #[test]
 fn should_roundtrip_the_capture_targets_message() {
     let msg = EngineMessage::CaptureTargets {
-        games: vec![CaptureTarget { id: "LoL".to_string(), label: "League of Legends".to_string() }],
-        windows: vec![CaptureTarget { id: "w1".to_string(), label: "Bloc-notes".to_string() }],
-        monitors: vec![CaptureTarget { id: "\\\\.\\DISPLAY1".to_string(), label: "Écran 1".to_string() }],
+        games: vec![CaptureTarget {
+            id: "LoL".to_string(),
+            label: "League of Legends".to_string(),
+        }],
+        windows: vec![CaptureTarget {
+            id: "w1".to_string(),
+            label: "Bloc-notes".to_string(),
+        }],
+        monitors: vec![CaptureTarget {
+            id: "\\\\.\\DISPLAY1".to_string(),
+            label: "Écran 1".to_string(),
+        }],
     };
     let line = to_line(&msg).expect("serializes");
     assert!(!line.contains('\n'));
@@ -155,7 +171,7 @@ fn should_roundtrip_every_source_command() {
             scene: "main".to_string(),
             name: "Jeu".to_string(),
             locked: true,
-                },
+        },
     ];
     for cmd in commands {
         let line = to_line(&cmd).expect("serializes");
@@ -209,7 +225,10 @@ fn should_carry_each_scenes_own_source_list() {
         panic!("expected a scene_list");
     };
     assert_eq!(scenes[1], jeu);
-    assert!(scenes[0].sources.is_empty(), "une scène neuve ne contient rien");
+    assert!(
+        scenes[0].sources.is_empty(),
+        "une scène neuve ne contient rien"
+    );
 }
 
 proptest! {
@@ -256,5 +275,8 @@ fn should_show_a_source_saved_before_visibility_existed() {
     let source: hikari_protocol::SceneSourceInfo =
         serde_json::from_str(ancien).expect("une session d'avant doit rester lisible");
 
-    assert!(source.visible, "une source d'avant le champ est montrée, jamais cachée");
+    assert!(
+        source.visible,
+        "une source d'avant le champ est montrée, jamais cachée"
+    );
 }

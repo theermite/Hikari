@@ -9,7 +9,7 @@ use std::time::Instant;
 use winit::event_loop::EventLoop;
 
 use crate::stdin_reader::spawn_stdin_command_reader;
-use crate::{App, EngineEvent, PREVIEW_START_HEIGHT, PREVIEW_START_WIDTH, camera, emit};
+use crate::{camera, emit, App, EngineEvent, PREVIEW_START_HEIGHT, PREVIEW_START_WIDTH};
 use hikari_protocol::EngineMessage;
 
 pub(crate) fn run() -> Result<()> {

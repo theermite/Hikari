@@ -49,11 +49,7 @@ pub fn attach(
             // Safety: sur le fil OBS, l'aperçu vient d'être créé et vit aussi longtemps que
             // le moteur. Le paramètre est nul : l'état voyage par les atomiques ci-dessus,
             // jamais par un pointeur dont il faudrait garantir la survie.
-            libobs::obs_display_add_draw_callback(
-                ptr.get_ptr(),
-                Some(draw),
-                std::ptr::null_mut(),
-            );
+            libobs::obs_display_add_draw_callback(ptr.get_ptr(), Some(draw), std::ptr::null_mut());
         })
         .context("branchement du liseré sur l'aperçu")
 }
@@ -85,8 +81,10 @@ pub unsafe extern "C" fn draw(_param: *mut std::ffi::c_void, _cx: u32, _cy: u32)
     }
     let [x, y, width, height] =
         std::array::from_fn(|i| f32::from_bits(RECT[i].load(Ordering::Relaxed)));
-    let (canvas_w, canvas_h) =
-        (CANVAS[0].load(Ordering::Relaxed), CANVAS[1].load(Ordering::Relaxed));
+    let (canvas_w, canvas_h) = (
+        CANVAS[0].load(Ordering::Relaxed),
+        CANVAS[1].load(Ordering::Relaxed),
+    );
     if canvas_w == 0 || canvas_h == 0 || width <= 0.0 || height <= 0.0 {
         return;
     }
@@ -113,10 +111,10 @@ pub unsafe extern "C" fn draw(_param: *mut std::ffi::c_void, _cx: u32, _cy: u32)
             // Quatre traits pleins plutôt qu'un rectangle vide : l'API graphique ne dessine
             // que des rectangles pleins, le contour se compose donc de ses quatre côtés.
             for (bar_x, bar_y, bar_w, bar_h) in [
-                (x, y, width, THICKNESS),                            // haut
-                (x, y + height - THICKNESS, width, THICKNESS),       // bas
-                (x, y, THICKNESS, height),                           // gauche
-                (x + width - THICKNESS, y, THICKNESS, height),       // droite
+                (x, y, width, THICKNESS),                      // haut
+                (x, y + height - THICKNESS, width, THICKNESS), // bas
+                (x, y, THICKNESS, height),                     // gauche
+                (x + width - THICKNESS, y, THICKNESS, height), // droite
             ] {
                 libobs::gs_matrix_push();
                 libobs::gs_matrix_translate3f(bar_x, bar_y, 0.0);

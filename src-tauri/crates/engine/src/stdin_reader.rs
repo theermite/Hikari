@@ -38,11 +38,27 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::AddCamera { device_id, scene }) => {
                     let _ = proxy.send_event(EngineEvent::AddCamera { device_id, scene });
                 }
-                Ok(ControllerCommand::SetBackgroundRemoval { device_id, scene, enabled }) => {
-                    let _ = proxy.send_event(EngineEvent::SetBackgroundRemoval { device_id, scene, enabled });
+                Ok(ControllerCommand::SetBackgroundRemoval {
+                    device_id,
+                    scene,
+                    enabled,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::SetBackgroundRemoval {
+                        device_id,
+                        scene,
+                        enabled,
+                    });
                 }
-                Ok(ControllerCommand::SetCircleMask { device_id, scene, enabled }) => {
-                    let _ = proxy.send_event(EngineEvent::SetCircleMask { device_id, scene, enabled });
+                Ok(ControllerCommand::SetCircleMask {
+                    device_id,
+                    scene,
+                    enabled,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::SetCircleMask {
+                        device_id,
+                        scene,
+                        enabled,
+                    });
                 }
                 Ok(ControllerCommand::RemoveCamera { device_id, scene }) => {
                     let _ = proxy.send_event(EngineEvent::RemoveCamera { device_id, scene });
@@ -50,11 +66,29 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::RestartCamera { device_id }) => {
                     let _ = proxy.send_event(EngineEvent::RestartCamera { device_id });
                 }
-                Ok(ControllerCommand::NudgeCamera { device_id, scene, dx, dy }) => {
-                    let _ = proxy.send_event(EngineEvent::NudgeCamera { device_id, scene, dx, dy });
+                Ok(ControllerCommand::NudgeCamera {
+                    device_id,
+                    scene,
+                    dx,
+                    dy,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::NudgeCamera {
+                        device_id,
+                        scene,
+                        dx,
+                        dy,
+                    });
                 }
-                Ok(ControllerCommand::ScaleCamera { device_id, scene, grow }) => {
-                    let _ = proxy.send_event(EngineEvent::ScaleCamera { device_id, scene, grow });
+                Ok(ControllerCommand::ScaleCamera {
+                    device_id,
+                    scene,
+                    grow,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::ScaleCamera {
+                        device_id,
+                        scene,
+                        grow,
+                    });
                 }
                 Ok(ControllerCommand::CreateScene { name }) => {
                     let _ = proxy.send_event(EngineEvent::CreateScene { name });
@@ -68,8 +102,16 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::ListAudioDevices) => {
                     let _ = proxy.send_event(EngineEvent::ListAudioDevices);
                 }
-                Ok(ControllerCommand::AddAudioSource { device_id, kind, name }) => {
-                    let _ = proxy.send_event(EngineEvent::AddAudioSource { device_id, kind, name });
+                Ok(ControllerCommand::AddAudioSource {
+                    device_id,
+                    kind,
+                    name,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::AddAudioSource {
+                        device_id,
+                        kind,
+                        name,
+                    });
                 }
                 Ok(ControllerCommand::RemoveAudioSource { name }) => {
                     let _ = proxy.send_event(EngineEvent::RemoveAudioSource { name });
@@ -83,9 +125,18 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::SetAudioMonitoring { name, monitoring }) => {
                     let _ = proxy.send_event(EngineEvent::SetAudioMonitoring { name, monitoring });
                 }
-                Ok(ControllerCommand::SetNoiseSettings { name, enabled, method, level_db }) => {
-                    let _ = proxy
-                        .send_event(EngineEvent::SetNoiseSettings { name, enabled, method, level_db });
+                Ok(ControllerCommand::SetNoiseSettings {
+                    name,
+                    enabled,
+                    method,
+                    level_db,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::SetNoiseSettings {
+                        name,
+                        enabled,
+                        method,
+                        level_db,
+                    });
                 }
                 Ok(ControllerCommand::SetMonitorVolume { name, percent }) => {
                     let _ = proxy.send_event(EngineEvent::SetMonitorVolume { name, percent });
@@ -93,24 +144,69 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::ListCaptureTargets) => {
                     let _ = proxy.send_event(EngineEvent::ListCaptureTargets);
                 }
-                Ok(ControllerCommand::AddCaptureSource { scene, kind, target_id, name }) => {
-                    let _ = proxy
-                        .send_event(EngineEvent::AddCaptureSource { scene, kind, target_id, name });
+                Ok(ControllerCommand::AddCaptureSource {
+                    scene,
+                    kind,
+                    target_id,
+                    name,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::AddCaptureSource {
+                        scene,
+                        kind,
+                        target_id,
+                        name,
+                    });
                 }
                 Ok(ControllerCommand::RemoveSource { scene, name }) => {
                     let _ = proxy.send_event(EngineEvent::RemoveSource { scene, name });
                 }
-                Ok(ControllerCommand::ReorderSource { scene, name, direction }) => {
-                    let _ = proxy.send_event(EngineEvent::ReorderSource { scene, name, direction });
+                Ok(ControllerCommand::ReorderSource {
+                    scene,
+                    name,
+                    direction,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::ReorderSource {
+                        scene,
+                        name,
+                        direction,
+                    });
                 }
-                Ok(ControllerCommand::SetSourceTransform { scene, name, x, y, scale_percent }) => {
-                    let _ = proxy.send_event(EngineEvent::SetSourceTransform { scene, name, x, y, scale_percent });
+                Ok(ControllerCommand::SetSourceTransform {
+                    scene,
+                    name,
+                    x,
+                    y,
+                    scale_percent,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::SetSourceTransform {
+                        scene,
+                        name,
+                        x,
+                        y,
+                        scale_percent,
+                    });
                 }
-                Ok(ControllerCommand::SetSourceLocked { scene, name, locked }) => {
-                    let _ = proxy.send_event(EngineEvent::SetSourceLocked { scene, name, locked });
+                Ok(ControllerCommand::SetSourceLocked {
+                    scene,
+                    name,
+                    locked,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::SetSourceLocked {
+                        scene,
+                        name,
+                        locked,
+                    });
                 }
-                Ok(ControllerCommand::SetTextSettings { scene, name, settings }) => {
-                    let _ = proxy.send_event(EngineEvent::SetTextSettings { scene, name, settings });
+                Ok(ControllerCommand::SetTextSettings {
+                    scene,
+                    name,
+                    settings,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::SetTextSettings {
+                        scene,
+                        name,
+                        settings,
+                    });
                 }
                 Ok(ControllerCommand::SetTextContent { scene, name, text }) => {
                     let _ = proxy.send_event(EngineEvent::SetTextContent { scene, name, text });
@@ -118,8 +214,16 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::RequestSceneList) => {
                     let _ = proxy.send_event(EngineEvent::RequestSceneList);
                 }
-                Ok(ControllerCommand::SetSourceVisible { scene, name, visible }) => {
-                    let _ = proxy.send_event(EngineEvent::SetSourceVisible { scene, name, visible });
+                Ok(ControllerCommand::SetSourceVisible {
+                    scene,
+                    name,
+                    visible,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::SetSourceVisible {
+                        scene,
+                        name,
+                        visible,
+                    });
                 }
                 Ok(_) => (), // ListSources : hors périmètre de ce lecteur pour l'instant
                 Err(err) => eprintln!("[engine] commande stdin illisible {line:?}: {err}"),

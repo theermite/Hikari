@@ -28,7 +28,11 @@ impl SceneInfo {
     /// makes it. Pure, so tests and the engine agree on "empty" instead of each spelling
     /// out the fields.
     pub fn empty(name: impl Into<String>) -> Self {
-        Self { name: name.into(), has_camera: false, sources: Vec::new() }
+        Self {
+            name: name.into(),
+            has_camera: false,
+            sources: Vec::new(),
+        }
     }
 }
 

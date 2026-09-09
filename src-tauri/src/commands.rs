@@ -5,7 +5,7 @@
 
 use tauri::{AppHandle, Emitter, State};
 
-use crate::engine_lifecycle::{EngineState, TargetReload, reload_broadcast_target};
+use crate::engine_lifecycle::{reload_broadcast_target, EngineState, TargetReload};
 
 use crate::accounts::vault::{Platform, Secret, StoredToken};
 use crate::accounts::{twitch, twitch_stream, vault, youtube};
@@ -33,14 +33,17 @@ struct TwitchCodePayload {
 /// sur un lien depuis n'importe quelle application.
 fn open_in_browser(url: &str) -> std::io::Result<()> {
     use std::os::windows::ffi::OsStrExt;
+    use windows::core::PCWSTR;
     use windows::Win32::UI::Shell::ShellExecuteW;
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
-    use windows::core::PCWSTR;
 
     // Windows attend du texte en 16 bits terminé par zéro ; une adresse en contient
     // rarement, mais un accent dans un paramètre suffirait à casser une conversion naïve.
     let wide = |texte: &str| {
-        std::ffi::OsStr::new(texte).encode_wide().chain(std::iter::once(0)).collect::<Vec<u16>>()
+        std::ffi::OsStr::new(texte)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect::<Vec<u16>>()
     };
     let operation = wide("open");
     let cible = wide(url);
@@ -131,11 +134,16 @@ async fn try_connect_twitch(app: &AppHandle) -> Result<(), String> {
 
     let _ = app.emit(
         "twitch-code",
-        TwitchCodePayload { verification_uri: prompt.verification_uri.clone(), user_code: prompt.user_code },
+        TwitchCodePayload {
+            verification_uri: prompt.verification_uri.clone(),
+            user_code: prompt.user_code,
+        },
     );
     let _ = open_in_browser(&prompt.verification_uri);
 
-    let token = twitch::wait_for_authorization(&mut builder, &http).await.map_err(|err| err.to_string())?;
+    let token = twitch::wait_for_authorization(&mut builder, &http)
+        .await
+        .map_err(|err| err.to_string())?;
     // Le nom du compte est lu MAINTENANT, pas au prochain demarrage du moteur.
     //
     // Il l'etait, et ca ne suffisait pas : quand Jay se reconnecte depuis l'ecran
@@ -146,13 +154,17 @@ async fn try_connect_twitch(app: &AppHandle) -> Result<(), String> {
     //
     // Un echec de lecture n'annule PAS la connexion : le compte est connecte, seul son nom
     // manque. Le refuser ici transformerait un confort en panne.
-    let nom = twitch_stream::fetch_display_name(&http, twitch::TWITCH_CLIENT_ID, &token.access_token)
-        .await
-        .map_err(|err| {
-            eprintln!("[twitch] nom du compte illisible ({err}) — connexion conservee");
-        })
-        .ok();
-    let token = StoredToken { account_name: nom, ..token };
+    let nom =
+        twitch_stream::fetch_display_name(&http, twitch::TWITCH_CLIENT_ID, &token.access_token)
+            .await
+            .map_err(|err| {
+                eprintln!("[twitch] nom du compte illisible ({err}) — connexion conservee");
+            })
+            .ok();
+    let token = StoredToken {
+        account_name: nom,
+        ..token
+    };
     vault::store(Platform::Twitch, &token).map_err(|err| err.to_string())?;
     let _ = app.emit("twitch-connected", ());
     Ok(())

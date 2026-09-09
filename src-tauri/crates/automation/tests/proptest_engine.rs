@@ -61,14 +61,16 @@ fn leaf_automation_strategy() -> impl Strategy<Value = Automation> {
         prop::collection::vec(action_strategy(), 0..4),
         any::<bool>(),
     )
-        .prop_map(|(id, name, trigger, conditions, actions, active)| Automation {
-            id,
-            name,
-            trigger,
-            conditions,
-            actions,
-            active,
-        })
+        .prop_map(
+            |(id, name, trigger, conditions, actions, active)| Automation {
+                id,
+                name,
+                trigger,
+                conditions,
+                actions,
+                active,
+            },
+        )
 }
 
 proptest! {

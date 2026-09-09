@@ -12,7 +12,7 @@
 //! Les fonctions ci-dessous sont PURES : elles lisent une réponse déjà reçue. C'est ce qui
 //! les rend vérifiables sans réseau, sur les formes exactes que Twitch documente.
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 
 use crate::accounts::vault::Secret;
 
@@ -63,7 +63,9 @@ pub fn parse_user_display_name(body: &str) -> Result<String> {
         .and_then(|nom| nom.as_str())
         .filter(|nom| !nom.is_empty())
         .or_else(|| {
-            user.and_then(|user| user.get("login")).and_then(|nom| nom.as_str()).filter(|nom| !nom.is_empty())
+            user.and_then(|user| user.get("login"))
+                .and_then(|nom| nom.as_str())
+                .filter(|nom| !nom.is_empty())
         });
     match nom {
         Some(nom) => Ok(nom.to_string()),
@@ -111,7 +113,11 @@ pub fn ingest_server(body: &str) -> Result<String> {
         .find(|server| server.get("default").and_then(serde_json::Value::as_bool) == Some(true))
         .or_else(|| {
             servers.iter().find(|server| {
-                server.get("availability").and_then(serde_json::Value::as_f64).unwrap_or(0.0) > 0.0
+                server
+                    .get("availability")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0)
+                    > 0.0
             })
         })
         .context("aucun serveur Twitch disponible")?;
@@ -128,7 +134,10 @@ pub fn ingest_server(body: &str) -> Result<String> {
 fn strip_key_placeholder(template: &str) -> String {
     match template.find("/{stream_key}") {
         Some(cut) => template[..cut].to_string(),
-        None => template.trim_end_matches("{stream_key}").trim_end_matches('/').to_string(),
+        None => template
+            .trim_end_matches("{stream_key}")
+            .trim_end_matches('/')
+            .to_string(),
     }
 }
 
@@ -151,17 +160,23 @@ pub async fn fetch_target(
     client_id: &str,
     access_token: &Secret,
 ) -> Result<(String, Secret, Option<String>)> {
-    let compte = helix(http, client_id, access_token, "https://api.twitch.tv/helix/users")
-        .await
-        .context("lecture du compte Twitch")?;
+    let compte = helix(
+        http,
+        client_id,
+        access_token,
+        "https://api.twitch.tv/helix/users",
+    )
+    .await
+    .context("lecture du compte Twitch")?;
     let broadcaster = parse_user_id(&compte)?;
     // Un nom illisible n'empêche PAS de diffuser : c'est un confort d'affichage, jamais une
     // condition. Le refuser ici transformerait une gêne en panne.
     let nom = parse_user_display_name(&compte).ok();
 
     let url = format!("https://api.twitch.tv/helix/streams/key?broadcaster_id={broadcaster}");
-    let reponse =
-        helix(http, client_id, access_token, &url).await.context("lecture de la clé Twitch")?;
+    let reponse = helix(http, client_id, access_token, &url)
+        .await
+        .context("lecture de la clé Twitch")?;
     let key = Secret::new(parse_stream_key(&reponse)?);
 
     // La liste des serveurs est publique : ni jeton, ni identifiant d'application. Son
@@ -169,7 +184,9 @@ pub async fn fetch_target(
     let server = match http.get("https://ingest.twitch.tv/ingests").send().await {
         Ok(reponse) => match reponse.text().await {
             Ok(corps) => ingest_server(&corps).unwrap_or_else(|err| {
-                eprintln!("[twitch] serveurs indisponibles ({err}), repli sur l'adresse par défaut");
+                eprintln!(
+                    "[twitch] serveurs indisponibles ({err}), repli sur l'adresse par défaut"
+                );
                 TWITCH_INGEST_FALLBACK.to_string()
             }),
             Err(err) => {
@@ -195,9 +212,14 @@ pub async fn fetch_display_name(
     client_id: &str,
     access_token: &Secret,
 ) -> Result<String> {
-    let compte = helix(http, client_id, access_token, "https://api.twitch.tv/helix/users")
-        .await
-        .context("lecture du compte Twitch")?;
+    let compte = helix(
+        http,
+        client_id,
+        access_token,
+        "https://api.twitch.tv/helix/users",
+    )
+    .await
+    .context("lecture du compte Twitch")?;
     parse_user_display_name(&compte)
 }
 
@@ -230,7 +252,8 @@ mod tests {
 
     #[test]
     fn should_read_the_display_name_of_the_connected_account() {
-        let body = r#"{"data":[{"id":"141981764","login":"twitchdev","display_name":"TwitchDev"}]}"#;
+        let body =
+            r#"{"data":[{"id":"141981764","login":"twitchdev","display_name":"TwitchDev"}]}"#;
         assert_eq!(parse_user_display_name(body).unwrap(), "TwitchDev");
     }
 
@@ -274,7 +297,9 @@ mod tests {
     #[test]
     fn should_never_put_the_key_in_its_own_error() {
         // Un message d'erreur voyage dans les journaux et jusqu'à l'écran. La clé, jamais.
-        let err = parse_stream_key(r#"{"data":[{"stream_key":""}]}"#).unwrap_err().to_string();
+        let err = parse_stream_key(r#"{"data":[{"stream_key":""}]}"#)
+            .unwrap_err()
+            .to_string();
 
         assert!(!err.contains("stream_key"), "err = {err}");
     }
@@ -312,7 +337,8 @@ mod tests {
     fn should_cut_the_template_before_the_key_placeholder() {
         // Le moteur veut le serveur et la clé SÉPARÉS. Laisser l'emplacement dans
         // l'adresse ferait coller la clé deux fois.
-        let serveurs = r#"{"ingests":[{"default":true,"url_template":"rtmp://x.example/app/{stream_key}"}]}"#;
+        let serveurs =
+            r#"{"ingests":[{"default":true,"url_template":"rtmp://x.example/app/{stream_key}"}]}"#;
         let serveur = ingest_server(serveurs).unwrap();
 
         assert!(!serveur.contains("{stream_key}"), "serveur = {serveur}");

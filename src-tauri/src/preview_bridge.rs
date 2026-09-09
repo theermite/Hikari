@@ -11,8 +11,8 @@
 use anyhow::{Context, Result};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_STYLE, SET_WINDOW_POS_FLAGS, SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOZORDER,
-    SWP_SHOWWINDOW, SetParent, SetWindowLongPtrW, SetWindowPos, WS_CHILD, WS_VISIBLE,
+    SetParent, SetWindowLongPtrW, SetWindowPos, GWL_STYLE, SET_WINDOW_POS_FLAGS, SWP_HIDEWINDOW,
+    SWP_NOACTIVATE, SWP_NOZORDER, SWP_SHOWWINDOW, WS_CHILD, WS_VISIBLE,
 };
 
 const TARGET_ASPECT: f32 = 16.0 / 9.0;
@@ -104,7 +104,9 @@ pub fn position_preview_window(engine_hwnd: i64, x: i32, y: i32, area_w: u32, ar
         )
         .is_err()
         {
-            eprintln!("[preview_bridge] SetWindowPos a échoué au repositionnement (HWND {engine_hwnd})");
+            eprintln!(
+                "[preview_bridge] SetWindowPos a échoué au repositionnement (HWND {engine_hwnd})"
+            );
         }
     }
 }
@@ -144,7 +146,10 @@ mod tests {
         let (w, h) = fit_size(2560, 1000);
         assert_eq!(h, 1000, "height matches the host exactly");
         assert!(w < 2560, "width shrinks to keep 16:9");
-        assert!((w as f32 / h as f32 - TARGET_ASPECT).abs() < 0.01, "ratio stays 16:9");
+        assert!(
+            (w as f32 / h as f32 - TARGET_ASPECT).abs() < 0.01,
+            "ratio stays 16:9"
+        );
     }
 
     #[test]
@@ -153,7 +158,10 @@ mod tests {
         let (w, h) = fit_size(800, 1200);
         assert_eq!(w, 800, "width matches the host exactly");
         assert!(h < 1200, "height shrinks to keep 16:9");
-        assert!((w as f32 / h as f32 - TARGET_ASPECT).abs() < 0.01, "ratio stays 16:9");
+        assert!(
+            (w as f32 / h as f32 - TARGET_ASPECT).abs() < 0.01,
+            "ratio stays 16:9"
+        );
     }
 
     #[test]
@@ -168,13 +176,19 @@ mod tests {
         // and must never return a 0×0 size (a real defect found by this test: clamping
         // only the ratio comparison, not the arithmetic, still let 0 flow through).
         let (w, h) = fit_size(800, 0);
-        assert!(w > 0 && h > 0, "both dimensions stay positive on degenerate input");
+        assert!(
+            w > 0 && h > 0,
+            "both dimensions stay positive on degenerate input"
+        );
     }
 
     #[test]
     fn should_not_panic_on_degenerate_zero_width() {
         let (w, h) = fit_size(0, 600);
-        assert!(w > 0 && h > 0, "both dimensions stay positive on degenerate input");
+        assert!(
+            w > 0 && h > 0,
+            "both dimensions stay positive on degenerate input"
+        );
     }
 
     #[test]
@@ -183,7 +197,11 @@ mod tests {
         // replace) made the grafted window invisible at the spike, 2026-07-18.
         let style = child_style_bits();
         assert_eq!(style & WS_CHILD.0, WS_CHILD.0, "WS_CHILD bit is set");
-        assert_eq!(style & WS_VISIBLE.0, WS_VISIBLE.0, "WS_VISIBLE bit is set — spike regression");
+        assert_eq!(
+            style & WS_VISIBLE.0,
+            WS_VISIBLE.0,
+            "WS_VISIBLE bit is set — spike regression"
+        );
     }
 
     #[test]
@@ -192,9 +210,19 @@ mod tests {
         // fitted rect must be offset DOWN to sit vertically centered, never hugging the
         // area's top edge.
         let (off_x, off_y, w, h) = fit_and_center(100, 50, 1000, 1000);
-        assert_eq!(off_x, 100, "width fills the area exactly — no horizontal letterbox");
-        assert!(off_y > 50, "fitted height shorter than the area — must be re-centered down");
-        assert_eq!(off_y + h as i32, 50 + 1000 - (off_y - 50), "centered: equal margin top/bottom");
+        assert_eq!(
+            off_x, 100,
+            "width fills the area exactly — no horizontal letterbox"
+        );
+        assert!(
+            off_y > 50,
+            "fitted height shorter than the area — must be re-centered down"
+        );
+        assert_eq!(
+            off_y + h as i32,
+            50 + 1000 - (off_y - 50),
+            "centered: equal margin top/bottom"
+        );
         let _ = w;
     }
 

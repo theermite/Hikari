@@ -10,14 +10,17 @@
 //! fait que chaque commande caméra désigne DE QUELLE caméra elle parle.
 
 use hikari_protocol::{
-    CAMERA_SOURCE_NAME, ControllerCommand, EngineMessage, camera_source_name,
-    parse_controller_command, parse_engine_message, to_line,
+    camera_source_name, parse_controller_command, parse_engine_message, to_line, ControllerCommand,
+    EngineMessage, CAMERA_SOURCE_NAME,
 };
 use proptest::prelude::*;
 
 #[test]
 fn should_name_a_camera_after_the_device_the_user_picked() {
-    assert_eq!(camera_source_name("Logitech StreamCam", &[]), "Logitech StreamCam");
+    assert_eq!(
+        camera_source_name("Logitech StreamCam", &[]),
+        "Logitech StreamCam"
+    );
 }
 
 /// Deux exemplaires du même modèle rapportent le MÊME nom d'appareil. Sans départage, la
@@ -25,7 +28,10 @@ fn should_name_a_camera_after_the_device_the_user_picked() {
 #[test]
 fn should_keep_the_name_unique_when_two_devices_share_a_label() {
     let taken = vec!["Logitech StreamCam".to_string()];
-    assert_eq!(camera_source_name("Logitech StreamCam", &taken), "Logitech StreamCam (2)");
+    assert_eq!(
+        camera_source_name("Logitech StreamCam", &taken),
+        "Logitech StreamCam (2)"
+    );
 }
 
 #[test]

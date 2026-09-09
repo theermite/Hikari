@@ -3,7 +3,7 @@
 
 use hikari_protocol::EngineMessage;
 
-use crate::{App, SceneSource, camera, emit, sources, text_ops};
+use crate::{camera, emit, sources, text_ops, App, SceneSource};
 
 impl App {
     /// Moves a source one step in front of, or behind, the others in its scene.
@@ -34,16 +34,24 @@ impl App {
         let target = match direction {
             hikari_protocol::SourceOrder::Front => index.checked_sub(1),
             hikari_protocol::SourceOrder::Back => {
-                if index + 1 < list.len() { Some(index + 1) } else { None }
+                if index + 1 < list.len() {
+                    Some(index + 1)
+                } else {
+                    None
+                }
             }
         };
         // Déjà au bout : rien à faire, et surtout pas d'enroulement — un clic de trop ne
         // doit jamais envoyer une source à l'autre extrémité de la pile.
         let Some(target) = target else { return };
         let runtime = obs.context.runtime().clone();
-        let Some(list) = obs.scene_sources.get_mut(&scene) else { return };
+        let Some(list) = obs.scene_sources.get_mut(&scene) else {
+            return;
+        };
         if let Err(err) = sources::set_order(&runtime, &list[index].item, direction) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
             return;
         }
         // Vérifié par sonde le 2026-08-05 : notre liste et l'ordre réel du moteur coïncident
@@ -83,7 +91,9 @@ impl App {
         // de session sans les surprises d'arrondi d'un nombre à virgule.
         let scale = hikari_protocol::clamp_camera_scale(scale_percent as f32 / 100.0);
         if let Err(err) = camera::set_camera_transform(item, x, y, scale) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
             return;
         }
         self.scene_layout_changed();
@@ -141,7 +151,9 @@ impl App {
             return;
         };
         if let Err(err) = text_ops::set_content(&runtime, &item, text) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
             return;
         }
         // `target_id` PORTE le texte pour cette famille de source (voir sa création dans
@@ -175,7 +187,9 @@ impl App {
             return;
         };
         if let Err(err) = text_ops::apply(&runtime, &item, settings) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
         }
     }
 
@@ -196,7 +210,9 @@ impl App {
             return;
         };
         if let Err(err) = sources::set_visible(&runtime, &item, visible) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
             return;
         }
         if visible {
@@ -213,19 +229,29 @@ impl App {
     /// Emits everything the machine can capture right now (brique Sources).
     pub(crate) fn handle_list_capture_targets(&mut self) {
         let (games, windows, monitors) = sources::list_capture_targets();
-        emit(&EngineMessage::CaptureTargets { games, windows, monitors });
+        emit(&EngineMessage::CaptureTargets {
+            games,
+            windows,
+            monitors,
+        });
     }
 
     /// The names already taken in `scene` — every capture plus the camera. Used to refuse a
     /// duplicate BEFORE libobs silently renames it ("Webcam 2").
     fn source_names_in_scene(&self, scene: &str) -> Vec<String> {
-        let Some(obs) = &self.obs else { return Vec::new() };
+        let Some(obs) = &self.obs else {
+            return Vec::new();
+        };
         let mut names: Vec<String> = obs
             .scene_sources
             .get(scene)
             .map(|added| added.iter().map(|source| source.name.clone()).collect())
             .unwrap_or_default();
-        names.extend(self.cameras_in_scene(scene).into_iter().map(|(name, _)| name));
+        names.extend(
+            self.cameras_in_scene(scene)
+                .into_iter()
+                .map(|(name, _)| name),
+        );
         names
     }
 
@@ -246,7 +272,9 @@ impl App {
         let taken = self.source_names_in_scene(&scene);
         if let Err(err) = hikari_protocol::validate_source_name(&name, &taken) {
             let message = match err {
-                hikari_protocol::SceneNameError::Empty => "le nom de la source est vide".to_string(),
+                hikari_protocol::SceneNameError::Empty => {
+                    "le nom de la source est vide".to_string()
+                }
                 hikari_protocol::SceneNameError::Duplicate => {
                     format!("« {name} » existe déjà dans cette scène")
                 }
@@ -276,7 +304,9 @@ impl App {
                 obs.item_rects = None;
             }
             Err(err) => {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
                 return;
             }
         }
@@ -312,7 +342,9 @@ impl App {
         let removed = list.remove(index);
         obs.item_rects = None;
         if let Err(err) = sources::remove_from_scene(&mut obs.context, &scene, removed.item) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
         }
         self.emit_scene_list();
     }

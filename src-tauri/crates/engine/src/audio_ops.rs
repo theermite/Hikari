@@ -4,20 +4,24 @@
 
 use hikari_protocol::EngineMessage;
 
-use crate::{App, LiveCapture, MixerSource, audio, emit, filters};
+use crate::{audio, emit, filters, App, LiveCapture, MixerSource};
 
 impl App {
     /// Emits the machine's real audio devices, both sides (B6). A failure on one side is
     /// reported and yields an empty list for that side rather than hiding the other.
     pub(crate) fn handle_list_audio_devices(&mut self) {
         let Some(obs) = &mut self.obs else {
-            emit(&EngineMessage::Error { message: "ListAudioDevices avant l'initialisation".into() });
+            emit(&EngineMessage::Error {
+                message: "ListAudioDevices avant l'initialisation".into(),
+            });
             return;
         };
         let probe = |kind| match audio::probe_audio_devices(&obs.context, kind) {
             Ok(devices) => devices,
             Err(err) => {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
                 Vec::new()
             }
         };
@@ -34,16 +38,23 @@ impl App {
         name: String,
     ) {
         let Some(obs) = &mut self.obs else {
-            emit(&EngineMessage::Error { message: "AddAudioSource avant l'initialisation".into() });
+            emit(&EngineMessage::Error {
+                message: "AddAudioSource avant l'initialisation".into(),
+            });
             return;
         };
         if obs.audio.iter().any(|existing| existing.name == name) {
-            emit(&EngineMessage::Error { message: format!("« {name} » est déjà dans le mixeur") });
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » est déjà dans le mixeur"),
+            });
             return;
         }
         let Some(channel) = Self::free_audio_channel(&obs.audio) else {
             emit(&EngineMessage::Error {
-                message: format!("mixeur plein ({} sources maximum)", audio::MAX_AUDIO_SOURCES),
+                message: format!(
+                    "mixeur plein ({} sources maximum)",
+                    audio::MAX_AUDIO_SOURCES
+                ),
             });
             return;
         };
@@ -56,7 +67,9 @@ impl App {
         let meter = match audio::LevelMeter::attach(&capture.source) {
             Ok(meter) => Some(meter),
             Err(err) => {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
                 None
             }
         };
@@ -97,12 +110,16 @@ impl App {
         {
             Ok(source) => source,
             Err(err) => {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
                 return None;
             }
         };
         if let Err(err) = audio::attach_to_channel(&source, channel) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
             return None;
         }
         // Attached disabled, only where it means something. A failure costs the feature on
@@ -111,14 +128,20 @@ impl App {
             match audio::create_noise_suppression_filter(&source) {
                 Ok(filter) => Some(filter),
                 Err(err) => {
-                    emit(&EngineMessage::Error { message: err.to_string() });
+                    emit(&EngineMessage::Error {
+                        message: err.to_string(),
+                    });
                     None
                 }
             }
         } else {
             None
         };
-        Some(LiveCapture { source, channel, noise_filter })
+        Some(LiveCapture {
+            source,
+            channel,
+            noise_filter,
+        })
     }
 
     /// The lowest channel no capture occupies. `None` when the mixer is full. Counts every
@@ -137,7 +160,9 @@ impl App {
     /// Frees one capture's channel. The capture itself drops with its owner.
     fn close_capture(runtime: &libobs_wrapper::runtime::ObsRuntime, capture: &LiveCapture) {
         if let Err(err) = audio::clear_channel(runtime, capture.channel) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
         }
     }
 
@@ -145,7 +170,9 @@ impl App {
     pub(crate) fn handle_remove_audio_source(&mut self, name: String) {
         let Some(obs) = &mut self.obs else { return };
         let Some(index) = obs.audio.iter().position(|source| source.name == name) else {
-            emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas dans le mixeur"),
+            });
             return;
         };
         let mut removed = obs.audio.remove(index);
@@ -154,7 +181,9 @@ impl App {
         // out of the entry so the captures below can still be read from it.
         if let Some(meter) = removed.meter.take() {
             if let Err(err) = meter.destroy(&runtime) {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
             }
         }
         for capture in removed.captures() {
@@ -209,7 +238,9 @@ impl App {
     fn update_entry(&mut self, name: &str, change: impl FnOnce(&mut MixerSource)) {
         let Some(obs) = &mut self.obs else { return };
         let Some(index) = obs.audio.iter().position(|source| source.name == name) else {
-            emit(&EngineMessage::Error { message: format!("« {name} » n'est pas dans le mixeur") });
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas dans le mixeur"),
+            });
             return;
         };
         change(&mut obs.audio[index]);
@@ -233,28 +264,32 @@ impl App {
     fn reconcile_entry(&mut self, index: usize) {
         use hikari_protocol::AudioMonitoring;
         let Some(obs) = &mut self.obs else { return };
-        let Some(entry) = obs.audio.get(index) else { return };
+        let Some(entry) = obs.audio.get(index) else {
+            return;
+        };
         let (wants_public, wants_monitor) = match entry.monitoring {
             AudioMonitoring::None => (true, false),
             AudioMonitoring::MonitorOnly => (false, true),
             AudioMonitoring::MonitorAndOutput => (true, true),
         };
         let runtime = obs.context.runtime().clone();
-        let (name, device_id, kind) =
-            (entry.name.clone(), entry.device_id.clone(), entry.kind);
+        let (name, device_id, kind) = (entry.name.clone(), entry.device_id.clone(), entry.kind);
 
         // Close what is no longer wanted BEFORE opening what is: a device that refuses two
         // simultaneous captures would otherwise fail on a mere routing change.
-        for (wanted, take) in [
-            (wants_public, true),
-            (wants_monitor, false),
-        ] {
+        for (wanted, take) in [(wants_public, true), (wants_monitor, false)] {
             if wanted {
                 continue;
             }
             let Some(obs) = &mut self.obs else { return };
-            let Some(entry) = obs.audio.get_mut(index) else { return };
-            let slot = if take { &mut entry.public } else { &mut entry.monitor };
+            let Some(entry) = obs.audio.get_mut(index) else {
+                return;
+            };
+            let slot = if take {
+                &mut entry.public
+            } else {
+                &mut entry.monitor
+            };
             if let Some(capture) = slot.take() {
                 Self::close_capture(&runtime, &capture);
             }
@@ -267,7 +302,13 @@ impl App {
                 .obs
                 .as_ref()
                 .and_then(|obs| obs.audio.get(index))
-                .is_some_and(|entry| if is_public { entry.public.is_some() } else { entry.monitor.is_some() });
+                .is_some_and(|entry| {
+                    if is_public {
+                        entry.public.is_some()
+                    } else {
+                        entry.monitor.is_some()
+                    }
+                });
             if !wanted || already {
                 continue;
             }
@@ -280,13 +321,18 @@ impl App {
                 continue;
             };
             // The second capture needs its own libobs name — two sources cannot share one.
-            let libobs_name =
-                if is_public { name.clone() } else { format!("{name} (retour)") };
+            let libobs_name = if is_public {
+                name.clone()
+            } else {
+                format!("{name} (retour)")
+            };
             let Some(capture) = self.open_capture(&device_id, kind, &libobs_name, channel) else {
                 continue;
             };
             let Some(obs) = &mut self.obs else { return };
-            let Some(entry) = obs.audio.get_mut(index) else { return };
+            let Some(entry) = obs.audio.get_mut(index) else {
+                return;
+            };
             if is_public {
                 entry.public = Some(capture);
             } else {
@@ -301,28 +347,44 @@ impl App {
     fn apply_entry_settings(&mut self, index: usize) {
         use hikari_protocol::AudioMonitoring;
         let Some(obs) = &mut self.obs else { return };
-        let Some(entry) = obs.audio.get(index) else { return };
+        let Some(entry) = obs.audio.get(index) else {
+            return;
+        };
         let public_volume = hikari_protocol::percent_to_volume(entry.volume_percent);
         let monitor_volume = hikari_protocol::percent_to_volume(entry.monitor_volume_percent);
-        let (muted, enabled, method, level_db) =
-            (entry.muted, entry.noise_suppression, entry.noise_method, entry.noise_level_db);
+        let (muted, enabled, method, level_db) = (
+            entry.muted,
+            entry.noise_suppression,
+            entry.noise_method,
+            entry.noise_level_db,
+        );
 
         let apply = |capture: &LiveCapture, volume: f32, routing: AudioMonitoring| {
             if let Err(err) = audio::set_volume(&capture.source, volume) {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
             }
             if let Err(err) = audio::set_muted(&capture.source, muted) {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
             }
             if let Err(err) = audio::set_monitoring(&capture.source, routing) {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
             }
             if let Some(filter) = &capture.noise_filter {
                 if let Err(err) = audio::apply_noise_settings(filter, method, level_db) {
-                    emit(&EngineMessage::Error { message: err.to_string() });
+                    emit(&EngineMessage::Error {
+                        message: err.to_string(),
+                    });
                 }
                 if let Err(err) = filters::set_enabled(filter, enabled) {
-                    emit(&EngineMessage::Error { message: err.to_string() });
+                    emit(&EngineMessage::Error {
+                        message: err.to_string(),
+                    });
                 }
             }
         };

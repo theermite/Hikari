@@ -4,7 +4,7 @@
 use hikari_protocol::{EngineMessage, SceneInfo};
 use libobs_wrapper::scenes::SceneItemTrait;
 
-use crate::{App, CameraSlide, camera, emit, scenes};
+use crate::{camera, emit, scenes, App, CameraSlide};
 
 impl App {
     /// Creates a new, empty scene (multi-scene, tranche 1). Rejects a blank or already-used
@@ -12,22 +12,30 @@ impl App {
     /// scene list, never a name the caller merely claims doesn't exist yet.
     pub(crate) fn handle_create_scene(&mut self, name: String) {
         let Some(obs) = &mut self.obs else {
-            emit(&EngineMessage::Error { message: "CreateScene avant l'initialisation".into() });
+            emit(&EngineMessage::Error {
+                message: "CreateScene avant l'initialisation".into(),
+            });
             return;
         };
         let existing = match scenes::list_scene_names(&mut obs.context) {
             Ok(names) => names,
             Err(err) => {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
                 return;
             }
         };
         if let Err(err) = hikari_protocol::validate_scene_name(&name, &existing) {
-            emit(&EngineMessage::Error { message: format!("nom de scène invalide : {err:?}") });
+            emit(&EngineMessage::Error {
+                message: format!("nom de scène invalide : {err:?}"),
+            });
             return;
         }
         if let Err(err) = scenes::create_scene(&mut obs.context, &name) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
             return;
         }
         self.emit_scene_list();
@@ -39,13 +47,19 @@ impl App {
     /// an unknown name rather than a silent no-op.
     pub(crate) fn handle_switch_scene(&mut self, name: String, duration_ms: u32) {
         let Some(obs) = &mut self.obs else {
-            emit(&EngineMessage::Error { message: "SwitchScene avant l'initialisation".into() });
+            emit(&EngineMessage::Error {
+                message: "SwitchScene avant l'initialisation".into(),
+            });
             return;
         };
         let duration_ms = hikari_protocol::clamp_transition_duration_ms(duration_ms);
         let previous_scene = obs.active_scene.clone();
-        if let Err(err) = scenes::switch_scene(&mut obs.context, &obs.transition, &name, duration_ms) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+        if let Err(err) =
+            scenes::switch_scene(&mut obs.context, &obs.transition, &name, duration_ms)
+        {
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
             return;
         }
         obs.active_scene = name.clone();
@@ -94,20 +108,46 @@ impl App {
             .filter(|(scene, _)| scene == from_scene)
             .map(|(_, device)| device.clone())
             .collect();
-        let Some(device_id) = from_devices
-            .into_iter()
-            .find(|device| obs.camera_items.contains_key(&(to_scene.to_string(), device.clone())))
+        let Some(device_id) = from_devices.into_iter().find(|device| {
+            obs.camera_items
+                .contains_key(&(to_scene.to_string(), device.clone()))
+        }) else {
+            return;
+        };
+        let Some(from_item) = obs
+            .camera_items
+            .get(&(from_scene.to_string(), device_id.clone()))
         else {
             return;
         };
-        let Some(from_item) = obs.camera_items.get(&(from_scene.to_string(), device_id.clone())) else { return };
-        let Ok(from_position) = from_item.get_source_position() else { return };
-        let Ok(from_scale) = from_item.get_source_scale() else { return };
-        let from = (*from_position.x() as i32, *from_position.y() as i32, *from_scale.x());
-        let Some(to_item) = obs.camera_items.get(&(to_scene.to_string(), device_id.clone())) else { return };
-        let Ok(to_position) = to_item.get_source_position() else { return };
-        let Ok(to_scale) = to_item.get_source_scale() else { return };
-        let to = (*to_position.x() as i32, *to_position.y() as i32, *to_scale.x());
+        let Ok(from_position) = from_item.get_source_position() else {
+            return;
+        };
+        let Ok(from_scale) = from_item.get_source_scale() else {
+            return;
+        };
+        let from = (
+            *from_position.x() as i32,
+            *from_position.y() as i32,
+            *from_scale.x(),
+        );
+        let Some(to_item) = obs
+            .camera_items
+            .get(&(to_scene.to_string(), device_id.clone()))
+        else {
+            return;
+        };
+        let Ok(to_position) = to_item.get_source_position() else {
+            return;
+        };
+        let Ok(to_scale) = to_item.get_source_scale() else {
+            return;
+        };
+        let to = (
+            *to_position.x() as i32,
+            *to_position.y() as i32,
+            *to_scale.x(),
+        );
         // Starts exactly where the outgoing scene left it — the first frame of the incoming
         // scene must show the OLD spot, or the glide would begin with a jump of its own.
         if camera::set_camera_transform(to_item, from.0, from.1, from.2).is_err() {
@@ -129,7 +169,9 @@ impl App {
     /// need, so the item never gets left at an interpolated position nobody ever finishes
     /// writing or announcing. A no-op if nothing is in flight.
     fn finish_camera_slide_in_place(&mut self) {
-        let Some(slide) = self.camera_slide.take() else { return };
+        let Some(slide) = self.camera_slide.take() else {
+            return;
+        };
         let Some(obs) = &self.obs else { return };
         if let Some(item) = obs.camera_items.get(&(slide.scene, slide.device_id)) {
             let _ = camera::set_camera_transform(item, slide.to.0, slide.to.1, slide.to.2);
@@ -146,7 +188,9 @@ impl App {
     /// would then save as the truth, corrupting the very placement B7's option A exists to
     /// carry across a scene switch.
     pub(crate) fn advance_camera_slide(&mut self) {
-        let Some(slide) = &self.camera_slide else { return };
+        let Some(slide) = &self.camera_slide else {
+            return;
+        };
         let elapsed = slide.started_at.elapsed();
         let progress = if slide.duration.is_zero() {
             1.0
@@ -182,15 +226,23 @@ impl App {
             .map(|((_, device_id), state)| (device_id.clone(), *state))
             .collect();
         for (device_id, (background_removal_on, circle_mask_on)) in wanted {
-            let Some(opened) = obs.cameras.get(&device_id) else { continue };
-            if let Err(err) =
-                camera::set_filter_enabled(&opened.filters.background_removal, background_removal_on)
-            {
-                emit(&EngineMessage::Error { message: err.to_string() });
+            let Some(opened) = obs.cameras.get(&device_id) else {
+                continue;
+            };
+            if let Err(err) = camera::set_filter_enabled(
+                &opened.filters.background_removal,
+                background_removal_on,
+            ) {
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
             }
-            if let Err(err) = camera::set_filter_enabled(&opened.filters.circle_mask, circle_mask_on)
+            if let Err(err) =
+                camera::set_filter_enabled(&opened.filters.circle_mask, circle_mask_on)
             {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
             }
         }
     }
@@ -203,7 +255,9 @@ impl App {
     /// l'état du moteur, jamais libobs — appelée à chaque commande, elle doit rester
     /// gratuite.
     pub(crate) fn scene_contents_fingerprint(&self) -> Vec<String> {
-        let Some(obs) = self.obs.as_ref() else { return Vec::new() };
+        let Some(obs) = self.obs.as_ref() else {
+            return Vec::new();
+        };
         let mut marks: Vec<String> = Vec::new();
         for (scene, list) in &obs.scene_sources {
             for source in list {
@@ -248,14 +302,19 @@ impl App {
         let names = match scenes::list_scene_names(&mut obs.context) {
             Ok(names) => names,
             Err(err) => {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
                 return;
             }
         };
         let scenes = names
             .into_iter()
             .map(|name| {
-                let has_camera = obs.camera_items.keys().any(|(shown_in, _)| shown_in == &name);
+                let has_camera = obs
+                    .camera_items
+                    .keys()
+                    .any(|(shown_in, _)| shown_in == &name);
                 let mut sources: Vec<hikari_protocol::SceneSourceInfo> = Vec::new();
                 if let Some(added) = obs.scene_sources.get(&name) {
                     sources.extend(added.iter().map(|source| {
@@ -273,16 +332,12 @@ impl App {
                             scale_percent: scale
                                 .as_ref()
                                 .map_or(100, |s| (s.x() * 100.0).round() as i32),
-                            locked: obs
-                                .locked
-                                .contains(&(name.clone(), source.name.clone())),
+                            locked: obs.locked.contains(&(name.clone(), source.name.clone())),
                             // Une capture n'a pas de filtre caméra : la case existe pour
                             // toutes les sources, elle ne vaut quelque chose que pour une caméra.
                             background_removal: false,
                             circle_mask: false,
-                            visible: !obs
-                                .hidden
-                                .contains(&(name.clone(), source.name.clone())),
+                            visible: !obs.hidden.contains(&(name.clone(), source.name.clone())),
                         }
                     }));
                 }
@@ -325,7 +380,9 @@ impl App {
                             (
                                 position.as_ref().map_or(0, |p| *p.x() as i32),
                                 position.as_ref().map_or(0, |p| *p.y() as i32),
-                                scale.as_ref().map_or(100, |s| (s.x() * 100.0).round() as i32),
+                                scale
+                                    .as_ref()
+                                    .map_or(100, |s| (s.x() * 100.0).round() as i32),
                             )
                         }
                     };
@@ -343,10 +400,17 @@ impl App {
                         name: camera_name,
                     });
                 }
-                SceneInfo { has_camera, sources, name }
+                SceneInfo {
+                    has_camera,
+                    sources,
+                    name,
+                }
             })
             .collect();
-        emit(&EngineMessage::SceneList { scenes, active: obs.active_scene.clone() });
+        emit(&EngineMessage::SceneList {
+            scenes,
+            active: obs.active_scene.clone(),
+        });
     }
 
     /// Deletes a scene and everything scene-local it carried (multi-scene, tranche 3).
@@ -358,13 +422,17 @@ impl App {
     /// showing it, exactly like `handle_remove_camera`.
     pub(crate) fn handle_delete_scene(&mut self, name: String) {
         let Some(obs) = &mut self.obs else {
-            emit(&EngineMessage::Error { message: "DeleteScene avant l'initialisation".into() });
+            emit(&EngineMessage::Error {
+                message: "DeleteScene avant l'initialisation".into(),
+            });
             return;
         };
         let existing = match scenes::list_scene_names(&mut obs.context) {
             Ok(names) => names,
             Err(err) => {
-                emit(&EngineMessage::Error { message: err.to_string() });
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
                 return;
             }
         };
@@ -395,13 +463,17 @@ impl App {
         // because `validate_scene_deletion` already refused the last-scene case.
         if obs.active_scene == name {
             let Some(fallback) = existing.iter().find(|other| **other != name).cloned() else {
-                emit(&EngineMessage::Error { message: "aucune scène de repli".into() });
+                emit(&EngineMessage::Error {
+                    message: "aucune scène de repli".into(),
+                });
                 return;
             };
             // Instant cut: this fallback is forced by a deletion, never a user gesture — an
             // animated fade here would be motion nobody asked for.
             self.handle_switch_scene(fallback, 0);
-            let Some(obs_again) = &mut self.obs else { return };
+            let Some(obs_again) = &mut self.obs else {
+                return;
+            };
             if obs_again.active_scene == name {
                 // The switch failed and already reported why; deleting now would leave the
                 // output channel on a dropped scene.
@@ -410,8 +482,10 @@ impl App {
         }
 
         let Some(obs) = &mut self.obs else { return };
-        obs.camera_items.retain(|(shown_in, _), _| shown_in != &name);
-        obs.scene_filter_state.retain(|(shown_in, _), _| shown_in != &name);
+        obs.camera_items
+            .retain(|(shown_in, _), _| shown_in != &name);
+        obs.scene_filter_state
+            .retain(|(shown_in, _), _| shown_in != &name);
         obs.item_rects = None;
         // Une caméra que plus aucune scène ne montre garde l'appareil ouvert : témoin
         // allumé, et indisponible ailleurs. Elle part avec la dernière scène qui l'affichait.
@@ -421,7 +495,9 @@ impl App {
         // la scène en vie et la suppression ne ferait rien (même piège que l'élément caméra).
         obs.scene_sources.remove(&name);
         if let Err(err) = scenes::delete_scene(&mut obs.context, &name) {
-            emit(&EngineMessage::Error { message: err.to_string() });
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
             return;
         }
         self.emit_scene_list();

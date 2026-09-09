@@ -62,7 +62,9 @@ mod tests {
     #[test]
     fn should_reject_chat_command_when_not_whitelisted() {
         let whitelist = ChatCommandWhitelist::new(["!hype".to_string()]);
-        let trigger = Trigger::ChatCommand { command: "!ban".to_string() };
+        let trigger = Trigger::ChatCommand {
+            command: "!ban".to_string(),
+        };
         assert_eq!(
             validate_trigger(&trigger, &whitelist),
             Err(TriggerError::ChatCommandNotWhitelisted("!ban".to_string()))
@@ -72,7 +74,9 @@ mod tests {
     #[test]
     fn should_allow_chat_command_when_whitelisted() {
         let whitelist = ChatCommandWhitelist::new(["!hype".to_string()]);
-        let trigger = Trigger::ChatCommand { command: "!hype".to_string() };
+        let trigger = Trigger::ChatCommand {
+            command: "!hype".to_string(),
+        };
         assert_eq!(validate_trigger(&trigger, &whitelist), Ok(()));
     }
 }

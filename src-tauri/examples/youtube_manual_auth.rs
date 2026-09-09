@@ -37,7 +37,10 @@ async fn main() -> anyhow::Result<()> {
         Ok(token) => {
             // Never print token.access_token/refresh_token — Secret has no way to leak them
             // via {}/{:?} even by accident; expires_at is not sensitive.
-            println!("\n✅ Connexion réussie. Jeton valide jusqu'à (unix): {}", token.expires_at);
+            println!(
+                "\n✅ Connexion réussie. Jeton valide jusqu'à (unix): {}",
+                token.expires_at
+            );
 
             // Close the loop B2b actually promises: the token in the OS credential store,
             // not just a successful exchange. Round-trips through the REAL Windows
@@ -52,7 +55,11 @@ async fn main() -> anyhow::Result<()> {
             println!(
                 "✅ Relu depuis le coffre : expire dans {}s, jugé {} par is_expired().",
                 reloaded.expires_at.saturating_sub(now),
-                if vault::is_expired(&reloaded, now) { "EXPIRÉ" } else { "valide" }
+                if vault::is_expired(&reloaded, now) {
+                    "EXPIRÉ"
+                } else {
+                    "valide"
+                }
             );
             println!("(les jetons eux-mêmes ne sont jamais affichés — type Secret)");
         }

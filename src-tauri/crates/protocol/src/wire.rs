@@ -1,10 +1,12 @@
 //! The JSON-line wire itself (ADR-011): the two tagged enums exchanged between the
 //! controller and the engine, multistream target validation, and line (de)serialization.
 
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
-use crate::audio::{AudioDevice, AudioMonitoring, AudioSourceInfo, AudioLevel, AudioSourceKind, NoiseMethod};
+use crate::audio::{
+    AudioDevice, AudioLevel, AudioMonitoring, AudioSourceInfo, AudioSourceKind, NoiseMethod,
+};
 use crate::scenes::SceneInfo;
 use crate::sources::{CameraDevice, CaptureTarget, SourceInfo, SourceKind, SourceOrder};
 
@@ -55,13 +57,23 @@ pub enum EngineMessage {
     PlatformStarted { id: String, hardware: bool },
     /// Network frame counters for one multistream target, reported periodically (mirrors
     /// `Frames`, but tagged by `id` since B3 runs several outputs at once).
-    PlatformFrames { id: String, dropped: i32, total: i32 },
+    PlatformFrames {
+        id: String,
+        dropped: i32,
+        total: i32,
+    },
     /// One multistream target was stopped cleanly.
     PlatformStopped { id: String },
     /// The position/scale of the camera `device_id` in `scene` after `NudgeCamera` or `ScaleCamera`
     /// (B7) — emitted with the real, clamped values (never presumed), so the panel reflects
     /// what actually happened rather than optimistically applying the requested delta.
-    CameraTransform { device_id: String, scene: String, x: i32, y: i32, scale_percent: i32 },
+    CameraTransform {
+        device_id: String,
+        scene: String,
+        x: i32,
+        y: i32,
+        scale_percent: i32,
+    },
     /// One multistream target failed — recoverable, reported instead of silently dropping
     /// that platform (B3 acceptance: "aucun échec silencieux"). The other targets are
     /// unaffected and keep streaming.
@@ -70,10 +82,16 @@ pub enum EngineMessage {
     /// and which one is live on the output channel — emitted after `CreateScene`,
     /// `SwitchScene`, `DeleteScene`, any camera/filter change, and once at startup, so a
     /// late-opening panel sees the real state, never an assumed one.
-    SceneList { scenes: Vec<SceneInfo>, active: String },
+    SceneList {
+        scenes: Vec<SceneInfo>,
+        active: String,
+    },
     /// The audio devices libobs reports on this machine (B6) — answering `ListAudioDevices`.
     /// Never a presumed list, same rule as `Cameras`.
-    AudioDevices { inputs: Vec<AudioDevice>, outputs: Vec<AudioDevice> },
+    AudioDevices {
+        inputs: Vec<AudioDevice>,
+        outputs: Vec<AudioDevice>,
+    },
     /// Every audio source in the mixer with its live settings — emitted after any mixer
     /// change, so a late-opening panel sees the real state.
     AudioSources { items: Vec<AudioSourceInfo> },
@@ -117,10 +135,18 @@ pub enum ControllerCommand {
     /// rebuild) — each scene keeps its OWN desired on/off state, applied whenever THAT scene
     /// becomes live (`SwitchScene`), exactly the "scene automation toggles my filters" flow
     /// Jay already uses in OBS today.
-    SetBackgroundRemoval { device_id: String, scene: String, enabled: bool },
+    SetBackgroundRemoval {
+        device_id: String,
+        scene: String,
+        enabled: bool,
+    },
     /// Sets whether the circular alpha mask filter is enabled for the camera `device_id` in
     /// `scene`. Same per-camera, per-scene toggle contract as `SetBackgroundRemoval`.
-    SetCircleMask { device_id: String, scene: String, enabled: bool },
+    SetCircleMask {
+        device_id: String,
+        scene: String,
+        enabled: bool,
+    },
     /// Removes the camera `device_id` from `scene` only — other scenes keep showing that
     /// camera with their own filter state untouched, and the other cameras of `scene` are
     /// left alone. The device (and its filters) is fully released once no scene shows it
@@ -163,10 +189,19 @@ pub enum ControllerCommand {
     /// broke silently in this WebView2 build, session 2026-07-23). Position is per camera
     /// AND per scene — one device can sit differently in each scene it appears in. A no-op
     /// if `scene` doesn't show that camera.
-    NudgeCamera { device_id: String, scene: String, dx: i32, dy: i32 },
+    NudgeCamera {
+        device_id: String,
+        scene: String,
+        dx: i32,
+        dy: i32,
+    },
     /// Grows (`true`) or shrinks (`false`) the placement of the camera `device_id` within
     /// `scene` by one fixed step (B7). Same per-camera, per-scene scope as `NudgeCamera`.
-    ScaleCamera { device_id: String, scene: String, grow: bool },
+    ScaleCamera {
+        device_id: String,
+        scene: String,
+        grow: bool,
+    },
     /// Switches the live scene through a fondu (B7). `duration_ms` comes from
     /// [`crate::TRANSITION_DURATIONS_MS`], clamped again on the engine side
     /// (`clamp_transition_duration_ms`) — `0` is an instant cut, never a fade with no
@@ -189,7 +224,11 @@ pub enum ControllerCommand {
     /// comes from `AudioDevices`, never guessed. Audio sources live on their own libobs
     /// channels, independent of scenes: sound keeps playing across a scene switch, exactly
     /// like OBS's own global audio mixer.
-    AddAudioSource { device_id: String, kind: AudioSourceKind, name: String },
+    AddAudioSource {
+        device_id: String,
+        kind: AudioSourceKind,
+        name: String,
+    },
     /// Removes an audio source from the mixer and frees its channel.
     RemoveAudioSource { name: String },
     /// Sets a source's volume from a 0–100 slider position.
@@ -198,7 +237,10 @@ pub enum ControllerCommand {
     /// where the user left it, so muting is never a destructive act.
     SetAudioMuted { name: String, muted: bool },
     /// Sets whether the streamer hears this source, and whether the audience does.
-    SetAudioMonitoring { name: String, monitoring: AudioMonitoring },
+    SetAudioMonitoring {
+        name: String,
+        monitoring: AudioMonitoring,
+    },
     /// Sets room-noise suppression for a microphone: on/off, which method, and Speex's
     /// strength. One command rather than three because the settings panel edits them
     /// together, and a half-applied combination (RNNoise + a level) means nothing.
@@ -206,7 +248,12 @@ pub enum ControllerCommand {
     /// The filter is attached once and toggled in place (`obs_source_set_enabled`), never
     /// rebuilt — a rebuild would interrupt the sound, exactly the blip the camera filters
     /// used to have.
-    SetNoiseSettings { name: String, enabled: bool, method: NoiseMethod, level_db: f32 },
+    SetNoiseSettings {
+        name: String,
+        enabled: bool,
+        method: NoiseMethod,
+        level_db: f32,
+    },
     /// Ask the engine for everything the machine can capture right now (brique Sources).
     ListCaptureTargets,
     /// Adds a capture of `target_id` into `scene`, named `name`.
@@ -214,18 +261,33 @@ pub enum ControllerCommand {
     /// Sources belong to a SCENE, unlike audio which lives on global channels: that is the
     /// whole point of scenes — showing the game in one and a waiting screen in another.
     /// `target_id` comes from `CaptureTargets`, never guessed.
-    AddCaptureSource { scene: String, kind: SourceKind, target_id: String, name: String },
+    AddCaptureSource {
+        scene: String,
+        kind: SourceKind,
+        target_id: String,
+        name: String,
+    },
     /// Removes a source from `scene` only. Other scenes keep theirs.
     RemoveSource { scene: String, name: String },
     /// Moves a source one step in front of, or behind, the others in `scene`. Which source
     /// hides which is a composition decision, so it belongs to the scene, not to the source.
-    ReorderSource { scene: String, name: String, direction: SourceOrder },
+    ReorderSource {
+        scene: String,
+        name: String,
+        direction: SourceOrder,
+    },
     /// Places a source exactly, without going through the mouse.
     ///
     /// C'est ce qui rend une session REJOUABLE : au démarrage suivant, l'app recrée les
     /// sources puis les repose là où elles étaient. Sans cette commande, tout le placement
     /// serait à refaire à chaque lancement.
-    SetSourceTransform { scene: String, name: String, x: i32, y: i32, scale_percent: i32 },
+    SetSourceTransform {
+        scene: String,
+        name: String,
+        x: i32,
+        y: i32,
+        scale_percent: i32,
+    },
     /// Locks or unlocks `name` in `scene` against the mouse (brique Sources). A locked
     /// source is skipped by the click hit test, so it can be neither moved nor resized —
     /// it stays visible, still reorderable and still removable, because locking guards
@@ -233,7 +295,11 @@ pub enum ControllerCommand {
     ///
     /// Applies to the camera too, under its own name: it is the item most often nudged by
     /// accident, and excluding it would make the lock feel arbitrary.
-    SetSourceLocked { scene: String, name: String, locked: bool },
+    SetSourceLocked {
+        scene: String,
+        name: String,
+        locked: bool,
+    },
     /// Montre ou cache une source DANS une scène, sans la retirer (maquette, l'œil de la
     /// liste des sources).
     ///
@@ -243,21 +309,33 @@ pub enum ControllerCommand {
     ///
     /// Par scène, comme le verrou : la même caméra peut être visible ici et cachée
     /// ailleurs.
-    SetSourceVisible { scene: String, name: String, visible: bool },
+    SetSourceVisible {
+        scene: String,
+        name: String,
+        visible: bool,
+    },
     /// Change l'apparence d'une source TEXTE déjà posée : police, taille, couleur, contour,
     /// alignement.
     ///
     /// Née du constat de Jay le 2026-09-07 : « une source de texte sans réglage, sans
     /// personnalisation, je trouve ça très inutile ». Le greffon portait tous ces réglages
     /// depuis toujours — rien ne les atteignait.
-    SetTextSettings { scene: String, name: String, settings: crate::sources::TextSettings },
+    SetTextSettings {
+        scene: String,
+        name: String,
+        settings: crate::sources::TextSettings,
+    },
     /// Change le CONTENU d'une source texte déjà posée — jamais sa police, sa couleur ou son
     /// contour, qui vivent dans `SetTextSettings`.
     ///
     /// Née du constat de Jay le 2026-09-07 : le texte n'était réglable qu'à la création,
     /// jamais après. Un texte se corrige (une faute, un pseudo qui change) bien plus souvent
     /// qu'il ne se réécrit entièrement.
-    SetTextContent { scene: String, name: String, text: String },
+    SetTextContent {
+        scene: String,
+        name: String,
+        text: String,
+    },
     /// Redemande l'inventaire actuel des scenes ET du mixeur, sans rien changer.
     ///
     /// Le moteur n'annonce `SceneList`/`AudioSources` que sur un vrai changement — une
@@ -311,7 +389,9 @@ pub fn validate_targets(targets: &[StreamTarget]) -> Result<(), MultistreamError
     let mut seen = std::collections::HashSet::new();
     for target in targets {
         if !seen.insert(&target.id) {
-            return Err(MultistreamError::DuplicateId { id: target.id.clone() });
+            return Err(MultistreamError::DuplicateId {
+                id: target.id.clone(),
+            });
         }
     }
     Ok(())

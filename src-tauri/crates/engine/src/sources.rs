@@ -11,7 +11,7 @@
 //! dans l'autre.
 
 use anyhow::{Context, Result};
-use hikari_protocol::{SourceKind, CaptureTarget, SourceOrder};
+use hikari_protocol::{CaptureTarget, SourceKind, SourceOrder};
 // `WindowInfo`/`WindowSearchMode` viennent de `libobs-window-helper`, mais on passe par la
 // réexportation de `libobs-simple` : ajouter une dépendance directe la ferait dériver de la
 // version que `libobs-simple` lie réellement.
@@ -26,8 +26,7 @@ use libobs_wrapper::sources::ObsSourceRef;
 use libobs_wrapper::sys as libobs;
 
 /// Les fenêtres à proposer : celles qui portent un titre visible, comme OBS lui-même.
-const WINDOW_SEARCH_MODE: WindowSearchMode =
-    WindowSearchMode::ExcludeMinimized;
+const WINDOW_SEARCH_MODE: WindowSearchMode = WindowSearchMode::ExcludeMinimized;
 
 /// Tout ce que la machine peut capturer À CET INSTANT : jeux lancés, fenêtres ouvertes,
 /// écrans branchés.
@@ -141,7 +140,10 @@ pub fn add_capture_to_scene(
             settings
                 .set_string("monitor_id", target_id)
                 .context("réglage écran")?
-                .set_int("method", libobs::display_capture_method_DISPLAY_METHOD_WGC as i64)
+                .set_int(
+                    "method",
+                    libobs::display_capture_method_DISPLAY_METHOD_WGC as i64,
+                )
                 .context("réglage méthode de capture écran")?
                 .set_bool("capture_cursor", true)
                 .context("réglage curseur")?;
@@ -186,7 +188,9 @@ pub fn add_capture_to_scene(
         .get_scene(scene_name)
         .context("recherche scène")?
         .context("scène introuvable")?;
-    scene.add_source(source).context("ajout de la source à la scène")
+    scene
+        .add_source(source)
+        .context("ajout de la source à la scène")
 }
 
 /// Déplace `item` d'un cran devant ou derrière les autres sources de sa scène.
@@ -257,7 +261,10 @@ pub fn item_base_size(
             if source.is_null() {
                 return (0, 0);
             }
-            (libobs::obs_source_get_width(source), libobs::obs_source_get_height(source))
+            (
+                libobs::obs_source_get_width(source),
+                libobs::obs_source_get_height(source),
+            )
         })
         .context("lecture de la taille d'une source")
 }
@@ -291,5 +298,7 @@ pub fn remove_from_scene(
         .get_scene(scene_name)
         .context("recherche scène")?
         .context("scène introuvable")?;
-    scene.remove_scene_item(item).context("retrait de la source de la scène")
+    scene
+        .remove_scene_item(item)
+        .context("retrait de la source de la scène")
 }

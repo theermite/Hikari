@@ -80,7 +80,10 @@ pub async fn start_device_flow(
     http: &reqwest::Client,
 ) -> Result<(DeviceUserTokenBuilder, DeviceFlowPrompt)> {
     let mut builder = DeviceUserTokenBuilder::new(client_id.to_string(), required_scopes());
-    let code = builder.start(http).await.context("démarrage du flux Twitch (device code)")?;
+    let code = builder
+        .start(http)
+        .await
+        .context("démarrage du flux Twitch (device code)")?;
     let prompt = DeviceFlowPrompt {
         verification_uri: code.verification_uri.clone(),
         user_code: code.user_code.clone(),
@@ -100,14 +103,16 @@ pub async fn wait_for_authorization(
 ) -> Result<StoredToken, TwitchAuthError> {
     use twitch_oauth2::tokens::errors::DeviceUserTokenExchangeError;
 
-    let token = builder.wait_for_code(http, tokio::time::sleep).await.map_err(|err| match err {
-        DeviceUserTokenExchangeError::Expired => TwitchAuthError::Expired,
-        other => TwitchAuthError::Other(other.to_string()),
+    let token = builder
+        .wait_for_code(http, tokio::time::sleep)
+        .await
+        .map_err(|err| match err {
+            DeviceUserTokenExchangeError::Expired => TwitchAuthError::Expired,
+            other => TwitchAuthError::Other(other.to_string()),
+        })?;
+    let refresh_token = token.refresh_token.as_ref().ok_or_else(|| {
+        TwitchAuthError::Other("Twitch n'a pas rendu de jeton de rafraîchissement".into())
     })?;
-    let refresh_token = token
-        .refresh_token
-        .as_ref()
-        .ok_or_else(|| TwitchAuthError::Other("Twitch n'a pas rendu de jeton de rafraîchissement".into()))?;
     Ok(StoredToken {
         access_token: Secret::new(token.access_token.secret()),
         refresh_token: Secret::new(refresh_token.secret()),

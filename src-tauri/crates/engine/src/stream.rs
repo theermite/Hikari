@@ -6,9 +6,9 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use hikari_protocol::EngineMessage;
 use libobs_wrapper::context::ObsContext;
-use libobs_wrapper::data::ObsDataSetters;
 use libobs_wrapper::data::object::ObsObjectTrait;
 use libobs_wrapper::data::output::{ObsOutputRef, ObsOutputTrait};
+use libobs_wrapper::data::ObsDataSetters;
 use libobs_wrapper::encoders::{ObsAudioEncoderType, ObsContextEncoders, ObsVideoEncoderType};
 use libobs_wrapper::run_with_obs;
 use libobs_wrapper::sys as obs;
@@ -51,7 +51,9 @@ pub fn start_stream(context: &mut ObsContext) -> Result<ObsOutputRef> {
     let (server, key) = rtmp_target()?;
 
     let output_info = OutputInfo::new("rtmp_output", "hikari-stream", None, None);
-    let mut output = context.output(output_info).context("création sortie RTMP")?;
+    let mut output = context
+        .output(output_info)
+        .context("création sortie RTMP")?;
 
     let available = context
         .available_video_encoders()
@@ -68,7 +70,10 @@ pub fn start_stream(context: &mut ObsContext) -> Result<ObsOutputRef> {
     } else {
         (ObsVideoEncoderType::OBS_X264, false)
     };
-    emit(&EngineMessage::VideoEncoder { kind: format!("{video_type:?}"), hardware });
+    emit(&EngineMessage::VideoEncoder {
+        kind: format!("{video_type:?}"),
+        hardware,
+    });
 
     let mut video_settings = context.data().context("réglages encodeur vidéo")?;
     video_settings.set_string("rate_control", "CBR")?;
@@ -86,8 +91,15 @@ pub fn start_stream(context: &mut ObsContext) -> Result<ObsOutputRef> {
     eprintln!("[engine] debit choisi : {debit} kbit/s (encodeur materiel : {hardware})");
     video_settings.set_int("bitrate", i64::from(debit))?;
     video_settings.set_int("keyint_sec", 2)?; // clé toutes les 2 s : exigence des ingests RTMP
-    let video_info = VideoEncoderInfo::new(video_type, "hikari_video_encoder", Some(video_settings), None);
-    output.create_and_set_video_encoder(video_info).context("encodeur vidéo")?;
+    let video_info = VideoEncoderInfo::new(
+        video_type,
+        "hikari_video_encoder",
+        Some(video_settings),
+        None,
+    );
+    output
+        .create_and_set_video_encoder(video_info)
+        .context("encodeur vidéo")?;
 
     let mut audio_settings = context.data().context("réglages encodeur audio")?;
     audio_settings.set_string("rate_control", "CBR")?;
@@ -98,13 +110,16 @@ pub fn start_stream(context: &mut ObsContext) -> Result<ObsOutputRef> {
         Some(audio_settings),
         None,
     );
-    output.create_and_set_audio_encoder(audio_info, 0).context("encodeur audio")?;
+    output
+        .create_and_set_audio_encoder(audio_info, 0)
+        .context("encodeur audio")?;
 
     // Service RTMP (rtmp_custom) attaché en FFI, sur le fil libobs — jamais la clé sur le
     // fil protocolaire (EngineMessage::Service ne porte QUE le serveur, voir sa doc).
     let output_ptr = output.as_ptr();
     let runtime = context.runtime().clone();
-    let server_c = std::ffi::CString::new(server.as_str()).context("serveur RTMP invalide (NUL)")?;
+    let server_c =
+        std::ffi::CString::new(server.as_str()).context("serveur RTMP invalide (NUL)")?;
     let key_c = std::ffi::CString::new(key.as_str()).context("clé RTMP invalide (NUL)")?;
     let server_for_message = server.clone();
     run_with_obs!(runtime, (output_ptr), move || {
@@ -126,7 +141,9 @@ pub fn start_stream(context: &mut ObsContext) -> Result<ObsOutputRef> {
         }
     })
     .context("attache du service RTMP")?;
-    emit(&EngineMessage::Service { server: server_for_message });
+    emit(&EngineMessage::Service {
+        server: server_for_message,
+    });
 
     output.start().context("démarrage de la diffusion")?;
     emit(&EngineMessage::Started);

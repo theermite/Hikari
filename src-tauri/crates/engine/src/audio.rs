@@ -11,6 +11,7 @@
 
 use anyhow::{Context, Result};
 use hikari_protocol::{AudioDevice, AudioSourceKind};
+use libobs_simple::define_object_manager;
 use libobs_wrapper::context::ObsContext;
 use libobs_wrapper::data::object::ObsObjectTrait;
 use libobs_wrapper::data::properties::types::ObsListItemValue;
@@ -18,9 +19,8 @@ use libobs_wrapper::data::properties::{ObsProperty, ObsPropertyObject};
 use libobs_wrapper::data::{ObsData, ObsDataSetters};
 use libobs_wrapper::sources::{ObsFilterRef, ObsSourceBuilder, ObsSourceRef, ObsSourceTrait};
 use libobs_wrapper::sys as libobs;
-use libobs_simple::define_object_manager;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 
 define_object_manager!(
     #[derive(Debug)]
@@ -55,7 +55,10 @@ pub const MAX_AUDIO_SOURCES: u32 = 8;
 /// Probes the real audio devices of one kind: builds a throwaway source, reads its
 /// `device_id` list property, and drops it. Never a presumed device list — same approach as
 /// `camera::probe_camera_devices`.
-pub fn probe_audio_devices(context: &ObsContext, kind: AudioSourceKind) -> Result<Vec<AudioDevice>> {
+pub fn probe_audio_devices(
+    context: &ObsContext,
+    kind: AudioSourceKind,
+) -> Result<Vec<AudioDevice>> {
     // Built with THIS kind's id: a microphone probe would otherwise list the speakers.
     let probe = ObsSourceRef::new(
         kind.libobs_id(),
@@ -65,7 +68,9 @@ pub fn probe_audio_devices(context: &ObsContext, kind: AudioSourceKind) -> Resul
         context.runtime().clone(),
     )
     .context("sonde audio wasapi")?;
-    let properties = probe.get_properties().context("liste des propriétés wasapi")?;
+    let properties = probe
+        .get_properties()
+        .context("liste des propriétés wasapi")?;
 
     let Some(ObsProperty::List(list)) = properties.get("device_id") else {
         return Ok(Vec::new());
@@ -74,9 +79,10 @@ pub fn probe_audio_devices(context: &ObsContext, kind: AudioSourceKind) -> Resul
         .items()
         .iter()
         .filter_map(|item| match item.value() {
-            ObsListItemValue::String(device_id) => {
-                Some(AudioDevice { name: item.name().clone(), device_id: device_id.clone() })
-            }
+            ObsListItemValue::String(device_id) => Some(AudioDevice {
+                name: item.name().clone(),
+                device_id: device_id.clone(),
+            }),
             _ => None,
         })
         .collect())
@@ -90,11 +96,19 @@ pub fn build_audio_source(
     name: &str,
 ) -> Result<ObsSourceRef> {
     let mut settings = ObsData::new(context.runtime().clone()).context("réglages source audio")?;
-    settings.set_string("device_id", device_id).context("réglage périphérique audio")?;
+    settings
+        .set_string("device_id", device_id)
+        .context("réglage périphérique audio")?;
     // The macro above bakes in the input id, so the kind is applied here instead — one
     // struct, two libobs ids.
-    ObsSourceRef::new(kind.libobs_id(), name, Some(settings.into()), None, context.runtime().clone())
-        .context("construction source audio")
+    ObsSourceRef::new(
+        kind.libobs_id(),
+        name,
+        Some(settings.into()),
+        None,
+        context.runtime().clone(),
+    )
+    .context("construction source audio")
 }
 
 /// Puts `source` on an output channel so libobs actually mixes it into the stream. Without
@@ -158,7 +172,10 @@ pub fn create_noise_suppression_filter(source: &ObsSourceRef) -> Result<ObsFilte
     let runtime = source.runtime().clone();
     let mut settings = ObsData::new(runtime.clone()).context("réglages suppression de bruit")?;
     settings
-        .set_string("method", hikari_protocol::NoiseMethod::Rnnoise.libobs_value())
+        .set_string(
+            "method",
+            hikari_protocol::NoiseMethod::Rnnoise.libobs_value(),
+        )
         .context("réglage méthode de suppression")?;
     let filter = ObsFilterRef::new(
         hikari_protocol::NOISE_SUPPRESS_FILTER_KIND,
@@ -168,7 +185,9 @@ pub fn create_noise_suppression_filter(source: &ObsSourceRef) -> Result<ObsFilte
         runtime,
     )
     .context("création filtre suppression de bruit")?;
-    source.apply_filter(&filter).context("attache filtre suppression de bruit")?;
+    source
+        .apply_filter(&filter)
+        .context("attache filtre suppression de bruit")?;
     crate::filters::set_enabled(&filter, false)
         .context("désactivation initiale du filtre de bruit")?;
     Ok(filter)
@@ -194,15 +213,22 @@ pub fn apply_noise_settings(
             hikari_protocol::clamp_noise_level(level_db) as f64,
         )
         .context("réglage intensité de suppression")?;
-    filter.update_settings(settings).context("mise à jour du filtre de bruit")
+    filter
+        .update_settings(settings)
+        .context("mise à jour du filtre de bruit")
 }
 
 /// Sets whether the streamer hears this source, and whether the audience does.
-pub fn set_monitoring(source: &ObsSourceRef, monitoring: hikari_protocol::AudioMonitoring) -> Result<()> {
+pub fn set_monitoring(
+    source: &ObsSourceRef,
+    monitoring: hikari_protocol::AudioMonitoring,
+) -> Result<()> {
     use hikari_protocol::AudioMonitoring;
     let value = match monitoring {
         AudioMonitoring::None => libobs::obs_monitoring_type_OBS_MONITORING_TYPE_NONE,
-        AudioMonitoring::MonitorOnly => libobs::obs_monitoring_type_OBS_MONITORING_TYPE_MONITOR_ONLY,
+        AudioMonitoring::MonitorOnly => {
+            libobs::obs_monitoring_type_OBS_MONITORING_TYPE_MONITOR_ONLY
+        }
         AudioMonitoring::MonitorAndOutput => {
             libobs::obs_monitoring_type_OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT
         }
@@ -303,7 +329,10 @@ impl LevelMeter {
         if volmeter == 0 {
             anyhow::bail!("libobs a refusé de créer le mesureur de niveau");
         }
-        Ok(Self { volmeter: SendPtr(volmeter as *mut libobs::obs_volmeter_t), magnitude })
+        Ok(Self {
+            volmeter: SendPtr(volmeter as *mut libobs::obs_volmeter_t),
+            magnitude,
+        })
     }
 
     /// The last reading, in decibels. `-inf` until the first callback arrives.
@@ -325,11 +354,7 @@ impl LevelMeter {
                 // is not `Send` — instead of the `SendPtr` that is.
                 let volmeter = volmeter;
                 // Safety: on the OBS thread; the pointer was created there and not yet freed.
-                libobs::obs_volmeter_remove_callback(
-                    volmeter.0,
-                    Some(on_level),
-                    param.0 as *mut _,
-                );
+                libobs::obs_volmeter_remove_callback(volmeter.0, Some(on_level), param.0 as *mut _);
                 libobs::obs_volmeter_detach_source(volmeter.0);
                 libobs::obs_volmeter_destroy(volmeter.0);
             })
