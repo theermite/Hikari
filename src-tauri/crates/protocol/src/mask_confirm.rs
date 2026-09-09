@@ -26,10 +26,14 @@ pub enum SizeConfirmation {
 }
 
 /// `previous` est le dernier échantillon retenu pour cette caméra (`None` si aucun n'existe
-/// encore), `current` la taille lue maintenant. Zéro l'emporte toujours sur toute comparaison
-/// — une taille nulle n'est jamais confirmée, quel que soit `previous`.
+/// encore), `current` la taille lue maintenant. Une SEULE dimension nulle l'emporte déjà sur
+/// toute comparaison — jamais seulement les deux à la fois (2026-09-10, relecture
+/// indépendante avant publication, huitième passage : une taille demi-nulle comme `(1920,
+/// 0)` n'est pas davantage exploitable qu'une taille totalement nulle, et le garde-fou
+/// d'origine de `mask.rs`, avant l'extraction de cette fonction, testait bien les DEUX
+/// dimensions séparément — ce test-ci referme un garde-fou affaibli sans raison au passage).
 pub fn confirm_camera_size(previous: Option<(u32, u32)>, current: (u32, u32)) -> SizeConfirmation {
-    if current == (0, 0) {
+    if current.0 == 0 || current.1 == 0 {
         return SizeConfirmation::NotYetKnown;
     }
     match previous {
@@ -56,6 +60,20 @@ mod tests {
         // jamais "confirmée" sur la base d'un souvenir périmé.
         assert_eq!(
             confirm_camera_size(Some((640, 480)), (0, 0)),
+            SizeConfirmation::NotYetKnown
+        );
+    }
+
+    #[test]
+    fn should_report_not_yet_known_for_a_half_zero_size() {
+        // (1920, 0) n'est pas plus exploitable que (0, 0) — les deux dimensions comptent
+        // séparément, jamais seulement leur combinaison.
+        assert_eq!(
+            confirm_camera_size(None, (1920, 0)),
+            SizeConfirmation::NotYetKnown
+        );
+        assert_eq!(
+            confirm_camera_size(Some((1920, 1080)), (0, 1080)),
             SizeConfirmation::NotYetKnown
         );
     }

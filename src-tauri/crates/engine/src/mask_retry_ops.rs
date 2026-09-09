@@ -15,7 +15,11 @@ use crate::{camera, emit, App, MASK_RETRY_MAX_AGE};
 /// échantillon, une caméra relancée pouvait annoncer une taille non nulle mais PÉRIMÉE
 /// (celle d'avant la relance) et voir son masque posé une fois pour toutes sur la mauvaise
 /// proportion.
-#[derive(Debug, Clone, Copy)]
+// Jamais `Copy` (2026-09-10, relecture indépendante avant publication, huitième passage) :
+// un type dont un champ EST FAIT pour être muté en place (`last_sampled_size`) ne doit
+// jamais pouvoir être copié en silence — une future écriture sur une copie au lieu de
+// l'entrée réelle de la table compilerait sans avertissement et perdrait l'échantillon.
+#[derive(Debug, Clone)]
 pub(crate) struct MaskWait {
     pub(crate) inserted_at: std::time::Instant,
     pub(crate) last_sampled_size: Option<(u32, u32)>,
@@ -65,7 +69,7 @@ impl App {
             let pending: Vec<((String, String), MaskWait)> = obs
                 .mask_retry_pending
                 .iter()
-                .map(|(key, wait)| (key.clone(), *wait))
+                .map(|(key, wait)| (key.clone(), wait.clone()))
                 .collect();
             for (key, wait) in pending {
                 let (scene, device_id) = &key;

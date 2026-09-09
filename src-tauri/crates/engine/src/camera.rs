@@ -11,7 +11,7 @@ use libobs_wrapper::context::ObsContext;
 use libobs_wrapper::data::object::ObsObjectTrait;
 use libobs_wrapper::data::properties::types::ObsListItemValue;
 use libobs_wrapper::data::properties::{ObsProperty, ObsPropertyObject};
-use libobs_wrapper::data::{ObsData, ObsDataPointers, ObsDataSetters};
+use libobs_wrapper::data::{ObsData, ObsDataSetters};
 use libobs_wrapper::graphics::Vec2;
 use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemExtSceneTrait, SceneItemTrait};
 use libobs_wrapper::sources::{ObsFilterRef, ObsSourceBuilder, ObsSourceRef, ObsSourceTrait};
@@ -115,36 +115,78 @@ pub fn build_camera_source(
 /// cadrage, ses filtres et sa place dans la pile, et il faut tout refaire pendant que les
 /// spectateurs regardent. Relancer garde tout.
 ///
-/// COMMENT : réécrire ses réglages à l'identique. `libobs` referme et rouvre l'appareil
-/// quand on lui redonne son identifiant — c'est le même chemin que suit OBS quand
-/// l'utilisateur rouvre les propriétés d'une caméra et valide sans rien changer.
+/// COMMENT (2026-09-10, relecture indépendante avant publication, HUITIÈME passage — Jay a
+/// choisi cette option après que deux contournements posés côté Hikari (comparer deux
+/// lectures de taille, réappliquer l'état voulu) aient chacune rouvert la même famille de
+/// défaut : un masque pouvait se figer sur la géométrie D'AVANT la relance) : appeler le
+/// gestionnaire de procédure `"activate"` que win-dshow enregistre lui-même sur CETTE
+/// source (`proc_handler_add(ph, "void activate(bool active)", proc_activate, dshow)`,
+/// vérifié dans le code source réel de win-dshow, 2026-09-09) — le MÊME chemin que le
+/// bouton natif « Désactiver »/« Activer » des propriétés d'une caméra dans OBS. L'appeler
+/// avec `false` déclenche `DShowInput::Deactivate` : ferme le graphe DirectShow ET appelle
+/// `obs_source_output_video2(source, nullptr)`, ce qui remet `async_active` à faux — donc
+/// `obs_source_get_width/height` à 0, le SEUL signal que libobs donne réellement pour
+/// « cette source n'a plus d'image ». Un simple `obs_source_update` (l'ancienne
+/// implémentation) ne déclenche jamais ce signal : `UpdateDShowInput` ne fait que
+/// `QueueActivate`, jamais `Deactivate` — la taille annoncée pouvait donc rester celle
+/// d'avant la relance jusqu'à ce qu'une image de la nouvelle configuration écrase la
+/// mémoire, sans qu'aucun signal ne prévienne de la fenêtre entre les deux.
 ///
-/// `libobs-wrapper` 9.0.4 n'expose pas la mise à jour d'une source (vérifié dans sa
-/// source), donc l'appel est brut, sur le fil OBS — même contrat que les filtres, l'audio
-/// et l'ordre d'empilement.
+/// `libobs-wrapper` 9.0.4 n'expose ni la mise à jour d'une source ni l'appel direct d'un
+/// gestionnaire de procédure AVEC un paramètre d'entrée (vérifié dans sa source : son
+/// `ObsCalldataExt::call_proc_handler` construit toujours un `calldata_t` VIDE) — l'appel
+/// est donc brut, sur le fil OBS, via [`set_active`].
 pub fn restart_camera(
     context: &mut ObsContext,
     source: &ObsSourceRef,
     device_id: &str,
 ) -> Result<()> {
     let runtime = context.runtime().clone();
-    let mut settings = ObsData::new(runtime.clone()).context("réglages relance caméra")?;
-    settings
-        // Le nom EXACT de la propriété, celui que la liste des appareils expose. Une
-        // faute ici serait muette : libobs accepte n'importe quelle clé et ignore celles
-        // qu'il ne connaît pas.
-        .set_string("video_device_id", device_id)
-        .context("identifiant appareil pour la relance")?;
     let source_ptr = source.as_ptr();
-    let settings_ptr = settings.as_ptr();
     runtime
-        .run_with_obs_result(move || unsafe {
-            // Safety: les deux pointeurs viennent de valeurs VIVANTES dont nous tenons une
-            // référence, et nous sommes sur le fil OBS — même argument que les autres
-            // appels bruts de ce dépôt.
-            libobs::obs_source_update(source_ptr.get_ptr(), settings_ptr.get_ptr());
+        .run_with_obs_result(move || -> Result<()> {
+            // Safety: source_ptr vient d'une valeur VIVANTE dont nous tenons une référence,
+            // et nous sommes sur le fil OBS — même argument que les autres appels bruts de
+            // ce dépôt.
+            unsafe {
+                set_active(source_ptr.get_ptr(), false)?;
+                set_active(source_ptr.get_ptr(), true)?;
+            }
+            Ok(())
         })
-        .context("relance de la caméra")
+        .context("relance de la caméra")?
+        .with_context(|| format!("cycle désactivation/activation pour {device_id}"))
+}
+
+/// Appelle le gestionnaire de procédure `"activate"` de `source` avec `active` — DOIT être
+/// appelé depuis le fil OBS (voir [`restart_camera`], son unique appelant). `calldata_set_bool`
+/// n'existe qu'en `static inline` côté C (jamais lié dans `obs.dll`, vérifié dans le header
+/// réel) : reconstruit ici à la main via `calldata_set_data`, la fonction exportée dont
+/// elle n'est qu'un raccourci de type.
+unsafe fn set_active(source: *mut libobs::obs_source_t, active: bool) -> Result<()> {
+    let handler = libobs::obs_source_get_proc_handler(source);
+    anyhow::ensure!(!handler.is_null(), "source sans gestionnaire de procédures");
+    let mut data: libobs::calldata_t = std::mem::zeroed();
+    let param_name = std::ffi::CString::new("active").expect("sans octet nul");
+    libobs::calldata_set_data(
+        &mut data,
+        param_name.as_ptr(),
+        &active as *const bool as *const std::ffi::c_void,
+        std::mem::size_of::<bool>(),
+    );
+    let proc_name = std::ffi::CString::new("activate").expect("sans octet nul");
+    let called = libobs::proc_handler_call(handler, proc_name.as_ptr(), &mut data);
+    // `calldata_set_data` alloue la pile du calldata via `bmem` — jamais `fixed` ici, donc
+    // toujours à notre charge de la libérer (même geste que le `calldata_free` interne de
+    // `libobs-wrapper`, `pub(crate)` et donc inaccessible depuis ce crate).
+    if !data.fixed && !data.stack.is_null() {
+        libobs::bfree(data.stack as *mut std::ffi::c_void);
+    }
+    anyhow::ensure!(
+        called,
+        "gestionnaire \"activate\" introuvable sur cette source"
+    );
+    Ok(())
 }
 
 /// Adds the ALREADY-BUILT camera `source` to `scene_name` as a new scene item — reuses the
