@@ -109,19 +109,58 @@ describe("CameraControls — forme de masque", () => {
     expect(slider).toHaveValue("30");
   });
 
-  it("should_send_the_new_radius_while_dragging", () => {
+  it("should_show_the_dragged_value_without_calling_the_engine_yet", () => {
+    // Le retour visuel suit chaque pas ; l'envoi au moteur, lui, attend le relâchement —
+    // sinon un seul glissement de bout en bout produit jusqu'à 51 appels moteur en série
+    // (relecture indépendante avant publication, 2026-09-09 : jusqu'à 1,7 s de blocage
+    // cumulé sur le fil unique du moteur pour un seul geste).
     poser(camera({ maskShape: { kind: "rounded", radius_percent: 30 } }));
 
-    // Un curseur natif émet `change` à chaque pas du glissement — même geste que le
-    // sélecteur de couleur de `TextControls`.
     fireEvent.change(screen.getByLabelText(/rayon des coins arrondis/i), {
       target: { value: "45" },
     });
 
+    expect(screen.getByLabelText(/rayon des coins arrondis/i)).toHaveValue(
+      "45",
+    );
+    expect(lastCallTo("set_mask_shape")).toBeUndefined();
+  });
+
+  it("should_send_the_new_radius_only_once_released", () => {
+    poser(camera({ maskShape: { kind: "rounded", radius_percent: 30 } }));
+    const slider = screen.getByLabelText(/rayon des coins arrondis/i);
+
+    fireEvent.change(slider, { target: { value: "38" } });
+    fireEvent.change(slider, { target: { value: "42" } });
+    fireEvent.change(slider, { target: { value: "45" } });
+    expect(lastCallTo("set_mask_shape")).toBeUndefined();
+
+    fireEvent.mouseUp(slider);
+
+    // Une seule commande, portant la DERNIÈRE valeur du glissement — jamais une par pas.
+    expect(
+      invokeMock.mock.calls.filter(([name]) => name === "set_mask_shape"),
+    ).toHaveLength(1);
     expect(lastCallTo("set_mask_shape")).toEqual({
       deviceId: "cam-1",
       scene: "main",
       shape: { kind: "rounded", radius_percent: 45 },
+    });
+  });
+
+  it("should_send_the_radius_after_a_keyboard_adjustment_too", () => {
+    // Les flèches clavier changent aussi la valeur d'un `<input type="range">` — même
+    // geste de relâchement, via `keyup` plutôt que `mouseup`.
+    poser(camera({ maskShape: { kind: "rounded", radius_percent: 30 } }));
+    const slider = screen.getByLabelText(/rayon des coins arrondis/i);
+
+    fireEvent.change(slider, { target: { value: "31" } });
+    fireEvent.keyUp(slider);
+
+    expect(lastCallTo("set_mask_shape")).toEqual({
+      deviceId: "cam-1",
+      scene: "main",
+      shape: { kind: "rounded", radius_percent: 31 },
     });
   });
 

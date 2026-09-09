@@ -2,7 +2,8 @@
 //! de distance signée, prouvée sans moteur ni fichier.
 
 use hikari_protocol::{
-    generate_circle_mask_rgba, generate_rounded_mask_rgba, MASK_RADIUS_MAX, MASK_RADIUS_MIN,
+    generate_circle_mask_rgba, generate_rounded_mask_rgba, scaled_mask_size, MASK_MAX_DIMENSION,
+    MASK_RADIUS_MAX, MASK_RADIUS_MIN,
 };
 
 const SIZE: u32 = 64;
@@ -133,4 +134,58 @@ fn should_leave_all_four_corners_transparent_on_a_square_circle_mask() {
         let (_, _, _, a) = pixel(&buf, SIZE, x, y);
         assert_eq!(a, 0, "coin ({x},{y})");
     }
+}
+
+// --- `scaled_mask_size` (2026-09-09, relecture indépendante avant publication : signalé
+// comme non testé alors qu'il décide de la forme réellement envoyée à l'utilisateur). ---
+
+#[test]
+fn should_keep_the_size_untouched_when_already_under_the_ceiling() {
+    assert_eq!(scaled_mask_size(320, 240), (320, 240));
+    assert_eq!(
+        scaled_mask_size(MASK_MAX_DIMENSION, MASK_MAX_DIMENSION),
+        (MASK_MAX_DIMENSION, MASK_MAX_DIMENSION)
+    );
+}
+
+#[test]
+fn should_cap_the_longest_side_at_the_ceiling() {
+    let (w, h) = scaled_mask_size(3840, 2160);
+    assert_eq!(
+        w.max(h),
+        MASK_MAX_DIMENSION,
+        "le plus grand côté doit toucher le plafond"
+    );
+}
+
+#[test]
+fn should_preserve_the_aspect_ratio_when_scaling_down() {
+    // 3840×2160 = 16:9 exact. Une réduction qui déforme le rapport reproduirait, un cran
+    // plus tôt dans la chaîne, exactement le défaut que ce module corrige.
+    let (w, h) = scaled_mask_size(3840, 2160);
+    let original_ratio = 3840.0 / 2160.0;
+    let scaled_ratio = w as f32 / h as f32;
+    assert!(
+        (original_ratio - scaled_ratio).abs() < 0.01,
+        "rapport d'origine {original_ratio} vs réduit {scaled_ratio}"
+    );
+}
+
+#[test]
+fn should_scale_down_a_tall_frame_on_its_own_longest_side() {
+    // Un cadre PLUS HAUT que large (portrait/vertical) doit être plafonné sur la HAUTEUR,
+    // pas systématiquement sur la largeur.
+    let (w, h) = scaled_mask_size(1080, 1920);
+    assert_eq!(h, MASK_MAX_DIMENSION);
+    assert!(w < MASK_MAX_DIMENSION);
+}
+
+#[test]
+fn should_never_produce_a_zero_dimension() {
+    // Une dimension d'entrée nulle (source pas encore prête, lue par erreur) ne doit
+    // jamais produire une image de largeur ou hauteur 0 — `image::RgbaImage::from_raw`
+    // le refuserait, et la génération échouerait sans qu'aucun masque ne soit jamais posé.
+    assert_eq!(scaled_mask_size(0, 0), (1, 1));
+    let (w, h) = scaled_mask_size(0, 1080);
+    assert!(w >= 1 && h >= 1);
 }

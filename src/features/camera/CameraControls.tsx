@@ -10,7 +10,7 @@
 // l'utilisateur, comme à un lecteur d'écran, de savoir de LAQUELLE on parle quand deux
 // appareils sont posés dans la même scène.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Segmented } from "../../components/ui/Segmented";
 import {
   MASK_RADIUS_MAX,
@@ -82,6 +82,20 @@ export function CameraControls({ camera, scene }: Props) {
     run("mask", setMaskShape(deviceId, scene, shape));
   };
 
+  // Le rayon en cours de glissement : un `<input type="range">` change de valeur à CHAQUE
+  // pixel parcouru. L'envoyer au moteur à chaque pas engendrait, mesuré en relecture
+  // indépendante avant publication, jusqu'à 51 calculs+écritures de fichier en série sur
+  // le fil UNIQUE du moteur pour un seul glissement de bout en bout — la même famille de
+  // blocage que la brique venait de fermer. La ref suit le geste sans délai (l'affichage,
+  // lui, suit `maskShape` ci-dessus) ; l'envoi au moteur n'a lieu qu'au relâchement.
+  const draggedRadius = useRef(
+    maskShape.kind === "rounded"
+      ? maskShape.radius_percent
+      : DEFAULT_ROUNDED_RADIUS,
+  );
+  const commitDraggedRadius = () =>
+    applyShape({ kind: "rounded", radius_percent: draggedRadius.current });
+
   const handleShapeChange = (kind: MaskShape["kind"]) => {
     if (kind === "none") return applyShape(NO_MASK);
     if (kind === "circle") return applyShape({ kind: "circle" });
@@ -144,12 +158,15 @@ export function CameraControls({ camera, scene }: Props) {
             max={MASK_RADIUS_MAX}
             step={1}
             value={maskShape.radius_percent}
-            onChange={(event) =>
-              applyShape({
-                kind: "rounded",
-                radius_percent: Number(event.target.value),
-              })
-            }
+            onChange={(event) => {
+              // Retour visuel immédiat à chaque pas — jamais envoyé tel quel au moteur.
+              const radius = Number(event.target.value);
+              draggedRadius.current = radius;
+              setMaskShapeDraft({ kind: "rounded", radius_percent: radius });
+            }}
+            onMouseUp={commitDraggedRadius}
+            onTouchEnd={commitDraggedRadius}
+            onKeyUp={commitDraggedRadius}
             aria-label="Rayon des coins arrondis"
             className="flex-1 accent-hikari-accent"
           />

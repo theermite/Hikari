@@ -215,6 +215,29 @@ pub fn resize_box(
     )
 }
 
+/// Plafond du plus grand côté d'un masque calculé, en pixels — voir [`scaled_mask_size`].
+/// Mesuré le 2026-09-09 : générer à 1024 pleine résolution coûtait jusqu'à 1,7 s (bloquant
+/// le seul fil du moteur), contre ~70 ms à cette taille avec le même encodage.
+pub const MASK_MAX_DIMENSION: u32 = 512;
+
+/// Les dimensions RÉELLES à générer pour un cadre `width`×`height` — mêmes proportions,
+/// réduites pour ne jamais dépasser [`MASK_MAX_DIMENSION`] sur le plus grand côté. Jamais un
+/// carré : un masque carré étiré sur un cadre non carré déforme tout ce qu'il porte (l'ellipse
+/// que Jay a vue le 2026-09-09 sur sa caméra 16:9). Pure, donc testable sans image ni fichier
+/// — signalé manquant par la relecture indépendante d'avant publication : ce calcul décidait
+/// déjà de la forme réelle envoyée à l'utilisateur sans qu'aucun test ne le prouve.
+pub fn scaled_mask_size(width: u32, height: u32) -> (u32, u32) {
+    let longest = width.max(height).max(1);
+    if longest <= MASK_MAX_DIMENSION {
+        return (width.max(1), height.max(1));
+    }
+    let scale = MASK_MAX_DIMENSION as f32 / longest as f32;
+    (
+        ((width as f32 * scale).round() as u32).max(1),
+        ((height as f32 * scale).round() as u32).max(1),
+    )
+}
+
 /// Le calcul du masque à coins arrondis — fonction de distance signée (SDF), la même
 /// famille de technique que le plugin OBS Advanced Masks (crédit original de la formule :
 /// Inigo Quilez, « Rounded Box - exact »). Pur, donc testable sans image ni fichier :

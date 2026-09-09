@@ -31,6 +31,7 @@ mod event_loop;
 mod events;
 mod filters;
 mod lifecycle_ops;
+mod mask;
 mod multistream;
 mod outline;
 mod scene_ops;
@@ -72,6 +73,12 @@ const AUDIO_LEVEL_INTERVAL: std::time::Duration = std::time::Duration::from_mill
 /// How often an in-progress camera glide is advanced (B7, option A) — a 60fps step, fast
 /// enough that the motion reads as continuous rather than a series of jumps.
 const CAMERA_SLIDE_TICK: std::time::Duration = std::time::Duration::from_millis(16);
+/// How often a mask waiting on a not-yet-ready camera is retried (2026-09-09, relecture
+/// indépendante avant publication). Ni un rendu par image (une caméra qui démarre met des
+/// dizaines de millisecondes, pas une image, à produire sa première trame) ni un délai qui
+/// se voit — quatre tentatives par seconde suffisent largement à rattraper l'instant où le
+/// pilote commence enfin à rendre.
+const MASK_RETRY_TICK: std::time::Duration = std::time::Duration::from_millis(250);
 
 /// Emit one protocol message as a single JSON line on stdout. A serialization failure is
 /// reported on stderr rather than swallowed (it must never crash the engine). `pub(crate)`
@@ -168,6 +175,14 @@ struct ObsInner {
     /// (`SwitchScene`), the "scene automation toggles my filters" flow Jay uses in OBS.
     scene_filter_state:
         std::collections::HashMap<(String, String), (bool, hikari_protocol::MaskShape)>,
+    /// Les (scène, appareil) dont le masque VOULU n'a pas pu être posé parce que la caméra
+    /// n'avait pas encore produit sa première image (2026-09-09, relecture indépendante
+    /// avant publication — régression trouvée avant de publier : au rejeu d'une session,
+    /// `AddCamera` est immédiatement suivi de `SetMaskShape`, avant que le pilote n'ait
+    /// rendu quoi que ce soit ; l'ancien masque, une image fixe, ne dépendait d'aucune
+    /// taille et ne connaissait pas ce problème). Retenté à chaque tick tant que la paire
+    /// reste ici — voir `retry_pending_masks`.
+    mask_retry_pending: std::collections::HashSet<(String, String)>,
     /// The scene currently live on the output channel (multi-scene, tranche 1) — libobs
     /// exposes no "which scene is on this channel" getter, so this is the one piece of
     /// state the engine must track itself rather than read back.
@@ -347,6 +362,10 @@ struct App {
     /// When the mixer's levels were last reported (B6) — its own beat, much faster than the
     /// frame counters'.
     audio_last_levels_at: std::time::Instant,
+    /// Le dernier essai d'un masque en attente (2026-09-09) — sa propre cadence, pour ne
+    /// pas retenter à chaque battement d'un glissement de caméra en vol si les deux
+    /// coïncident.
+    mask_retry_last_at: std::time::Instant,
     /// Last known cursor position in the preview window, in physical pixels. winit reports
     /// press/release WITHOUT coordinates, so the position has to be remembered from the
     /// preceding move event.

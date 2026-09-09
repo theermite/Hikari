@@ -174,6 +174,7 @@ impl App {
             locked: std::collections::HashSet::new(),
             hidden: std::collections::HashSet::new(),
             scene_filter_state: std::collections::HashMap::new(),
+            mask_retry_pending: std::collections::HashSet::new(),
             active_scene: "main".to_string(),
             item_rects: None,
             pending_item_rects: Vec::new(),

@@ -107,13 +107,73 @@ impl App {
                     message: err.to_string(),
                 });
             }
-            if let Err(err) =
-                camera::set_mask_shape(&opened.filters.mask, &opened.source, mask_shape)
-            {
-                emit(&EngineMessage::Error {
-                    message: err.to_string(),
-                });
+            let key = (scene.to_string(), device_id.clone());
+            match camera::set_mask_shape(&opened.filters.mask, &opened.source, mask_shape) {
+                Ok(camera::MaskApplyOutcome::Applied) => {
+                    obs.mask_retry_pending.remove(&key);
+                }
+                // La caméra n'a pas encore rendu d'image — pas une faute de l'utilisateur,
+                // rien à lui dire. `retry_pending_masks` retentera au prochain tick tant
+                // que la paire reste ici (2026-09-09, relecture indépendante avant
+                // publication : sans cette file, un masque demandé au rejeu d'une session
+                // se perdait purement et simplement, sans erreur visible).
+                Ok(camera::MaskApplyOutcome::CameraNotReadyYet) => {
+                    obs.mask_retry_pending.insert(key);
+                }
+                Err(err) => {
+                    emit(&EngineMessage::Error {
+                        message: err.to_string(),
+                    });
+                }
             }
+        }
+    }
+
+    /// Retente les masques mis en attente parce que leur caméra n'avait pas encore rendu
+    /// d'image (2026-09-09, relecture indépendante avant publication) — appelé à chaque
+    /// tick tant que `mask_retry_pending` n'est pas vide, voir `event_loop::about_to_wait`.
+    /// Relit l'état VOULU à chaque tentative, jamais celui qui a échoué la première fois :
+    /// l'utilisateur a pu régler autre chose pendant l'attente.
+    pub(crate) fn retry_pending_masks(&mut self) {
+        let mut changed = false;
+        if let Some(obs) = &mut self.obs {
+            if obs.mask_retry_pending.is_empty() {
+                return;
+            }
+            let pending: Vec<(String, String)> = obs.mask_retry_pending.iter().cloned().collect();
+            for key in pending {
+                let (_, device_id) = &key;
+                let Some(opened) = obs.cameras.get(device_id) else {
+                    // L'appareil a été retiré pendant l'attente : plus rien à réessayer.
+                    obs.mask_retry_pending.remove(&key);
+                    changed = true;
+                    continue;
+                };
+                let mask_shape = obs
+                    .scene_filter_state
+                    .get(&key)
+                    .map(|(_, shape)| *shape)
+                    .unwrap_or(hikari_protocol::MaskShape::None);
+                match camera::set_mask_shape(&opened.filters.mask, &opened.source, mask_shape) {
+                    Ok(camera::MaskApplyOutcome::Applied) => {
+                        obs.mask_retry_pending.remove(&key);
+                        changed = true;
+                    }
+                    Ok(camera::MaskApplyOutcome::CameraNotReadyYet) => {
+                        // Reste en attente, retenté au prochain tick.
+                    }
+                    Err(err) => {
+                        obs.mask_retry_pending.remove(&key);
+                        emit(&EngineMessage::Error {
+                            message: err.to_string(),
+                        });
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if changed {
+            self.emit_scene_list();
         }
     }
 
