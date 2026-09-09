@@ -108,7 +108,20 @@ impl App {
                 });
             }
             let key = (scene.to_string(), device_id.clone());
-            match camera::set_mask_shape(&opened.filters.mask, &opened.source, mask_shape) {
+            // Reprend l'échantillon d'une attente déjà en cours pour CETTE clé (2026-09-09,
+            // relecture indépendante avant publication, septième passage) — sans ça, chaque
+            // appel repartirait de zéro et exigerait deux lectures identiques à chaque
+            // fois, y compris pour une caméra déjà en train de se stabiliser.
+            let previous_sample = obs
+                .mask_retry_pending
+                .get(&key)
+                .and_then(|wait| wait.last_sampled_size);
+            match camera::set_mask_shape(
+                &opened.filters.mask,
+                &opened.source,
+                mask_shape,
+                previous_sample,
+            ) {
                 Ok(camera::MaskApplyOutcome::Applied) => {
                     obs.mask_retry_pending.remove(&key);
                 }
@@ -119,7 +132,17 @@ impl App {
                 // se perdait purement et simplement, sans erreur visible).
                 Ok(camera::MaskApplyOutcome::CameraNotReadyYet) => {
                     obs.mask_retry_pending
-                        .insert(key, std::time::Instant::now());
+                        .insert(key, crate::mask_retry_ops::MaskWait::new());
+                }
+                // Taille lue mais pas encore confirmée par une deuxième lecture identique
+                // (septième passage) — mémorise l'échantillon SANS dessiner ni poser
+                // l'image, sans réinitialiser l'horodatage d'une attente déjà en cours.
+                Ok(camera::MaskApplyOutcome::SizeUnconfirmed { sampled }) => {
+                    let wait = obs
+                        .mask_retry_pending
+                        .entry(key)
+                        .or_insert_with(crate::mask_retry_ops::MaskWait::new);
+                    wait.last_sampled_size = Some(sampled);
                 }
                 Err(err) => {
                     emit(&EngineMessage::Error {

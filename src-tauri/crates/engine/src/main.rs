@@ -189,12 +189,15 @@ struct ObsInner {
     /// `AddCamera` est immédiatement suivi de `SetMaskShape`, avant que le pilote n'ait
     /// rendu quoi que ce soit ; l'ancien masque, une image fixe, ne dépendait d'aucune
     /// taille et ne connaissait pas ce problème). Retenté à chaque tick tant que la paire
-    /// reste ici — voir `retry_pending_masks`. La valeur est l'INSTANT de mise en attente,
-    /// jamais un compteur de tentatives (troisième passage de relecture : un compteur qui ne
-    /// progresse que sur tentative active ne se plafonne jamais pour une scène qui ne
-    /// redevient jamais active — voir `MASK_RETRY_MAX_AGE` et
-    /// `hikari_protocol::decide_mask_retry`).
-    mask_retry_pending: std::collections::HashMap<(String, String), std::time::Instant>,
+    /// reste ici — voir `retry_pending_masks`. La valeur porte l'INSTANT de mise en attente
+    /// (jamais un compteur de tentatives — troisième passage de relecture, voir
+    /// `MASK_RETRY_MAX_AGE` et `hikari_protocol::decide_mask_retry`) ET le dernier
+    /// échantillon de taille lu (septième passage — une caméra relancée peut annoncer une
+    /// taille non nulle mais PÉRIMÉE tant qu'aucune image de la nouvelle configuration n'est
+    /// arrivée ; deux lectures identiques de suite sont exigées, voir
+    /// `hikari_protocol::confirm_camera_size`).
+    mask_retry_pending:
+        std::collections::HashMap<(String, String), crate::mask_retry_ops::MaskWait>,
     /// The scene currently live on the output channel (multi-scene, tranche 1) — libobs
     /// exposes no "which scene is on this channel" getter, so this is the one piece of
     /// state the engine must track itself rather than read back.

@@ -54,21 +54,32 @@ pub fn create_mask_filter(source: &ObsSourceRef) -> Result<ObsFilterRef> {
 pub enum MaskApplyOutcome {
     Applied,
     CameraNotReadyYet,
+    /// Une taille non nulle a été lue, mais elle n'a pas encore été confirmée par une
+    /// deuxième lecture identique (2026-09-09, relecture indépendante avant publication,
+    /// septième passage — voir [`hikari_protocol::confirm_camera_size`]). Porte
+    /// l'échantillon lu, que l'appelant doit conserver et retransmettre au prochain appel.
+    SizeUnconfirmed {
+        sampled: (u32, u32),
+    },
 }
 
 /// Reconfigure un filtre de masque déjà attaché pour porter `shape` — jamais une recréation.
 ///
 /// `Aucun` désactive le filtre : la vidéo reprend sa forme native, exactement comme avant
 /// que ce système n'existe. Toute autre forme lit la taille RÉELLE de `source` (jamais un
-/// carré supposé — la déformation en ellipse que Jay a vue le 2026-09-09) et pointe
-/// `image_path` vers un fichier calculé à cette proportion, mis en cache par forme + taille
-/// (voir [`circle_mask_path`], [`rounded_mask_path`]). Rend
-/// [`MaskApplyOutcome::CameraNotReadyYet`] plutôt qu'une erreur quand la taille n'est pas
-/// encore connue — l'appelant décide alors de réessayer, jamais nous.
+/// carré supposé — la déformation en ellipse que Jay a vue le 2026-09-09), la confronte à
+/// `previous_sample` (2026-09-09, septième passage — la caméra peut annoncer une taille non
+/// nulle mais PÉRIMÉE juste après une relance, voir `hikari_protocol::confirm_camera_size`),
+/// et pointe `image_path` vers un fichier calculé à cette proportion, mis en cache par forme
+/// + taille (voir [`circle_mask_path`], [`rounded_mask_path`]). Rend
+/// [`MaskApplyOutcome::CameraNotReadyYet`] ou [`MaskApplyOutcome::SizeUnconfirmed`] plutôt
+/// qu'une erreur quand la géométrie n'est pas encore fiable — l'appelant décide alors de
+/// réessayer, jamais nous.
 pub fn set_mask_shape(
     filter: &ObsFilterRef,
     source: &ObsSourceRef,
     shape: hikari_protocol::MaskShape,
+    previous_sample: Option<(u32, u32)>,
 ) -> Result<MaskApplyOutcome> {
     if matches!(shape, hikari_protocol::MaskShape::None) {
         set_filter_enabled(filter, false).context("désactivation du masque")?;
@@ -77,8 +88,16 @@ pub fn set_mask_shape(
     let runtime = filter.runtime().clone();
     let (width, height) = crate::sources::source_base_size(&runtime, source)
         .context("taille de la caméra pour le masque")?;
-    if width == 0 || height == 0 {
-        return Ok(MaskApplyOutcome::CameraNotReadyYet);
+    match hikari_protocol::confirm_camera_size(previous_sample, (width, height)) {
+        hikari_protocol::SizeConfirmation::NotYetKnown => {
+            return Ok(MaskApplyOutcome::CameraNotReadyYet)
+        }
+        hikari_protocol::SizeConfirmation::Unconfirmed => {
+            return Ok(MaskApplyOutcome::SizeUnconfirmed {
+                sampled: (width, height),
+            })
+        }
+        hikari_protocol::SizeConfirmation::Confirmed => {}
     }
     let path = match shape {
         hikari_protocol::MaskShape::None => unreachable!("écarté ci-dessus"),
