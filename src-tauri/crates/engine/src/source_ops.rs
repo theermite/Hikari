@@ -6,57 +6,43 @@ use hikari_protocol::EngineMessage;
 use crate::{camera, emit, sources, text_ops, App, SceneSource};
 
 impl App {
-    /// Moves a source one step in front of, or behind, the others in its scene.
+    /// Moves a source one step in front of, or behind, the others in its scene — une caméra
+    /// comme n'importe quelle autre (2026-09-09) : elle est refusée avant faute de vivre
+    /// dans `scene_sources`, la même famille que le retrait et la visibilité corrigés le
+    /// 2026-09-06.
     ///
-    /// Notre propre liste bouge du même pas que libobs : elle sert de source de vérité au
-    /// panneau, et deux ordres qui divergent donneraient un écran qui ment sur ce qui cache
-    /// quoi. À l'écran, la liste va du plus en AVANT au plus en arrière, comme dans OBS.
+    /// Rien à tenir de notre côté après coup : `emit_scene_list` relit la pile RÉELLE de
+    /// libobs (`sources::order_position`) pour composer sa réponse, donc appeler
+    /// `sources::set_order` ici suffit — jamais de second Vec qui pourrait diverger. libobs
+    /// lui-même ne boucle pas en bout de pile (vérifié dans sa source, `obs-scene.c` :
+    /// `OBS_ORDER_MOVE_UP`/`MOVE_DOWN` ne font rien au bord plutôt que d'envelopper).
     pub(crate) fn handle_reorder_source(
         &mut self,
         scene: String,
         name: String,
         direction: hikari_protocol::SourceOrder,
     ) {
+        let camera = self.camera_item_by_name(&scene, &name).cloned();
         let Some(obs) = &mut self.obs else { return };
-        let Some(list) = obs.scene_sources.get_mut(&scene) else {
-            emit(&EngineMessage::Error {
-                message: format!("« {name} » n'est pas une source déplaçable de cette scène"),
-            });
-            return;
-        };
-        let Some(index) = list.iter().position(|source| source.name == name) else {
-            emit(&EngineMessage::Error {
-                message: format!("« {name} » n'est pas une source déplaçable de cette scène"),
-            });
-            return;
-        };
-        // Le premier de la liste est le plus en avant : avancer, c'est reculer d'un index.
-        let target = match direction {
-            hikari_protocol::SourceOrder::Front => index.checked_sub(1),
-            hikari_protocol::SourceOrder::Back => {
-                if index + 1 < list.len() {
-                    Some(index + 1)
-                } else {
-                    None
-                }
-            }
-        };
-        // Déjà au bout : rien à faire, et surtout pas d'enroulement — un clic de trop ne
-        // doit jamais envoyer une source à l'autre extrémité de la pile.
-        let Some(target) = target else { return };
         let runtime = obs.context.runtime().clone();
-        let Some(list) = obs.scene_sources.get_mut(&scene) else {
+        let item = camera.or_else(|| {
+            obs.scene_sources
+                .get(&scene)
+                .and_then(|list| list.iter().find(|source| source.name == name))
+                .map(|source| source.item.clone())
+        });
+        let Some(item) = item else {
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas une source déplaçable de cette scène"),
+            });
             return;
         };
-        if let Err(err) = sources::set_order(&runtime, &list[index].item, direction) {
+        if let Err(err) = sources::set_order(&runtime, &item, direction) {
             emit(&EngineMessage::Error {
                 message: err.to_string(),
             });
             return;
         }
-        // Vérifié par sonde le 2026-08-05 : notre liste et l'ordre réel du moteur coïncident
-        // exactement après cet échange (positions relevées des deux côtés).
-        list.swap(index, target);
         // L'ordre décide quelle source un clic désigne : le cache doit repartir de zéro.
         obs.item_rects = None;
         self.emit_scene_list();

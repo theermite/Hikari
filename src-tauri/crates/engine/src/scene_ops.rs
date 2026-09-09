@@ -4,7 +4,7 @@
 use hikari_protocol::{EngineMessage, SceneInfo};
 use libobs_wrapper::scenes::SceneItemTrait;
 
-use crate::{camera, emit, scenes, App, CameraSlide};
+use crate::{camera, emit, scenes, sources, App};
 
 impl App {
     /// Creates a new, empty scene (multi-scene, tranche 1). Rejects a blank or already-used
@@ -79,136 +79,6 @@ impl App {
         self.emit_scene_list();
         if duration_ms > 0 {
             self.start_camera_slide(&previous_scene, &name, duration_ms);
-        }
-    }
-
-    /// Glides a camera device shown in BOTH `from_scene` and `to_scene` from its placement
-    /// in the scene just left to its OWN saved placement in the scene just entered (B7,
-    /// option A — Jay 2026-09-08: the full manually/automation-triggered move is the later
-    /// target, this covers only "the same camera appears in both scenes"). A no-op if no
-    /// device is shared, or if either placement can't be read — a missing camera glide is
-    /// never worth failing the scene switch itself over.
-    fn start_camera_slide(&mut self, from_scene: &str, to_scene: &str, duration_ms: u32) {
-        if from_scene == to_scene {
-            return;
-        }
-        // Un glissement déjà en vol (2026-09-08, relecture) finit sur SA propre cible avant
-        // que celui-ci ne commence — sinon la caméra qu'il déplaçait reste figée à une
-        // position intermédiaire, jamais rattrapée par aucun tick puisque `self.camera_slide`
-        // va changer de sujet juste après. Fait AVANT tout emprunt du nouveau glissement :
-        // les deux glissements peuvent viser des caméras différentes.
-        self.finish_camera_slide_in_place();
-        let Some(obs) = &mut self.obs else { return };
-        // Collected first (never borrowed while re-queried below): every device shown in
-        // `from_scene`, matched against `to_scene`'s own keys — the shared HashMap can't be
-        // read twice at once through the same `&mut ObsInner` borrow otherwise.
-        let from_devices: Vec<String> = obs
-            .camera_items
-            .keys()
-            .filter(|(scene, _)| scene == from_scene)
-            .map(|(_, device)| device.clone())
-            .collect();
-        let Some(device_id) = from_devices.into_iter().find(|device| {
-            obs.camera_items
-                .contains_key(&(to_scene.to_string(), device.clone()))
-        }) else {
-            return;
-        };
-        let Some(from_item) = obs
-            .camera_items
-            .get(&(from_scene.to_string(), device_id.clone()))
-        else {
-            return;
-        };
-        let Ok(from_position) = from_item.get_source_position() else {
-            return;
-        };
-        let Ok(from_scale) = from_item.get_source_scale() else {
-            return;
-        };
-        let from = (
-            *from_position.x() as i32,
-            *from_position.y() as i32,
-            *from_scale.x(),
-        );
-        let Some(to_item) = obs
-            .camera_items
-            .get(&(to_scene.to_string(), device_id.clone()))
-        else {
-            return;
-        };
-        let Ok(to_position) = to_item.get_source_position() else {
-            return;
-        };
-        let Ok(to_scale) = to_item.get_source_scale() else {
-            return;
-        };
-        let to = (
-            *to_position.x() as i32,
-            *to_position.y() as i32,
-            *to_scale.x(),
-        );
-        // Starts exactly where the outgoing scene left it — the first frame of the incoming
-        // scene must show the OLD spot, or the glide would begin with a jump of its own.
-        if camera::set_camera_transform(to_item, from.0, from.1, from.2).is_err() {
-            return;
-        }
-        self.camera_slide = Some(CameraSlide {
-            scene: to_scene.to_string(),
-            device_id,
-            from,
-            to,
-            started_at: std::time::Instant::now(),
-            duration: std::time::Duration::from_millis(duration_ms as u64),
-        });
-    }
-
-    /// Snaps whatever camera glide is in flight straight to ITS OWN `to`, and clears it
-    /// (2026-09-08, relecture) — the shared step `start_camera_slide` (a second switch
-    /// interrupting the first) and `advance_camera_slide` (the normal end of a glide) both
-    /// need, so the item never gets left at an interpolated position nobody ever finishes
-    /// writing or announcing. A no-op if nothing is in flight.
-    fn finish_camera_slide_in_place(&mut self) {
-        let Some(slide) = self.camera_slide.take() else {
-            return;
-        };
-        let Some(obs) = &self.obs else { return };
-        if let Some(item) = obs.camera_items.get(&(slide.scene, slide.device_id)) {
-            let _ = camera::set_camera_transform(item, slide.to.0, slide.to.1, slide.to.2);
-        }
-    }
-
-    /// Advances the in-progress camera glide by one tick (B7, option A) — called from
-    /// `about_to_wait` alongside the audio-meter and frame-counter ticks. Ends the slide
-    /// (clears `self.camera_slide`) once `elapsed >= duration`, landing EXACTLY on `to`
-    /// rather than whatever the last tick's rounding produced. Announces the real state
-    /// (`emit_scene_list`) when the glide ENDS (2026-09-08, relecture) — without this, the
-    /// last position ever emitted for the camera was the interpolated one from the tick
-    /// before completion, and that interpolated value is exactly what a listening panel
-    /// would then save as the truth, corrupting the very placement B7's option A exists to
-    /// carry across a scene switch.
-    pub(crate) fn advance_camera_slide(&mut self) {
-        let Some(slide) = &self.camera_slide else {
-            return;
-        };
-        let elapsed = slide.started_at.elapsed();
-        let progress = if slide.duration.is_zero() {
-            1.0
-        } else {
-            elapsed.as_secs_f32() / slide.duration.as_secs_f32()
-        };
-        let (x, y, scale) = hikari_protocol::lerp_camera_transform(slide.from, slide.to, progress);
-        let scene = slide.scene.clone();
-        let device_id = slide.device_id.clone();
-        let done = elapsed >= slide.duration;
-        if let Some(obs) = &self.obs {
-            if let Some(item) = obs.camera_items.get(&(scene, device_id)) {
-                let _ = camera::set_camera_transform(item, x, y, scale);
-            }
-        }
-        if done {
-            self.camera_slide = None;
-            self.emit_scene_list();
         }
     }
 
@@ -299,6 +169,7 @@ impl App {
             .as_ref()
             .map(|slide| (slide.scene.clone(), slide.device_id.clone(), slide.to));
         let Some(obs) = &mut self.obs else { return };
+        let runtime = obs.context.runtime().clone();
         let names = match scenes::list_scene_names(&mut obs.context) {
             Ok(names) => names,
             Err(err) => {
@@ -315,43 +186,54 @@ impl App {
                     .camera_items
                     .keys()
                     .any(|(shown_in, _)| shown_in == &name);
-                let mut sources: Vec<hikari_protocol::SceneSourceInfo> = Vec::new();
+                // Chaque entrée porte sa position RÉELLE dans la pile libobs, à côté de son
+                // apparence — la même paire que `active_item_rects` (`drag_ops.rs`) lit déjà
+                // pour savoir quelle source un clic désigne. Sans elle, une caméra ne pouvait
+                // pas être réordonnée : la pile annoncée classait toujours les captures par
+                // ordre d'ajout et les caméras par identifiant d'appareil, jamais par la
+                // position que `ReorderSource` venait de lui donner (2026-09-09).
+                let mut ordered: Vec<(i32, hikari_protocol::SceneSourceInfo)> = Vec::new();
                 if let Some(added) = obs.scene_sources.get(&name) {
-                    sources.extend(added.iter().map(|source| {
+                    ordered.extend(added.iter().map(|source| {
                         // Placement lu depuis libobs, jamais mémorisé de notre côté : une
                         // copie qui dérive ferait sauvegarder une position fausse.
                         let position = source.item.get_source_position().ok();
                         let scale = source.item.get_source_scale().ok();
-                        hikari_protocol::SceneSourceInfo {
-                            name: source.name.clone(),
-                            kind: source.kind.clone(),
-                            source_kind: source.source_kind,
-                            target_id: source.target_id.clone(),
-                            x: position.as_ref().map_or(0, |p| *p.x() as i32),
-                            y: position.as_ref().map_or(0, |p| *p.y() as i32),
-                            scale_percent: scale
-                                .as_ref()
-                                .map_or(100, |s| (s.x() * 100.0).round() as i32),
-                            locked: obs.locked.contains(&(name.clone(), source.name.clone())),
-                            // Une capture n'a pas de filtre caméra : la case existe pour
-                            // toutes les sources, elle ne vaut quelque chose que pour une caméra.
-                            background_removal: false,
-                            circle_mask: false,
-                            visible: !obs.hidden.contains(&(name.clone(), source.name.clone())),
-                        }
+                        let order = sources::order_position(&runtime, &source.item).unwrap_or(0);
+                        (
+                            order,
+                            hikari_protocol::SceneSourceInfo {
+                                name: source.name.clone(),
+                                kind: source.kind.clone(),
+                                source_kind: source.source_kind,
+                                target_id: source.target_id.clone(),
+                                x: position.as_ref().map_or(0, |p| *p.x() as i32),
+                                y: position.as_ref().map_or(0, |p| *p.y() as i32),
+                                scale_percent: scale
+                                    .as_ref()
+                                    .map_or(100, |s| (s.x() * 100.0).round() as i32),
+                                locked: obs.locked.contains(&(name.clone(), source.name.clone())),
+                                // Une capture n'a pas de filtre caméra : la case existe pour
+                                // toutes les sources, elle ne vaut quelque chose que pour une caméra.
+                                background_removal: false,
+                                circle_mask: false,
+                                visible: !obs.hidden.contains(&(name.clone(), source.name.clone())),
+                            },
+                        )
                     }));
                 }
                 // Une entrée par caméra posée dans cette scène. Même traitement que les
                 // autres sources : placement lu depuis libobs, et l'appareil retenu comme
                 // cible — c'est ce qui rend chaque caméra rejouable au lancement suivant.
+                // Le tri final (plus bas) décide de l'ordre réellement montré ; celui-ci
+                // n'a plus qu'à rester STABLE d'un appel à l'autre pour les caméras dont la
+                // position exacte serait, par malchance, illisible (repli à `unwrap_or(0)`).
                 let mut shown: Vec<(&String, _)> = obs
                     .camera_items
                     .iter()
                     .filter(|((shown_in, _), _)| shown_in == &name)
                     .map(|((_, device_id), item)| (device_id, item))
                     .collect();
-                // Ordre stable : sans tri, une table de hachage renvoie les caméras dans un
-                // ordre différent à chaque lancement, et la liste sauterait sous les yeux.
                 shown.sort_by_key(|(device_id, _)| (*device_id).clone());
                 for (device_id, item) in shown {
                     let camera_name = obs
@@ -386,20 +268,30 @@ impl App {
                             )
                         }
                     };
-                    sources.push(hikari_protocol::SceneSourceInfo {
-                        kind: hikari_protocol::CAMERA_KIND.to_string(),
-                        source_kind: hikari_protocol::SourceKind::Camera,
-                        target_id: device_id.clone(),
-                        x,
-                        y,
-                        scale_percent,
-                        locked: obs.locked.contains(&(name.clone(), camera_name.clone())),
-                        background_removal,
-                        circle_mask,
-                        visible: !obs.hidden.contains(&(name.clone(), camera_name.clone())),
-                        name: camera_name,
-                    });
+                    let order = sources::order_position(&runtime, item).unwrap_or(0);
+                    ordered.push((
+                        order,
+                        hikari_protocol::SceneSourceInfo {
+                            kind: hikari_protocol::CAMERA_KIND.to_string(),
+                            source_kind: hikari_protocol::SourceKind::Camera,
+                            target_id: device_id.clone(),
+                            x,
+                            y,
+                            scale_percent,
+                            locked: obs.locked.contains(&(name.clone(), camera_name.clone())),
+                            background_removal,
+                            circle_mask,
+                            visible: !obs.hidden.contains(&(name.clone(), camera_name.clone())),
+                            name: camera_name,
+                        },
+                    ));
                 }
+                // Triée par la pile RÉELLE du moteur, jamais par l'ordre d'ajout ou
+                // l'alphabet d'un identifiant — décroissant, donc le plus en avant vient en
+                // premier (même convention que `SceneRow.tsx` et `active_item_rects`).
+                ordered.sort_by_key(|(order, _)| std::cmp::Reverse(*order));
+                let sources: Vec<hikari_protocol::SceneSourceInfo> =
+                    ordered.into_iter().map(|(_, info)| info).collect();
                 SceneInfo {
                     has_camera,
                     sources,
