@@ -1,10 +1,10 @@
 ---
 title: Hikari Stream — PET (Plan d'Exécution Technique)
 created: 2026-07-11
-updated: 2026-09-08
+updated: 2026-09-09
 status: active
 type: pet
-version: 1.8.1
+version: 1.9.0
 project: Hikari Stream
 ---
 
@@ -189,8 +189,9 @@ project: Hikari Stream
 | B3 | Multistream + vertical simultané | Critique | 🟧 horizontal fait (2026-07-19) · vertical prêt à coder (B0.2 GO 2026-07-21) |
 | B6 | Audio : mixage + filtres micro + suppression bruit + ducking + **routage écoute/diffusion** + **waveforms** (F-021, F-037, F-039) | Standard | 🟧 tranches 1-3 livrées (mixeur · suppression de bruit réglable · volumes casque/public séparés + fenêtre de réglages), **prouvées à l'écran 2026-08-04/05** sauf 2 points listés en fiche · ducking et waveformes restent |
 | B7 | Scènes avancées : transitions, mouvements, auto-move (F-029, F-038) | Standard | 🟧 déplacer/redimensionner par boutons (2026-07-24) **et à la souris, avec curseur adaptatif — prouvés 2026-08-04** · transitions/auto-move restent |
-| **B-sources** *(hors numérotation PET — né d'un constat de Jay 2026-08-05)* | Sources de scène : ajouter/retirer/réordonner jeu, fenêtre, écran, image, vidéo · déplacer et redimensionner à la souris · liseré · aimantation · recherche · **verrouillage par scène** | Standard | ✅ **livrée et prouvée à l'écran 2026-08-05** · **verrouillage prouvé 2026-08-07** (pose, portée par scène, survie au redémarrage) · **texte livré et prouvé à l'écran 2026-09-07/08** (ajout, réglages complets — police, taille, couleur, contour, alignement — et édition du contenu, le tout dans une vraie fenêtre native séparée) · restent navigateur (bloqué : greffon non embarqué, décision de Jay) et poignées visibles |
-| B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024, F-036) | Standard | 🟧 détection + ajout scène + masque cercle + fond IA + retrait/rajout fait (2026-07-23/24) · multi-scène **prouvée à l'écran 2026-08-04** · **caméras MULTIPLES prouvées à l'écran 2026-09-06** (un appareil = une source, filtres par caméra ET par scène) · **la caméra est devenue une source ORDINAIRE 2026-09-06** : ajout par « + Ajouter une source », retrait et réglages sur sa ligne dans la scène, panneau Caméra supprimé — **codé, à prouver à l'écran** · restent l'ordre d'empilement (refusé pour une caméra : le moteur les range à part) et la cam mobile |
+| **B-sources** *(hors numérotation PET — né d'un constat de Jay 2026-08-05)* | Sources de scène : ajouter/retirer/réordonner jeu, fenêtre, écran, image, vidéo · déplacer et redimensionner à la souris · liseré · aimantation · recherche · **verrouillage par scène** | Standard | ✅ **livrée et prouvée à l'écran 2026-08-05** · **verrouillage prouvé 2026-08-07** (pose, portée par scène, survie au redémarrage) · **texte livré et prouvé à l'écran 2026-09-07/08** (ajout, réglages complets — police RÉELLEMENT détectée sur la machine, taille, couleur, contour, alignement — et édition du contenu, le tout dans une vraie fenêtre native séparée) · **poignées de redimensionnement prouvées à l'écran 2026-09-09** · reste navigateur (bloqué : greffon non embarqué, décision de Jay) |
+| B-cam | Caméra : perso, masques, fond sans écran vert, cam mobile (F-024) | Standard | 🟧 détection + ajout scène + masque cercle + fond IA + retrait/rajout fait (2026-07-23/24) · multi-scène **prouvée à l'écran 2026-08-04** · **caméras MULTIPLES prouvées à l'écran 2026-09-06** (un appareil = une source, filtres par caméra ET par scène) · **la caméra est devenue une source ORDINAIRE 2026-09-06** : ajout par « + Ajouter une source », retrait, réglages et **ordre d'empilement (prouvé à l'écran 2026-09-09)** sur sa ligne dans la scène, panneau Caméra supprimé · reste la cam mobile. **Les masques/filtres caméra passent dans B-filtres ci-dessous**, portée élargie à toute source le 2026-09-09 |
+| **B-filtres** *(hors numérotation PET — né d'une clarification de Jay le 2026-09-09)* | Pile de filtres **illimitée** sur toute source (forme calculée, contour, couleur, flou...), catalogue vérifié par type de source, palette visuelle + aperçu en direct, styles sauvegardables/exportables/partageables (F-036, F-036b, détail §3quater du CDC) | Standard (même niveau que B-cam, dont elle élargit la portée) | ⬜ **conception à faire** — coins arrondis déjà vérifiés faisables (forme calculée, même filtre que le masque cercle) ; contour = filtre séparé après le masque (chaînage standard OBS, confirmé par Jay) |
 | **Multi-scènes** *(hors numérotation PET — apparu en session)* | Créer/lister/basculer entre scènes (F-005/F-006, sol pour B7 transitions) | Standard | 🟧 étape 1 (créer/lister/basculer) **prouvée à l'écran** 2026-07-24 · étape 2 (caméra unique, filtres par scène) **prouvée à l'écran** 2026-08-04 · étape 3 (panneau dédié) livrée 2026-08-04, **partiellement prouvée** : suppression + renommage vus à l'écran ; ordre persisté et bascule-avant-suppression **restent à vérifier** |
 | **B-persist** *(hors numérotation PET — demandée par Jay 2026-08-06, « importante et cruciale »)* | La session survit à la fermeture : scènes, sources (famille, cible, position, échelle), caméra (position, échelle, filtres par scène), mixeur audio (appareil, volumes, sourdine, écoute, anti-bruit). Rejeu = **différentiel**, jamais écrasement ; bascule vers la scène en direct **en dernier** | Sensible | 🟧 scènes + sources **prouvées à l'écran 2026-08-06** (`bc20e3f`) · caméra + audio **codées, JAMAIS lancées à l'écran** (`605293a`) → 🔴 point rouge d'ouverture de la session suivante |
 
@@ -245,6 +246,12 @@ project: Hikari Stream
 | **B-pack** | **Installation unique** : empaquetage Tauri + moteur OBS embarqué + première ouverture sur machine vierge (F-001) | **Sensible** | ✅ **prouvée à l'écran 2026-09-05** — installation par utilisateur (le mode « pour tous » échouait en 1603, et interdisait la mise à jour sans mot de passe) |
 | **B-maj** *(hors numérotation PET — née de B-pack)* | Mises à jour reçues dans l'app : bandeau, bouton, redémarrage · canal privé signé · publication en une commande | Sensible | ✅ **prouvée de bout en bout 2026-09-05** : 0.2.0 → 0.3.0 reçue et installée |
 | **B-ui socle** *(hors numérotation PET)* | Pièces communes d'interface + costume de la maquette (îlots, fond, icônes) + répartition + barre du direct | Standard | 🟧 **prouvée à l'écran 2026-09-05** · restent en-têtes de cartes, formes d'onde animées, collections de scènes, ligne Transition, œil montrer/cacher |
+
+### Phase P11 — Copilote IA (fin de feuille de route, décision de Jay 2026-09-09)
+
+| Brique | Scope | Niveau | Statut |
+|---|---|---|---|
+| B-copilote | Copilote de composition conversationnel : crée ou guide la composition d'un stream par une conversation en langage naturel, agit réellement sur l'application (scènes, sources, filtres), deux modes — autonome ou guidé (F-110) | **Critique** (agit sur l'app à partir d'un texte libre — voir §7 du CDC, famille du moteur d'automations) | ⬜ **non planifiée maintenant** — volontairement en fin de feuille de route |
 
 ### Idées de Jay, notées mais non planifiées
 

@@ -1,10 +1,10 @@
 ---
 title: Hikari Stream — CDC (Cahier des charges)
 created: 2026-07-11
-updated: 2026-07-16
+updated: 2026-09-09
 status: validated
 type: cdc
-version: 1.3.0
+version: 1.4.0
 project: Hikari Stream
 ---
 
@@ -108,7 +108,8 @@ Organisées selon le parcours 0→6 + boucle. Identifiants `F-XXX`.
 | F-027 | Mode focus live (masque le superflu sous stress) |
 | F-028 | Silence alertes en 1 clic (toujours visible) |
 | F-029 | Réglage des transitions entre scènes + mouvements de sources |
-| F-036 | Personnalisation caméra (masques, forme cercle, cadrage, design, **fond sans écran vert**) |
+| F-036 | Personnalisation de TOUTE source par une pile de filtres **illimitée** (forme/masque, contour, couleur, flou, **fond sans écran vert**...) — détail en **§3quater** |
+| F-036b | Styles de filtres : sauvegarder, exporter, partager une combinaison comme un style personnel réutilisable |
 | F-037 | Waveforms audio (retour visuel du son) |
 | F-038 | Déplacement auto de sources au changement de scène |
 | F-039 | Baisse auto du son du jeu quand on parle (audio ducking) |
@@ -174,6 +175,7 @@ Organisées selon le parcours 0→6 + boucle. Identifiants `F-XXX`.
 | F-046 | Inviter un co-streamer / invité en direct |
 | F-092 | Sortie caméra virtuelle (utiliser sa scène dans Zoom/Teams/autre logiciel) |
 | F-093 | Bouton discret « soutenir Hikari » (don projet ; discret, sans harcèlement) |
+| F-110 | Copilote de composition conversationnel — crée ou guide la composition d'un stream (scènes, sources, filtres, mise en page) par une conversation en langage naturel. Agit réellement sur l'application (pas un simple conseil) ; deux modes selon le besoin, autonome ou guidé. Prévu en **fin de feuille de route** (PET), pas une priorité actuelle. |
 
 **Niveau d'édition natif (tranché)** : Hikari fait l'**essentiel** (marqueurs, clips simples,
 sous-titres, découpe) ; le montage **avancé** (multi-pistes, montage fin) passe par le pont Kobo
@@ -237,6 +239,51 @@ maintenir — et deux endroits où corriger le même bug. Modèle vérifié chez
 
 > Rappel : F-045 (sous-titres live), F-026 (vertical/shorts), F-092 (caméra virtuelle), F-046
 > (co-streamer), F-093 (soutenir Hikari) existaient déjà — le prototype les a rendus visibles, sans nouvel ID.
+
+### §3quater — Modèle de filtres (F-036/F-036b détaillé, clarifié avec Jay le 2026-09-09)
+
+**Pourquoi cette section existe** : F-036 disait « masques, forme cercle, design » depuis la
+conception — trop court pour coder. Clarifié pendant la session du matin du 2026-09-09, après
+que l'équipe a vérifié comment OBS et son plugin de masquage le plus avancé (Advanced Masks)
+fonctionnent réellement (voir `docs/Sessions/Session-2026-09-09-002.md` §5 pour l'enquête
+technique qui a mené à cette conversation).
+
+**La règle (BLOQUANTE)** : chaque source — caméra, capture, texte, image, à venir — accepte une
+**pile de filtres illimitée**, dans l'ordre où l'utilisateur les pose. Un filtre reçoit le
+résultat du précédent (chaînage standard OBS) : un masque qui découpe une forme, puis un
+contour qui dessine un anneau sur le bord déjà découpé, puis une couleur, etc. **Pourquoi** :
+c'est la liberté de résultat d'OBS — Jay, 2026-09-09 : « ça tue la friction d'OBS où il faut
+avoir fait des études à l'école du stream ».
+
+**Catalogue par source (à vérifier, jamais supposé)** : tous les filtres ne valent pas pour
+toutes les sources (un masque de forme sur une source audio n'a pas de sens). Chaque filtre
+déclare les types de source où il s'applique ; l'interface ne propose jamais une combinaison
+absurde.
+
+**Présentation — la liberté d'OBS, l'intuitivité de Hikari** :
+| | OBS | Hikari |
+|---|---|---|
+| Ajouter un filtre | Liste de noms techniques | Palette visuelle par catégorie (Forme, Contour, Couleur, Flou...), aperçu miniature |
+| Régler un filtre | Champs et chiffres nus | Curseurs avec aperçu en direct, jamais un chiffre sans repère |
+| Empiler | Liste plate, ordre non expliqué | Pile visible, réordonnable, aperçu à CHAQUE étape |
+
+**Technique retenue pour les formes (masque)** : une forme **calculée** (fonction de distance
+signée — la même famille que le plugin Advanced Masks), pas une image statique préparée à
+l'avance. Pourquoi : un rayon de coin, une taille d'étoile, une épaisseur de contour deviennent
+des curseurs continus, sans fichier à créer pour chaque variante — condition nécessaire à une
+liberté de personnalisation réellement illimitée.
+
+**Technique retenue pour le contour** : un filtre **séparé**, appliqué APRÈS le masque dans la
+pile — il reçoit l'image déjà découpée (alpha) et dessine l'anneau sur ce bord. Jamais une
+deuxième source à maintenir synchronisée avec la caméra.
+
+**F-036b — styles partageables** : une pile de filtres réglée se sauvegarde, s'exporte, se
+partage comme un fichier — au même titre que F-006b pour la config entière, mais à l'échelle
+d'UNE source. Un créateur qui a passé du temps sur son rendu ne repart jamais de zéro.
+
+**Hors de cette clarification** : le « masque avancé » où une AUTRE SOURCE (vidéo, animation)
+sert de masque reste un chantier à part, non scopé ici — différent de la pile de filtres
+ci-dessus, qui ne concerne que des formes et effets calculés.
 
 ---
 
@@ -399,6 +446,13 @@ en critique (si ça casse, plus de live) · détection matériel en sensible (ma
 |---|---|---|
 | **Moteur d'automations (F-023)** | **Critique** | 3 raisons cumulées : (1) il **exécute des actions système** — lancer une application, requête réseau sortante (§3bis famille « Système ») = surface d'exécution à protéger ; (2) il est **déclenché par le deck**, déjà Critique — même chaîne de confiance ; (3) sa panne **EST la douleur fondatrice** (§4 : ne plus subir l'immobilisation Streamer.bot). Un moteur d'automations qui boucle ou plante en direct = le problème qu'on prétend résoudre. |
 | **Installation + moteur embarqué (F-001)** | **Sensible** | `libobs-bootstrapper` **télécharge un binaire OBS puis l'exécute** → chaîne d'approvisionnement à vérifier (somme de contrôle). Une installation ratée = zéro utilisateur, mais aucun live en cours perdu → Sensible, pas Critique. |
+
+**Ajout 2026-09-09** — un module clarifié ce matin, pas encore codé, classé avant d'exister
+(Quality.md : la classification accompagne la conception, pas le code écrit) :
+
+| Module | Niveau | Pourquoi ce niveau |
+|---|---|---|
+| **Copilote de composition conversationnel (F-110)** | **Critique** | Même famille que le moteur d'automations (F-023) ci-dessus : il **agit réellement sur l'application** (crée/modifie scènes, sources, filtres) à partir d'un texte libre — l'entrée la moins fiable qui existe (RGPD/Security.md « LLM Security » : une sortie de modèle n'est jamais exécutée comme du code sans revue ; un test d'injection de prompt est dû avant toute mise en ligne). Prévu en fin de feuille de route — classé maintenant pour que personne ne le code plus tard comme un module Standard. |
 
 > **Arbitrage ouvert (Jay décide, Quality.md)** : le Critique sur les automations coûte 95 % de couverture
 > + MC/DC. Le repli défendable est Sensible (90 %) **si** la famille « Système » (lancer une application,
