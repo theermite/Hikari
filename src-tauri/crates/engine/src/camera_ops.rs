@@ -248,18 +248,18 @@ impl App {
         // Le cadrage cliquable repart de zéro : une source relancée peut revenir
         // dans une autre définition, donc son rectangle n'est plus le même.
         obs.item_rects = None;
-        // Une caméra relancée reproduit exactement la situation d'une caméra qui vient de
-        // s'ouvrir : elle n'a pas encore rendu d'image. Sans repartir de zéro (2026-09-09,
-        // relecture indépendante, quatrième passage), une attente déjà vieille de 9 s sur
-        // l'ancienne instance n'offrait qu'une seconde à la nouvelle avant abandon — et une
-        // attente déjà au-delà du plafond était abandonnée dès le premier tick suivant la
-        // relance, l'exact geste que le message d'abandon invite pourtant à faire.
-        for (key, inserted_at) in obs.mask_retry_pending.iter_mut() {
-            if key.1 == device_id {
-                *inserted_at = std::time::Instant::now();
-            }
-        }
+        let active_scene = obs.active_scene.clone();
         eprintln!("[engine] caméra relancée : {device_id}");
+        // Une caméra relancée reproduit exactement la situation d'une caméra qui vient de
+        // s'ouvrir : elle n'a pas encore rendu d'image, donc son masque doit être reposé une
+        // fois qu'elle sera prête. Un simple redémarrage de l'horloge (essayé au quatrième
+        // passage de relecture) laissait le remède inatteignable : après un abandon AVEC
+        // message, l'entrée d'attente n'existe déjà plus, donc rien n'aurait eu d'horloge à
+        // redémarrer, et personne n'aurait plus jamais reposé le masque. `
+        // apply_scene_filter_state` est le seul endroit qui insère dans `mask_retry_pending`
+        // (2026-09-09, relecture indépendante, cinquième passage) — le réutiliser garantit
+        // que la scène en direct récupère une entrée fraîche, qu'il en restait une ou pas.
+        self.apply_scene_filter_state(&active_scene);
     }
 
     /// Les caméras posées dans `scene`, chacune sous son nom — triées, pour que la pile de
