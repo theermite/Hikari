@@ -1,4 +1,5 @@
-//! Liseré de sélection — le contour qui dit QUELLE source un clic va saisir.
+//! Liseré de sélection — le contour qui dit QUELLE source un clic va saisir, et les quatre
+//! poignées d'angle qui disent qu'on peut aussi la redimensionner.
 //!
 //! POURQUOI c'est dessiné par le moteur et non par l'écran : l'aperçu est une fenêtre native
 //! greffée dans l'app (ADR-013), et une fenêtre native passe toujours au-dessus du contenu
@@ -11,6 +12,12 @@
 //! sauter des images. Le rectangle voyage donc en quatre nombres atomiques, écrits par le
 //! fil des événements et lus par celui du dessin — au pire, une image affiche un rectangle
 //! d'une image de retard, ce que personne ne voit.
+//!
+//! POURQUOI des poignées, maintenant (session nocturne 2026-09-09) : `drag_ops.rs` sait
+//! déjà redimensionner depuis un angle (`corner_at`, `hikari-protocol`) — le geste marchait,
+//! mais rien à l'écran ne le disait avant d'y passer la souris pile dessus. Son propre
+//! commentaire l'annonçait : « the only visual clue... since the handles themselves are not
+//! drawn. » Ce module ferme cet écart, sans toucher au geste lui-même.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
@@ -22,6 +29,12 @@ const THICKNESS: f32 = 3.0;
 
 /// Couleur du liseré, en ARGB — l'ambre de la charte Hikari, opaque.
 const COLOR: u32 = 0xFF_F5_A6_23;
+
+/// Côté d'une poignée d'angle, en pixels de canevas — centrée sur le coin, comme dans OBS.
+/// Assez grande pour se voir sur un aperçu réduit, assez petite pour ne jamais recouvrir une
+/// source de la taille minimale que `corner_at` accepte encore (`CORNER_GRAB_MARGIN`, deux
+/// fois 32 px).
+const HANDLE_SIZE: f32 = 10.0;
 
 /// Le rectangle à entourer, partagé entre le fil des événements et celui du dessin.
 static VISIBLE: AtomicBool = AtomicBool::new(false);
@@ -110,11 +123,23 @@ pub unsafe extern "C" fn draw(_param: *mut std::ffi::c_void, _cx: u32, _cy: u32)
         while libobs::gs_effect_loop(effect, technique.as_ptr()) {
             // Quatre traits pleins plutôt qu'un rectangle vide : l'API graphique ne dessine
             // que des rectangles pleins, le contour se compose donc de ses quatre côtés.
+            // Puis quatre carrés, un par angle — les poignées, centrées sur le coin comme le
+            // veut `corner_at` (le geste de redimensionnement qu'elles annoncent).
+            let half = HANDLE_SIZE / 2.0;
             for (bar_x, bar_y, bar_w, bar_h) in [
-                (x, y, width, THICKNESS),                      // haut
-                (x, y + height - THICKNESS, width, THICKNESS), // bas
-                (x, y, THICKNESS, height),                     // gauche
-                (x + width - THICKNESS, y, THICKNESS, height), // droite
+                (x, y, width, THICKNESS),                                // haut
+                (x, y + height - THICKNESS, width, THICKNESS),           // bas
+                (x, y, THICKNESS, height),                               // gauche
+                (x + width - THICKNESS, y, THICKNESS, height),           // droite
+                (x - half, y - half, HANDLE_SIZE, HANDLE_SIZE),          // angle haut-gauche
+                (x + width - half, y - half, HANDLE_SIZE, HANDLE_SIZE),  // angle haut-droit
+                (x - half, y + height - half, HANDLE_SIZE, HANDLE_SIZE), // angle bas-gauche
+                (
+                    x + width - half,
+                    y + height - half,
+                    HANDLE_SIZE,
+                    HANDLE_SIZE,
+                ), // angle bas-droit
             ] {
                 libobs::gs_matrix_push();
                 libobs::gs_matrix_translate3f(bar_x, bar_y, 0.0);
