@@ -10,7 +10,7 @@
 // l'utilisateur, comme à un lecteur d'écran, de savoir de LAQUELLE on parle quand deux
 // appareils sont posés dans la même scène.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Segmented } from "../../components/ui/Segmented";
 import {
   MASK_RADIUS_MAX,
@@ -66,12 +66,21 @@ export function CameraControls({ camera, scene }: Props) {
       .finally(() => setPending(null));
   };
 
-  const { deviceId, name, backgroundRemoval, maskShape } = camera;
+  const { deviceId, name, backgroundRemoval } = camera;
+
+  // Reflète le geste TOUT DE SUITE, sans attendre l'aller-retour moteur (2026-09-09, vu par
+  // Jay : le sélecteur et le curseur restaient figés pendant l'envoi — « je clique à
+  // l'aveugle »). Rattrapé par la vraie valeur dès qu'elle arrive, pour rester juste si un
+  // autre écran change ce réglage entre-temps.
+  const [maskShape, setMaskShapeDraft] = useState(camera.maskShape);
+  useEffect(() => setMaskShapeDraft(camera.maskShape), [camera.maskShape]);
 
   /** Change de forme et l'envoie au moteur — un seul geste, jamais deux filtres actifs à
    * la fois (2026-09-09, une source n'a qu'une forme). */
-  const applyShape = (shape: MaskShape) =>
+  const applyShape = (shape: MaskShape) => {
+    setMaskShapeDraft(shape);
     run("mask", setMaskShape(deviceId, scene, shape));
+  };
 
   const handleShapeChange = (kind: MaskShape["kind"]) => {
     if (kind === "none") return applyShape(NO_MASK);

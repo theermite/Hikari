@@ -107,7 +107,9 @@ impl App {
                     message: err.to_string(),
                 });
             }
-            if let Err(err) = camera::set_mask_shape(&opened.filters.mask, mask_shape) {
+            if let Err(err) =
+                camera::set_mask_shape(&opened.filters.mask, &opened.source, mask_shape)
+            {
                 emit(&EngineMessage::Error {
                     message: err.to_string(),
                 });

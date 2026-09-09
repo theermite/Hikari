@@ -158,6 +158,12 @@ impl App {
         if scene == obs.active_scene {
             self.apply_scene_filter_state(&scene);
         }
+        // Sans cette annonce, une fenêtre de réglages déjà ouverte ne recevait JAMAIS l'état
+        // à jour (2026-09-09, vu par Jay : le sélecteur de forme et le bouton fond IA
+        // restaient sur leur ancienne valeur après un clic, corrects seulement en fermant
+        // puis rouvrant la fenêtre — qui redemande l'inventaire au montage). Le réglage
+        // était bien appliqué côté moteur ; seule l'annonce manquait.
+        self.emit_scene_list();
     }
 
     /// Retire la caméra `device_id` de `scene` seulement — les autres scènes la gardent avec

@@ -20,6 +20,7 @@ use libobs_simple::sources::windows::{
     WindowSearchMode,
 };
 use libobs_wrapper::context::ObsContext;
+use libobs_wrapper::data::object::ObsObjectTrait;
 use libobs_wrapper::data::{ObsData, ObsDataSetters};
 use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemExtSceneTrait, SceneItemTrait};
 use libobs_wrapper::sources::ObsSourceRef;
@@ -267,6 +268,29 @@ pub fn item_base_size(
             )
         })
         .context("lecture de la taille d'une source")
+}
+
+/// La taille native d'une source, directement — même lecture que [`item_base_size`], sans
+/// passer par un élément de scène. Utile pour un appareil partagé entre plusieurs scènes
+/// (la caméra) : sa taille native ne dépend d'AUCUNE scène, une seule lecture suffit pour
+/// toutes (2026-09-09, masque calculé sur les vraies proportions de la caméra plutôt qu'un
+/// carré supposé — la déformation en ellipse que Jay a vue).
+pub fn source_base_size(
+    runtime: &libobs_wrapper::runtime::ObsRuntime,
+    source: &ObsSourceRef,
+) -> Result<(u32, u32)> {
+    let runtime = runtime.clone();
+    let ptr = source.as_ptr().clone();
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // Safety: sur le fil OBS, pointeur intelligent vivant (la caméra reste ouverte
+            // tant qu'une scène la montre, et nous en tenons une référence).
+            (
+                libobs::obs_source_get_width(ptr.get_ptr()),
+                libobs::obs_source_get_height(ptr.get_ptr()),
+            )
+        })
+        .context("lecture de la taille native d'une caméra")
 }
 
 /// La position d'un élément dans la pile de sa scène — plus le nombre est grand, plus il est

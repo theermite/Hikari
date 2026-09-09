@@ -215,41 +215,62 @@ pub fn resize_box(
     )
 }
 
-/// Le calcul du masque à coins arrondis — fonction de distance signée (SDF) sur un carré,
-/// la même famille de technique que le plugin OBS Advanced Masks (crédit original de la
-/// formule : Inigo Quilez, « Rounded Box - exact »). Pur, donc testable sans image ni
-/// fichier : chaque pixel est dedans (blanc opaque), dehors (transparent), ou sur un bord
-/// lissé sur ~1px pour éviter un crénelage visible sur un aperçu réduit.
+/// Le calcul du masque à coins arrondis — fonction de distance signée (SDF), la même
+/// famille de technique que le plugin OBS Advanced Masks (crédit original de la formule :
+/// Inigo Quilez, « Rounded Box - exact »). Pur, donc testable sans image ni fichier :
+/// chaque pixel est dedans (blanc opaque), dehors (transparent), ou sur un bord lissé sur
+/// ~1px pour éviter un crénelage visible sur un aperçu réduit.
+///
+/// `width`/`height` sont les dimensions RÉELLES de la source à masquer — jamais un carré
+/// supposé (2026-09-09, corrigé après que Jay a vu un cercle étiré en ellipse sur sa caméra
+/// 16:9 : un masque carré étiré sur un cadre large déforme tout ce qu'il porte). Le rayon
+/// se calcule sur le plus petit des deux DEMI-côtés, pour qu'un coin reste un arc de
+/// cercle — jamais un arc d'ellipse — quel que soit le format du cadre.
 ///
 /// `radius_percent` (bornes [`MASK_RADIUS_MIN`]..=[`MASK_RADIUS_MAX`], hors bornes = borné
-/// sans avertir) est un pourcentage du DEMI-côté : à `MASK_RADIUS_MAX`, la forme est un
-/// cercle inscrit dans le carré. `size` est la largeur ET la hauteur du carré produit, en
-/// pixels — l'appelant l'étire ensuite sur la vidéo réelle (même contrat que le masque
-/// cercle existant, `mask_filter` + `stretch: true`).
+/// sans avertir) est un pourcentage de ce demi-côté le plus petit.
 ///
 /// Rendu en RGB blanc constant, alpha variable, JAMAIS prémultiplié — la couleur ne doit
 /// jamais teinter la vidéo, seule la découpe compte.
-pub fn generate_rounded_mask_rgba(radius_percent: i32, size: u32) -> Vec<u8> {
+pub fn generate_rounded_mask_rgba(radius_percent: i32, width: u32, height: u32) -> Vec<u8> {
     let radius_percent = radius_percent.clamp(MASK_RADIUS_MIN, MASK_RADIUS_MAX);
-    let half = size as f32 / 2.0;
-    let radius = half * (radius_percent as f32 / MASK_RADIUS_MAX as f32);
+    let half_w = width as f32 / 2.0;
+    let half_h = height as f32 / 2.0;
+    let radius = half_w.min(half_h) * (radius_percent as f32 / MASK_RADIUS_MAX as f32);
 
-    let mut pixels = vec![0u8; (size as usize) * (size as usize) * 4];
-    for y in 0..size {
-        for x in 0..size {
-            // Coordonnée centrée sur le canevas — la formule de distance suppose une
-            // origine au milieu du carré, pas dans son coin haut-gauche.
-            let px = (x as f32 + 0.5) - half;
-            let py = (y as f32 + 0.5) - half;
-            let qx = px.abs() - half + radius;
-            let qy = py.abs() - half + radius;
-            let dist =
-                (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt() + qx.max(qy).min(0.0) - radius;
-            // Négatif = dedans. Lissé sur un pixel plutôt qu'un seuil dur, pour un bord qui
-            // ne crénèle pas une fois étiré sur la vidéo.
-            let alpha = (0.5 - dist).clamp(0.0, 1.0);
+    render_mask(width, height, |px, py| {
+        let qx = px.abs() - half_w + radius;
+        let qy = py.abs() - half_h + radius;
+        (qx.max(0.0).powi(2) + qy.max(0.0).powi(2)).sqrt() + qx.max(qy).min(0.0) - radius
+    })
+}
 
-            let idx = ((y as usize) * (size as usize) + (x as usize)) * 4;
+/// Le calcul du masque circulaire — un cercle VRAI, de diamètre le plus petit côté du
+/// cadre, jamais un cercle étiré en ellipse (même correction que ci-dessus, même défaut
+/// vu par Jay : « le cercle n'est pas un cercle »). Le grand côté du cadre reste
+/// transparent au-delà du cercle plutôt que d'être déformé pour le remplir.
+pub fn generate_circle_mask_rgba(width: u32, height: u32) -> Vec<u8> {
+    let half_w = width as f32 / 2.0;
+    let half_h = height as f32 / 2.0;
+    let radius = half_w.min(half_h);
+
+    render_mask(width, height, |px, py| (px * px + py * py).sqrt() - radius)
+}
+
+/// Le tronc commun aux deux masques : parcourt chaque pixel, centre sa coordonnée sur le
+/// cadre, et convertit la distance signée que rend `sdf` (négatif = dedans) en alpha —
+/// lissé sur ~1px plutôt qu'un seuil dur, pour un bord qui ne crénèle pas une fois étiré
+/// sur la vidéo réelle.
+fn render_mask(width: u32, height: u32, sdf: impl Fn(f32, f32) -> f32) -> Vec<u8> {
+    let half_w = width as f32 / 2.0;
+    let half_h = height as f32 / 2.0;
+    let mut pixels = vec![0u8; (width as usize) * (height as usize) * 4];
+    for y in 0..height {
+        for x in 0..width {
+            let px = (x as f32 + 0.5) - half_w;
+            let py = (y as f32 + 0.5) - half_h;
+            let alpha = (0.5 - sdf(px, py)).clamp(0.0, 1.0);
+            let idx = ((y as usize) * (width as usize) + (x as usize)) * 4;
             pixels[idx] = 255;
             pixels[idx + 1] = 255;
             pixels[idx + 2] = 255;
