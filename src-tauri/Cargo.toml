@@ -47,7 +47,7 @@ image = { version = "0.25.10", default-features = false, features = ["png"] }
 
 [package]
 name = "hikari"
-version = "0.5.4"
+version = "0.5.5"
 description = "Hikari — cockpit stream open-source"
 edition = "2021"
 
