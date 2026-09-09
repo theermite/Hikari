@@ -4,7 +4,7 @@
 use hikari_protocol::{EngineMessage, SceneInfo};
 use libobs_wrapper::scenes::SceneItemTrait;
 
-use crate::{camera, emit, scenes, sources, App, MASK_RETRY_MAX_ATTEMPTS};
+use crate::{camera, emit, scenes, sources, App};
 
 impl App {
     /// Creates a new, empty scene (multi-scene, tranche 1). Rejects a blank or already-used
@@ -118,7 +118,8 @@ impl App {
                 // publication : sans cette file, un masque demandé au rejeu d'une session
                 // se perdait purement et simplement, sans erreur visible).
                 Ok(camera::MaskApplyOutcome::CameraNotReadyYet) => {
-                    obs.mask_retry_pending.insert(key, 0);
+                    obs.mask_retry_pending
+                        .insert(key, std::time::Instant::now());
                 }
                 Err(err) => {
                     emit(&EngineMessage::Error {
@@ -126,90 +127,6 @@ impl App {
                     });
                 }
             }
-        }
-    }
-
-    /// Retente les masques mis en attente parce que leur caméra n'avait pas encore rendu
-    /// d'image (2026-09-09, relecture indépendante avant publication) — appelé à chaque
-    /// tick tant que `mask_retry_pending` n'est pas vide, voir `event_loop::about_to_wait`.
-    /// Relit l'état VOULU à chaque tentative, jamais celui qui a échoué la première fois :
-    /// l'utilisateur a pu régler autre chose pendant l'attente.
-    ///
-    /// Deux garde-fous ajoutés au second passage de relecture indépendante :
-    /// - **une scène en attente qui n'est PAS celle actuellement en direct n'est jamais
-    ///   appliquée maintenant** — le filtre de masque est partagé par appareil entre toutes
-    ///   les scènes qui le montrent ; l'appliquer pour une scène non live écrirait sur ce
-    ///   que la scène RÉELLEMENT à l'antenne affiche. L'entrée reste en attente : la
-    ///   prochaine fois que sa scène redevient active, `apply_scene_filter_state` la reprend
-    ///   depuis le début.
-    /// - **une attente qui dépasse `MASK_RETRY_MAX_ATTEMPTS` est abandonnée avec un message**
-    ///   — sans ça, une caméra qui ne démarre jamais (prise par un autre logiciel, pilote en
-    ///   erreur) laissait l'utilisateur cliquer dans le vide indéfiniment, sans un mot.
-    pub(crate) fn retry_pending_masks(&mut self) {
-        let mut changed = false;
-        let mut gave_up: Vec<String> = Vec::new();
-        if let Some(obs) = &mut self.obs {
-            if obs.mask_retry_pending.is_empty() {
-                return;
-            }
-            let active_scene = obs.active_scene.clone();
-            let pending: Vec<((String, String), u32)> = obs
-                .mask_retry_pending
-                .iter()
-                .map(|(key, attempts)| (key.clone(), *attempts))
-                .collect();
-            for (key, attempts) in pending {
-                let (scene, device_id) = &key;
-                if scene != &active_scene {
-                    // Pas la scène à l'antenne : on n'y touche pas ce tick-ci, elle reste en
-                    // attente jusqu'à ce qu'elle redevienne active.
-                    continue;
-                }
-                let Some(opened) = obs.cameras.get(device_id) else {
-                    // L'appareil a été retiré pendant l'attente : plus rien à réessayer.
-                    obs.mask_retry_pending.remove(&key);
-                    changed = true;
-                    continue;
-                };
-                let mask_shape = obs
-                    .scene_filter_state
-                    .get(&key)
-                    .map(|(_, shape)| *shape)
-                    .unwrap_or(hikari_protocol::MaskShape::None);
-                match camera::set_mask_shape(&opened.filters.mask, &opened.source, mask_shape) {
-                    Ok(camera::MaskApplyOutcome::Applied) => {
-                        obs.mask_retry_pending.remove(&key);
-                        changed = true;
-                    }
-                    Ok(camera::MaskApplyOutcome::CameraNotReadyYet) => {
-                        let attempts = attempts + 1;
-                        if attempts >= MASK_RETRY_MAX_ATTEMPTS {
-                            obs.mask_retry_pending.remove(&key);
-                            gave_up.push(device_id.clone());
-                            changed = true;
-                        } else {
-                            obs.mask_retry_pending.insert(key, attempts);
-                        }
-                    }
-                    Err(err) => {
-                        obs.mask_retry_pending.remove(&key);
-                        emit(&EngineMessage::Error {
-                            message: err.to_string(),
-                        });
-                        changed = true;
-                    }
-                }
-            }
-        }
-        for device_id in gave_up {
-            emit(&EngineMessage::Error {
-                message: format!(
-                    "La caméra {device_id} n'a pas démarré après plusieurs secondes — son masque n'a pas pu être posé. Elle est peut-être utilisée par une autre application."
-                ),
-            });
-        }
-        if changed {
-            self.emit_scene_list();
         }
     }
 
@@ -473,6 +390,12 @@ impl App {
         obs.camera_items
             .retain(|(shown_in, _), _| shown_in != &name);
         obs.scene_filter_state
+            .retain(|(shown_in, _), _| shown_in != &name);
+        // Sans ce retrait (2026-09-09, relecture indépendante, troisième passage) une
+        // tentative en attente pour cette scène supprimée ne se nettoyait que si l'appareil
+        // fini par disparaître ailleurs — jamais garanti — au lieu de partir avec sa scène,
+        // comme `camera_items` et `scene_filter_state` juste au-dessus.
+        obs.mask_retry_pending
             .retain(|(shown_in, _), _| shown_in != &name);
         obs.item_rects = None;
         // Une caméra que plus aucune scène ne montre garde l'appareil ouvert : témoin
