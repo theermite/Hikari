@@ -15,7 +15,7 @@ impl App {
     /// Relit l'état VOULU à chaque tentative, jamais celui qui a échoué la première fois :
     /// l'utilisateur a pu régler autre chose pendant l'attente.
     ///
-    /// Garde-fous, cumulés sur trois passages de relecture indépendante :
+    /// Garde-fous, cumulés sur quatre passages de relecture indépendante :
     /// - **une entrée dont l'appareil a disparu est retirée EN PREMIER, quelle que soit sa
     ///   scène** — sinon une entrée orpheline (`release_unused_cameras`, une scène supprimée
     ///   ailleurs) ne se nettoyait que si sa scène redevenait active, ce qui pouvait ne
@@ -24,10 +24,14 @@ impl App {
     ///   appliquée maintenant** — le filtre de masque est partagé par appareil entre toutes
     ///   les scènes qui le montrent ; l'appliquer pour une scène non live écrirait sur ce
     ///   que la scène RÉELLEMENT à l'antenne affiche (`hikari_protocol::decide_mask_retry`).
-    /// - **une attente dont l'ÂGE dépasse `MASK_RETRY_MAX_AGE` est abandonnée avec un
-    ///   message** — sur l'âge, jamais sur un compteur de tentatives actives : sans ça, une
-    ///   entrée dont la scène ne redevenait jamais active n'était jamais comptée, donc
-    ///   jamais plafonnée, et l'attente ne se terminait jamais (défaut du second passage).
+    /// - **une attente dont l'ÂGE dépasse `MASK_RETRY_MAX_AGE` se termine toujours** — sur
+    ///   l'âge, jamais sur un compteur de tentatives actives (défaut du second passage).
+    /// - **un abandon ne parle QUE si la caméra a réellement été mise à l'épreuve** — une
+    ///   entrée dont la scène n'a jamais été à l'antenne pendant l'attente est retirée SANS
+    ///   message (`MaskRetryDecision::Abandon`) : accuser une caméra jamais testée d'être
+    ///   « prise par une autre application » était le défaut du quatrième passage. Seule une
+    ///   scène réellement en direct dont la caméra ne démarre toujours pas mérite le message
+    ///   (`MaskRetryDecision::GiveUp`).
     pub(crate) fn retry_pending_masks(&mut self) {
         let mut changed = false;
         let mut gave_up: Vec<String> = Vec::new();
@@ -59,6 +63,12 @@ impl App {
                 );
                 match decision {
                     hikari_protocol::MaskRetryDecision::Skip => continue,
+                    // Jamais tentée : rien à reprocher à la caméra, rien à dire.
+                    hikari_protocol::MaskRetryDecision::Abandon => {
+                        obs.mask_retry_pending.remove(&key);
+                        changed = true;
+                        continue;
+                    }
                     hikari_protocol::MaskRetryDecision::GiveUp => {
                         obs.mask_retry_pending.remove(&key);
                         gave_up.push(name);

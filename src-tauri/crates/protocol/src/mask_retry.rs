@@ -1,9 +1,8 @@
 //! La décision pure derrière la nouvelle tentative d'un masque de caméra (2026-09-09,
-//! relecture indépendante avant publication, TROISIÈME passage — deuxième FAIL de suite sur
-//! la même famille de défaut : une attente qui ne se termine jamais). Extraite ici, sans
-//! aucune dépendance libobs, précisément parce que le crate `engine` n'a AUCUN test
-//! (`test = false`, voir CLAUDE.md « hardware floor ») — la logique qui a produit deux
-//! verdicts FAIL d'affilée ne peut être fiabilisée qu'en devenant testable, donc en
+//! relecture indépendante avant publication — QUATRIÈME passage). Extraite ici, sans aucune
+//! dépendance libobs, précisément parce que le crate `engine` n'a AUCUN test (`test =
+//! false`, voir CLAUDE.md « hardware floor ») — une machine à états qui a déjà produit
+//! plusieurs verdicts FAIL ne peut être fiabilisée qu'en devenant testable, donc en
 //! quittant ce crate.
 
 use std::time::Duration;
@@ -18,8 +17,16 @@ pub enum MaskRetryDecision {
     /// par appareil entre toutes les scènes qui le montrent, y toucher maintenant écrirait
     /// sur ce que la scène en direct affiche réellement — défaut fermé au second passage.
     Skip,
-    /// Abandonne : l'attente dépasse le plafond. L'appelant retire l'entrée et prévient
-    /// l'utilisateur au lieu de la laisser attendre pour toujours en silence.
+    /// Abandonne SANS RIEN DIRE : le plafond est dépassé, mais aucune tentative réelle n'a
+    /// jamais eu lieu (sa scène n'a jamais été à l'antenne pendant l'attente). Accuser la
+    /// caméra ici serait un mensonge — elle n'a jamais été mise à l'épreuve. `apply_
+    /// scene_filter_state` la remettra en file, avec une horloge neuve, la prochaine fois
+    /// que sa scène redevient active (2026-09-09, quatrième passage : le défaut trouvé au
+    /// troisième — un message d'erreur accusant une caméra jamais testée).
+    Abandon,
+    /// Abandonne AVEC un message : sa scène ÉTAIT à l'antenne, la caméra a vraiment été
+    /// tentée, et elle n'a toujours pas produit d'image après le plafond. Un vrai échec,
+    /// qui mérite un vrai message.
     GiveUp,
 }
 
@@ -29,19 +36,24 @@ pub enum MaskRetryDecision {
 /// Le plafond porte sur l'ÂGE de l'attente, jamais sur un compteur de tentatives actives
 /// (défaut du second passage : changer de scène remettait un tel compteur à zéro à chaque
 /// bascule, et une entrée dont la scène n'était jamais active n'était jamais comptée —
-/// l'attente ne se terminait donc jamais). L'âge, lui, avance que la scène soit active ou
-/// non : une entrée abandonnée finit TOUJOURS par l'être, quel que soit le comportement de
-/// l'utilisateur entre-temps.
+/// l'attente ne se terminait donc jamais). Mais l'âge seul ne suffit pas à décider s'il faut
+/// PRÉVENIR l'utilisateur (troisième passage) : dépasser le plafond sans que la scène ait
+/// jamais été active n'est la faute de personne, et ne doit produire aucun message — la
+/// scène est vérifiée EN PREMIER, avant l'âge, précisément pour distinguer les deux sorties.
 pub fn decide_mask_retry(
     is_active_scene: bool,
     age: Duration,
     max_age: Duration,
 ) -> MaskRetryDecision {
+    if !is_active_scene {
+        return if age >= max_age {
+            MaskRetryDecision::Abandon
+        } else {
+            MaskRetryDecision::Skip
+        };
+    }
     if age >= max_age {
         return MaskRetryDecision::GiveUp;
-    }
-    if !is_active_scene {
-        return MaskRetryDecision::Skip;
     }
     MaskRetryDecision::Attempt
 }
@@ -69,18 +81,20 @@ mod tests {
     }
 
     #[test]
-    fn should_give_up_once_the_ceiling_is_reached_even_on_the_live_scene() {
+    fn should_give_up_with_a_message_once_the_ceiling_is_reached_on_the_live_scene() {
+        // Ici seulement un message est mérité : la scène était à l'antenne, la caméra a été
+        // réellement tentée et a réellement échoué à démarrer.
         assert_eq!(decide_mask_retry(true, MAX, MAX), MaskRetryDecision::GiveUp);
     }
 
     #[test]
-    fn should_give_up_a_scene_that_was_never_live_once_the_ceiling_is_reached() {
-        // Le défaut fermé ici : sans ce cas, une scène jamais réactivée ne voyait jamais son
-        // compteur progresser — l'ancien plafond, posé sur les tentatives actives, ne se
-        // déclenchait donc jamais pour elle.
+    fn should_abandon_silently_a_scene_that_was_never_live_once_the_ceiling_is_reached() {
+        // Le défaut du quatrième passage : sans cette distinction, une entrée jamais tentée
+        // (sa scène n'a jamais été à l'antenne) recevait le même message accusateur qu'une
+        // caméra réellement en panne — un mensonge pendant un direct.
         assert_eq!(
             decide_mask_retry(false, MAX, MAX),
-            MaskRetryDecision::GiveUp
+            MaskRetryDecision::Abandon
         );
     }
 
@@ -89,6 +103,14 @@ mod tests {
         assert_eq!(
             decide_mask_retry(true, MAX + Duration::from_secs(1), MAX),
             MaskRetryDecision::GiveUp
+        );
+    }
+
+    #[test]
+    fn should_abandon_silently_past_the_ceiling_not_only_exactly_at_it() {
+        assert_eq!(
+            decide_mask_retry(false, MAX + Duration::from_secs(1), MAX),
+            MaskRetryDecision::Abandon
         );
     }
 

@@ -248,6 +248,17 @@ impl App {
         // Le cadrage cliquable repart de zéro : une source relancée peut revenir
         // dans une autre définition, donc son rectangle n'est plus le même.
         obs.item_rects = None;
+        // Une caméra relancée reproduit exactement la situation d'une caméra qui vient de
+        // s'ouvrir : elle n'a pas encore rendu d'image. Sans repartir de zéro (2026-09-09,
+        // relecture indépendante, quatrième passage), une attente déjà vieille de 9 s sur
+        // l'ancienne instance n'offrait qu'une seconde à la nouvelle avant abandon — et une
+        // attente déjà au-delà du plafond était abandonnée dès le premier tick suivant la
+        // relance, l'exact geste que le message d'abandon invite pourtant à faire.
+        for (key, inserted_at) in obs.mask_retry_pending.iter_mut() {
+            if key.1 == device_id {
+                *inserted_at = std::time::Instant::now();
+            }
+        }
         eprintln!("[engine] caméra relancée : {device_id}");
     }
 
