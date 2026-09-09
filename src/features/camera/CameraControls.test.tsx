@@ -164,6 +164,43 @@ describe("CameraControls — forme de masque", () => {
     });
   });
 
+  it("should_send_nothing_when_releasing_the_slider_without_any_real_change", () => {
+    // Un clic sur le curseur sans le déplacer, ou une tabulation qui lui donne le focus,
+    // déclenche mouseup/keyup SANS passer par onChange — la commande ne doit partir que si
+    // la valeur diffère réellement de celle déjà connue du moteur (relecture indépendante
+    // avant publication, second passage, 2026-09-09 : une ref maintenue à part avait pu
+    // dériver de l'affichage et partait quand même dans ce cas).
+    poser(camera({ maskShape: { kind: "rounded", radius_percent: 30 } }));
+    const slider = screen.getByLabelText(/rayon des coins arrondis/i);
+
+    fireEvent.mouseUp(slider);
+    fireEvent.keyUp(slider);
+
+    expect(lastCallTo("set_mask_shape")).toBeUndefined();
+  });
+
+  it("should_send_exactly_the_radius_shown_even_after_switching_shape_mid_gesture", async () => {
+    // Le défaut trouvé en relecture : une ref séparée du rayon ne se resynchronisait pas
+    // quand la forme changeait entre-temps (cercle puis coins arrondis), et pouvait envoyer
+    // au moteur une valeur (ici 60, la ref restée de l'état initial) que l'utilisateur
+    // n'avait jamais vue affichée — l'écran montre 20 (le défaut), pas 60.
+    const user = userEvent.setup();
+    poser(camera({ maskShape: { kind: "rounded", radius_percent: 60 } }));
+
+    await user.click(screen.getByRole("button", { name: "Cercle" }));
+    await user.click(screen.getByRole("button", { name: "Coins arrondis" }));
+
+    const slider = screen.getByLabelText(/rayon des coins arrondis/i);
+    expect(slider).toHaveValue("20");
+    fireEvent.keyUp(slider);
+
+    expect(lastCallTo("set_mask_shape")).toEqual({
+      deviceId: "cam-1",
+      scene: "main",
+      shape: { kind: "rounded", radius_percent: 20 },
+    });
+  });
+
   it("should_keep_the_current_radius_instead_of_resetting_to_the_default", async () => {
     // Sans cette garde, recliquer « Coins arrondis » alors qu'il est déjà actif ramènerait
     // le rayon au défaut (20) au lieu de garder celui que l'utilisateur a réglé (40).

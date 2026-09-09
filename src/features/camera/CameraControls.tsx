@@ -10,7 +10,7 @@
 // l'utilisateur, comme à un lecteur d'écran, de savoir de LAQUELLE on parle quand deux
 // appareils sont posés dans la même scène.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Segmented } from "../../components/ui/Segmented";
 import {
   MASK_RADIUS_MAX,
@@ -82,19 +82,24 @@ export function CameraControls({ camera, scene }: Props) {
     run("mask", setMaskShape(deviceId, scene, shape));
   };
 
-  // Le rayon en cours de glissement : un `<input type="range">` change de valeur à CHAQUE
-  // pixel parcouru. L'envoyer au moteur à chaque pas engendrait, mesuré en relecture
-  // indépendante avant publication, jusqu'à 51 calculs+écritures de fichier en série sur
-  // le fil UNIQUE du moteur pour un seul glissement de bout en bout — la même famille de
-  // blocage que la brique venait de fermer. La ref suit le geste sans délai (l'affichage,
-  // lui, suit `maskShape` ci-dessus) ; l'envoi au moteur n'a lieu qu'au relâchement.
-  const draggedRadius = useRef(
-    maskShape.kind === "rounded"
-      ? maskShape.radius_percent
-      : DEFAULT_ROUNDED_RADIUS,
-  );
-  const commitDraggedRadius = () =>
-    applyShape({ kind: "rounded", radius_percent: draggedRadius.current });
+  // Un `<input type="range">` change de valeur à CHAQUE pixel parcouru. L'envoyer au moteur
+  // à chaque pas engendrait, mesuré en relecture indépendante avant publication, jusqu'à 51
+  // calculs+écritures de fichier en série sur le fil UNIQUE du moteur pour un seul
+  // glissement de bout en bout. L'envoi n'a donc lieu qu'au relâchement — et lit `maskShape`
+  // (l'état affiché), jamais une ref à part : une ref maintenue séparément avait dérivé de
+  // l'affichage après un changement de forme entre-temps (2026-09-09, relecture
+  // indépendante, second passage — un simple clic ou une tabulation sans glissement pouvait
+  // alors envoyer au moteur une valeur que l'utilisateur n'avait jamais vue). N'envoie que si
+  // la valeur diffère réellement de celle du moteur — un relâchement sans changement (clic,
+  // focus clavier) ne doit produire aucun appel.
+  const commitDraggedRadius = () => {
+    if (maskShape.kind !== "rounded") return;
+    const unchanged =
+      camera.maskShape.kind === "rounded" &&
+      camera.maskShape.radius_percent === maskShape.radius_percent;
+    if (unchanged) return;
+    applyShape(maskShape);
+  };
 
   const handleShapeChange = (kind: MaskShape["kind"]) => {
     if (kind === "none") return applyShape(NO_MASK);
@@ -161,7 +166,6 @@ export function CameraControls({ camera, scene }: Props) {
             onChange={(event) => {
               // Retour visuel immédiat à chaque pas — jamais envoyé tel quel au moteur.
               const radius = Number(event.target.value);
-              draggedRadius.current = radius;
               setMaskShapeDraft({ kind: "rounded", radius_percent: radius });
             }}
             onMouseUp={commitDraggedRadius}

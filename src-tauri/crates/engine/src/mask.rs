@@ -6,7 +6,7 @@
 use anyhow::{Context, Result};
 use libobs_wrapper::data::object::ObsObjectTrait;
 use libobs_wrapper::data::{ObsData, ObsDataSetters};
-use libobs_wrapper::sources::{ObsFilterRef, ObsSourceRef};
+use libobs_wrapper::sources::{ObsFilterRef, ObsSourceRef, ObsSourceTrait};
 
 use crate::filters::set_enabled as set_filter_enabled;
 

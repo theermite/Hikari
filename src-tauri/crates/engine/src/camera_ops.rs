@@ -197,6 +197,12 @@ impl App {
             });
         }
         obs.scene_filter_state.remove(&key);
+        // Sans ce retrait (2026-09-09, relecture indépendante, second passage) une tentative
+        // encore en attente pour CETTE scène et CET appareil pouvait retrouver un
+        // `scene_filter_state` absent au tick suivant, retomber sur `MaskShape::None`, et
+        // désactiver le masque d'une AUTRE scène si l'appareil y est toujours montré (le
+        // filtre est partagé par appareil, jamais par scène).
+        obs.mask_retry_pending.remove(&key);
         obs.item_rects = None;
         let still_shown = obs
             .camera_items

@@ -79,6 +79,12 @@ const CAMERA_SLIDE_TICK: std::time::Duration = std::time::Duration::from_millis(
 /// se voit — quatre tentatives par seconde suffisent largement à rattraper l'instant où le
 /// pilote commence enfin à rendre.
 const MASK_RETRY_TICK: std::time::Duration = std::time::Duration::from_millis(250);
+/// Plafond de tentatives avant d'abandonner un masque en attente et de le dire à l'utilisateur
+/// (2026-09-09, relecture indépendante avant publication, second passage : la première version
+/// attendait pour toujours, en silence, une caméra qui pouvait ne jamais démarrer — webcam déjà
+/// prise par un autre logiciel, pilote en erreur). 40 tentatives à `MASK_RETRY_TICK` ≈ 10 s,
+/// largement au-delà du temps de démarrage normal d'une caméra.
+const MASK_RETRY_MAX_ATTEMPTS: u32 = 40;
 
 /// Emit one protocol message as a single JSON line on stdout. A serialization failure is
 /// reported on stderr rather than swallowed (it must never crash the engine). `pub(crate)`
@@ -181,8 +187,10 @@ struct ObsInner {
     /// `AddCamera` est immédiatement suivi de `SetMaskShape`, avant que le pilote n'ait
     /// rendu quoi que ce soit ; l'ancien masque, une image fixe, ne dépendait d'aucune
     /// taille et ne connaissait pas ce problème). Retenté à chaque tick tant que la paire
-    /// reste ici — voir `retry_pending_masks`.
-    mask_retry_pending: std::collections::HashSet<(String, String)>,
+    /// reste ici — voir `retry_pending_masks`. La valeur compte les tentatives déjà faites
+    /// (second passage de relecture : sans plafond, une caméra qui ne démarre jamais
+    /// attendait pour toujours, en silence — voir `MASK_RETRY_MAX_ATTEMPTS`).
+    mask_retry_pending: std::collections::HashMap<(String, String), u32>,
     /// The scene currently live on the output channel (multi-scene, tranche 1) — libobs
     /// exposes no "which scene is on this channel" getter, so this is the one piece of
     /// state the engine must track itself rather than read back.
