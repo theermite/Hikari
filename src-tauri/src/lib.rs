@@ -9,6 +9,7 @@ pub mod engine_bridge;
 pub mod engine_audio;
 pub mod engine_lifecycle;
 pub mod engine_scenes;
+pub mod fonts;
 pub mod preflight;
 pub mod preflight_bridge;
 pub mod preview_bridge;
@@ -62,6 +63,7 @@ pub fn run() {
             settings_window::open_settings_window,
             engine_scenes::set_text_settings,
             engine_scenes::set_text_content,
+            fonts::list_fonts,
             engine_scenes::request_scene_list,
             engine_scenes::restart_camera,
             engine_lifecycle::start_stream,

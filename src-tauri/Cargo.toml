@@ -26,6 +26,9 @@ windows = { version = "0.62.2", features = [
     # meme intention mais ouvre l'explorateur de fichiers sur certaines configurations
     # (vecu par Jay, 2026-09-06) : il n'est pas fait pour ca.
     "Win32_UI_Shell",
+    # Enumerer les polices reellement installees (EnumFontFamiliesExW) — remplace une
+    # liste supposee par une lecture reelle du systeme (session 2026-09-09).
+    "Win32_Graphics_Gdi",
 ] }
 winit = "0.30"
 keyring = { version = "4.1.5", features = ["windows-native-keyring-store"] }

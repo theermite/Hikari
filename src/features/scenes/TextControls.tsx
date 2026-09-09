@@ -15,6 +15,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
+import { listInstalledFonts } from "./api";
 import {
   clampFontSize,
   clampOutlineSize,
@@ -42,18 +43,36 @@ const IDLE = "text-hikari-txt-dim hover:text-hikari-txt";
 const FIELD =
   "rounded-[8px] border border-hikari-line bg-hikari-bg px-2 py-1 text-[12.5px] text-hikari-txt";
 
-/** Les polices proposées : celles que l'application EMBARQUE, plus les deux valeurs sûres de
- * Windows. Aucune police n'est nommée sans être disponible — c'est la fausse promesse que
- * Jay a attrapée le 2026-09-07 sur le panneau d'adaptation. */
-const FACES = [
-  "Inter",
-  "Atkinson Hyperlegible",
-  "OpenDyslexic",
-  "Segoe UI",
-  "Arial",
-  "Georgia",
-  "Impact",
-];
+/** Le repli avant que la vraie liste arrive du système — jamais affiché plus de quelques
+ * dizaines de millisecondes, jamais utilisé pour DEVINER ce que Windows porte. */
+const FALLBACK_FACES = ["Segoe UI", "Arial"];
+
+/** Les polices RÉELLEMENT installées sur la machine, demandées une fois au montage.
+ *
+ * Aucune police n'est nommée sans être disponible — c'est la fausse promesse que Jay a
+ * attrapée le 2026-09-07 sur le panneau d'adaptation : « Atkinson Hyperlegible » et
+ * « OpenDyslexic » y figuraient sans qu'aucun fichier de police ne soit embarqué pour le
+ * moteur. `settings.face` reste toujours proposé même s'il est absent de la détection —
+ * un réglage déjà choisi ne doit jamais disparaître du sélecteur qui le montre. */
+function useInstalledFonts(current: string): string[] {
+  const [faces, setFaces] = useState<string[]>(FALLBACK_FACES);
+
+  useEffect(() => {
+    let vivant = true;
+    listInstalledFonts()
+      .then((detectees) => {
+        if (vivant && Array.isArray(detectees)) setFaces(detectees);
+      })
+      .catch((error: unknown) => {
+        console.error("text: list_fonts failed", error);
+      });
+    return () => {
+      vivant = false;
+    };
+  }, []);
+
+  return faces.includes(current) ? faces : [current, ...faces];
+}
 
 const ALIGNS: { value: TextAlign; label: string }[] = [
   { value: "left", label: "Gauche" },
@@ -166,6 +185,8 @@ function NumberField(props: {
 }
 
 export function TextControls({ scene, name, text, settings, onChange }: Props) {
+  const faces = useInstalledFonts(settings.face);
+
   /** Applique ET retient. Les deux ensemble, jamais l'un sans l'autre : appliquer sans
    * retenir perd le réglage au prochain lancement, retenir sans appliquer ment à l'écran. */
   const apply = (next: TextSettings) => {
@@ -214,7 +235,7 @@ export function TextControls({ scene, name, text, settings, onChange }: Props) {
           value={settings.face}
           onChange={(e) => patch({ face: e.target.value })}
         >
-          {FACES.map((face) => (
+          {faces.map((face) => (
             <option key={face} value={face}>
               {face}
             </option>

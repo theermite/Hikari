@@ -127,6 +127,13 @@ export function openSettingsWindow(
   });
 }
 
+/** Les polices RÉELLEMENT installées sur la machine (`list_fonts`, `fonts.rs`) — jamais une
+ * liste supposée. Windows expose l'API faite pour ça ; le sélecteur de police n'a plus à
+ * deviner ce que le système porte. */
+export function listInstalledFonts(): Promise<string[]> {
+  return invoke("list_fonts");
+}
+
 /** Redemande l'inventaire actuel des scènes ET du mixeur, sans rien changer.
  *
  * Le moteur ne renvoie `SceneList`/`AudioSources` que sur un vrai changement — un panneau

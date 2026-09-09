@@ -53,7 +53,10 @@ function dernierEnvoi() {
 }
 
 beforeEach(() => {
-  invokeMock.mockClear();
+  // `mockReset` et non `mockClear` : un test qui pose sa propre implémentation (la
+  // détection des polices) ne doit jamais la laisser fuiter sur le test suivant.
+  invokeMock.mockReset();
+  invokeMock.mockResolvedValue(undefined);
   onChange.mockClear();
 });
 
@@ -151,6 +154,43 @@ describe("TextControls", () => {
       name: "Mon titre",
       text: "Nouveau titre",
     });
+  });
+
+  it("should_show_the_fonts_really_detected_on_the_machine", async () => {
+    // La liste vient du système, jamais d'une supposition — c'est le défaut que ce test
+    // ferme (Atkinson Hyperlegible / OpenDyslexic étaient proposées sans être embarquées).
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === "list_fonts"
+        ? Promise.resolve(["Calibri", "Consolas"])
+        : Promise.resolve(undefined),
+    );
+    poser();
+
+    expect(
+      await screen.findByRole("option", { name: "Calibri" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Consolas" }),
+    ).toBeInTheDocument();
+  });
+
+  it("should_keep_the_current_face_even_when_the_system_does_not_report_it", async () => {
+    // Un réglage déjà choisi ne doit jamais disparaître du sélecteur qui le montre — même
+    // si la détection réelle ne le retrouve pas (police retirée, machine différente).
+    invokeMock.mockImplementation((cmd: string) =>
+      cmd === "list_fonts"
+        ? Promise.resolve(["Calibri"])
+        : Promise.resolve(undefined),
+    );
+    poser({ ...DEFAULT_TEXT_SETTINGS, face: "Une Police Disparue" });
+
+    await screen.findByRole("option", { name: "Calibri" });
+
+    expect(
+      screen.getByRole<HTMLOptionElement>("option", {
+        name: "Une Police Disparue",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("should_refuse_to_send_an_empty_text", async () => {
