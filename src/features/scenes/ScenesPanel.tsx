@@ -147,6 +147,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
 
   // Le champ de recherche apparaît APRÈS l'ouverture de la fenêtre, quand les cibles
   // arrivent — d'où ce focus posé à son apparition plutôt qu'à l'ouverture.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: searchInput est une ref stable, inutile au tableau de dépendances.
   useEffect(() => {
     if (addingTo && targets && !chosenIsFile) searchInput.current?.focus();
   }, [addingTo, targets, chosenIsFile]);
