@@ -63,7 +63,9 @@ never from internal knowledge.
   `# RM-OK: <reason>` unlocks ONE rm authorized by Jay (never on a catastrophic target:
   root, home, project, .git ; logged).
 - **Lego Library First (BLOCKING)**: check `@shinkofa/ui` before any UI ; text via i18n ;
-  types via `@shinkofa/types`.
+  types via `@shinkofa/types`. **Not visual-only** (Jay 2026-09-09): before writing any
+  reusable function, validation, or security logic, check the current repo and known
+  shared repos for an existing implementation first. See `Quality.md` "Lego Library".
 - **Sync Shinzo (BLOCKING)**: Read 4 files from `Shinzo/02-Projets/` via `Read` tool
   (_Cross-Project + _Index + current project + [project]-Notes-Jay). No MCP needed.
   Shinzo not cloned → STOP and clone (`git clone git@github.com:theermite/Shinzo.git`).

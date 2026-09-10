@@ -154,9 +154,31 @@ def test_the_net_looks_at_the_repository_it_protects():
     if not fichiers:
         pytest.skip("aucun transcript sur ce poste")
     projets = {f.parent.name for f in fichiers}
-    assert len(projets) > 7, "le filet doit couvrir tout l'atelier, pas son debut alphabetique"
+    tous_les_projets = {
+        d.name for d in TRANSCRIPTS.iterdir()
+        if d.is_dir() and any(d.glob("*.jsonl"))
+    }
+    # Un seuil absolu (« > 7 ») est calibre sur MON poste, qui compte 32+
+    # depots — meme famille de defaut que celui ferme une ligne plus bas, trouve
+    # par relecture sur ce fichier meme (2026-09-08). Sur un petit receveur a 3
+    # projets, un filet sain qui les regarde tous les 3 serait rejete a tort. La
+    # bonne mesure est RELATIVE : le filet doit couvrir la MAJORITE de ce qui
+    # existe reellement sur ce poste, jamais un compte fige.
+    assert len(projets) >= max(1, len(tous_les_projets) * 3 // 4), (
+        "le filet doit couvrir la majorite de l'atelier, pas son debut alphabetique")
+
+    # La condition demande une session REELLE, pas un dossier. Un dossier de
+    # projet peut exister et ne contenir aucun transcript — mesure du
+    # 2026-09-07 sur Shizen, dont le dossier ne porte qu'un sous-dossier
+    # `memory/`. Ce test a voyage vers 32 depots et en a fait rougir 7, tous
+    # sains : ecrit depuis mon attente, jamais depuis le terrain. C'est
+    # exactement le defaut qu'il existe pour attraper, commis dans son ecriture.
     ici = RACINE.name
-    if any(ici in p.name for p in TRANSCRIPTS.iterdir() if p.is_dir()):
+    a_des_sessions = any(
+        ici in dossier.name and any(dossier.glob("*.jsonl"))
+        for dossier in TRANSCRIPTS.iterdir() if dossier.is_dir()
+    )
+    if a_des_sessions:
         assert any(ici in p for p in projets), f"le depot {ici} doit etre regarde"
 
 

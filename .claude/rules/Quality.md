@@ -22,7 +22,7 @@ Real DB for integration (no DB mock). Tests named `should_[action]_when_[conditi
 **Coverage Floors — et QUI les tient (mesuré 2026-09-05)**
 
 Un seuil que rien n'exécute donne une fausse assurance, ce qui coûte plus cher
-qu'une absence de seuil. La colonne de droite dit la vérité mesurée : 67
+qu'une absence de seuil. La colonne de droite dit la vérité mesurée : 68
 garde-fous branchés, 21 peuvent refuser une action, et **aucun ne mesure une
 couverture de tests**.
 
@@ -168,10 +168,26 @@ relaunching one ; kill at session end. Exact config → Shinzo.
 
 ## Lego Library — Build Once, Reuse Forever (BLOCKING)
 
-Before coding ANY UI element: check the `@shinkofa/ui` inventory. If it exists → import.
+**The library is not visual-only (BLOCKING — Jay 2026-09-09)**: any reusable piece —
+UI component, function, validation, confinement, security check, utility — is a Lego
+piece. Before writing ANY of them: stand in front of the blank page, name what you are
+about to build, and ask the toolbox first — "do I already have this piece?" Only build
+what is missing. **Why**: the founding goal was that each new build needs less new code
+over time, because more pieces already exist to assemble — an incident on 2026-09-08
+showed the opposite happening, two security mechanisms already in production got rebuilt
+from zero, both rebuilds shipped with defects the originals did not have.
+
+**For UI**: check the `@shinkofa/ui` inventory. If it exists → import.
 If not → code it in `Shinkofa-Shared/packages/ui/` first (tests + story), then import. All
 text via `@shinkofa/i18n` (FR/EN/ES, FR source). All shared types via `@shinkofa/types`.
 Coding a duplicate = BLOCKING. i18n workflow → Shinzo.
+
+**For everything else (functions, validation, confinement, security, utilities)**: no
+generated inventory exists — same limit as the coverage floors above, ✋ tenu par la
+discipline. Before writing, search the current repo (and known shared repos:
+`Shinkofa-Lego-Elixir`, `Shinkofa-Shared`) for an existing implementation of the same
+problem. Coding a duplicate of existing reusable logic = BLOCKING, same as UI. See
+Honesty.md "Three questions before writing" — this is now the first of them.
 
 **The inventory is generated, never written by hand (BLOCKING — 2026-08-30)**: it lives in
 `hooks/lego/ui-inventory.json`, produced by `scripts/generate-ui-inventory.py` from the
@@ -183,8 +199,9 @@ to whoever consulted the rule and the guard could not warn about what it had nev
 of. Measured that day: **146 files across the workspace redefine a component the library
 already ships** — ThemeProvider 12 times, Skeleton and Input 8 times each, and three repos
 carry 83% of it. An inventory copied by hand ages and lies.
-**A10 — continuous feeding**: as soon as a reusable element is created/spotted, extract
-it via `/extract-lego` BEFORE reusing it.
+**A10 — continuous feeding**: as soon as a reusable element is created/spotted — visual
+or not — extract it (via `/extract-lego` for UI ; to the matching shared repo otherwise)
+BEFORE reusing it.
 
 **Morphic module — the named second library (BLOCKING, hook-enforced)**: any UI that
 offers the user a comfort choice — theme, motion, contrast, density, font size or family,

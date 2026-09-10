@@ -56,14 +56,15 @@ any check runs — the one place jargon most needed catching, it was never scann
 | Alternative | <other concrete path> |
 | Question | <ONLY if a genuine fork exists — see below. Otherwise omit this row.> |
 
-**Three questions BEFORE writing (BLOCKING — measured 2026-09-06)**: on any structuring
-decision, ask these three, in this order, before the first line of code:
+**Four questions BEFORE writing (BLOCKING — measured 2026-09-06, extended 2026-09-09)**:
+on any structuring decision, ask these four, in this order, before the first line of code:
 
 | # | Question | The defect it catches |
 |---|---|---|
-| 1 | What do I believe here that I have **not measured**? | A number copied instead of read; a fixture that describes a world that does not exist |
-| 2 | **Who holds this gate** — code, a human who can judge it, or nobody? | A threshold nobody runs; a review asked of someone who cannot evaluate it |
-| 3 | What does my fix **trade away**? | A bounded failure swapped for an unbounded wait; a case closed while its family stays open |
+| 1 | **Do I already have this piece?** Search the repo (and known shared repos) for an existing implementation of the same problem — code, not just UI (Jay 2026-09-09, see Quality.md "Lego Library"). | A security mechanism rebuilt from zero, worse than the one already in prod |
+| 2 | What do I believe here that I have **not measured**? | A number copied instead of read; a fixture that describes a world that does not exist |
+| 3 | **Who holds this gate** — code, a human who can judge it, or nobody? | A threshold nobody runs; a review asked of someone who cannot evaluate it |
+| 4 | What does my fix **trade away**? | A bounded failure swapped for an unbounded wait; a case closed while its family stays open |
 
 **Why**: measured across the whole workspace, the `TECHNICAL CHALLENGE` template was
 emitted for real **once in 1269 session reports**. Over the last 20 sessions: 43 structuring
@@ -83,7 +84,7 @@ found the better path himself. That is a miss to count, not to hide — it happe
 day this gate was built (he proposed the push/pull simplification that removed the defect's
 cause).
 
-**Without hook**: emit the marker in the report yourself, and quote the three answers in the
+**Without hook**: emit the marker in the report yourself, and quote the four answers in the
 commit when the decision is structuring.
 
 If Takumi cannot fill Risk / Evidence / Impact / Alternative, he is not challenging, he is
