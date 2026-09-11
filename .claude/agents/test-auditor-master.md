@@ -2,6 +2,7 @@
 name: Test Auditor Master
 description: Independent test quality audit. Finds gaps, circular testing, weak assertions. Runs in dedicated session.
 model: opus
+expertise: senior
 tools:
   - Read
   - Grep

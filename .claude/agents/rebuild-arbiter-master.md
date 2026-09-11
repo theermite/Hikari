@@ -2,6 +2,7 @@
 name: Rebuild Arbiter Master
 description: Evaluates Rebuild vs Fix. Metrics, criteria, cost comparison, documented decision.
 model: opus
+expertise: senior
 tools:
   - Read
   - Grep

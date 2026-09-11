@@ -22,8 +22,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 
-from transcript_reader import iter_tool_calls
+from transcript_reader import iter_assistant_text, iter_tool_calls
 from veille_config import (
     MARKER_RE,
     RECOVERY_LINE_HINTS,
@@ -31,6 +32,15 @@ from veille_config import (
     WEB_TOOL_NAMES_EXACT,
     WEB_TOOL_SUBSTRINGS,
 )
+
+# The most recent independent-review verdict spoken in chat (shared with
+# quality/post-review-cause-check.py's own _VERDICT -- same marker, read here
+# for a second, unrelated guard: 2026-09-10, the veille-skip motif below).
+_REVIEW_VERDICT = re.compile(r"\[REVIEW\][^\n]*?verdict\s*:\s*(PASS|FAIL)", re.IGNORECASE)
+_CODE_BLOCK = re.compile(r"```.*?```|`[^`]*`", re.DOTALL)
+# Same marker, same span rule as post-review-cause-check.py's own _FAMILY: the
+# slug ends at a comma or a line break, read from the marker's own line only.
+_REVIEW_FAMILY = re.compile(r"famille[^\S\n]*:[^\S\n]*([^,\n]+)", re.IGNORECASE)
 
 
 def extract_text(entry) -> str:
@@ -123,3 +133,49 @@ def has_web_veille_call(transcript_path: str) -> bool:
     except Exception:
         return False
     return False
+
+
+def latest_review_verdict(transcript_path: str, limit: int = 40) -> str | None:
+    """PASS, FAIL, or None -- the most recent independent-review verdict spoken
+    in chat. A verdict shown inside a code block (a gabarit, an example) is not
+    a verdict that happened (same exclusion as post-review-cause-check.py).
+
+    Used by the veille-skip guard (2026-09-10): a cause claimed "known" while
+    its own review is still failing was not actually known.
+    """
+    if not transcript_path:
+        return None
+    try:
+        for text in iter_assistant_text(transcript_path, limit=limit):
+            spoken = _CODE_BLOCK.sub(" ", text or "")
+            match = _REVIEW_VERDICT.search(spoken)
+            if match:
+                return match.group(1).upper()
+    except Exception:
+        return None
+    return None
+
+
+def latest_review_family(transcript_path: str, limit: int = 40) -> str | None:
+    """The family slug of the most recent FAIL verdict, or None (no FAIL, or
+    unnamed). Used by the 'sans-rapport' motif check (2026-09-11, independent
+    review): a motif claiming no relation to the failing family is only
+    honest if the file being written shares no distinctive word with it.
+    """
+    if not transcript_path:
+        return None
+    try:
+        for text in iter_assistant_text(transcript_path, limit=limit):
+            spoken = _CODE_BLOCK.sub(" ", text or "")
+            verdict = _REVIEW_VERDICT.search(spoken)
+            if not verdict:
+                continue
+            if verdict.group(1).upper() != "FAIL":
+                return None
+            line_end = spoken.find("\n", verdict.end())
+            tail = spoken[verdict.end():line_end if line_end != -1 else None]
+            family = _REVIEW_FAMILY.search(tail)
+            return family.group(1).strip() if family else None
+    except Exception:
+        return None
+    return None

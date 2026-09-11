@@ -22,6 +22,8 @@ After a review came back FAIL, the next commit message carries:
   - famille: <the CLASS of defect, not the single case>
   - cause: <where it comes from>
   - ce qui empeche la repetition: <test, shared component, gate — an artefact>
+  - appelants reels: <oui — comment verifie (grep, callsites) | non-applicable>
+  - garde a l'envers: <le test rougit-il si tu retires la garde ? oui | non-applicable>
 
 At the SECOND consecutive FAIL ON THE SAME FAMILY, that is no longer enough:
 patching the reported case is forbidden, and the message must also carry
@@ -73,6 +75,7 @@ from common import (  # noqa: E402
     pass_through,
     read_hook_input,
 )
+from marker_fields import field_filled, field_value  # noqa: E402
 from shell_parse import simple_commands  # noqa: E402
 from transcript_reader import iter_assistant_text  # noqa: E402
 
@@ -99,13 +102,87 @@ _CODE = re.compile(r"```.*?```|`[^`]*`", re.DOTALL)
 _FAMILY = re.compile(r"famille[^\S\n]*:[^\S\n]*([^,\n]+)", re.IGNORECASE)
 _UNNAMED = "<sans famille nommee>"
 
-_FIELDS = ("famille", "cause", "ce qui empeche la repetition", "veille")
+# A family gets reworded round to round (measured 2026-09-10, Shinkofa-Backend,
+# service de paiement: "solde-disponible-vs-solde-brut" -> "solde-brut-au-lieu-
+# de-disponible" -> "brut-vs-disponible", 3 textes pour 1 seul defaut). Exact-text
+# comparison never saw 2 consecutive identical FAILs, so the 2nd-failure escalation
+# (Autonomous-Session.md) never fired -- 17 rounds before a real stop. Compare the
+# WORDS that make the slug distinctive, not the sentence.
+#
+# "sans" / "avec" removed 2026-09-11 (2e relecture) : ils portaient la negation
+# francaise ("garde-sans-test" vs "garde-avec-test") et etaient pourtant traites
+# comme du bruit -- meme defaut que "not" en anglais, jamais corrige cote FR.
+_SLUG_STOPWORDS = frozenset({
+    "vs", "au", "de", "du", "la", "le", "un", "une", "et", "ou", "sur", "dans",
+    "pour", "par", "lieu", "meme", "en", "a",
+    "the", "is", "on", "of", "to", "and", "or", "for", "with", "by", "in", "when",
+})
+# Un mot de polarite qui n'apparait que d'un cote disqualifie la fusion, quel
+# que soit le score (2e relecture 2026-09-11) : au-dela de 3 mots distinctifs,
+# un seul mot de difference peut deja franchir le plancher de similarite
+# (ex. 3/5 = 0,6) -- garder "not"/"sans" hors des mots vides ne suffit plus
+# a lui seul si les slugs s'allongent. Liste fermee, honnetement incomplete :
+# une paraphrase sans aucun de ces mots reste hors de portee (embeddings
+# differes, deja documente dans le commit qui a introduit Jaccard).
+#
+# LIMITE HONNETE (3e relecture independante, meme jour) : cette regle ferme
+# la fusion abusive mais ouvre la SCISSION abusive dans l'autre sens -- une
+# vraie reformulation qui laisse tomber un mot de polarite ("garde-non-cable"
+# -> "garde-cable-a-moitie") reset desormais le compteur a 1 et desactive
+# l'escalade au 2e echec. Le cas mesure qui a motive toute la fonction (le
+# drift SANS negation) passe toujours ; seul le drift AVEC negation regresse.
+# Non corrige : trancher entre les deux directions demande une comprehension
+# semantique hors de portee d'une comparaison de mots (Jay stays the last
+# verifier, Quality.md A9).
+_POLARITY_WORDS = frozenset({
+    "non", "pas", "sans", "faux", "fausse", "faussement", "absent", "absente",
+    "manquant", "manquante", "jamais", "incorrect", "incorrecte", "errone",
+    "erronee", "not", "no", "never", "wrong", "missing", "false", "without",
+    "incorrectly",
+})
+# Le plancher reste sur l'union (Jaccard, pas le plus petit cote) -- un slug
+# d'un seul mot ne doit jamais avaler tout slug qui le contient, et 2 mots de
+# contexte partages sur 3 ne doivent jamais suffire a fusionner 2 vrais
+# defauts (mesure 2e relecture 2026-09-11 : min() faisait les deux).
+_SLUG_SIMILARITY_FLOOR = 0.6
+
+
+def _slug_tokens(slug):
+    words = re.split(r"[^a-z0-9]+", slug.casefold())
+    return {w for w in words if len(w) > 1 and w not in _SLUG_STOPWORDS}
+
+
+def _same_family(current, previous):
+    """Same family if either text matches exactly, or their distinctive words
+    overlap past the floor AND no polarity word appears on only one side.
+    Never applies to the unnamed sentinel on one side only -- an unnamed FAIL
+    must never inherit a named one's family for free."""
+    if current == previous:
+        return True
+    if current == _UNNAMED or previous == _UNNAMED:
+        return False
+    a, b = _slug_tokens(current), _slug_tokens(previous)
+    if not a or not b:
+        return False
+    if (a ^ b) & _POLARITY_WORDS:
+        return False
+    overlap = len(a & b) / len(a | b)
+    return overlap >= _SLUG_SIMILARITY_FLOOR
+
+# Last 2 added 2026-09-11: measured across 3 repos, 21 days, the defects a
+# review kept finding were almost all detectable before writing -- "le
+# correctif n'avait aucun appelant reel" (Shinkofa-Backend 09-09), "si je
+# retire la garde, le test rougit-il ?" jamais pose (Shinkofa-Backend 09-08).
+_FIELDS = (
+    "famille", "cause", "ce qui empeche la repetition", "veille",
+    "appelants reels", "garde a l'envers",
+)
 
 # La veille doit porter une DATE : « j'ai regardé » n'est pas une source, et un
 # modele produit cette phrase aussi facilement que la verite (`Rule-Format.md`).
-_VEILLE_DATEE = re.compile(r"-[^\S\n]*veille[^\S\n]*:[^\S\n]*(\S.*)", re.IGNORECASE)
 _DATE_OU_LIEN = re.compile(r"\d{4}-\d{2}-\d{2}|https?://")
-_APPROACH = re.compile(r"-\s*approche\s+chang\w+\s*:\s*oui\s*[—-]\s*\S+", re.IGNORECASE)
+# Validates the VALUE only (field_value() reads the line -- see _approche_changee).
+_APPROACH_VALIDE = re.compile(r"^oui\s*[—-]\s*\S+", re.IGNORECASE)
 
 
 def is_commit(command):
@@ -152,19 +229,18 @@ def last_verdict(recent_texts):
     return None
 
 
-def _field_filled(message, field):
-    # Horizontal space only: a value must sit on the field's own line, otherwise
-    # an empty `- famille:` would borrow the next line's text as its answer.
-    pattern = re.compile(rf"-[^\S\n]*{re.escape(field)}[^\S\n]*:[^\S\n]*(\S.*)", re.IGNORECASE)
-    match = pattern.search(message)
-    return bool(match and match.group(1).strip())
-
-
 def find_cause(message):
-    """Return the message when it carries a complete [CAUSE] block, else None."""
+    """Return the message when it carries a complete [CAUSE] block, else None.
+
+    Field reading via lib/marker_fields.py (2e relecture independante,
+    2026-09-11) : le 1er correctif n'avait cable le lecteur partage QUE dans
+    anti-quick-fix.py -- ce hook gardait sa propre regex exacte, refusant
+    encore l'accent francais correct et l'apostrophe typographique sur son
+    PROPRE champ. Meme famille reouverte, fermee pour de vrai cette fois.
+    """
     if "[CAUSE]" not in (message or ""):
         return None
-    if not all(_field_filled(message, field) for field in _FIELDS):
+    if not all(field_filled(message, field) for field in _FIELDS):
         return None
     if not _veille_datee(message):
         return None
@@ -187,20 +263,26 @@ def _veille_datee(message):
 
     Une date ou un lien, jamais « j'ai regarde » : une phrase de verification
     n'est pas une verification.
+
+    Valeur lue via field_value() (3e relecture independante 2026-09-11) : un
+    2e lecteur a la main pour le meme champ 'veille' que field_filled() lisait
+    deja -- exactement la famille que ce module a ete cree pour fermer.
     """
-    trouve = _VEILLE_DATEE.search(message)
-    return bool(trouve and _DATE_OU_LIEN.search(trouve.group(1)))
+    valeur = field_value(message, "veille")
+    return bool(valeur and _DATE_OU_LIEN.search(valeur))
 
 
 def _missing_cause_message():
     return (
         "BLOCKED: the last independent review came back FAIL, and this commit does "
         "not say what it taught. "
-        "RECOVERY: add to the commit message: '[CAUSE]' then FOUR lines — "
+        "RECOVERY: add to the commit message: '[CAUSE]' then SIX lines — "
         "'- famille: <la CLASSE du defaut, pas le cas signale>', "
         "'- cause: <d'ou il vient>', "
         "'- ce qui empeche la repetition: <test, composant partage, garde-fou>', "
-        "'- veille: <source datee ou lien consulte AVANT de corriger>'. "
+        "'- veille: <source datee ou lien consulte AVANT de corriger>', "
+        "'- appelants reels: <oui -- comment verifie | non-applicable -- pourquoi>', "
+        "'- garde a l'envers: <le test rougit-il si tu retires la garde ? oui | non-applicable>'. "
         "Why: on 2026-08-10, five reviews in a row rejected the same family, "
         "because each fix addressed the reported case and never the cause. "
         "And on 2026-09-07, a full day of fixes was written from scratch with "
@@ -228,6 +310,15 @@ def _second_failure_message():
     )
 
 
+def _approche_changee(message):
+    """The 'approche changee' field, read via field_value() (3e relecture
+    independante 2026-09-11) -- the hand-rolled regex it replaces matched on
+    plain `\\s`, which crosses line breaks: an EMPTY field borrowed the next
+    line's text as its own value, on the escalation gate itself."""
+    valeur = field_value(message, "approche changee")
+    return bool(valeur and _APPROACH_VALIDE.match(valeur))
+
+
 def verdict(commit_message, recent_texts, failures):
     """Return a block message, or None when the commit may proceed."""
     if last_verdict(recent_texts) != "FAIL":
@@ -235,7 +326,7 @@ def verdict(commit_message, recent_texts, failures):
     # Twice in a row, the demand is higher: the approach has to move, not the line.
     # No excuse holds here — a second failure is about the design, not this commit.
     if failures >= 2:
-        return None if _APPROACH.search(commit_message or "") else _second_failure_message()
+        return None if _approche_changee(commit_message or "") else _second_failure_message()
     if find_skip(commit_message):
         return None
     if not find_cause(commit_message):
@@ -270,6 +361,10 @@ def count_failures(recent_texts):
 
     An unnamed family counts with the previous unnamed one: leaving the slug out
     must never be the cheap way past the gate.
+
+    The comparison is against the IMMEDIATELY PRECEDING round, not the first one
+    seen (2026-09-10): a family drifts in wording one round at a time, and a
+    fixed anchor loses a slow drift that a chain of neighbours still catches.
     """
     failures = 0
     family = None
@@ -281,10 +376,9 @@ def count_failures(recent_texts):
         if match.group(1).upper() != "FAIL":
             break
         current = _family_of(spoken, match)
-        if family is None:
-            family = current
-        elif current != family:
+        if family is not None and not _same_family(current, family):
             break
+        family = current
         failures += 1
     return failures
 

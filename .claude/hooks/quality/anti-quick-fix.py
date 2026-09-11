@@ -27,6 +27,8 @@ Accepted forms in the recent transcript (latest occurrence wins):
   - 6 mois: <pourquoi cette correction tient dans 6 mois>
   - cause racine: <oui — quelle racine | non — symptome assume car ...>
   - alternative durable: <aucune valable | voici X mais reportee car Y>
+  - appelants reels: <oui — comment verifie (grep, callsites) | non-applicable — pourquoi>
+  - garde a l'envers: <le test rougit-il si tu retires la garde ? oui | non-applicable>
 
 OR (legitimate skip, closed enum):
 
@@ -69,6 +71,7 @@ from common import (  # noqa: E402
     pass_through,
     read_hook_input,
 )
+from marker_fields import field_label_present  # noqa: E402
 from session_state import read_state, write_state  # noqa: E402
 from transcript_reader import iter_assistant_text  # noqa: E402
 
@@ -126,13 +129,18 @@ ALLOWED_SKIP_MOTIFS = {
 _REGRESSION_RE = re.compile(r"\b(regression|recurr|recurring|same\s+bug|again)\b", re.IGNORECASE)
 _REVERT_SUBJECT_RE = re.compile(r"^\s*Revert\s+", re.IGNORECASE)
 
-# Layer A — body required fields (3 dashed lines after [ROBUSTNESS] line).
-# We look for presence of the three labels, not their content (content is for humans).
-_REQUIRED_BODY_LABELS = (
-    re.compile(r"6\s*mois\s*:", re.IGNORECASE),
-    re.compile(r"cause\s+racine\s*:", re.IGNORECASE),
-    re.compile(r"alternative\s+durable\s*:", re.IGNORECASE),
-)
+# Layer A — body required fields (5 dashed lines after [ROBUSTNESS] line).
+# We look for presence of the labels, not their content (content is for humans).
+# The last 2 were added 2026-09-11: measured across 3 repos, 21 days, the
+# defects a review kept finding were almost all detectable before writing --
+# "le correctif n'avait aucun appelant reel" (Shinkofa-Backend 09-09), "si je
+# retire la garde, le test rougit-il ?" jamais pose (Shinkofa-Backend 09-08).
+#
+# Reads via lib/marker_fields.py (independent review 2026-09-11): this file and
+# post-review-cause-check.py used to read "garde a l'envers" with two different
+# regexes -- one tolerant of the apostrophe, one exact -- so a correct, honest
+# marker could be refused here and accepted there, or the reverse. One reader.
+_BODY_LABEL_NAMES = ("6 mois", "cause racine", "alternative durable", "appelants reels", "garde a l'envers")
 
 TRANSCRIPT_SCAN_LIMIT = 60
 SKIP_COUNT_THRESHOLD = 3
@@ -283,12 +291,8 @@ def save_counter(session_id: str | None, repo_root: Path, skip_count: int, marke
 
 
 def body_has_three_labels(block_text: str) -> tuple[bool, list[str]]:
-    """Return (ok, missing_labels). The 3 required labels must ALL be present."""
-    missing: list[str] = []
-    labels = ["6 mois", "cause racine", "alternative durable"]
-    for rx, label in zip(_REQUIRED_BODY_LABELS, labels):
-        if not rx.search(block_text):
-            missing.append(label)
+    """Return (ok, missing_labels). All required labels must be present."""
+    missing = [label for label in _BODY_LABEL_NAMES if not field_label_present(block_text, label)]
     return (len(missing) == 0), missing
 
 
@@ -318,6 +322,8 @@ def _block_no_marker(subject: str) -> None:
             "  - 6 mois: <pourquoi cette correction tient dans 6 mois>\n"
             "  - cause racine: <oui -- quelle racine | non -- symptome assume car ...>\n"
             "  - alternative durable: <aucune valable | voici X mais reportee car Y>\n"
+            "  - appelants reels: <oui -- comment verifie | non-applicable -- pourquoi>\n"
+            "  - garde a l'envers: <le test rougit-il si tu retires la garde ? oui | non-applicable>\n"
             "Or, for trivial commits, emit:\n"
             f"  [ROBUSTNESS-SKIP] motif: <one of {sorted(ALLOWED_SKIP_MOTIFS)}>"
         ),
@@ -400,10 +406,12 @@ def _handle_full_marker(block_text: str, marker_hash: str, counter: dict,
         _block(format_block(
             reason=f"[ROBUSTNESS] marker is missing required label(s): {missing}",
             recovery=(
-                "The marker MUST include all three lines:\n"
+                "The marker MUST include all five lines:\n"
                 "  - 6 mois: ...\n"
                 "  - cause racine: ...\n"
                 "  - alternative durable: ...\n"
+                "  - appelants reels: ...\n"
+                "  - garde a l'envers: ...\n"
                 "Re-emit the marker with the missing line(s) before retrying."
             ),
             reference="rules/Monozukuri.md > Anti-Quick-Fix Marker",

@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -66,7 +67,24 @@ from veille_detect import (  # noqa: E402
     needs_evidence,
     sensitive_change,
 )
-from veille_markers import DIGEST_ALGO, has_web_veille_call, latest_marker  # noqa: E402
+from veille_markers import (  # noqa: E402
+    DIGEST_ALGO,
+    has_web_veille_call,
+    latest_marker,
+    latest_review_family,
+    latest_review_verdict,
+)
+
+# A cause claimed "known" while its own review is still FAILing was not known
+# (measure 2026-09-10: Shinkofa-Backend, service de paiement, 4 rounds in a
+# row skipped veille with this exact motif while the same family kept failing).
+_NO_KNOWN_CAUSE_DURING_OPEN_FAIL = "hotfix-known-root-cause"
+_SANS_RAPPORT = "sans-rapport"
+# Independent review 2026-09-11: nothing verified that "sans-rapport" was
+# true. Words too short/common to name a family on their own -- kept minimal,
+# on purpose: over-filtering here would make the check MORE permissive, the
+# unsafe direction (Quality.md "measuring a thing, never a word about it").
+_SANS_RAPPORT_STOPWORDS = frozenset({"le", "la", "les", "de", "du", "des", "un", "une", "et"})
 
 
 # --- Input -------------------------------------------------------------------
@@ -190,20 +208,81 @@ def _enforce_sensitive(file_path: str, reason: str, marker_type: str, transcript
         )
 
 
-def _enforce_skip(file_path: str, marker_line: str, marker_hash: str,
-                  counter: dict, session_id: str | None, repo_root: Path) -> None:
-    """Layer A (motif enum) + Layer C (session skip counter). Preserves the
-    sticky veille_seen flag across SKIPs (Jay 2026-06-16)."""
-    m = SKIP_MOTIF_RE.search(marker_line)
-    motif = m.group(1).lower() if m else ""
-    if motif not in ALLOWED_SKIP_MOTIFS:
-        block(
-            "BLOCKED: VEILLE-SKIP motif is not in the closed enum.\n"
-            f"Target: {file_path}\n"
-            f"Motif found: '{motif or '(empty)'}'\n"
-            f"RECOVERY: use one of {sorted(ALLOWED_SKIP_MOTIFS)}\n"
-            "Or emit a real [VEILLE] / [SKB] marker instead."
-        )
+def _enforce_known_cause_not_open(file_path: str, motif: str, transcript_path: str) -> None:
+    """A cause that survives a review failure was not actually known."""
+    if motif != _NO_KNOWN_CAUSE_DURING_OPEN_FAIL:
+        return
+    if latest_review_verdict(transcript_path) != "FAIL":
+        return
+    block(
+        "BLOCKED: motif 'hotfix-known-root-cause' refused -- the last "
+        "independent review is still FAIL.\n"
+        f"Target: {file_path}\n"
+        "A cause that survives a review failure was not actually known.\n"
+        "RECOVERY: run a real veille (WebSearch/WebFetch/doc officielle) and "
+        "emit [VEILLE] <techno>@<version> verifie <YYYY-MM-DD> via <source>, "
+        "or [SKB] consulte: <chemin>.\n"
+        "Why: 2026-09-10 measure — 4 fixes in a row on the same failing "
+        "family skipped veille with this exact motif, and the cause kept "
+        "moving each round."
+    )
+
+
+def _distinctive_words(text: str) -> set[str]:
+    words = re.split(r"[^a-z0-9]+", (text or "").casefold())
+    return {w for w in words if len(w) > 1 and w not in _SANS_RAPPORT_STOPWORDS}
+
+
+def _block_unnamed_family_sans_rapport(file_path: str) -> None:
+    """An unnamed family used to skip this check entirely -- the cheapest way
+    past the gate, same class the twin hook (post-review-cause-check.py)
+    already refuses for its own escalation counter."""
+    block(
+        "BLOCKED: motif 'sans-rapport' refused -- the last independent "
+        "review is FAIL and names no family.\n"
+        f"Target: {file_path}\n"
+        "An unnamed family cannot prove 'no relation' -- the same rule "
+        "post-review-cause-check.py already applies to its own counter.\n"
+        "RECOVERY: name the family in the [REVIEW] marker "
+        "('verdict: FAIL, famille: <slug>, ...'), or use [CAUSE] on the "
+        "commit if this file genuinely concerns it."
+    )
+
+
+def _enforce_sans_rapport_is_honest(file_path: str, motif: str, transcript_path: str) -> None:
+    """'sans-rapport' is refused when the written file's NAME shares a
+    distinctive word with the family that is still FAILing -- nothing else
+    checked that the motif described reality (independent review 2026-09-11).
+
+    3rd independent review, same day: the comparison used the FULL PATH, so
+    every file under this machine's workspace root shared spurious words
+    with any family ('dev', '30', the extension). Only the file's own name
+    (no directory, no extension) is compared now.
+    """
+    if motif != _SANS_RAPPORT:
+        return
+    if latest_review_verdict(transcript_path) != "FAIL":
+        return
+    family = latest_review_family(transcript_path)
+    if not family:
+        _block_unnamed_family_sans_rapport(file_path)
+    shared = _distinctive_words(family) & _distinctive_words(Path(file_path).stem)
+    if not shared:
+        return
+    block(
+        "BLOCKED: motif 'sans-rapport' refused -- this file's name shares a "
+        f"word with the failing family ('{family}'): {sorted(shared)}.\n"
+        f"Target: {file_path}\n"
+        "RECOVERY: if the file genuinely concerns this family, use [CAUSE] "
+        "on the commit instead of skipping veille.\n"
+        "Why: 2026-09-11 measure — nothing checked that 'sans-rapport' was "
+        "true; a fix squarely inside the failing family could claim it."
+    )
+
+
+def _enforce_skip_threshold(file_path: str, marker_hash: str, counter: dict,
+                            session_id: str | None, repo_root: Path) -> None:
+    """Layer C (session skip counter)."""
     # A legacy fingerprint is not comparable: never read it as a new marker.
     if counter["last_marker_hash"] != marker_hash and not counter.get("legacy_digest"):
         counter["skip_count"] += 1
@@ -219,6 +298,32 @@ def _enforce_skip(file_path: str, marker_line: str, marker_hash: str,
             "resets only with verified evidence, not with another SKIP."
         )
     _persist(session_id, repo_root, skip_count=counter["skip_count"], marker_hash=marker_hash, veille_seen=seen)
+
+
+def _enforce_skip(file_path: str, marker_line: str, marker_hash: str,
+                  counter: dict, session_id: str | None, repo_root: Path,
+                  transcript_path: str) -> None:
+    """Layer A (motif enum) + the known-cause-vs-open-FAIL check, then Layer C.
+    Preserves the sticky veille_seen flag across SKIPs (Jay 2026-06-16).
+
+    No default on transcript_path (independent review 2026-09-11): a caller
+    that forgot the argument used to silently disable the known-cause-vs-
+    open-FAIL check below -- fail-open, not a convenience. A missing argument
+    now raises TypeError instead of passing quietly.
+    """
+    m = SKIP_MOTIF_RE.search(marker_line)
+    motif = m.group(1).lower() if m else ""
+    if motif not in ALLOWED_SKIP_MOTIFS:
+        block(
+            "BLOCKED: VEILLE-SKIP motif is not in the closed enum.\n"
+            f"Target: {file_path}\n"
+            f"Motif found: '{motif or '(empty)'}'\n"
+            f"RECOVERY: use one of {sorted(ALLOWED_SKIP_MOTIFS)}\n"
+            "Or emit a real [VEILLE] / [SKB] marker instead."
+        )
+    _enforce_known_cause_not_open(file_path, motif, transcript_path)
+    _enforce_sans_rapport_is_honest(file_path, motif, transcript_path)
+    _enforce_skip_threshold(file_path, marker_hash, counter, session_id, repo_root)
 
 
 def _session_ctx(data: dict) -> tuple[str, str, Path]:
@@ -270,7 +375,8 @@ def main() -> None:
     if sensitive_reason:
         _enforce_sensitive(file_path, sensitive_reason, marker_type, transcript_path)
     if marker_type == "VEILLE-SKIP":
-        _enforce_skip(file_path, marker_line, marker_hash, counter, session_id, repo_root)
+        _enforce_skip(file_path, marker_line, marker_hash, counter, session_id,
+                      repo_root, transcript_path)
         sys.exit(0)
     _record_real_marker(session_id, repo_root, counter, marker_hash)
     sys.exit(0)

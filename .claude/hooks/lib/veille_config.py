@@ -53,6 +53,12 @@ SKIP_FILENAME_PATTERNS = (
 )
 
 # Layer A — closed enum of acceptable SKIP motifs
+#
+# "sans-rapport" added 2026-09-11 (independent review): the new check refusing
+# "hotfix-known-root-cause" while a review is FAIL had no legitimate exit for a
+# hotfix that touches a file unrelated to the failing family -- a door with no
+# honest way out teaches writing a false motif instead (same vocabulary as the
+# twin hook's own CAUSE-SKIP enum, quality/post-review-cause-check.py).
 ALLOWED_SKIP_MOTIFS = {
     "typo",
     "internal-refactor-no-new-deps",
@@ -60,6 +66,7 @@ ALLOWED_SKIP_MOTIFS = {
     "test-only",
     "methodology-edit",
     "generated-artifact",
+    "sans-rapport",
 }
 
 # Layer B — dependency manifest filenames

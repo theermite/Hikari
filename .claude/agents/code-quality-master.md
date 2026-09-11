@@ -2,6 +2,7 @@
 name: Code Quality Master
 description: Pre-commit code review. Quality patterns, anti-patterns, maintainability.
 model: opus
+expertise: senior
 tools:
   - Read
   - Grep

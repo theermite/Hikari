@@ -2,6 +2,7 @@
 name: Frontend Master
 description: React, Next.js, accessibility, performance, responsive design.
 model: sonnet
+expertise: senior
 tools:
   - Read
   - Grep

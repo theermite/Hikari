@@ -2,6 +2,7 @@
 name: Payment Master
 description: Stripe, subscriptions, webhooks, SCA, checkout.
 model: sonnet
+expertise: senior
 tools:
   - Read
   - Grep

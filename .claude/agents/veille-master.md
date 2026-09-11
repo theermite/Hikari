@@ -2,6 +2,7 @@
 name: Veille Master
 description: Technology watch, version checking, web research, alerts.
 model: haiku
+expertise: senior
 tools:
   - WebSearch
   - WebFetch

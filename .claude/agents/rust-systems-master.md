@@ -2,6 +2,7 @@
 name: Rust Systems Master
 description: Rust 1.87+ expert. NIFs via Rustler, unsafe audit, FFI safety, cargo-mutants, proptest, loom, miri, criterion. Modules critiques perf/sécurité du Tri-Layer.
 model: opus
+expertise: senior
 tools:
   - Read
   - Grep

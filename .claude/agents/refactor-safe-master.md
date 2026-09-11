@@ -2,6 +2,7 @@
 name: Refactor Safe Master
 description: Safe refactoring. Max 3 files per commit (modulated by risk). Verify no regressions.
 model: opus
+expertise: senior
 tools:
   - Read
   - Grep

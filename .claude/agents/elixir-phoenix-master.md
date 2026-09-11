@@ -2,6 +2,7 @@
 name: Elixir Phoenix Master
 description: Elixir 1.19+ / Phoenix 1.8+ expert. OTP, Ecto, Oban, Bandit, LiveView, Telemetry, Sobelow, Credo, Dialyzer.
 model: opus
+expertise: senior
 tools:
   - Read
   - Grep

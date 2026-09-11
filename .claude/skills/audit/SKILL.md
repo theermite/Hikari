@@ -8,6 +8,10 @@ model: opus
 
 Modes: `--audit` (diagnostic only), default (audit + plan), `--fix` (audit + auto-apply simple fixes), `--visibility` (magnetic visibility audit).
 
+**Read `.claude/rules-ondemand/5S.md` in full before scoring.** It is a reading grid (Seiri/
+Seiton/Seiso/Seiketsu/Shitsuke), not a 7th gate on top of the steps below — use it to frame
+what the other steps already find, never to add a new blocking check.
+
 ## Steps
 
 1. **BLUEPRINT SCORE**: Check items / applicable items from matching Blueprints. Minimum 95%.

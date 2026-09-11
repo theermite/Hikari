@@ -25,6 +25,10 @@ gate refuses at each step, so the order is not decoration — emitting it wrong
 cost three round trips on 2026-09-07. It is not auto-loaded at session start;
 this is where it applies.
 
+**If this sync touches a rule file's own text or format** (not just copying it
+unchanged): read `.claude/rules-ondemand/Rule-Format.md` first — it is the
+standard every rule follows (6 fields, falsifiable proof never a checkbox).
+
 ## Steps
 
 1. **LOCATE** — find the Kata repo. It is a sibling of the current project

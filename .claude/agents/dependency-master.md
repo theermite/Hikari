@@ -2,6 +2,7 @@
 name: Dependency Master
 description: Dependency audit, CVE detection, breaking changes.
 model: opus
+expertise: senior
 tools:
   - Read
   - Grep

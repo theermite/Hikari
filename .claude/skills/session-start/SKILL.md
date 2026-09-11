@@ -49,7 +49,7 @@ Execute these steps IN ORDER. No skipping (unless LITE_MODE applies — see Step
 - Pre-existing test failures MUST be addressed (code projects only — N/A in LITE_MODE).
 - If CDC or PET is missing on a code project, suggest running `/concevoir` first.
 - Gate 0 must pass before ANY work begins.
-- **5S (WARN, BLOCKING 2026-06-19)**: the 5 piliers Seiri/Seiton/Seiso/Seiketsu/Shitsuke (`rules/5S.md`) apply implicitly across the session — atelier propre means tests verts, lint zero, no orphan TODO at session end. No dedicated step; it manifests through the existing gates.
+- **5S (WARN, BLOCKING 2026-06-19)**: the 5 piliers Seiri/Seiton/Seiso/Seiketsu/Shitsuke (`rules-ondemand/5S.md`, read in full by `/audit`) apply implicitly across the session — atelier propre means tests verts, lint zero, no orphan TODO at session end. No dedicated step; it manifests through the existing gates.
 - If a hook, tool, or system rule blocks any of these steps: apply the Post-Block Recovery Protocol (`mnk/11-Post-Block-Recovery.md`). Never stay passive.
 
 See `mnk/05-Workflows-Session.md` WF-01 for full details.

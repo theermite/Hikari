@@ -2,6 +2,7 @@
 name: Incident Response Master
 description: Production incident triage, runbooks, escalation.
 model: sonnet
+expertise: senior
 tools:
   - Read
   - Bash

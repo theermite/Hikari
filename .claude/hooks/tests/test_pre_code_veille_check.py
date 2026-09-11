@@ -114,6 +114,123 @@ def test_nonsensitive_skb_passes_without_web(tmp_path):
     assert r.returncode == 0, f"non-sensitive [SKB] should pass: {r.stderr!r}"
 
 
+# --- hotfix-known-root-cause is refused while a review is still failing ------
+#
+# Mesure 2026-09-10 : Shinkofa-Backend, service de paiement, rounds 2-5 -- ce
+# motif a ete invoque 4 fois de suite pendant que la MEME famille echouait en
+# relecture. Une cause qui survit a un echec de relecture n'etait pas connue ;
+# le motif existe pour un hotfix isole, pas pour papoter sur une famille qui
+# resiste. Jay, 2026-09-07 : "il faut absolument faire des recherches Web [...]
+# pour corriger correctement les erreurs."
+
+
+def _review_fail(text: str = "[REVIEW] par contexte-neuf le 2026-09-08 — verdict: FAIL, famille: x") -> dict:
+    return {"role": "assistant", "content": [{"type": "text", "text": text}]}
+
+
+def _review_pass(text: str = "[REVIEW] par contexte-neuf le 2026-09-08 — verdict: PASS, rien") -> dict:
+    return {"role": "assistant", "content": [{"type": "text", "text": text}]}
+
+
+def _skip_marker(motif: str) -> dict:
+    return {"role": "assistant", "content": [{"type": "text", "text": f"[VEILLE-SKIP] motif: {motif}"}]}
+
+
+def test_known_root_cause_skip_is_refused_after_a_fail_verdict(tmp_path):
+    transcript = _write_transcript(tmp_path, _review_fail(), _skip_marker("hotfix-known-root-cause"))
+    r = _run(transcript, file_path="lib/app/payment.ex", content="def charge, do: :ok\n")
+    assert r.returncode == 2, "known-root-cause during an open FAIL must block"
+    assert b"hotfix-known-root-cause" in r.stderr
+
+
+def test_known_root_cause_skip_passes_without_any_review(tmp_path):
+    transcript = _write_transcript(tmp_path, _skip_marker("hotfix-known-root-cause"))
+    r = _run(transcript, file_path="lib/app/payment.ex", content="def charge, do: :ok\n")
+    assert r.returncode == 0, f"no review at all -- the motif stands as written: {r.stderr!r}"
+
+
+def test_known_root_cause_skip_passes_after_a_pass_verdict(tmp_path):
+    transcript = _write_transcript(tmp_path, _review_pass(), _skip_marker("hotfix-known-root-cause"))
+    r = _run(transcript, file_path="lib/app/payment.ex", content="def charge, do: :ok\n")
+    assert r.returncode == 0, f"a PASS closes the family -- the motif is free again: {r.stderr!r}"
+
+
+def test_other_skip_motifs_are_unaffected_by_a_fail_verdict(tmp_path):
+    transcript = _write_transcript(tmp_path, _review_fail(), _skip_marker("typo"))
+    r = _run(transcript, file_path="lib/app/payment.ex", content="def charge, do: :ok\n")
+    assert r.returncode == 0, f"'typo' never claimed to know the cause: {r.stderr!r}"
+
+
+# --- sans-rapport : une sortie legitime quand un FAIL ouvert n'a rien a voir -
+#
+# Relecture independante 2026-09-11 : le refus de "hotfix-known-root-cause"
+# pendant un FAIL ouvert n'avait AUCUNE sortie legitime pour un hotfix sur un
+# fichier sans rapport avec la famille qui echoue. L'IA devait soit faire une
+# veille inutile, soit declarer un motif faux ("internal-refactor-no-new-
+# deps") -- une porte sans sortie legitime enseigne le contournement.
+
+
+def test_sans_rapport_skip_passes_during_an_open_fail(tmp_path):
+    transcript = _write_transcript(tmp_path, _review_fail(), _skip_marker("sans-rapport"))
+    r = _run(transcript, file_path="lib/app/unrelated.ex", content="def noop, do: :ok\n")
+    assert r.returncode == 0, f"un hotfix sans rapport avec le FAIL ouvert doit passer: {r.stderr!r}"
+
+
+# --- sans-rapport n'est pas invoque quand le fichier concerne la famille -----
+#
+# DEFAUT D-H, relecture independante 2026-09-11 (2e passe) : rien ne verifiait
+# que "sans-rapport" decrivait bien la realite. Un correctif qui touche
+# PLEINEMENT la famille en echec passait avec ce motif sans rien de
+# falsifiable -- exactement la classe que Quality.md nomme "mesurer la chose,
+# jamais un mot a son sujet".
+
+
+def test_sans_rapport_is_refused_when_the_file_shares_the_failing_family(tmp_path):
+    fail = _review_fail(
+        "[REVIEW] par contexte-neuf le 2026-09-08 — verdict: FAIL, "
+        "famille: paiement-arrondi-montant, des defauts")
+    transcript = _write_transcript(tmp_path, fail, _skip_marker("sans-rapport"))
+    r = _run(transcript, file_path="lib/app/paiement_montant.ex", content="def noop, do: :ok\n")
+    assert r.returncode == 2, "un fichier qui touche la famille en echec ne peut pas dire 'sans rapport'"
+    assert b"sans-rapport" in r.stderr
+
+
+def test_sans_rapport_passes_when_the_file_shares_no_word_with_the_family(tmp_path):
+    fail = _review_fail(
+        "[REVIEW] par contexte-neuf le 2026-09-08 — verdict: FAIL, "
+        "famille: paiement-arrondi-montant, des defauts")
+    transcript = _write_transcript(tmp_path, fail, _skip_marker("sans-rapport"))
+    r = _run(transcript, file_path="lib/app/dictee_vocale.ex", content="def noop, do: :ok\n")
+    assert r.returncode == 0, f"aucun mot en commun avec la famille: {r.stderr!r}"
+
+
+# --- 3e relecture 2026-09-11 : omettre la famille etait le chemin le moins --
+# cher pour passer, et le chemin de fichier complet polluait la comparaison --
+
+
+def test_sans_rapport_is_refused_when_the_fail_names_no_family(tmp_path):
+    """Le jumeau (post-review-cause-check.py) refuse deja cette sortie : « an
+    unnamed family counts with the previous unnamed one -- leaving the slug
+    out must never be the cheap way past the gate. » Meme regle ici : sans
+    nom, impossible de prouver l'absence de rapport, donc on refuse."""
+    fail = _review_fail("[REVIEW] par contexte-neuf le 2026-09-08 — verdict: FAIL, des defauts")
+    transcript = _write_transcript(tmp_path, fail, _skip_marker("sans-rapport"))
+    r = _run(transcript, file_path="lib/app/dictee_vocale.ex", content="def noop, do: :ok\n")
+    assert r.returncode == 2, "une famille non nommee ne peut pas prouver l'absence de rapport"
+
+
+def test_sans_rapport_ignores_the_workspace_path_when_comparing(tmp_path):
+    """Le chemin complet (D:\\30-Dev-Projects\\...) injecte des mots communs a
+    TOUS les fichiers du poste -- seul le nom du fichier (sans extension)
+    doit compter."""
+    fail = _review_fail(
+        "[REVIEW] par contexte-neuf le 2026-09-08 — verdict: FAIL, "
+        "famille: dev-mode-sans-garde, des defauts")
+    transcript = _write_transcript(tmp_path, fail, _skip_marker("sans-rapport"))
+    r = _run(transcript, file_path="D:/30-Dev-Projects/Hibiki/src/main.rs", content="fn noop() {}\n")
+    assert r.returncode == 0, f"'dev'/'30' viennent du chemin, pas du fichier: {r.stderr!r}"
+
+
 def test_missing_marker_blocks(tmp_path):
     transcript = _write_transcript(tmp_path, {"role": "assistant", "content": [{"type": "text", "text": "no marker"}]})
     r = _run(transcript, file_path="lib/app/foo.ex", content="def hello, do: :world\n")

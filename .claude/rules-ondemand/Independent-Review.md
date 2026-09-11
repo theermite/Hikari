@@ -140,7 +140,15 @@ The next commit carries:
 - famille: <the CLASS of defect, not the single case>
 - cause: <where it comes from>
 - ce qui empeche la repetition: <test, shared component, gate — an artefact>
+- appelants reels: <yes — how verified (grep, callsites) | non-applicable — why>
+- garde a l'envers: <does the test redden if you remove the guard? yes | non-applicable>
 ```
+
+**The last 2 lines (BLOCKING — 2026-09-11)**: measured across Shinkofa-Backend, Kōbō and
+Hikari over 21 days, almost every defect a review kept finding was detectable BEFORE writing
+— a fix with no real caller (« le correctif n'avait aucun appelant reel »), a guard whose
+test never actually exercised it without the guard. Same fields added to `[ROBUSTNESS]`
+(`Monozukuri.md`) — one question, asked at both the points where it already fires.
 
 **At the second FAIL in a row ON THE SAME FAMILY, patching is over.** The commit must also
 carry `- approche changee: oui — <what is structurally different now>`. Why: a family that

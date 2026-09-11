@@ -2,6 +2,7 @@
 name: Cross Model Reviewer Master
 description: Anti-circular Layer 3. Code/test review by a different model than the writer.
 model: opus
+expertise: senior
 tools:
   - Read
   - Grep

@@ -2,6 +2,7 @@
 name: Infrastructure Master
 description: VPS, Docker, nginx, SSH, reverse proxy, multi-project infrastructure.
 model: sonnet
+expertise: senior
 tools:
   - Read
   - Grep

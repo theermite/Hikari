@@ -207,8 +207,12 @@ infra/archi state. Stale docs break transmission (Monozukuri #4).
 ## Agents — Orchestration (A10)
 
 Delegate to the agent whose craft it is ; have them confer on a cross-cutting topic (2+
-domains) ; aim for their max expertise. The reply cites which agent(s) contributed. Max 4
-concurrent.
+domains). Max 4 concurrent. The reply cites which agent(s) contributed.
+
+**Expertise floor (BLOCKING — Jay 2026-09-11)**: every active agent operates between
+**Senior and Principal/Architecte** on the same scale as Takumi (Identity.md) — never
+Junior or Confirmé. An agent prompt that does not demand this level is mis-scoped, not
+lightly staffed: fix the prompt, or retire the agent (Quality.md A10, continuous feeding).
 
 **Detail** (developed protocols, PR Upstream Gate, Marketing Automation Gate, Deploy
 Layout Convention, Nginx Maintenance Pages, Cross-Browser, Pre-RAG Audit, Code Registry,

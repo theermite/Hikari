@@ -38,9 +38,13 @@ held (no skip)? errors read before correction? trace sufficient for resumption? 
 - 6 mois: <why it holds in 6 months>
 - cause racine: <yes — which | no — symptom assumed because ...>
 - alternative durable: <none valid | here is X but deferred because Y>
+- appelants reels: <yes — how verified (grep, callsites) | non-applicable — why>
+- garde a l'envers: <does the test redden if you remove the guard? yes | non-applicable>
 ```
 
-The 3 lines are mandatory. Legitimate skip:
+**The last 2 lines (2026-09-11)**: measured across 3 repos over 21 days, almost every defect a
+review kept finding was detectable before writing — a fix with no real caller, a guard whose
+test never actually exercised it without the guard. The 5 lines are mandatory. Legitimate skip:
 `[ROBUSTNESS-SKIP] motif: <typo|revert|test-fix|lint-fix|formatting|comment-only>`
 (closed enum). 3 layers: closed enum · sensitive subject (regression / recurring /
 again / Revert) · counter of 3 consecutive SKIPs → block.

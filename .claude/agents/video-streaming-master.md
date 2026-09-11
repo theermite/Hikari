@@ -2,6 +2,7 @@
 name: Video Streaming Master
 description: OBS, WebRTC, FFmpeg, encoding, overlays, live streaming.
 model: sonnet
+expertise: senior
 tools:
   - Read
   - Grep

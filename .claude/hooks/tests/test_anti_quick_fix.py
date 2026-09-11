@@ -96,6 +96,8 @@ def _full_marker() -> str:
         "- 6 mois: la cause racine est eliminee par validation au boundary\n"
         "- cause racine: oui -- input non valide a la frontiere\n"
         "- alternative durable: aucune valable, le fix est minimal\n"
+        "- appelants reels: oui -- grep sur 3 callsites, tous exerces\n"
+        "- garde a l'envers: oui -- le test rougit si je retire la verification\n"
     )
 
 
@@ -186,13 +188,62 @@ def test_blocks_hotfix_commit_without_marker(tmp_path):
 
 
 def test_blocks_when_robustness_body_incomplete(tmp_path):
-    bad_marker = "[ROBUSTNESS]\n- 6 mois: yes\n- cause racine: yes\n"  # missing alternative
+    bad_marker = (
+        "[ROBUSTNESS]\n- 6 mois: yes\n- cause racine: yes\n"
+        "- appelants reels: yes\n- garde a l'envers: yes\n"
+    )  # missing alternative
     transcript = _make_transcript(tmp_path, bad_marker)
     r = _run("git commit -m 'fix: nullable user id'",
              transcript=transcript, session_id=_sid())
     assert r.returncode == 2
     assert b"missing required label" in r.stderr
     assert b"alternative durable" in r.stderr
+
+
+# --- Blocks: the 2 self-verification questions (2026-09-11 measure) ---------
+#
+# Shinkofa-Backend + Kobo + Hikari, 21 jours mesures : la quasi-totalite des
+# defauts reels etaient DETECTABLES avant l'ecriture -- "le correctif n'avait
+# aucun appelant reel" (Shinkofa-Backend 09-09), "si je retire la garde, le
+# test rougit-il ?" jamais pose (Shinkofa-Backend 09-08). Les deux questions
+# deviennent des champs obligatoires du meme marqueur, pas un nouveau garde-fou.
+
+
+def test_blocks_when_appelants_reels_missing(tmp_path):
+    bad_marker = _full_marker().replace("- appelants reels: oui -- grep sur 3 callsites, tous exerces\n", "")
+    transcript = _make_transcript(tmp_path, bad_marker)
+    r = _run("git commit -m 'fix: clamp pagination size'",
+             transcript=transcript, session_id=_sid())
+    assert r.returncode == 2
+    assert b"appelants reels" in r.stderr
+
+
+def test_blocks_when_garde_a_l_envers_missing(tmp_path):
+    bad_marker = _full_marker().replace(
+        "- garde a l'envers: oui -- le test rougit si je retire la verification\n", "")
+    transcript = _make_transcript(tmp_path, bad_marker)
+    r = _run("git commit -m 'fix: clamp pagination size'",
+             transcript=transcript, session_id=_sid())
+    assert r.returncode == 2
+    assert b"garde" in r.stderr.lower()
+
+
+def test_passes_with_non_applicable_on_the_two_new_fields(tmp_path):
+    """Presence-only check (honest limit, same as every other marker): a
+    legitimate 'non-applicable' must not be rejected -- not every fix touches
+    a caller chain or adds a guard."""
+    marker = (
+        "[ROBUSTNESS]\n"
+        "- 6 mois: typo dans un message d'erreur, zero logique\n"
+        "- cause racine: oui -- faute de frappe\n"
+        "- alternative durable: aucune necessaire\n"
+        "- appelants reels: non-applicable -- aucun appelant, pur wording\n"
+        "- garde a l'envers: non-applicable -- pas de garde ajoutee\n"
+    )
+    transcript = _make_transcript(tmp_path, marker)
+    r = _run("git commit -m 'fix: message derreur mal orthographie'",
+             transcript=transcript, session_id=_sid())
+    assert r.returncode == 0, f"non-applicable est une reponse legitime: {r.stderr!r}"
 
 
 def test_blocks_when_skip_motif_not_in_enum(tmp_path):

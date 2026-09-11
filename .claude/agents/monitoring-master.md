@@ -2,6 +2,7 @@
 name: Monitoring Master
 description: "Observability: logs, metrics, traces, alerts, Sentry, uptime. Feedback Widget D25."
 model: sonnet
+expertise: senior
 tools:
   - Read
   - Grep

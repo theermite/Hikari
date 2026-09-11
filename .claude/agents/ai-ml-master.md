@@ -2,6 +2,7 @@
 name: AI ML Master
 description: Ollama (qwen3:8b-nothink), LangChain, RAG, embeddings, local LLM, agents.
 model: sonnet
+expertise: senior
 tools:
   - Read
   - Grep

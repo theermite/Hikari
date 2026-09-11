@@ -2,6 +2,7 @@
 name: Performance Master
 description: Performance optimization. Core Web Vitals 2026 Shinkofa strict, bundle, profiling, BEAM/Rust.
 model: opus
+expertise: senior
 tools:
   - Read
   - Grep

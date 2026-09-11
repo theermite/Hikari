@@ -2,6 +2,7 @@
 name: Compliance Auditor Master
 description: GDPR audit, EU CRA 2026, SBOM, license verification.
 model: opus
+expertise: senior
 tools:
   - Read
   - Grep

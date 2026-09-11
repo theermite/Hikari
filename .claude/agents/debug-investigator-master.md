@@ -2,6 +2,7 @@
 name: Debug Investigator Master
 description: Bug investigation. LOGS FIRST. L1 local, L2 SKB+Shinzo+web, L3 report to Jay.
 model: sonnet
+expertise: senior
 tools:
   - Read
   - Bash
