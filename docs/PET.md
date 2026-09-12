@@ -267,7 +267,7 @@ ont été arbitrées en le faisant, et la trace de l'arbitrage vaut autant que l
 | # | Sujet | Brique |
 |---|---|---|
 | 1 | Aligner l'application sur la maquette | B-ui socle (reste) |
-| 2 | Réglages d'encodage — mesurer la machine et la connexion, **proposer** une définition, une cadence et un débit qui tiennent | ✅ **fermée 2026-09-12** : réglages manuels (résolution/cadence/encodeur/débit, Paramètres) · mesure de débit réelle + refus de Go Live si le choix ne tient pas · zoom d'aperçu au changement de résolution corrigé (canevas et résolution de sortie séparés) · **pré-vol qui PROPOSE le meilleur palier tenable + bouton Appliquer** — tout vu à l'écran. |
+| 2 | Réglages d'encodage — mesurer la machine et la connexion, **proposer** une définition, une cadence et un débit qui tiennent | 🟧 **partiel, corrigé 2026-09-13** : réglages manuels (résolution/cadence/encodeur/débit, Paramètres) ✅ · zoom d'aperçu au changement de résolution corrigé (canevas et résolution de sortie séparés) ✅ · pré-vol qui PROPOSE le meilleur palier tenable + bouton Appliquer ✅ — tout vu à l'écran. **Reste** : le pré-vol *calcule* un refus (« connexion insuffisante ») mais rien ne l'empêche de diffuser quand même — le bouton Diffuser (`LiveBar.tsx`) ne lit jamais le résultat du pré-vol. Trouvé par relecture indépendante le 2026-09-13, une clôture précédente de cette ligne le disait fermé à tort. |
 | 3 | **La caméra qui décroche se relève** — détecter une source qui ne délivre plus, la relancer | **brique neuve** |
 | 4 | Le moteur se ferme avec la fenêtre | dette |
 | 5 | Automations — l'écran pour les composer | B-auto (interface) |
