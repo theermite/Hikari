@@ -46,7 +46,8 @@ export function PreflightPanel(_props: IDockviewPanelProps) {
       {state.status === "done" && state.outcome.ok && (
         <p className="text-hikari-green">
           ✅ Encodeur détecté : {state.outcome.encoder_name} (
-          {state.outcome.hardware ? "matériel" : "logiciel"}). Go Live sûr.
+          {state.outcome.hardware ? "matériel" : "logiciel"}). Débit montant
+          mesuré : {state.outcome.measured_upload_kbps} kbit/s. Go Live sûr.
         </p>
       )}
       {state.status === "done" && !state.outcome.ok && (

@@ -15,12 +15,19 @@ pub struct SafeEncoder {
     pub hardware: bool,
 }
 
-/// Why Go Live is blocked — the ONLY failure this preflight step can report today: no
-/// usable encoder was detected. Closed enum so a caller cannot invent a reason preflight
-/// never checked.
+/// Why Go Live is blocked. Closed enum so a caller cannot invent a reason preflight never
+/// checked.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PreflightError {
+    /// No usable encoder was detected.
     NoEncoderDetected,
+    /// The measured upload speed cannot sustain the bitrate this stream would send —
+    /// the real cause behind Jay's ~65 % dropped-frames live (2026-09-12): the composition
+    /// chosen was never checked against the CONNECTION, only the screen.
+    BandwidthInsufficient {
+        measured_kbps: u32,
+        required_kbps: u32,
+    },
 }
 
 /// Picks the safe default encoder from what the engine actually reported: NVENC
@@ -51,6 +58,30 @@ pub fn pick_safe_encoder(available: &[String]) -> Option<SafeEncoder> {
 /// this brick exists to prevent.
 pub fn go_live_allowed(available: &[String]) -> Result<SafeEncoder, PreflightError> {
     pick_safe_encoder(available).ok_or(PreflightError::NoEncoderDetected)
+}
+
+/// Marge de sécurité entre le débit MESURÉ et le débit REQUIS : une connexion mesurée à
+/// exactement le débit choisi n'a aucune marge pour une fluctuation réelle (le réseau
+/// n'est jamais parfaitement stable seconde après seconde). `required_kbps` doit donc
+/// tenir dans 80 % du débit mesuré — le principe même du module `encoding.rs` :
+/// « descendre vaut mieux que perdre ».
+const MARGE_MAX: f64 = 0.8;
+
+/// Le débit choisi tient-il vraiment sur cette connexion ? `measured_kbps` vient d'une
+/// mesure d'upload réelle (`bandwidth::measure_upload_kbps`, B9 pré-vol) ; `required_kbps`
+/// est le débit que ce direct enverrait réellement — le réglage manuel de l'utilisateur
+/// (B-settings) s'il en a posé un, sinon le même calcul qu'au démarrage du direct
+/// (`hikari_protocol::bitrate_kbps`).
+pub fn bandwidth_allows(measured_kbps: u32, required_kbps: u32) -> Result<(), PreflightError> {
+    let seuil = (f64::from(measured_kbps) * MARGE_MAX) as u32;
+    if required_kbps <= seuil {
+        Ok(())
+    } else {
+        Err(PreflightError::BandwidthInsufficient {
+            measured_kbps,
+            required_kbps,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -112,5 +143,41 @@ mod tests {
             go_live_allowed(&available),
             Err(PreflightError::NoEncoderDetected)
         );
+    }
+
+    #[test]
+    fn should_allow_when_the_connection_easily_covers_the_bitrate() {
+        assert_eq!(bandwidth_allows(6000, 4500), Ok(()));
+    }
+
+    #[test]
+    fn should_block_when_the_connection_cannot_sustain_the_bitrate() {
+        // Le cas réel de Jay le 2026-09-12 : composition 1080p60 (débit 6000), mais une
+        // connexion qui ne tient pas ce débit — d'où ~65 % de pertes d'images.
+        assert_eq!(
+            bandwidth_allows(3000, 6000),
+            Err(PreflightError::BandwidthInsufficient {
+                measured_kbps: 3000,
+                required_kbps: 6000,
+            })
+        );
+    }
+
+    #[test]
+    fn should_require_headroom_not_just_a_higher_measured_speed() {
+        // Mesuré tout juste au-dessus du requis (aucune marge) : une connexion réelle
+        // fluctue seconde après seconde, un débit collé au plafond finit par décrocher.
+        assert_eq!(
+            bandwidth_allows(6000, 5000),
+            Err(PreflightError::BandwidthInsufficient {
+                measured_kbps: 6000,
+                required_kbps: 5000,
+            })
+        );
+    }
+
+    #[test]
+    fn should_allow_exactly_at_the_eighty_percent_threshold() {
+        assert_eq!(bandwidth_allows(5000, 4000), Ok(()));
     }
 }

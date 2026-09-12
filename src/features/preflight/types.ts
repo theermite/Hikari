@@ -7,4 +7,7 @@ export interface PreflightOutcome {
   encoder_name: string | null;
   hardware: boolean | null;
   reason: string | null;
+  /** Le débit montant réel mesuré, en kbit/s (B9, 2026-09-12) — `null` seulement quand la
+   * mesure elle-même n'a pas pu s'exécuter (voir `reason` dans ce cas). */
+  measured_upload_kbps: number | null;
 }

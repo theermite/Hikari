@@ -25,6 +25,20 @@ pub(crate) fn apply_encoding_env(app: &AppHandle, command: &mut Command) {
     }
 }
 
+/// Le débit choisi à la main, s'il y en a un — utilisé par le pré-vol (`bandwidth.rs`)
+/// pour savoir CE QUE ce direct enverrait réellement, sans lancer le moteur continu.
+pub(crate) fn saved_bitrate_kbps(app: &AppHandle) -> Option<u32> {
+    let Ok(store) = app.store(STORE_FILE) else {
+        return None;
+    };
+    let settings = store.get(SETTINGS_KEY)?;
+    settings
+        .get("bitrateKbps")?
+        .as_str()
+        .filter(|v| *v != "auto")
+        .and_then(|v| v.parse().ok())
+}
+
 /// Les variables à poser sur le processus moteur avant son lancement. Vide si le fichier
 /// de réglages n'existe pas encore (premier lancement), ou si tout est resté sur "auto".
 ///
