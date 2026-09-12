@@ -17,6 +17,9 @@ import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "../../components/ui/Badge";
 import { ComingSoon } from "../../components/ui/ComingSoon";
+import { runPreflight } from "../preflight/api";
+import { applyProposedComposition } from "../preflight/applyProposal";
+import type { PreflightOutcome } from "../preflight/types";
 import { type DropVerdict, dropRate, dropVerdict } from "./frames";
 
 /** Les seuls messages moteur que cette barre lit. */
@@ -66,6 +69,12 @@ export function LiveBar() {
   const [totalFrames, setTotalFrames] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Le pré-vol informe, il ne bloque jamais (Jay, 2026-09-13 : « laisser le choix à
+  // l'utilisateur, au moins il était au courant du risque » — plutôt qu'un mur, une
+  // bannière avec le risque réel et un réglage plus prudent suggéré).
+  const [checking, setChecking] = useState(false);
+  const [preflightWarning, setPreflightWarning] =
+    useState<PreflightOutcome | null>(null);
   /** Une référence et non l'état : l'écoute du moteur est posée une seule fois et
    * garderait sinon la valeur du premier rendu, c'est-à-dire `false` pour toujours. */
   const pendingRef = useRef(false);
@@ -127,17 +136,64 @@ export function LiveBar() {
 
   const live = liveSince !== null;
 
-  async function toggle() {
-    setError(null);
+  async function startNow() {
     askEngine(true);
     try {
-      await invoke(live ? "stop_stream" : "start_stream");
+      await invoke("start_stream");
     } catch (cause: unknown) {
       // Le refus du contrôleur (moteur éteint) et celui du moteur (cible absente)
       // arrivent par deux chemins différents ; les deux doivent se lire au même endroit.
       setError(String(cause));
       askEngine(false);
     }
+  }
+
+  async function toggle() {
+    if (live) {
+      setError(null);
+      askEngine(true);
+      try {
+        await invoke("stop_stream");
+      } catch (cause: unknown) {
+        setError(String(cause));
+        askEngine(false);
+      }
+      return;
+    }
+
+    // Le pré-vol tourne AVANT chaque démarrage — une mesure réseau réelle prend quelques
+    // secondes, le bouton le dit ("Vérification…"). Jamais un mur : `outcome.ok` faux
+    // ouvre une bannière informée, jamais un blocage silencieux du bouton.
+    setError(null);
+    setPreflightWarning(null);
+    setChecking(true);
+    try {
+      const outcome = await runPreflight();
+      setChecking(false);
+      if (outcome.ok) {
+        await startNow();
+      } else {
+        setPreflightWarning(outcome);
+      }
+    } catch (cause: unknown) {
+      setChecking(false);
+      setError(String(cause));
+    }
+  }
+
+  async function startAnyway() {
+    setPreflightWarning(null);
+    await startNow();
+  }
+
+  async function applyAndStart(composition: {
+    width: number;
+    height: number;
+    fps: number;
+  }) {
+    await applyProposedComposition(composition);
+    setPreflightWarning(null);
+    await startNow();
   }
 
   // Calculés à chaque rendu et non stockés : ce sont des fonctions de `dropped` et
@@ -159,12 +215,12 @@ export function LiveBar() {
       <button
         type="button"
         onClick={toggle}
-        disabled={pending}
+        disabled={pending || checking}
         className={`rounded-full px-4 py-1.5 text-[13px] font-semibold transition disabled:opacity-60
           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-hikari-accent
           ${live ? "bg-hikari-live text-white hover:brightness-110" : "bg-hikari-accent text-[#1a1206] hover:brightness-110"}`}
       >
-        {live ? "Arrêter" : "Démarrer"}
+        {checking ? "Vérification…" : live ? "Arrêter" : "Démarrer"}
       </button>
 
       {live ? (
@@ -223,6 +279,46 @@ export function LiveBar() {
           {error}
         </span>
       ) : null}
+
+      {preflightWarning
+        ? (() => {
+            const proposed = preflightWarning.proposed_composition;
+            return (
+              <div
+                role="alert"
+                className="ml-auto flex items-center gap-2 rounded-[10px] border border-hikari-accent px-3 py-1.5 text-[12.5px]"
+              >
+                <span className="text-hikari-txt">
+                  ⚠️ {preflightWarning.reason}
+                </span>
+                {proposed ? (
+                  <button
+                    type="button"
+                    onClick={() => applyAndStart(proposed)}
+                    className="underline text-hikari-txt-dim hover:text-hikari-txt"
+                  >
+                    Appliquer {proposed.width}×{proposed.height} {proposed.fps}{" "}
+                    i/s et diffuser
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={startAnyway}
+                  className="underline text-hikari-txt-dim hover:text-hikari-txt"
+                >
+                  Diffuser quand même
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreflightWarning(null)}
+                  className="text-hikari-txt-faint hover:text-hikari-txt-dim"
+                >
+                  Annuler
+                </button>
+              </div>
+            );
+          })()
+        : null}
     </div>
   );
 }

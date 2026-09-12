@@ -7,12 +7,8 @@
 import type { IDockviewPanelProps } from "dockview-react";
 import { useState } from "react";
 import { Panel } from "../../components/ui/Panel";
-import {
-  type CompositionChoice,
-  loadEncodingSettings,
-  saveEncodingSettings,
-} from "../settings/encodingSettings";
 import { runPreflight } from "./api";
+import { applyProposedComposition } from "./applyProposal";
 import type { PreflightOutcome } from "./types";
 
 type State =
@@ -20,16 +16,6 @@ type State =
   | { status: "checking" }
   | { status: "done"; outcome: PreflightOutcome }
   | { status: "error"; message: string };
-
-/** Le réglage proposé, mis en forme comme `EncodingSettingsPanel.tsx` sait déjà le lire —
- * MÊMES paliers que `preflight.rs` `PALIERS`, jamais une valeur inventée ici. */
-function toCompositionChoice(composition: {
-  width: number;
-  height: number;
-  fps: number;
-}): CompositionChoice {
-  return `${composition.width}x${composition.height}@${composition.fps}` as CompositionChoice;
-}
 
 export function PreflightPanel(_props: IDockviewPanelProps) {
   const [state, setState] = useState<State>({ status: "idle" });
@@ -50,16 +36,7 @@ export function PreflightPanel(_props: IDockviewPanelProps) {
     height: number;
     fps: number;
   }) => {
-    const current = await loadEncodingSettings();
-    await saveEncodingSettings({
-      ...current,
-      composition: toCompositionChoice(composition),
-      // Un débit choisi à la main PRIME sur la résolution au démarrage du direct
-      // (`stream.rs`) — le laisser en place ferait ignorer la proposition qu'on vient
-      // d'appliquer. "auto" retombe sur le calcul fait pour CE palier, exactement le
-      // chiffre affiché ci-dessus (relecture indépendante, 2026-09-12).
-      bitrateKbps: "auto",
-    });
+    await applyProposedComposition(composition);
     setApplied(true);
   };
 
@@ -86,9 +63,7 @@ export function PreflightPanel(_props: IDockviewPanelProps) {
         </p>
       )}
       {state.status === "done" && !state.outcome.ok && (
-        <p className="text-hikari-red">
-          ❌ Go Live bloqué : {state.outcome.reason}
-        </p>
+        <p className="text-hikari-red">⚠️ Attention : {state.outcome.reason}</p>
       )}
       {state.status === "done" &&
         state.outcome.proposed_composition &&

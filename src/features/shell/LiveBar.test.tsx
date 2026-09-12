@@ -12,8 +12,27 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatElapsed, LiveBar } from "./LiveBar";
 
-const invokeMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+/** Le pré-vol qui laisse passer — la plupart des tests de cette barre ne parlent QUE du
+ * direct lui-même, jamais du pré-vol : ce résultat les laisse traverser sans bannière. */
+const PREFLIGHT_OK = {
+  ok: true,
+  encoder_name: "OBS_NVENC_H264_TEX",
+  hardware: true,
+  reason: null,
+  measured_upload_kbps: 6000,
+  proposed_composition: null,
+  proposed_bitrate_kbps: null,
+};
+
+const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
+
+// Déjà testé en détail côté `PreflightPanel.test.tsx` (l'écriture du réglage) — ici on ne
+// vérifie que l'ENCHAÎNEMENT (appliquer, puis diffuser), pas l'écriture elle-même.
+const applyProposedCompositionMock = vi.hoisted(() => vi.fn());
+vi.mock("../preflight/applyProposal", () => ({
+  applyProposedComposition: applyProposedCompositionMock,
+}));
 
 let listener: ((event: { payload: unknown }) => void) | null = null;
 const listenMock = vi.hoisted(() => vi.fn());
@@ -27,7 +46,12 @@ function emit(payload: unknown) {
 
 beforeEach(() => {
   invokeMock.mockReset();
-  invokeMock.mockResolvedValue(undefined);
+  invokeMock.mockImplementation((cmd: string) => {
+    if (cmd === "run_preflight") return Promise.resolve(PREFLIGHT_OK);
+    return Promise.resolve(undefined);
+  });
+  applyProposedCompositionMock.mockReset();
+  applyProposedCompositionMock.mockResolvedValue(undefined);
   listener = null;
   listenMock.mockReset();
   listenMock.mockImplementation((_name: string, handler: typeof listener) => {
@@ -75,8 +99,140 @@ describe("LiveBar", () => {
 
     await userEvent.click(start);
 
-    expect(invokeMock).toHaveBeenCalledWith("start_stream");
+    // Le pré-vol tourne D'ABORD (mesure réelle) : l'appel à `start_stream` arrive après,
+    // jamais dans le même battement que le clic.
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("start_stream"),
+    );
     expect(screen.queryByText(/en direct/i)).toBeNull();
+  });
+
+  it("should_check_the_connection_before_asking_the_engine_to_start", async () => {
+    render(<LiveBar />);
+    const start = await screen.findByRole("button", { name: /démarrer/i });
+
+    await userEvent.click(start);
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("run_preflight"),
+    );
+  });
+
+  it("should_show_a_warning_instead_of_starting_when_the_connection_does_not_hold", async () => {
+    // Jay, 2026-09-13 : « laisser le choix à l'utilisateur, au moins il était au courant
+    // du risque » — jamais un mur, une bannière informée qui laisse la main.
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "run_preflight") {
+        return Promise.resolve({
+          ok: false,
+          encoder_name: "OBS_X264",
+          hardware: false,
+          reason:
+            "connexion insuffisante : 3000 kbit/s mesurés, 6000 kbit/s nécessaires",
+          measured_upload_kbps: 3000,
+          proposed_composition: { width: 1280, height: 720, fps: 60 },
+          proposed_bitrate_kbps: 3000,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+    render(<LiveBar />);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /démarrer/i }),
+    );
+
+    expect(await screen.findByText(/connexion insuffisante/)).toBeTruthy();
+    expect(invokeMock).not.toHaveBeenCalledWith("start_stream");
+    expect(screen.queryByText(/en direct/i)).toBeNull();
+  });
+
+  it("should_start_anyway_when_the_user_dismisses_the_warning", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "run_preflight") {
+        return Promise.resolve({
+          ok: false,
+          encoder_name: "OBS_X264",
+          hardware: false,
+          reason: "connexion insuffisante",
+          measured_upload_kbps: 3000,
+          proposed_composition: null,
+          proposed_bitrate_kbps: null,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+    render(<LiveBar />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /démarrer/i }),
+    );
+    await screen.findByText(/diffuser quand même/i);
+
+    await userEvent.click(screen.getByText(/diffuser quand même/i));
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("start_stream"),
+    );
+  });
+
+  it("should_apply_the_suggested_setting_and_start_when_the_user_chooses_it", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "run_preflight") {
+        return Promise.resolve({
+          ok: false,
+          encoder_name: "OBS_X264",
+          hardware: false,
+          reason: "connexion insuffisante",
+          measured_upload_kbps: 3000,
+          proposed_composition: { width: 1280, height: 720, fps: 60 },
+          proposed_bitrate_kbps: 3000,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+    render(<LiveBar />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /démarrer/i }),
+    );
+    const applyButton = await screen.findByText(/appliquer.*et diffuser/i);
+
+    await userEvent.click(applyButton);
+
+    expect(applyProposedCompositionMock).toHaveBeenCalledWith({
+      width: 1280,
+      height: 720,
+      fps: 60,
+    });
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("start_stream"),
+    );
+  });
+
+  it("should_ask_again_without_starting_when_the_user_cancels_the_warning", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "run_preflight") {
+        return Promise.resolve({
+          ok: false,
+          encoder_name: "OBS_X264",
+          hardware: false,
+          reason: "connexion insuffisante",
+          measured_upload_kbps: 3000,
+          proposed_composition: null,
+          proposed_bitrate_kbps: null,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+    render(<LiveBar />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /démarrer/i }),
+    );
+    await screen.findByText(/diffuser quand même/i);
+
+    await userEvent.click(screen.getByText(/^annuler$/i));
+
+    expect(screen.queryByText(/diffuser quand même/i)).toBeNull();
+    expect(invokeMock).not.toHaveBeenCalledWith("start_stream");
   });
 
   it("should_ask_the_engine_to_stop_when_live", async () => {
