@@ -54,6 +54,11 @@ export function PreflightPanel(_props: IDockviewPanelProps) {
     await saveEncodingSettings({
       ...current,
       composition: toCompositionChoice(composition),
+      // Un débit choisi à la main PRIME sur la résolution au démarrage du direct
+      // (`stream.rs`) — le laisser en place ferait ignorer la proposition qu'on vient
+      // d'appliquer. "auto" retombe sur le calcul fait pour CE palier, exactement le
+      // chiffre affiché ci-dessus (relecture indépendante, 2026-09-12).
+      bitrateKbps: "auto",
     });
     setApplied(true);
   };
@@ -91,11 +96,11 @@ export function PreflightPanel(_props: IDockviewPanelProps) {
           const proposed = state.outcome.proposed_composition;
           return (
             <p className="text-hikari-txt-dim">
-              💡 Réglage proposé pour ta connexion et ta machine :{" "}
-              {proposed.width}×{proposed.height} {proposed.fps} i/s (~
+              💡 Réglage proposé pour ta connexion : {proposed.width}×
+              {proposed.height} {proposed.fps} i/s (~
               {state.outcome.proposed_bitrate_kbps} kbit/s).{" "}
               {applied ? (
-                "Appliqué."
+                "Appliqué — prend effet au prochain lancement du moteur."
               ) : (
                 <button
                   type="button"
