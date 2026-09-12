@@ -383,14 +383,30 @@ export function buildReplay(
   // objet qui doit déjà exister et déjà être à sa position x/y — jamais avant. Absente pour
   // une session écrite avant le 2026-09-12 (`order` alors indéfini) : l'ancien comportement
   // (ordre d'ajout) reste inchangé, plutôt que d'imposer un ordre inventé.
+  //
+  // Décalée du nombre de sources VIVANTES absentes de la session enregistrée (relecture
+  // indépendante, 2026-09-12) : la capture d'écran que le moteur pose lui-même dans « main »
+  // existe déjà AVANT tout rejeu, et n'a plus d'entrée sauvegardée si l'utilisateur l'a
+  // retirée (possible depuis le 2026-08-05). `order` compte depuis 0 sur le seul sous-
+  // ensemble sauvegardé ; sans ce décalage, une position absolue calculée sur N éléments
+  // s'applique à une scène qui en compte réellement N+1, et pousse cette source jamais
+  // touchée n'importe où dans la pile au lieu de la laisser tout au fond.
   for (const scene of saved.scenes) {
+    const savedNames = new Set([
+      ...scene.sources.map((s) => s.name),
+      ...camerasOf(scene).map((c) => c.name ?? DEFAULT_CAMERA_NAME),
+    ]);
+    const extra = (currentByName.get(scene.name)?.sources ?? []).filter(
+      (s) => !savedNames.has(s.name),
+    ).length;
+
     for (const source of scene.sources) {
       if (source.order === undefined) continue;
       steps.push({
         do: "setOrder",
         scene: scene.name,
         name: source.name,
-        position: source.order,
+        position: source.order + extra,
       });
     }
     for (const camera of camerasOf(scene)) {
@@ -399,7 +415,7 @@ export function buildReplay(
         do: "setOrder",
         scene: scene.name,
         name: camera.name ?? DEFAULT_CAMERA_NAME,
-        position: camera.order,
+        position: camera.order + extra,
       });
     }
   }

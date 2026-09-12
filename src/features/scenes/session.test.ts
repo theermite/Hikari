@@ -446,6 +446,30 @@ describe("buildReplay", () => {
     expect(reorderedCamera).toBeGreaterThan(addedCamera);
   });
 
+  it("should_shift_the_saved_order_past_a_live_source_the_session_never_recorded", () => {
+    // Relecture indépendante (2026-09-12) : le moteur pose lui-même une capture d'écran
+    // dans "main" à CHAQUE démarrage (`lifecycle_ops.rs`), même si l'utilisateur l'avait
+    // retirée avant d'enregistrer sa session (possible depuis le 2026-08-05) — elle
+    // n'apparaît alors dans AUCUNE session sauvegardée. Sans décalage, une position 0 émise
+    // ici viserait la même place que cette capture jamais rejouée, et la pousserait ailleurs
+    // dans la pile au lieu de la laisser au fond, intacte.
+    const saved = toSession([scene("main", [source({ name: "Jeu" })])], "main");
+    // Le moteur, avant tout rejeu : la capture d'écran existe déjà, "Jeu" n'existe pas
+    // encore — exactement l'état réel au démarrage.
+    const current = [
+      scene("main", [source({ name: "Écran", target_id: "M" })]),
+    ];
+
+    const steps = buildReplay(saved, current);
+
+    expect(steps).toContainEqual({
+      do: "setOrder",
+      scene: "main",
+      name: "Jeu",
+      position: 1, // 0 (seule position enregistrée) + 1 (la capture vivante, non listée)
+    });
+  });
+
   it("should_ask_for_no_reorder_when_the_session_predates_ordering", () => {
     // Une session écrite avant ce correctif ne porte pas `order` : imposer un ordre inventé
     // vaudrait moins qu'aucun ordre — l'ancien comportement (ordre d'ajout) reste inchangé.

@@ -27,16 +27,17 @@ pub(crate) fn apply_encoding_env(app: &AppHandle, command: &mut Command) {
 
 /// Le débit choisi à la main, s'il y en a un — utilisé par le pré-vol (`bandwidth.rs`)
 /// pour savoir CE QUE ce direct enverrait réellement, sans lancer le moteur continu.
+///
+/// Passe par `hikari_protocol::bitrate_override` — jamais un `.parse()` séparé : corrigé
+/// après relecture indépendante (2026-09-12), le parsing à la main acceptait `"0"` comme un
+/// débit valide (`required = 0` faisait toujours dire « Go Live sûr ») alors que le moteur,
+/// lui, rejette `"0"` (`bitrate_override` filtre `> 0`) et retombe sur le calcul automatique
+/// — deux lectures divergentes de la même valeur enregistrée.
 pub(crate) fn saved_bitrate_kbps(app: &AppHandle) -> Option<u32> {
-    let Ok(store) = app.store(STORE_FILE) else {
-        return None;
-    };
+    let store = app.store(STORE_FILE).ok()?;
     let settings = store.get(SETTINGS_KEY)?;
-    settings
-        .get("bitrateKbps")?
-        .as_str()
-        .filter(|v| *v != "auto")
-        .and_then(|v| v.parse().ok())
+    let value = settings.get("bitrateKbps")?.as_str()?.to_string();
+    hikari_protocol::bitrate_override(Some(&value))
 }
 
 /// La résolution/cadence de SORTIE choisie à la main, si l'utilisateur en a posé une —
@@ -48,6 +49,18 @@ pub(crate) fn saved_composition(app: &AppHandle) -> Option<hikari_protocol::Comp
     let settings = store.get(SETTINGS_KEY)?;
     let value = settings.get("composition")?.as_str()?.to_string();
     hikari_protocol::composition_override(Some(&value))
+}
+
+/// L'encodeur choisi à la main, si l'utilisateur en a posé un — pour que le pré-vol calcule
+/// le débit requis et sa proposition sur ce que ce direct utiliserait VRAIMENT, jamais sur
+/// le seul encodeur auto-détecté (`preflight::effective_encoder`, relecture indépendante
+/// 2026-09-12 : un `x264` choisi à la main sur une machine à NVENC faisait refuser Go Live
+/// sur une connexion qui tenait pourtant le débit réellement envoyé).
+pub(crate) fn saved_encoder(app: &AppHandle) -> Option<hikari_protocol::EncoderChoice> {
+    let store = app.store(STORE_FILE).ok()?;
+    let settings = store.get(SETTINGS_KEY)?;
+    let value = settings.get("encoder")?.as_str()?.to_string();
+    hikari_protocol::encoder_override(Some(&value))
 }
 
 /// Les variables à poser sur le processus moteur avant son lancement. Vide si le fichier

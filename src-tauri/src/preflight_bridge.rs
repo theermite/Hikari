@@ -7,9 +7,11 @@
 use tauri::{AppHandle, Manager};
 
 use crate::bandwidth::measure_upload_kbps;
-use crate::encoding_settings::{saved_bitrate_kbps, saved_composition};
+use crate::encoding_settings::{saved_bitrate_kbps, saved_composition, saved_encoder};
 use crate::engine_bridge::run_detect_encoders;
-use crate::preflight::{bandwidth_allows, go_live_allowed, propose_composition, PreflightError};
+use crate::preflight::{
+    bandwidth_allows, effective_encoder, go_live_allowed, propose_composition, PreflightError,
+};
 
 /// What the frontend shows after a pré-vol check: either the safe encoder actually
 /// detected, or why Go Live is blocked (F-010/F-012) — never both, never neither.
@@ -44,7 +46,13 @@ pub(crate) async fn run_preflight(app: AppHandle) -> Result<PreflightOutcome, St
         .map_err(|err| err.to_string())?;
 
     let encoder = match go_live_allowed(&available) {
-        Ok(encoder) => encoder,
+        // Le gate ne dit que « quelque chose d'utilisable existe » — c'est
+        // `effective_encoder` qui décide LEQUEL, en respectant un choix manuel (B-settings)
+        // réellement détecté. `go_live_allowed` vient de confirmer qu'au moins un encodeur
+        // sûr existe, donc `effective_encoder` (qui retombe sur le même calcul) ne peut pas
+        // rendre `None` ici.
+        Ok(_) => effective_encoder(&available, saved_encoder(&app))
+            .expect("go_live_allowed vient de confirmer qu'un encodeur sûr existe"),
         Err(_) => {
             return Ok(PreflightOutcome {
                 ok: false,
@@ -77,7 +85,7 @@ pub(crate) async fn run_preflight(app: AppHandle) -> Result<PreflightOutcome, St
     };
 
     let required = required_bitrate_kbps(&app, encoder.hardware);
-    let proposed = propose_composition(measured, encoder.hardware);
+    let proposed = propose_composition(measured);
     let proposed_bitrate = hikari_protocol::bitrate_kbps(proposed, encoder.hardware);
 
     Ok(match bandwidth_allows(measured, required) {
