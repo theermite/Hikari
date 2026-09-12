@@ -39,6 +39,12 @@ export interface SavedSource {
    * jamais avec du vide — un champ ajouté à une donnée déjà rangée sans défaut de lecture
    * casse l'application de ceux qui ont l'ancienne version. */
   text?: TextSettings;
+  /** Sa position dans la pile de CETTE scène — 0 le plus derrière, en ordre croissant vers
+   * l'avant. Même convention que `order_position` côté moteur (`scene_ops.rs`), pour que le
+   * rejeu (`buildReplay`) puisse la transmettre telle quelle, sans conversion. Absent des
+   * sessions écrites avant le 2026-09-12 : l'ordre d'ajout reste alors le seul repère, comme
+   * avant ce correctif (Jay, 2026-09-12 : « l'ordre des sources ne se sauvegarde pas »). */
+  order?: number;
 }
 
 export interface SavedScene {
@@ -82,6 +88,10 @@ export interface SavedCamera {
   scalePercent: number;
   /** Figée à la souris dans cette scène. Même règle d'absence que pour les captures. */
   locked?: boolean;
+  /** Sa position dans la pile de cette scène — même convention et même absence-avant-2026-09-12
+   * que `SavedSource.order` ci-dessus : la caméra vit dans un tableau séparé, mais partage la
+   * MÊME pile réelle que les captures côté moteur. */
+  order?: number;
 }
 
 /** La forme de masque d'une caméra enregistrée, quel que soit l'âge du fichier — même
@@ -151,6 +161,7 @@ export function toSession(
           y: source.y,
           scalePercent: source.scale_percent,
           locked: source.locked,
+          order: stackOrder(scene, source.name),
         })),
     })),
     audio: audio.map((entry) => ({
@@ -182,7 +193,17 @@ function camerasIn(scene: SceneInfo): SavedCamera[] {
       y: camera.y,
       scalePercent: camera.scale_percent,
       locked: camera.locked,
+      order: stackOrder(scene, camera.name),
     }));
+}
+
+/** La position d'une source dans la pile RÉELLE de `scene` — 0 le plus derrière, croissant
+ * vers l'avant. `scene.sources` arrive déjà trié du plus devant au plus derrière (même
+ * convention que `SceneRow.tsx`, héritée de `emit_scene_list` côté moteur) : inverser son
+ * index suffit, aucune lecture supplémentaire n'est nécessaire. */
+function stackOrder(scene: SceneInfo, name: string): number | undefined {
+  const index = scene.sources.findIndex((source) => source.name === name);
+  return index === -1 ? undefined : scene.sources.length - 1 - index;
 }
 
 /** Une étape du rejeu. Volontairement décrite en données et non en appels : la liste est
@@ -214,6 +235,15 @@ export type ReplayStep =
     }
   | { do: "addAudio"; audio: SavedAudio }
   | { do: "lock"; scene: string; name: string }
+  | {
+      /** Remet une source ou une caméra à sa position exacte dans la pile — sans elle, le
+       * rejeu reconstruit l'ordre d'AJOUT, jamais l'ordre réel que l'utilisateur avait posé
+       * (Jay, 2026-09-12). Même convention que `SavedSource.order` : 0 le plus derrière. */
+      do: "setOrder";
+      scene: string;
+      name: string;
+      position: number;
+    }
   | {
       /** Rejoue l'apparence d'une source texte. Après son ajout, jamais avant : le moteur
        * n'a rien à régler tant que la source n'existe pas. */
@@ -346,6 +376,31 @@ export function buildReplay(
           name: camera.name ?? DEFAULT_CAMERA_NAME,
         });
       }
+    }
+  }
+
+  // La pile se remet en place APRÈS tous les placements et verrous : réordonner vise un
+  // objet qui doit déjà exister et déjà être à sa position x/y — jamais avant. Absente pour
+  // une session écrite avant le 2026-09-12 (`order` alors indéfini) : l'ancien comportement
+  // (ordre d'ajout) reste inchangé, plutôt que d'imposer un ordre inventé.
+  for (const scene of saved.scenes) {
+    for (const source of scene.sources) {
+      if (source.order === undefined) continue;
+      steps.push({
+        do: "setOrder",
+        scene: scene.name,
+        name: source.name,
+        position: source.order,
+      });
+    }
+    for (const camera of camerasOf(scene)) {
+      if (camera.order === undefined) continue;
+      steps.push({
+        do: "setOrder",
+        scene: scene.name,
+        name: camera.name ?? DEFAULT_CAMERA_NAME,
+        position: camera.order,
+      });
     }
   }
 

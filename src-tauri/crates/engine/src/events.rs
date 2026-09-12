@@ -102,6 +102,11 @@ pub(crate) enum EngineEvent {
         name: String,
         direction: hikari_protocol::SourceOrder,
     },
+    SetSourceOrder {
+        scene: String,
+        name: String,
+        position: i32,
+    },
     SetSourceTransform {
         scene: String,
         name: String,

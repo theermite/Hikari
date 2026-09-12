@@ -60,6 +60,7 @@ pub fn run() {
             engine_scenes::add_capture_source,
             engine_scenes::remove_source,
             engine_scenes::reorder_source,
+            engine_scenes::set_source_order,
             engine_scenes::set_source_transform,
             engine_scenes::set_source_locked,
             engine_scenes::set_source_visible,

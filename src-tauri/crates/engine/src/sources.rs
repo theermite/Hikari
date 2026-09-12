@@ -218,6 +218,31 @@ pub fn set_order(
         .context("changement d'ordre de la source")
 }
 
+/// Place `item` à une position EXACTE dans la pile de sa scène — 0 le plus derrière,
+/// croissant vers l'avant, la même convention que lit [`order_position`]. Distinct de
+/// [`set_order`] : celui-ci bouge d'un cran (le geste souris), celui-là vise une position
+/// absolue (le rejeu de session, `handle_set_source_order`).
+///
+/// `obs_sceneitem_set_order_position` retire puis réinsère l'élément à l'index donné —
+/// appeler cette fonction pour chaque source d'une scène, dans n'importe quel ordre, avec
+/// sa position finale voulue, reconstruit la pile entière (vérifié dans la source de
+/// libobs, `obs_sceneitem_set_order_position` d'`obs-scene.c`).
+pub fn set_order_position(
+    runtime: &libobs_wrapper::runtime::ObsRuntime,
+    item: &ObsSceneItemRef<ObsSourceRef>,
+    position: i32,
+) -> Result<()> {
+    let runtime = runtime.clone();
+    let ptr = item.as_ptr().clone();
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // Safety: sur le fil OBS, et le pointeur vient d'un pointeur intelligent vivant
+            // (l'élément est encore dans la scène, nous en tenons une référence).
+            libobs::obs_sceneitem_set_order_position(ptr.get_ptr(), position);
+        })
+        .context("placement exact de la source dans la pile")
+}
+
 /// Montre ou cache `item` dans sa scène, sans le retirer.
 ///
 /// `libobs-wrapper` 9.0.4 n'expose pas la visibilité d'un élément (même constat que

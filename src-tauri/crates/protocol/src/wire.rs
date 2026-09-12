@@ -278,6 +278,18 @@ pub enum ControllerCommand {
         name: String,
         direction: SourceOrder,
     },
+    /// Places a source at an EXACT position in its scene's stack — 0 the back-most,
+    /// increasing toward the front. Same convention `emit_scene_list` already reads via
+    /// `order_position`.
+    ///
+    /// C'est ce qui rend l'ORDRE rejouable (`session.ts` `buildReplay`, Jay 2026-09-12 :
+    /// « l'ordre des sources ne se sauvegarde pas ») — même rôle que `SetSourceTransform`
+    /// pour la position x/y, distinct de `ReorderSource` qui ne bouge que d'un cran.
+    SetSourceOrder {
+        scene: String,
+        name: String,
+        position: i32,
+    },
     /// Places a source exactly, without going through the mouse.
     ///
     /// C'est ce qui rend une session REJOUABLE : au démarrage suivant, l'app recrée les

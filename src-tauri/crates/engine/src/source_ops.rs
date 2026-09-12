@@ -48,6 +48,35 @@ impl App {
         self.emit_scene_list();
     }
 
+    /// Place une source ou une caméra à une position EXACTE de la pile — le rejeu de
+    /// session (Jay, 2026-09-12 : « l'ordre des sources ne se sauvegarde pas »), jamais un
+    /// geste souris (`handle_reorder_source` ci-dessus reste le chemin manuel).
+    pub(crate) fn handle_set_source_order(&mut self, scene: String, name: String, position: i32) {
+        let camera = self.camera_item_by_name(&scene, &name).cloned();
+        let Some(obs) = &mut self.obs else { return };
+        let runtime = obs.context.runtime().clone();
+        let item = camera.or_else(|| {
+            obs.scene_sources
+                .get(&scene)
+                .and_then(|list| list.iter().find(|source| source.name == name))
+                .map(|source| source.item.clone())
+        });
+        let Some(item) = item else {
+            emit(&EngineMessage::Error {
+                message: format!("« {name} » n'est pas une source déplaçable de cette scène"),
+            });
+            return;
+        };
+        if let Err(err) = sources::set_order_position(&runtime, &item, position) {
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
+            return;
+        }
+        obs.item_rects = None;
+        self.emit_scene_list();
+    }
+
     /// Places a source exactly — la commande qui rend une session rejouable.
     pub(crate) fn handle_set_source_transform(
         &mut self,

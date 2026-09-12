@@ -171,6 +171,17 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                         direction,
                     });
                 }
+                Ok(ControllerCommand::SetSourceOrder {
+                    scene,
+                    name,
+                    position,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::SetSourceOrder {
+                        scene,
+                        name,
+                        position,
+                    });
+                }
                 Ok(ControllerCommand::SetSourceTransform {
                     scene,
                     name,

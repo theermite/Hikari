@@ -85,6 +85,8 @@ describe("toSession", () => {
       y: 20,
       scalePercent: 100,
       locked: false,
+      order: 0,
+      text: undefined,
     });
   });
 
@@ -366,6 +368,96 @@ describe("buildReplay", () => {
     const steps = buildReplay(saved, [scene("main")]);
 
     expect(steps.filter((s) => s.do === "lock")).toHaveLength(0);
+  });
+
+  /** L'ordre en direct se sauvegardait déjà (le moteur relit sa vraie pile et l'annonce),
+   * mais le rejeu ne le restaurait jamais : seul l'ordre d'AJOUT décidait de la pile
+   * reconstruite (Jay, 2026-09-12 : « l'ordre des sources ne se sauvegarde pas »). Une
+   * source déjà présente au démarrage (la capture d'écran par défaut de « main ») n'était
+   * même jamais candidate à un replacement, faute d'étape dédiée. */
+  const stacked = () => {
+    // Deux captures ET une caméra dans la MÊME scène, comme la pile réelle du moteur —
+    // index 0 = la plus devant, à l'image de ce que `emit_scene_list` envoie déjà.
+    const bureau = scene("Bureau", [
+      source({ name: "Devant", target_id: "A" }),
+      source({
+        name: "Webcam",
+        source_kind: "camera",
+        target_id: "cam:1",
+      }),
+      source({ name: "Derriere", target_id: "B" }),
+    ]);
+    return toSession([bureau], "Bureau");
+  };
+
+  it("should_remember_each_sources_position_in_the_stack", () => {
+    const doc = stacked();
+
+    // 3 éléments au total : la plus devant (index 0) porte la plus GRANDE valeur, la même
+    // convention que `order_position` côté moteur (0 = le plus derrière).
+    expect(doc.scenes[0].sources.map((s) => [s.name, s.order])).toEqual([
+      ["Devant", 2],
+      ["Derriere", 0],
+    ]);
+    expect(doc.scenes[0].cameras?.[0]).toMatchObject({
+      deviceId: "cam:1",
+      order: 1,
+    });
+  });
+
+  it("should_restore_the_saved_stack_order_of_every_source_and_camera", () => {
+    const steps = buildReplay(stacked(), [scene("main")]);
+
+    expect(steps).toContainEqual({
+      do: "setOrder",
+      scene: "Bureau",
+      name: "Devant",
+      position: 2,
+    });
+    expect(steps).toContainEqual({
+      do: "setOrder",
+      scene: "Bureau",
+      name: "Webcam",
+      position: 1,
+    });
+    expect(steps).toContainEqual({
+      do: "setOrder",
+      scene: "Bureau",
+      name: "Derriere",
+      position: 0,
+    });
+  });
+
+  it("should_reorder_only_after_every_source_exists", () => {
+    // Réordonner une source que le moteur n'a pas encore reçue viserait un objet absent.
+    const steps = buildReplay(stacked(), [scene("main")]);
+    const addedCapture = steps.findIndex(
+      (s) => s.do === "addSource" && s.name === "Derriere",
+    );
+    const addedCamera = steps.findIndex((s) => s.do === "addCamera");
+    const reorderedCapture = steps.findIndex(
+      (s) => s.do === "setOrder" && s.name === "Derriere",
+    );
+    const reorderedCamera = steps.findIndex(
+      (s) => s.do === "setOrder" && s.name === "Webcam",
+    );
+
+    expect(reorderedCapture).toBeGreaterThan(addedCapture);
+    expect(reorderedCamera).toBeGreaterThan(addedCamera);
+  });
+
+  it("should_ask_for_no_reorder_when_the_session_predates_ordering", () => {
+    // Une session écrite avant ce correctif ne porte pas `order` : imposer un ordre inventé
+    // vaudrait moins qu'aucun ordre — l'ancien comportement (ordre d'ajout) reste inchangé.
+    const doc = stacked();
+    for (const s of doc.scenes[0].sources)
+      delete (s as { order?: number }).order;
+    for (const c of doc.scenes[0].cameras ?? [])
+      delete (c as { order?: number }).order;
+
+    const steps = buildReplay(doc, [scene("main")]);
+
+    expect(steps.filter((s) => s.do === "setOrder")).toHaveLength(0);
   });
 
   it("should_lock_back_a_camera_the_user_had_locked", () => {

@@ -116,6 +116,11 @@ impl ApplicationHandler<EngineEvent> for App {
                 name,
                 direction,
             } => self.handle_reorder_source(scene, name, direction),
+            EngineEvent::SetSourceOrder {
+                scene,
+                name,
+                position,
+            } => self.handle_set_source_order(scene, name, position),
             EngineEvent::SetSourceTransform {
                 scene,
                 name,

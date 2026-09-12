@@ -24,6 +24,7 @@ import {
   listCaptureTargets,
   requestSceneList,
   setSourceLocked,
+  setSourceOrder,
   setSourceTransform,
   setTextSettings as setTextSettingsOnEngine,
   switchScene,
@@ -167,6 +168,9 @@ export function useEngineSessionSync(params: {
           }
           if (step.do === "lock") {
             await setSourceLocked(step.scene, step.name, true);
+          }
+          if (step.do === "setOrder") {
+            await setSourceOrder(step.scene, step.name, step.position);
           }
           if (step.do === "textSettings") {
             // Retenu AUSSI en mémoire : le panneau doit rouvrir sur les vraies valeurs,

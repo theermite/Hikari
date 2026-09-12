@@ -337,6 +337,25 @@ pub(crate) fn reorder_source(
     )
 }
 
+/// Place une source ou une caméra à une position exacte de la pile (brique Persistance) —
+/// ce qui rend l'ORDRE rejouable, même rôle que `set_source_transform` pour la position.
+#[tauri::command]
+pub(crate) fn set_source_order(
+    state: State<EngineState>,
+    scene: String,
+    name: String,
+    position: i32,
+) -> Result<(), String> {
+    send_command(
+        &state,
+        ControllerCommand::SetSourceOrder {
+            scene,
+            name,
+            position,
+        },
+    )
+}
+
 /// Change l'apparence d'une source texte : police, taille, couleur, contour, alignement.
 ///
 /// Ne dit RIEN du texte lui-même — le moteur fusionne les réglages nommés avec ceux qui ne

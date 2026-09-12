@@ -93,6 +93,18 @@ export function reorderSource(
   return invoke("reorder_source", { scene, name, direction });
 }
 
+/** Remet une source ou une caméra à une position EXACTE dans la pile — 0 le plus derrière,
+ * croissant vers l'avant. Sans passer par la souris ni par un déplacement pas à pas : c'est
+ * ce qui rend l'ordre rejouable (`session.ts` `buildReplay`), même principe que
+ * `setSourceTransform` pour la position x/y. */
+export function setSourceOrder(
+  scene: string,
+  name: string,
+  position: number,
+): Promise<void> {
+  return invoke("set_source_order", { scene, name, position });
+}
+
 /** Pose l'apparence d'une source texte : police, taille, couleur, contour, alignement.
  *
  * Ne dit rien du TEXTE lui-même — le moteur fusionne ce qu'on lui nomme avec ce qu'il a
