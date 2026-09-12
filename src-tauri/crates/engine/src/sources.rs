@@ -224,9 +224,11 @@ pub fn set_order(
 /// absolue (le rejeu de session, `handle_set_source_order`).
 ///
 /// `obs_sceneitem_set_order_position` retire puis réinsère l'élément à l'index donné —
-/// appeler cette fonction pour chaque source d'une scène, dans n'importe quel ordre, avec
-/// sa position finale voulue, reconstruit la pile entière (vérifié dans la source de
-/// libobs, `obs_sceneitem_set_order_position` d'`obs-scene.c`).
+/// chaque appel décale les éléments déjà en place. Appeler cette fonction pour chaque
+/// source d'une scène, **en ordre CROISSANT de position voulue**, reconstruit la pile
+/// entière (relecture indépendante, 2026-09-13 : « dans n'importe quel ordre » était
+/// FAUX — vérifié par simulation, un ordre non croissant divergeait dès 3 caméras autour
+/// d'une capture ; l'appelant, `session.ts` `buildReplay`, trie avant d'émettre).
 pub fn set_order_position(
     runtime: &libobs_wrapper::runtime::ObsRuntime,
     item: &ObsSceneItemRef<ObsSourceRef>,

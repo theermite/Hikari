@@ -391,6 +391,15 @@ export function buildReplay(
   // ensemble sauvegardé ; sans ce décalage, une position absolue calculée sur N éléments
   // s'applique à une scène qui en compte réellement N+1, et pousse cette source jamais
   // touchée n'importe où dans la pile au lieu de la laisser tout au fond.
+  //
+  // Émises en ORDRE CROISSANT de position, captures et caméras confondues (relecture
+  // indépendante, 2026-09-13) : `obs_sceneitem_set_order_position` retire puis réinsère —
+  // chaque appel décale les éléments déjà en place. Deux boucles séparées (captures, puis
+  // caméras) entrelaçaient leurs positions dans un ordre qui n'était PAS croissant dès
+  // qu'au moins 3 caméras encadraient une capture, et la pile finale divergeait de celle
+  // enregistrée (vérifié par simulation : sur [CamA, CamB, Capture, CamC], le rejeu
+  // produisait [CamA, Capture, CamB, CamC] — la capture passait devant CamB). Un tri
+  // croissant, lui, converge quel que soit l'arrangement de départ.
   for (const scene of saved.scenes) {
     const savedNames = new Set([
       ...scene.sources.map((s) => s.name),
@@ -400,23 +409,21 @@ export function buildReplay(
       (s) => !savedNames.has(s.name),
     ).length;
 
+    const toReorder: { name: string; position: number }[] = [];
     for (const source of scene.sources) {
       if (source.order === undefined) continue;
-      steps.push({
-        do: "setOrder",
-        scene: scene.name,
-        name: source.name,
-        position: source.order + extra,
-      });
+      toReorder.push({ name: source.name, position: source.order + extra });
     }
     for (const camera of camerasOf(scene)) {
       if (camera.order === undefined) continue;
-      steps.push({
-        do: "setOrder",
-        scene: scene.name,
+      toReorder.push({
         name: camera.name ?? DEFAULT_CAMERA_NAME,
         position: camera.order + extra,
       });
+    }
+    toReorder.sort((a, b) => a.position - b.position);
+    for (const { name, position } of toReorder) {
+      steps.push({ do: "setOrder", scene: scene.name, name, position });
     }
   }
 

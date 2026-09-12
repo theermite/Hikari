@@ -23,6 +23,24 @@ const scene = (name: string, sources: SceneSourceInfo[] = []): SceneInfo => ({
   sources,
 });
 
+/** Simule la vraie sémantique de `obs_sceneitem_set_order_position` (relecture
+ * indépendante, 2026-09-13) : retire l'élément, puis le réinsère à l'index donné dans la
+ * liste déjà réduite. C'est l'ORACLE qui manquait — les tests d'origine ne vérifiaient que
+ * les positions ÉMISES par `buildReplay`, jamais l'effet de leur application dans le bon
+ * ordre, ce qui a laissé passer un rejeu qui divergeait dès 3 caméras autour d'une capture. */
+function applyOrderSteps(
+  names: string[],
+  steps: ReturnType<typeof buildReplay>,
+): string[] {
+  let stack = [...names];
+  for (const step of steps) {
+    if (step.do !== "setOrder") continue;
+    stack = stack.filter((n) => n !== step.name);
+    stack.splice(step.position, 0, step.name);
+  }
+  return stack;
+}
+
 describe("camerasOf", () => {
   it("should_read_a_session_saved_before_several_cameras_existed", () => {
     // Une session déjà sur le disque de Jay porte UNE caméra, sous l'ancien champ. La lire
@@ -444,6 +462,36 @@ describe("buildReplay", () => {
 
     expect(reorderedCapture).toBeGreaterThan(addedCapture);
     expect(reorderedCamera).toBeGreaterThan(addedCamera);
+  });
+
+  it("should_produce_the_exact_saved_stack_once_the_setOrder_steps_are_applied", () => {
+    // Relecture indépendante (2026-09-13) : les tests précédents vérifiaient les positions
+    // ÉMISES, jamais l'effet de leur application DANS L'ORDRE OÙ elles arrivent — exactement
+    // l'angle mort qui a laissé passer une pile divergente dès 3 caméras autour d'une
+    // capture (`obs_sceneitem_set_order_position` retire puis réinsère : émettre les
+    // captures puis les caméras entrelace des positions qui ne sont pas en ordre croissant).
+    // `scene()` prend un tableau du plus DEVANT au plus DERRIÈRE (même convention que
+    // `emit_scene_list`) : pour obtenir l'ordre back→front CamA, CamB, Capture, CamC visé
+    // par ce test, l'écrire ici dans l'ordre inverse.
+    const bureau = scene("Bureau", [
+      source({ name: "CamC", source_kind: "camera", target_id: "cam:c" }),
+      source({ name: "Capture", target_id: "C" }),
+      source({ name: "CamB", source_kind: "camera", target_id: "cam:b" }),
+      source({ name: "CamA", source_kind: "camera", target_id: "cam:a" }),
+    ]);
+    const saved = toSession([bureau], "Bureau");
+
+    const steps = buildReplay(saved, [scene("main")]);
+    // Départ = l'ordre d'AJOUT que le rejeu produit avant tout `setOrder` (capture ajoutée
+    // en premier, puis les caméras dans l'ordre `camerasOf` — chacune arrivant devant les
+    // précédentes). C'est CE point de départ précis qui divergeait sans le tri : un ordre
+    // non croissant n'échoue pas pour n'importe quel départ, seulement pour certains.
+    const depart = ["Capture", "CamC", "CamB", "CamA"];
+
+    const arrivee = applyOrderSteps(depart, steps);
+
+    // Ordre enregistré, du plus derrière au plus devant.
+    expect(arrivee).toEqual(["CamA", "CamB", "Capture", "CamC"]);
   });
 
   it("should_shift_the_saved_order_past_a_live_source_the_session_never_recorded", () => {
