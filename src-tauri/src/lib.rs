@@ -2,9 +2,11 @@
 //! Le moteur vidéo vit dans un PROCESSUS SÉPARÉ (ADR-013), supervisé via `engine_bridge`.
 
 pub mod accounts;
+pub mod broadcast_target;
 pub mod camera_bridge;
 pub mod commands;
 pub mod deck_bridge;
+pub mod encoding_settings;
 pub mod engine_audio;
 pub mod engine_bridge;
 pub mod engine_lifecycle;

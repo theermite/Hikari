@@ -35,6 +35,7 @@ mod mask;
 mod mask_retry_ops;
 mod multistream;
 mod outline;
+mod overrides;
 mod scene_ops;
 mod scenes;
 mod source_ops;
@@ -125,8 +126,12 @@ pub(crate) fn composition() -> hikari_protocol::Composition {
 
 /// Retient la composition de cette machine. Appelée UNE fois, au démarrage, depuis
 /// l'endroit qui connaît la taille de l'écran.
+///
+/// Une composition choisie à la main (B-settings) passe AVANT la taille d'écran — c'est
+/// tout le sens de l'écran Paramètres : remplacer ce calcul, pas le compléter.
 pub(crate) fn set_composition(screen_width: u32, screen_height: u32) {
-    let choisi = hikari_protocol::composition(screen_width, screen_height);
+    let choisi = overrides::composition_override_from_env()
+        .unwrap_or_else(|| hikari_protocol::composition(screen_width, screen_height));
     eprintln!(
         "[engine] composition choisie : {}x{} a {} i/s (ecran {screen_width}x{screen_height})",
         choisi.width, choisi.height, choisi.fps

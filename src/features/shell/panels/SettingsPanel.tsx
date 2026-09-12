@@ -9,6 +9,7 @@ import type { IDockviewPanelProps } from "dockview-react";
 import { Panel } from "../../../components/ui/Panel";
 import { SectionTitle } from "../../../components/ui/SectionTitle";
 import { AccountsPanel } from "./AccountsPanel";
+import { EncodingSettingsPanel } from "./EncodingSettingsPanel";
 
 export function SettingsPanel(props: IDockviewPanelProps) {
   return (
@@ -16,6 +17,8 @@ export function SettingsPanel(props: IDockviewPanelProps) {
       <div className="flex flex-col gap-3">
         <SectionTitle>Comptes</SectionTitle>
         <AccountsPanel {...props} />
+        <SectionTitle>Encodage</SectionTitle>
+        <EncodingSettingsPanel {...props} />
       </div>
     </Panel>
   );

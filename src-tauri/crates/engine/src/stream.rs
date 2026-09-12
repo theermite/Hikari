@@ -65,10 +65,28 @@ pub fn start_stream(context: &mut ObsContext) -> Result<ObsOutputRef> {
         available: available.iter().map(|e| format!("{e:?}")).collect(),
     });
 
-    let (video_type, hardware) = if available.contains(&ObsVideoEncoderType::OBS_NVENC_H264_TEX) {
-        (ObsVideoEncoderType::OBS_NVENC_H264_TEX, true)
-    } else {
-        (ObsVideoEncoderType::OBS_X264, false)
+    // Un encodeur choisi à la main (B-settings) ne compte que s'il est RÉELLEMENT dans
+    // `available` — une machine sans NVENC qui demande NVENC retombe sur la détection
+    // réelle plutôt que de forcer un encodeur que libobs n'a jamais rapporté (F-003).
+    let auto = || {
+        if available.contains(&ObsVideoEncoderType::OBS_NVENC_H264_TEX) {
+            (ObsVideoEncoderType::OBS_NVENC_H264_TEX, true)
+        } else {
+            (ObsVideoEncoderType::OBS_X264, false)
+        }
+    };
+    let (video_type, hardware) = match crate::overrides::encoder_override_from_env() {
+        Some(hikari_protocol::EncoderChoice::Nvenc)
+            if available.contains(&ObsVideoEncoderType::OBS_NVENC_H264_TEX) =>
+        {
+            (ObsVideoEncoderType::OBS_NVENC_H264_TEX, true)
+        }
+        Some(hikari_protocol::EncoderChoice::X264)
+            if available.contains(&ObsVideoEncoderType::OBS_X264) =>
+        {
+            (ObsVideoEncoderType::OBS_X264, false)
+        }
+        _ => auto(),
     };
     emit(&EngineMessage::VideoEncoder {
         kind: format!("{video_type:?}"),
@@ -87,7 +105,8 @@ pub fn start_stream(context: &mut ObsContext) -> Result<ObsOutputRef> {
     // Calcule ICI et pas au demarrage : c'est le seul endroit qui sait si la machine
     // encode par le MATERIEL. Sans lui, le processeur fait deux metiers a la fois —
     // encoder et faire tourner le jeu — et c'est la premiere cause d'images perdues.
-    let debit = hikari_protocol::bitrate_kbps(crate::composition(), hardware);
+    let debit = crate::overrides::bitrate_override_from_env()
+        .unwrap_or_else(|| hikari_protocol::bitrate_kbps(crate::composition(), hardware));
     eprintln!("[engine] debit choisi : {debit} kbit/s (encodeur materiel : {hardware})");
     video_settings.set_int("bitrate", i64::from(debit))?;
     video_settings.set_int("keyint_sec", 2)?; // clé toutes les 2 s : exigence des ingests RTMP

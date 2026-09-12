@@ -56,15 +56,37 @@ fn start_one(context: &mut ObsContext, target: &StreamTarget) -> Result<ObsOutpu
         .map(|b| b.get_encoder_id().clone())
         .collect::<Vec<_>>();
 
-    let (video_type, hardware) = if available.contains(&ObsVideoEncoderType::OBS_NVENC_H264_TEX) {
-        (ObsVideoEncoderType::OBS_NVENC_H264_TEX, true)
-    } else {
-        (ObsVideoEncoderType::OBS_X264, false)
+    // Même garde qu'en simple flux (`stream.rs`) : un encodeur choisi à la main ne compte
+    // que s'il est réellement détecté sur CETTE machine (F-003).
+    let auto = || {
+        if available.contains(&ObsVideoEncoderType::OBS_NVENC_H264_TEX) {
+            (ObsVideoEncoderType::OBS_NVENC_H264_TEX, true)
+        } else {
+            (ObsVideoEncoderType::OBS_X264, false)
+        }
+    };
+    let (video_type, hardware) = match crate::overrides::encoder_override_from_env() {
+        Some(hikari_protocol::EncoderChoice::Nvenc)
+            if available.contains(&ObsVideoEncoderType::OBS_NVENC_H264_TEX) =>
+        {
+            (ObsVideoEncoderType::OBS_NVENC_H264_TEX, true)
+        }
+        Some(hikari_protocol::EncoderChoice::X264)
+            if available.contains(&ObsVideoEncoderType::OBS_X264) =>
+        {
+            (ObsVideoEncoderType::OBS_X264, false)
+        }
+        _ => auto(),
     };
 
     let mut video_settings = context.data().context("réglages encodeur vidéo")?;
     video_settings.set_string("rate_control", "CBR")?;
-    video_settings.set_int("bitrate", 6000)?;
+    // Le débit vient de la MACHINE, plus d'un nombre écrit en dur — même correction que
+    // `stream.rs` (2026-09-12) : ce fichier écrivait 6000 sans jamais passer par
+    // `bitrate_kbps`, seul le flux simple avait été corrigé le 2026-09-07.
+    let debit = crate::overrides::bitrate_override_from_env()
+        .unwrap_or_else(|| hikari_protocol::bitrate_kbps(crate::composition(), hardware));
+    video_settings.set_int("bitrate", i64::from(debit))?;
     video_settings.set_int("keyint_sec", 2)?;
     let video_info = VideoEncoderInfo::new(
         video_type,
