@@ -9,8 +9,9 @@
 //! analyseur pur et testé dans `hikari_protocol::encoding` — la logique de validation ne
 //! vit qu'à un seul endroit.
 
-/// La composition choisie à la main, si l'utilisateur en a posé une. `None` retombe sur
-/// `crate::composition()` (taille d'écran détectée).
+/// La résolution/cadence de SORTIE choisie à la main, si l'utilisateur en a posé une —
+/// jamais le canevas (`crate::composition()`), qui ne lit pas cette variable. `None`
+/// retombe sur le canevas, via `crate::output_composition()`.
 pub(crate) fn composition_override_from_env() -> Option<hikari_protocol::Composition> {
     let value = std::env::var("HIKARI_COMPOSITION_OVERRIDE").ok();
     hikari_protocol::composition_override(value.as_deref())

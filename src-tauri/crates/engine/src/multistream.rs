@@ -85,7 +85,7 @@ fn start_one(context: &mut ObsContext, target: &StreamTarget) -> Result<ObsOutpu
     // `stream.rs` (2026-09-12) : ce fichier écrivait 6000 sans jamais passer par
     // `bitrate_kbps`, seul le flux simple avait été corrigé le 2026-09-07.
     let debit = crate::overrides::bitrate_override_from_env()
-        .unwrap_or_else(|| hikari_protocol::bitrate_kbps(crate::composition(), hardware));
+        .unwrap_or_else(|| hikari_protocol::bitrate_kbps(crate::output_composition(), hardware));
     video_settings.set_int("bitrate", i64::from(debit))?;
     video_settings.set_int("keyint_sec", 2)?;
     let video_info = VideoEncoderInfo::new(

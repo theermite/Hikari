@@ -109,13 +109,17 @@ impl App {
             // demarrer. Un moteur qui ne demarre pas ne diffuse rien du tout.
             .unwrap_or((1280, 720));
         crate::set_composition(ecran_l, ecran_h);
-        let reglage = crate::composition();
+        // Canevas (où les sources sont posées) et sortie (ce qui est encodé) sont deux
+        // lectures DISTINCTES depuis le 2026-09-12 — une résolution choisie à la main ne
+        // doit bouger que la sortie, jamais le canevas (voir `crate::output_composition`).
+        let canevas = crate::composition();
+        let sortie = crate::output_composition();
         let video = libobs_wrapper::data::video::ObsVideoInfoBuilder::new()
-            .base_width(reglage.width)
-            .base_height(reglage.height)
-            .output_width(reglage.width)
-            .output_height(reglage.height)
-            .fps_num(reglage.fps)
+            .base_width(canevas.width)
+            .base_height(canevas.height)
+            .output_width(sortie.width)
+            .output_height(sortie.height)
+            .fps_num(sortie.fps)
             .fps_den(1)
             .build();
         let mut context =

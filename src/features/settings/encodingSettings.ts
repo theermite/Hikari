@@ -3,12 +3,18 @@
 // (composition et débit calculés depuis l'écran et la machine, `encoding.rs`) : un
 // utilisateur qui n'a jamais ouvert cet écran ne voit RIEN changer.
 //
-// La composition (résolution + cadence) est UN SEUL choix, jamais deux réglages
-// indépendants — les mêmes paliers que le calcul automatique (`encoding.rs`, « peu de
-// paliers, jamais une échelle continue »), pour qu'un réglage manuel ne propose jamais
-// une combinaison que le moteur n'a jamais fait tourner.
+// `composition` ici règle la résolution/cadence de SORTIE — ce qui est encodé et envoyé
+// au stream — jamais le canevas où les sources sont posées (position, taille). Le moteur
+// (`engine::main::composition()` contre `output_composition()`) garde les deux séparés
+// depuis le 2026-09-12 : les confondre déplaçait chaque source à chaque changement de
+// résolution (bug du zoom d'aperçu).
 //
-// Née du retour de Jay (2026-09-12) : ~65 % d'images perdues en direct, la composition
+// La résolution+cadence de sortie reste UN SEUL choix, jamais deux réglages indépendants
+// — les mêmes paliers que le calcul automatique (`encoding.rs`, « peu de paliers, jamais
+// une échelle continue »), pour qu'un réglage manuel ne propose jamais une combinaison
+// que le moteur n'a jamais fait tourner.
+//
+// Née du retour de Jay (2026-09-12) : ~65 % d'images perdues en direct, la sortie
 // choisie rien qu'à la taille de l'écran ne correspondant ni à sa machine ni à sa
 // connexion.
 

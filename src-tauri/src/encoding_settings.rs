@@ -39,6 +39,17 @@ pub(crate) fn saved_bitrate_kbps(app: &AppHandle) -> Option<u32> {
         .and_then(|v| v.parse().ok())
 }
 
+/// La résolution/cadence de SORTIE choisie à la main, si l'utilisateur en a posé une —
+/// même lecture que celle envoyée au moteur (`encoding_env_vars` ci-dessous), pour que le
+/// pré-vol calcule le débit requis sur ce que ce direct enverrait VRAIMENT, jamais sur la
+/// taille de l'écran quand une résolution manuelle existe déjà (`preflight_bridge.rs`).
+pub(crate) fn saved_composition(app: &AppHandle) -> Option<hikari_protocol::Composition> {
+    let store = app.store(STORE_FILE).ok()?;
+    let settings = store.get(SETTINGS_KEY)?;
+    let value = settings.get("composition")?.as_str()?.to_string();
+    hikari_protocol::composition_override(Some(&value))
+}
+
 /// Les variables à poser sur le processus moteur avant son lancement. Vide si le fichier
 /// de réglages n'existe pas encore (premier lancement), ou si tout est resté sur "auto".
 ///

@@ -92,13 +92,17 @@ export function EncodingSettingsPanel(_props: IDockviewPanelProps) {
     <div className="flex flex-col gap-3">
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-[11px] uppercase tracking-wider text-hikari-txt-faint">
-          Résolution et cadence
+          Résolution de sortie et cadence
         </legend>
         <ChoiceGroup
           choices={COMPOSITION_CHOICES}
           value={settings.composition}
           onChange={(composition) => update({ composition })}
         />
+        <p className="text-[11px] text-hikari-txt-faint">
+          Ce que la plateforme de stream reçoit — pour optimiser ta bande
+          passante. Ne déplace ni ne redimensionne tes sources dans l'aperçu.
+        </p>
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">

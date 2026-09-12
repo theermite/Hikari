@@ -7,7 +7,7 @@
 use tauri::{AppHandle, Manager};
 
 use crate::bandwidth::measure_upload_kbps;
-use crate::encoding_settings::saved_bitrate_kbps;
+use crate::encoding_settings::{saved_bitrate_kbps, saved_composition};
 use crate::engine_bridge::run_detect_encoders;
 use crate::preflight::{bandwidth_allows, go_live_allowed, PreflightError};
 
@@ -94,8 +94,10 @@ pub(crate) async fn run_preflight(app: AppHandle) -> Result<PreflightOutcome, St
 }
 
 /// Le débit que ce direct enverrait réellement : le réglage manuel de l'utilisateur
-/// (B-settings) s'il en a posé un, sinon le même calcul qu'au démarrage du direct
-/// (`hikari_protocol::bitrate_kbps`, à partir de la taille d'écran détectée).
+/// (B-settings) s'il en a posé un, sinon calculé sur la résolution de SORTIE réellement
+/// utilisée (`saved_composition` si elle existe, sinon la taille d'écran détectée) —
+/// jamais sur le canevas seul. Même règle que côté moteur (`crate::output_composition`,
+/// engine `main.rs`) : bitrate et résolution de sortie doivent toujours s'accorder.
 fn required_bitrate_kbps(app: &AppHandle, hardware: bool) -> u32 {
     if let Some(choisi) = saved_bitrate_kbps(app) {
         return choisi;
@@ -107,5 +109,7 @@ fn required_bitrate_kbps(app: &AppHandle, hardware: bool) -> u32 {
         // Même repli prudent que le moteur (`lifecycle_ops.rs`) : un écran non détecté
         // compose petit plutôt que de refuser le pré-vol.
         .unwrap_or((1280, 720));
-    hikari_protocol::bitrate_kbps(hikari_protocol::composition(largeur, hauteur), hardware)
+    let canevas = hikari_protocol::composition(largeur, hauteur);
+    let sortie = hikari_protocol::resolve_output(canevas, saved_composition(app));
+    hikari_protocol::bitrate_kbps(sortie, hardware)
 }

@@ -106,7 +106,7 @@ pub fn start_stream(context: &mut ObsContext) -> Result<ObsOutputRef> {
     // encode par le MATERIEL. Sans lui, le processeur fait deux metiers a la fois —
     // encoder et faire tourner le jeu — et c'est la premiere cause d'images perdues.
     let debit = crate::overrides::bitrate_override_from_env()
-        .unwrap_or_else(|| hikari_protocol::bitrate_kbps(crate::composition(), hardware));
+        .unwrap_or_else(|| hikari_protocol::bitrate_kbps(crate::output_composition(), hardware));
     eprintln!("[engine] debit choisi : {debit} kbit/s (encodeur materiel : {hardware})");
     video_settings.set_int("bitrate", i64::from(debit))?;
     video_settings.set_int("keyint_sec", 2)?; // clé toutes les 2 s : exigence des ingests RTMP

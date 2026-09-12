@@ -109,6 +109,17 @@ pub enum EncoderChoice {
     X264,
 }
 
+/// Résout la résolution/cadence réellement encodée et envoyée : le réglage choisi à la
+/// main (B-settings) s'il existe, sinon le canevas de base.
+///
+/// Le canevas — là où les sources sont posées (position, taille) — ne passe JAMAIS par
+/// cette fonction. C'est la séparation que fait déjà libobs lui-même
+/// (`base_width/height` contre `output_width/height`) : notre bug du zoom d'aperçu
+/// (2026-09-12) venait justement de fixer les deux au même réglage choisi à la main.
+pub fn resolve_output(base: Composition, override_: Option<Composition>) -> Composition {
+    override_.unwrap_or(base)
+}
+
 /// Parse une composition choisie à la main, au format `"<largeur>x<hauteur>@<cadence>"`
 /// (ex. `"1920x1080@60"`) — LA MÊME forme que les paliers ci-dessus, jamais trois champs
 /// indépendants. Une composition à moitié posée n'est pas un pari plus sûr qu'aucune :
@@ -226,6 +237,28 @@ mod tests {
         let petit = bitrate_kbps(composition(800, 600), true);
 
         assert!(petit < grand, "petit={petit} grand={grand}");
+    }
+
+    #[test]
+    fn should_resolve_output_to_the_base_canvas_when_no_override() {
+        let base = composition(1920, 1080);
+
+        assert_eq!(resolve_output(base, None), base);
+    }
+
+    #[test]
+    fn should_resolve_output_to_the_override_leaving_the_base_untouched() {
+        let base = composition(1920, 1080);
+        let choisi = Composition {
+            width: 1280,
+            height: 720,
+            fps: 30,
+        };
+
+        assert_eq!(resolve_output(base, Some(choisi)), choisi);
+        // La fonction ne modifie jamais son argument `base` — c'est l'appelant qui garde
+        // le canevas séparé (voir engine::main::composition() contre output_composition()).
+        assert_eq!(base, composition(1920, 1080));
     }
 
     #[test]

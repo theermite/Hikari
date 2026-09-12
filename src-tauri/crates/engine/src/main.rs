@@ -112,11 +112,12 @@ pub(crate) fn emit(msg: &EngineMessage) {
     }
 }
 
-/// La composition retenue au démarrage : ce que le moteur DESSINE.
+/// Le canevas retenu au démarrage : LÀ où les sources sont posées (position, taille).
 ///
-/// Lue à deux moments éloignés — au démarrage pour construire l'image, puis à chaque
-/// diffusion pour en déduire le débit. Les deux DOIVENT s'accorder : une image composée en
-/// 1080 et un débit calculé pour du 720 produisent exactement le défaut qu'on corrige.
+/// Ne dépend JAMAIS d'une composition choisie à la main (B-settings) — voir
+/// `output_composition()` pour ce qui est réellement encodé. Les deux ont été confondues
+/// jusqu'au 2026-09-12 : un réglage de résolution manuel déplaçait ce canevas, et donc
+/// chaque source posée dessus (bug du zoom d'aperçu, corrigé ce jour).
 pub(crate) fn composition() -> hikari_protocol::Composition {
     // Personne n'a mesuré : on compose comme sur un écran modeste. Ce chemin ne devrait
     // jamais servir — il existe pour que l'absence de mesure produise un réglage PRUDENT
@@ -124,22 +125,30 @@ pub(crate) fn composition() -> hikari_protocol::Composition {
     *COMPOSITION.get_or_init(|| hikari_protocol::composition(1280, 720))
 }
 
-/// Retient la composition de cette machine. Appelée UNE fois, au démarrage, depuis
-/// l'endroit qui connaît la taille de l'écran.
-///
-/// Une composition choisie à la main (B-settings) passe AVANT la taille d'écran — c'est
-/// tout le sens de l'écran Paramètres : remplacer ce calcul, pas le compléter.
+/// Retient le canevas de cette machine. Appelée UNE fois, au démarrage, depuis l'endroit
+/// qui connaît la taille de l'écran — jamais influencée par un réglage manuel (B-settings),
+/// qui vit dans `output_composition()`.
 pub(crate) fn set_composition(screen_width: u32, screen_height: u32) {
-    let choisi = overrides::composition_override_from_env()
-        .unwrap_or_else(|| hikari_protocol::composition(screen_width, screen_height));
+    let choisi = hikari_protocol::composition(screen_width, screen_height);
     eprintln!(
-        "[engine] composition choisie : {}x{} a {} i/s (ecran {screen_width}x{screen_height})",
+        "[engine] canevas retenu : {}x{} a {} i/s (ecran {screen_width}x{screen_height})",
         choisi.width, choisi.height, choisi.fps
     );
     let _ = COMPOSITION.set(choisi);
 }
 
 static COMPOSITION: std::sync::OnceLock<hikari_protocol::Composition> = std::sync::OnceLock::new();
+
+/// Ce qui est réellement encodé et envoyé : le réglage choisi à la main (B-settings) s'il
+/// existe, sinon le canevas ci-dessus.
+///
+/// Lue à deux moments éloignés — au démarrage pour construire la sortie libobs, puis à
+/// chaque diffusion pour en déduire le débit (`stream.rs`, `multistream.rs`). Les deux
+/// DOIVENT s'accorder : une sortie composée en 1080 et un débit calculé pour du 720
+/// produisent exactement le défaut qu'on corrige (2026-09-07).
+pub(crate) fn output_composition() -> hikari_protocol::Composition {
+    hikari_protocol::resolve_output(composition(), overrides::composition_override_from_env())
+}
 
 /// Keeps the 16:9 aspect ratio when the controller resizes the grafted window (cross-process
 /// `MoveWindow`, proven at the spike). Pure aspect-fit math, transcribed unchanged.
