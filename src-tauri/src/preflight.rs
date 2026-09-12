@@ -84,6 +84,29 @@ pub fn bandwidth_allows(measured_kbps: u32, required_kbps: u32) -> Result<(), Pr
     }
 }
 
+/// Les paliers proposables, du meilleur au plus prudent — LES MÊMES que le choix manuel de
+/// Paramètres (`EncodingSettingsPanel.tsx` `COMPOSITION_CHOICES`), jamais une échelle
+/// continue : un réglage proposé qui sort de cette liste serait une combinaison que le
+/// moteur n'a jamais fait tourner.
+const PALIERS: [(u32, u32, u32); 3] = [(1920, 1080, 60), (1280, 720, 60), (854, 480, 30)];
+
+/// Le meilleur palier que CETTE connexion et CETTE machine tiennent réellement — la partie
+/// du pré-vol restée non livrée le 2026-09-06 (« proposer une définition, une cadence et un
+/// débit qui tiennent »). Descend jusqu'au palier le plus prudent plutôt que de ne rien
+/// proposer : même un débit très faible mérite un réglage, quitte à ce que `go_live_allowed`
+/// bloque ensuite si même celui-là ne tient pas.
+pub fn propose_composition(measured_kbps: u32, hardware: bool) -> hikari_protocol::Composition {
+    for (width, height, fps) in PALIERS {
+        let candidate = hikari_protocol::Composition { width, height, fps };
+        let required = hikari_protocol::bitrate_kbps(candidate, hardware);
+        if bandwidth_allows(measured_kbps, required).is_ok() {
+            return candidate;
+        }
+    }
+    let (width, height, fps) = *PALIERS.last().expect("PALIERS n'est jamais vide");
+    hikari_protocol::Composition { width, height, fps }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,5 +202,56 @@ mod tests {
     #[test]
     fn should_allow_exactly_at_the_eighty_percent_threshold() {
         assert_eq!(bandwidth_allows(5000, 4000), Ok(()));
+    }
+
+    #[test]
+    fn should_propose_the_top_tier_when_the_connection_easily_covers_it() {
+        // Un débit large : le meilleur palier (1080p60) tient largement dans la marge.
+        assert_eq!(
+            propose_composition(20_000, true),
+            hikari_protocol::Composition {
+                width: 1920,
+                height: 1080,
+                fps: 60,
+            }
+        );
+    }
+
+    #[test]
+    fn should_propose_a_lower_tier_when_the_top_one_does_not_fit() {
+        // Jay, 2026-09-12 : ~3000 kbit/s mesurés — 1080p60 (6000) ne tient pas, 720p60 (4500
+        // avec matériel) non plus dans la marge de 80 % (3000*0.8=2400 < 4500). Reste 480p30.
+        assert_eq!(
+            propose_composition(3000, true),
+            hikari_protocol::Composition {
+                width: 854,
+                height: 480,
+                fps: 30,
+            }
+        );
+    }
+
+    #[test]
+    fn should_propose_the_lowest_tier_rather_than_nothing_when_the_connection_is_dire() {
+        // Aucun palier ne tient — descendre vaut mieux que perdre : proposer le plus bas
+        // reste un signal utile, jamais une absence de proposition.
+        assert_eq!(
+            propose_composition(100, true),
+            hikari_protocol::Composition {
+                width: 854,
+                height: 480,
+                fps: 30,
+            }
+        );
+    }
+
+    #[test]
+    fn should_propose_a_lower_tier_without_a_hardware_encoder() {
+        // Même débit mesuré, mais le logiciel double le coût processeur du plus haut palier
+        // : la proposition doit refléter la vraie machine, jamais l'encodeur idéal.
+        let avec = propose_composition(6000, true);
+        let sans = propose_composition(6000, false);
+
+        assert_ne!(sans, avec, "sans={sans:?} avec={avec:?}");
     }
 }

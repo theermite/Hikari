@@ -9,7 +9,7 @@ use tauri::{AppHandle, Manager};
 use crate::bandwidth::measure_upload_kbps;
 use crate::encoding_settings::{saved_bitrate_kbps, saved_composition};
 use crate::engine_bridge::run_detect_encoders;
-use crate::preflight::{bandwidth_allows, go_live_allowed, PreflightError};
+use crate::preflight::{bandwidth_allows, go_live_allowed, propose_composition, PreflightError};
 
 /// What the frontend shows after a pré-vol check: either the safe encoder actually
 /// detected, or why Go Live is blocked (F-010/F-012) — never both, never neither.
@@ -22,6 +22,14 @@ pub(crate) struct PreflightOutcome {
     /// Le débit montant mesuré, en kbit/s — `None` seulement si la mesure elle-même n'a
     /// pas pu s'exécuter (Go Live bloqué dans ce cas aussi, jamais présumé sûr).
     measured_upload_kbps: Option<u32>,
+    /// Le meilleur palier que CETTE mesure et CET encodeur tiennent réellement — la part
+    /// du pré-vol restée non livrée le 2026-09-06 (« proposer », pas seulement accepter ou
+    /// refuser). `None` seulement quand la mesure elle-même a échoué : proposer un réglage
+    /// à partir d'une mesure absente vaudrait deviner, exactement ce que ce module refuse.
+    proposed_composition: Option<hikari_protocol::Composition>,
+    /// Le débit que CE réglage proposé enverrait réellement sur CETTE machine — affiché à
+    /// côté, pour que Jay voie le chiffre avant de l'appliquer, jamais une boîte noire.
+    proposed_bitrate_kbps: Option<u32>,
 }
 
 /// Runs a real pré-vol check: spawns the engine in one-shot detection mode (blocking I/O,
@@ -44,6 +52,8 @@ pub(crate) async fn run_preflight(app: AppHandle) -> Result<PreflightOutcome, St
                 hardware: None,
                 reason: Some("aucun encodeur reconnu détecté".to_string()),
                 measured_upload_kbps: None,
+                proposed_composition: None,
+                proposed_bitrate_kbps: None,
             });
         }
     };
@@ -60,11 +70,15 @@ pub(crate) async fn run_preflight(app: AppHandle) -> Result<PreflightOutcome, St
                 hardware: Some(encoder.hardware),
                 reason: Some(format!("mesure de débit impossible : {err}")),
                 measured_upload_kbps: None,
+                proposed_composition: None,
+                proposed_bitrate_kbps: None,
             });
         }
     };
 
     let required = required_bitrate_kbps(&app, encoder.hardware);
+    let proposed = propose_composition(measured, encoder.hardware);
+    let proposed_bitrate = hikari_protocol::bitrate_kbps(proposed, encoder.hardware);
 
     Ok(match bandwidth_allows(measured, required) {
         Ok(()) => PreflightOutcome {
@@ -73,6 +87,8 @@ pub(crate) async fn run_preflight(app: AppHandle) -> Result<PreflightOutcome, St
             hardware: Some(encoder.hardware),
             reason: None,
             measured_upload_kbps: Some(measured),
+            proposed_composition: Some(proposed),
+            proposed_bitrate_kbps: Some(proposed_bitrate),
         },
         Err(PreflightError::BandwidthInsufficient {
             measured_kbps,
@@ -86,6 +102,8 @@ pub(crate) async fn run_preflight(app: AppHandle) -> Result<PreflightOutcome, St
                  {required_kbps} kbit/s nécessaires"
             )),
             measured_upload_kbps: Some(measured),
+            proposed_composition: Some(proposed),
+            proposed_bitrate_kbps: Some(proposed_bitrate),
         },
         Err(PreflightError::NoEncoderDetected) => {
             unreachable!("bandwidth_allows ne rend jamais cette variante")

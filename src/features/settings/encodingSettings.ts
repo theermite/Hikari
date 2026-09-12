@@ -23,6 +23,8 @@ import { load, type Store } from "@tauri-apps/plugin-store";
 const STORE_FILE = "encoding-settings.json";
 const SETTINGS_KEY = "settings";
 
+// Mêmes paliers que `preflight.rs` `PALIERS` (pré-vol, proposition automatique) — les
+// changer ici sans les changer là-bas ferait proposer un réglage que ce menu ne connaît pas.
 export type CompositionChoice =
   | "auto"
   | "1920x1080@60"
