@@ -267,7 +267,7 @@ ont été arbitrées en le faisant, et la trace de l'arbitrage vaut autant que l
 | # | Sujet | Brique |
 |---|---|---|
 | 1 | Aligner l'application sur la maquette | B-ui socle (reste) |
-| 2 | ~~Réglages d'encodage — mesurer la machine et la connexion, proposer une définition, une cadence et un débit qui tiennent~~ ✅ 2026-09-12 (réglages manuels + mesure de débit réelle en pré-vol) | **brique neuve** (élargit B9 « réglage sûr ») |
+| 2 | Réglages d'encodage — mesurer la machine et la connexion, **proposer** une définition, une cadence et un débit qui tiennent | **brique neuve** (élargit B9 « réglage sûr ») — 🟧 **partiel 2026-09-12** : réglages manuels (résolution/cadence/encodeur/débit, Paramètres) ✅ · mesure de débit réelle + refus de Go Live si le choix ne tient pas ✅ · **reste** : le pré-vol ne PROPOSE toujours aucune valeur sûre à partir de la mesure — il se contente d'accepter/refuser ce que l'utilisateur a déjà choisi. Corrigé : une clôture précédente de cette ligne était prématurée. |
 | 3 | **La caméra qui décroche se relève** — détecter une source qui ne délivre plus, la relancer | **brique neuve** |
 | 4 | Le moteur se ferme avec la fenêtre | dette |
 | 5 | Automations — l'écran pour les composer | B-auto (interface) |
