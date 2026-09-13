@@ -594,15 +594,17 @@ describe("ScenesPanel", () => {
     });
   });
 
-  it("should_dessiner_les_collections_de_scenes", () => {
-    // La maquette groupe les scènes par collection (LoL, Interview, Pause). Rien ne les
-    // porte encore côté moteur.
+  it("should_offer_to_create_a_collection_when_none_exists_yet", () => {
+    // Décision de Jay, 2026-09-13 : tant qu'aucune collection n'existe, un seul bouton —
+    // jamais des onglets vides qui parlent de rien. Comportement détaillé des collections
+    // elles-mêmes (créer, renommer, filtrer) testé côté `SceneSkeleton.test.tsx`.
     render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
     ready([scene({ name: "main" })]);
 
-    const collections = screen.getByLabelText(/Collections de scènes/);
-
-    expect(collections.closest('[aria-disabled="true"]')).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: /créer une collection/i }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText(/Collections de scènes/)).toBeNull();
   });
 
   it("should_ne_rien_dessiner_de_tout_ca_tant_que_le_moteur_se_tait", () => {

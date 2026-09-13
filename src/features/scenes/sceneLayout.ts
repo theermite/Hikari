@@ -19,15 +19,103 @@ const LAYOUT_KEY = "sceneLayout";
 /** How the scenes are presented: `order` lists engine names top-to-bottom, `labels` maps an
  * engine name to the name the user chose to read instead. Both are sparse on purpose — a
  * scene missing from either one simply falls back to the engine's own name and position. */
+/** Un regroupement de scènes par contexte (« LoL », « Interview », « Pause »), basculable
+ * en un clic — la maquette les dessine en onglets au-dessus de la liste. Pure présentation :
+ * une collection ne touche jamais le moteur, elle ne fait que filtrer ce que cet écran
+ * montre parmi les scènes qui existent déjà. */
+export interface SceneCollection {
+  /** Stable même après un renommage — le nom, lui, change librement. */
+  id: string;
+  name: string;
+  sceneNames: string[];
+}
+
 export interface SceneLayout {
   order: string[];
   labels: Record<string, string>;
+  /** Absent tant que l'utilisateur n'a créé aucune collection — l'écran garde alors sa
+   * liste plate d'aujourd'hui (Jay, 2026-09-13 : un bouton « Créer une collection »
+   * plutôt que des onglets vides qui parlent de rien). */
+  collections?: SceneCollection[];
 }
 
 export const EMPTY_LAYOUT: SceneLayout = { order: [], labels: {} };
 
 /** Why a chosen label was refused, or `"ok"`. */
 export type LabelVerdict = "ok" | "empty" | "duplicate";
+
+/** Même règle que `validateLabel`, appliquée aux noms de collection : jamais vide, jamais
+ * le doublon d'une AUTRE collection — deux onglets identiques ne se distingueraient pas. */
+export function validateCollectionName(
+  candidate: string,
+  layout: SceneLayout,
+  excludeId?: string,
+): LabelVerdict {
+  const trimmed = candidate.trim();
+  if (!trimmed) return "empty";
+  const taken = (layout.collections ?? [])
+    .filter((collection) => collection.id !== excludeId)
+    .map((collection) => collection.name);
+  return taken.includes(trimmed) ? "duplicate" : "ok";
+}
+
+/** Ajoute une collection vide. Retourne un layout NEUF — jamais de mutation, même règle
+ * que `moveScene`. */
+export function createCollection(
+  layout: SceneLayout,
+  name: string,
+): SceneLayout {
+  const collection: SceneCollection = {
+    id: crypto.randomUUID(),
+    name: name.trim(),
+    sceneNames: [],
+  };
+  return {
+    ...layout,
+    collections: [...(layout.collections ?? []), collection],
+  };
+}
+
+/** Renomme UNE collection, sans toucher aux autres ni aux scènes qu'elle contient. */
+export function renameCollection(
+  layout: SceneLayout,
+  id: string,
+  name: string,
+): SceneLayout {
+  const collections = (layout.collections ?? []).map((collection) =>
+    collection.id === id ? { ...collection, name: name.trim() } : collection,
+  );
+  return { ...layout, collections };
+}
+
+/** Retire une collection. Les scènes qu'elle groupait continuent d'exister, ordinaires,
+ * visibles dans l'onglet « Toutes » — supprimer un regroupement n'est jamais un retrait. */
+export function deleteCollection(layout: SceneLayout, id: string): SceneLayout {
+  const collections = (layout.collections ?? []).filter(
+    (collection) => collection.id !== id,
+  );
+  return { ...layout, collections };
+}
+
+/** Ajoute la scène à la collection si elle n'y est pas encore, la retire sinon — un seul
+ * geste pour les deux sens, comme une case à cocher. */
+export function toggleSceneInCollection(
+  layout: SceneLayout,
+  collectionId: string,
+  sceneName: string,
+): SceneLayout {
+  const collections = (layout.collections ?? []).map((collection) => {
+    if (collection.id !== collectionId) return collection;
+    const inside = collection.sceneNames.includes(sceneName);
+    return {
+      ...collection,
+      sceneNames: inside
+        ? collection.sceneNames.filter((name) => name !== sceneName)
+        : [...collection.sceneNames, sceneName],
+    };
+  });
+  return { ...layout, collections };
+}
 
 /** Moves `name` one step up or down. Returns a NEW array — never mutates the input, so a
  * React state update is a plain assignment. A scene already at the edge, or absent, yields

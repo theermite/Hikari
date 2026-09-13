@@ -17,6 +17,7 @@ import { SceneRow } from "./SceneRow";
 import { SceneCollections, SceneTransition } from "./SceneSkeleton";
 import {
   EMPTY_LAYOUT,
+  labelFor,
   loadSceneLayout,
   moveScene,
   orderScenes,
@@ -60,6 +61,11 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
    * déroulait tout son contenu en permanence et trois scènes remplissaient le panneau.
    * La scène EN DIRECT s'ouvre d'office — c'est celle qu'on regarde. */
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  /** L'onglet de collection actif — `null` veut dire « Toutes ». Jamais persisté : c'est un
+   * filtre de lecture du moment, pas une décision qui doit survivre à un redémarrage. */
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(
+    null,
+  );
   /** Le champ de creation, pour que le « + » de l'onglet y amene directement le curseur. */
   const newNameInput = useRef<HTMLInputElement>(null);
   /** Vrai pendant le rejeu de la session — empêche de réécrire par-dessus ce qu'on restaure. */
@@ -201,6 +207,17 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
   const ordered =
     state.status === "ready" ? orderScenes(state.scenes, layout) : [];
   const orderedNames = ordered.map((scene) => scene.name);
+  /** La collection active filtre ce qui s'affiche EN DESSOUS des onglets — jamais l'ordre
+   * ni les noms eux-mêmes, qui restent ceux de `ordered`/`orderedNames` pour tout le reste
+   * (réordonner, verrouiller, ajouter une source...). */
+  const activeCollection = (layout.collections ?? []).find(
+    (collection) => collection.id === activeCollectionId,
+  );
+  const visible = activeCollection
+    ? ordered.filter((scene) =>
+        activeCollection.sceneNames.includes(scene.name),
+      )
+    : ordered;
 
   /** Ouvre ou ferme les sources d'une scène. La scène en direct reste ouverte d'office :
    * la refermer cacherait justement ce qu'on est en train de diffuser. */
@@ -224,12 +241,33 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
       {/* Les collections coiffent la liste, comme dans la maquette. Elles n'apparaissent
       qu'une fois le moteur entendu : annoncer un groupement au-dessus de rien ferait un
       panneau qui parle de ce qu'il n'a pas. */}
-      {state.status === "ready" && <SceneCollections />}
+      {state.status === "ready" && (
+        <SceneCollections
+          layout={layout}
+          sceneNames={orderedNames}
+          labelFor={(name) => labelFor(name, layout)}
+          activeId={activeCollectionId}
+          onSelectTab={setActiveCollectionId}
+          onPersist={persist}
+        />
+      )}
+
+      {state.status === "ready" && visible.length === 0 && (
+        <p className="text-hikari-txt-faint">
+          Aucune scène dans « {activeCollection?.name} » — ouvre l'onglet 🏷️ pour
+          en ajouter.
+        </p>
+      )}
 
       {state.status === "ready" && (
         <ul className="flex flex-col gap-1">
-          {ordered.map((scene, index) => {
+          {visible.map((scene) => {
             const live = scene.name === state.active;
+            // La position et le compte viennent de l'ordre GLOBAL, jamais de la vue
+            // filtrée : un filtre par collection montre un sous-ensemble, il ne réordonne
+            // rien. Calculer haut/bas sur `visible` aurait affiché « déjà en haut » à une
+            // scène qui ne l'est pas vraiment parmi toutes les scènes.
+            const index = orderedNames.indexOf(scene.name);
             return (
               <SceneRow
                 key={scene.name}
