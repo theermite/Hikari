@@ -223,6 +223,42 @@ pub async fn fetch_display_name(
     parse_user_display_name(&compte)
 }
 
+/// Le login TECHNIQUE du compte connecté (minuscules, jamais le nom affiché) — c'est ce
+/// nom-là que Twitch attend pour rejoindre son propre salon de chat, pas `display_name`
+/// (chat brick, 2026-09-14). Même source que `parse_user_display_name`, un champ qui y
+/// était déjà lu et jeté.
+pub fn parse_user_login(body: &str) -> Result<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(body).context("réponse Twitch illisible (compte)")?;
+    let login = value
+        .get("data")
+        .and_then(|data| data.get(0))
+        .and_then(|user| user.get("login"))
+        .and_then(|login| login.as_str());
+    match login {
+        Some(login) if !login.is_empty() => Ok(login.to_string()),
+        _ => bail!("Twitch n'a pas rendu le login du compte connecté"),
+    }
+}
+
+/// Le login du compte connecté, et rien d'autre — même schéma que `fetch_display_name`,
+/// pour le moment de la connexion au chat où seul le nom de salon à rejoindre compte.
+pub async fn fetch_login(
+    http: &reqwest::Client,
+    client_id: &str,
+    access_token: &Secret,
+) -> Result<String> {
+    let compte = helix(
+        http,
+        client_id,
+        access_token,
+        "https://api.twitch.tv/helix/users",
+    )
+    .await
+    .context("lecture du compte Twitch")?;
+    parse_user_login(&compte)
+}
+
 /// Un appel à l'interface Twitch, avec les deux en-têtes qu'elle exige. Le corps est rendu
 /// tel quel : la lecture appartient aux fonctions pures ci-dessus, vérifiables sans réseau.
 async fn helix(
@@ -307,6 +343,17 @@ mod tests {
     #[test]
     fn should_read_the_account_id() {
         assert_eq!(parse_user_id(COMPTE).unwrap(), "141981764");
+    }
+
+    #[test]
+    fn should_read_the_account_login() {
+        assert_eq!(parse_user_login(COMPTE).unwrap(), "theermite");
+    }
+
+    #[test]
+    fn should_refuse_an_account_answer_without_a_login() {
+        assert!(parse_user_login(r#"{"data":[]}"#).is_err());
+        assert!(parse_user_login(r#"{"data":[{"login":""}]}"#).is_err());
     }
 
     #[test]

@@ -12,9 +12,10 @@
 //! polls (`wait_for_authorization`) until Twitch reports success — no local callback
 //! server, no redirect URI to register.
 //!
-//! Scope: `channel:read:stream_key` (the one Twitch scope that lets Hikari fetch the
-//! ingest key — verified via the crate's own `Scope::ChannelReadStreamKey` constant,
-//! matching Twitch's documented scope string `channel:read:stream_key`).
+//! Scope: `channel:read:stream_key` (fetches the ingest key) + `chat:read`/`chat:edit`
+//! (chat brick, 2026-09-14 — read and send chat over the same IRC connection) — all three
+//! verified via the crate's own `Scope` constants, matching Twitch's documented scope
+//! strings.
 
 use std::fmt;
 
@@ -59,10 +60,17 @@ impl fmt::Display for TwitchAuthError {
 
 impl std::error::Error for TwitchAuthError {}
 
-/// The one scope Hikari asks for — reading the stream key. Nothing broader (chat, channel
-/// management, etc.) until a feature actually needs it (F-030+ chat integration, later).
+/// The stream key scope, plus chat read/send — widened 2026-09-14 for the chat brick
+/// (Jay: widening OAuth scope so Hikari can manage chat inside the app is the whole point
+/// of owning the cockpit end to end). Still nothing broader than what a shipped feature
+/// uses today: no moderation scope yet (`channel:moderate` / `moderator:manage:banned_users`
+/// wait for the moderation increment).
 fn required_scopes() -> Vec<Scope> {
-    vec![Scope::ChannelReadStreamKey]
+    vec![
+        Scope::ChannelReadStreamKey,
+        Scope::ChatRead,
+        Scope::ChatEdit,
+    ]
 }
 
 /// What the UI shows the user to complete authorization: a code to type and the page to
@@ -173,11 +181,19 @@ mod tests {
     // (extrait le 2026-09-09 pour que YouTube l'utilise aussi).
 
     #[test]
-    fn should_request_only_the_stream_key_scope() {
-        // Hikari asks for the minimum scope it needs today — a regression guard: if a
-        // future change silently widens this (e.g. adding chat scopes without deciding
-        // to), this test catches it. Widening scope is a deliberate choice, not a drift.
+    fn should_request_stream_key_and_chat_scopes() {
+        // Hikari asks for exactly the scopes it needs today — a regression guard: if a
+        // future change silently widens this further (e.g. moderation scopes without
+        // deciding to), this test catches it. Widening scope is a deliberate choice, not
+        // a drift — this one was made 2026-09-14 for the chat brick.
         let scopes = required_scopes();
-        assert_eq!(scopes, vec![Scope::ChannelReadStreamKey]);
+        assert_eq!(
+            scopes,
+            vec![
+                Scope::ChannelReadStreamKey,
+                Scope::ChatRead,
+                Scope::ChatEdit,
+            ]
+        );
     }
 }

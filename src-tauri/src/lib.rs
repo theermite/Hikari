@@ -5,6 +5,7 @@ pub mod accounts;
 pub mod bandwidth;
 pub mod broadcast_target;
 pub mod camera_bridge;
+pub mod chat;
 pub mod commands;
 pub mod deck_bridge;
 pub mod encoding_settings;
@@ -27,10 +28,14 @@ pub fn run() {
     tauri::Builder::default()
         .manage(deck_bridge::DeckState::default())
         .manage(engine_lifecycle::EngineState::default())
+        .manage(chat::ChatState::default())
         .invoke_handler(tauri::generate_handler![
             commands::connect_twitch,
             commands::connect_youtube,
             commands::account_status,
+            chat::chat_connect,
+            chat::chat_send,
+            chat::chat_disconnect,
             deck_bridge::deck_list_keys,
             deck_bridge::deck_trigger_key,
             preflight_bridge::run_preflight,

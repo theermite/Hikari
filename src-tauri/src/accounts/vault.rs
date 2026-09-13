@@ -15,7 +15,12 @@ use keyring::Entry;
 
 /// The streaming platforms Hikari can connect an account to. Closed by design — adding a
 /// platform is a code change, never a runtime string.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// `Serialize` (added for the chat brick, 2026-09-14) so a `ChatMessage` can tag its
+/// origin crossing to the frontend — `rename_all = "lowercase"` so the wire value is
+/// `"twitch"`/`"youtube"`, never the Rust variant casing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Platform {
     Twitch,
     YouTube,
@@ -337,6 +342,20 @@ mod tests {
     #[test]
     fn should_use_distinct_vault_keys_per_platform() {
         assert_ne!(Platform::Twitch.vault_key(), Platform::YouTube.vault_key());
+    }
+
+    #[test]
+    fn should_serialize_platform_in_lowercase() {
+        // The frontend matches on these exact strings (`ChatMessage.platform`) — a casing
+        // drift here silently breaks the chat filter/color-coding on the other side.
+        assert_eq!(
+            serde_json::to_string(&Platform::Twitch).unwrap(),
+            "\"twitch\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Platform::YouTube).unwrap(),
+            "\"youtube\""
+        );
     }
 
     // `merge_refreshed` est partagé entre toutes les plateformes (extrait de `twitch.rs` le
