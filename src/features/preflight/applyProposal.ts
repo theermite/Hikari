@@ -5,8 +5,7 @@
 
 import {
   type CompositionChoice,
-  loadEncodingSettings,
-  saveEncodingSettings,
+  patchEncodingSettings,
 } from "../settings/encodingSettings";
 
 /** Le réglage proposé, mis en forme comme `EncodingSettingsPanel.tsx` sait déjà le lire —
@@ -28,9 +27,11 @@ export async function applyProposedComposition(composition: {
   height: number;
   fps: number;
 }): Promise<void> {
-  const current = await loadEncodingSettings();
-  await saveEncodingSettings({
-    ...current,
+  // `patchEncodingSettings` relit le store au lieu de partir d'un état déjà en main —
+  // l'écran Paramètres peut rester ouvert pendant qu'on applique depuis ici (`LiveBar` est
+  // montée sur tous les écrans), et repartir d'un état périmé effacerait ce que l'autre
+  // écran vient d'écrire (relecture indépendante, 2026-09-13).
+  await patchEncodingSettings({
     composition: toCompositionChoice(composition),
     bitrateKbps: "auto",
   });

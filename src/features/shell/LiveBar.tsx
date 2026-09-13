@@ -301,7 +301,8 @@ export function LiveBar() {
                 {proposed ? (
                   <span className="text-hikari-txt-dim">
                     Réglage suggéré : {proposed.width}×{proposed.height}{" "}
-                    {proposed.fps} i/s.{" "}
+                    {proposed.fps} i/s (~
+                    {preflightWarning.proposed_bitrate_kbps} kbit/s).{" "}
                     {applied ? (
                       "Appliqué — tiendra au prochain lancement du moteur."
                     ) : (

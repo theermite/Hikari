@@ -68,3 +68,19 @@ export async function saveEncodingSettings(
   const store = await getStore();
   await store.set(SETTINGS_KEY, settings);
 }
+
+/** Pose SEULEMENT les champs donnés, en relisant le store juste avant d'écrire — jamais
+ * depuis un état local chargé une fois au montage. Deux écrans peuvent écrire ce même
+ * fichier pendant qu'un troisième reste ouvert (la bannière de "Démarrer" applique un
+ * réglage pendant que l'écran Paramètres, resté monté, tient encore l'ancien) : réécrire
+ * l'objet ENTIER depuis cet état périmé effaçait silencieusement ce que l'autre écrivain
+ * venait de poser (relecture indépendante, 2026-09-13). Rend le résultat fusionné, pour
+ * qu'un écran qui l'utilise tienne son propre état à jour sans le redemander séparément. */
+export async function patchEncodingSettings(
+  over: Partial<EncodingSettings>,
+): Promise<EncodingSettings> {
+  const current = await loadEncodingSettings();
+  const next = { ...current, ...over };
+  await saveEncodingSettings(next);
+  return next;
+}

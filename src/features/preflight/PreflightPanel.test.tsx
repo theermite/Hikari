@@ -20,16 +20,17 @@ import { PreflightPanel } from "./PreflightPanel";
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
-const loadMock = vi.hoisted(() => vi.fn());
-const saveMock = vi.hoisted(() => vi.fn());
+// `patchEncodingSettings` (relit le store avant d'écrire, corrigé après relecture
+// indépendante 2026-09-13) est déjà testée en propre côté `encodingSettings.test.ts` —
+// ici on ne vérifie que l'appel, pas la fusion elle-même.
+const patchMock = vi.hoisted(() => vi.fn());
 vi.mock("../settings/encodingSettings", async () => {
   const actual = await vi.importActual<
     typeof import("../settings/encodingSettings")
   >("../settings/encodingSettings");
   return {
     ...actual,
-    loadEncodingSettings: loadMock,
-    saveEncodingSettings: saveMock,
+    patchEncodingSettings: patchMock,
   };
 });
 
@@ -37,8 +38,8 @@ const panelProps = {} as IDockviewPanelProps;
 
 beforeEach(() => {
   invokeMock.mockReset();
-  loadMock.mockReset();
-  saveMock.mockReset();
+  patchMock.mockReset();
+  patchMock.mockResolvedValue(undefined);
 });
 
 afterEach(cleanup);
@@ -54,25 +55,16 @@ describe("PreflightPanel", () => {
       proposed_composition: { width: 854, height: 480, fps: 30 },
       proposed_bitrate_kbps: 1500,
     });
-    // Un débit manuel déjà posé (l'écran né du direct à 65 % d'images perdues) — c'est
-    // exactement le cas que le défaut laissait intact.
-    loadMock.mockResolvedValue({
-      composition: "auto",
-      encoder: "auto",
-      bitrateKbps: "8000",
-    });
 
     render(<PreflightPanel {...panelProps} />);
     fireEvent.click(screen.getByText("Lancer la vérification"));
     await waitFor(() => screen.getByText("Appliquer"));
     fireEvent.click(screen.getByText("Appliquer"));
 
-    await waitFor(() => expect(saveMock).toHaveBeenCalled());
-    expect(saveMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        composition: "854x480@30",
-        bitrateKbps: "auto",
-      }),
-    );
+    await waitFor(() => expect(patchMock).toHaveBeenCalled());
+    expect(patchMock).toHaveBeenCalledWith({
+      composition: "854x480@30",
+      bitrateKbps: "auto",
+    });
   });
 });

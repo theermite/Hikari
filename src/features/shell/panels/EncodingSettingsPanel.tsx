@@ -17,7 +17,7 @@ import {
   type EncoderChoice,
   type EncodingSettings,
   loadEncodingSettings,
-  saveEncodingSettings,
+  patchEncodingSettings,
 } from "../../settings/encodingSettings";
 
 const COMPOSITION_CHOICES: { value: CompositionChoice; label: string }[] = [
@@ -77,9 +77,11 @@ export function EncodingSettingsPanel(_props: IDockviewPanelProps) {
   }, []);
 
   const update = (over: Partial<EncodingSettings>) => {
-    const next = { ...settings, ...over };
-    setSettings(next);
-    void saveEncodingSettings(next);
+    // `patchEncodingSettings` relit le store au lieu de repartir de `settings` (chargé une
+    // fois au montage) — un autre écran (la bannière de "Démarrer", toujours montée,
+    // `LiveBar.tsx`) peut avoir écrit pendant que cet écran restait ouvert. Repartir de
+    // `settings` effacerait cette écriture en silence (relecture indépendante, 2026-09-13).
+    patchEncodingSettings(over).then(setSettings);
   };
 
   // Rien à afficher avant la première lecture : montrer "Auto" un instant, puis basculer
