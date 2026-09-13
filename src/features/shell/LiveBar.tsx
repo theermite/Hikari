@@ -75,6 +75,7 @@ export function LiveBar() {
   const [checking, setChecking] = useState(false);
   const [preflightWarning, setPreflightWarning] =
     useState<PreflightOutcome | null>(null);
+  const [applied, setApplied] = useState(false);
   /** Une référence et non l'état : l'écoute du moteur est posée une seule fois et
    * garderait sinon la valeur du premier rendu, c'est-à-dire `false` pour toujours. */
   const pendingRef = useRef(false);
@@ -166,6 +167,7 @@ export function LiveBar() {
     // ouvre une bannière informée, jamais un blocage silencieux du bouton.
     setError(null);
     setPreflightWarning(null);
+    setApplied(false);
     setChecking(true);
     try {
       const outcome = await runPreflight();
@@ -186,14 +188,19 @@ export function LiveBar() {
     await startNow();
   }
 
-  async function applyAndStart(composition: {
+  async function applyForNextTime(composition: {
     width: number;
     height: number;
     fps: number;
   }) {
+    // Écrit le réglage, jamais le direct en cours : le moteur ne relit ses réglages
+    // d'encodage qu'à SON propre démarrage (ADR-013, `encoding_settings.rs`), déjà en
+    // route au moment où "Démarrer" devient cliquable (l'Aperçu l'a lancé). L'appliquer
+    // ici ne changerait rien à ce direct — un bouton "et diffuser" l'aurait pourtant
+    // laissé croire (relecture indépendante, 2026-09-13). On informe, sans mentir sur
+    // l'effet : le réglage tiendra au prochain lancement du moteur.
     await applyProposedComposition(composition);
-    setPreflightWarning(null);
-    await startNow();
+    setApplied(true);
   }
 
   // Calculés à chaque rendu et non stockés : ce sont des fonctions de `dropped` et
@@ -292,14 +299,21 @@ export function LiveBar() {
                   ⚠️ {preflightWarning.reason}
                 </span>
                 {proposed ? (
-                  <button
-                    type="button"
-                    onClick={() => applyAndStart(proposed)}
-                    className="underline text-hikari-txt-dim hover:text-hikari-txt"
-                  >
-                    Appliquer {proposed.width}×{proposed.height} {proposed.fps}{" "}
-                    i/s et diffuser
-                  </button>
+                  <span className="text-hikari-txt-dim">
+                    Réglage suggéré : {proposed.width}×{proposed.height}{" "}
+                    {proposed.fps} i/s.{" "}
+                    {applied ? (
+                      "Appliqué — tiendra au prochain lancement du moteur."
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => applyForNextTime(proposed)}
+                        className="underline hover:text-hikari-txt"
+                      >
+                        Appliquer pour le prochain lancement
+                      </button>
+                    )}
+                  </span>
                 ) : null}
                 <button
                   type="button"

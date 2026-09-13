@@ -28,7 +28,7 @@ const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
 // Déjà testé en détail côté `PreflightPanel.test.tsx` (l'écriture du réglage) — ici on ne
-// vérifie que l'ENCHAÎNEMENT (appliquer, puis diffuser), pas l'écriture elle-même.
+// vérifie que l'appel, pas l'écriture elle-même.
 const applyProposedCompositionMock = vi.hoisted(() => vi.fn());
 vi.mock("../preflight/applyProposal", () => ({
   applyProposedComposition: applyProposedCompositionMock,
@@ -175,7 +175,12 @@ describe("LiveBar", () => {
     );
   });
 
-  it("should_apply_the_suggested_setting_and_start_when_the_user_chooses_it", async () => {
+  it("should_apply_the_suggested_setting_for_next_time_without_starting_now", async () => {
+    // Relecture indépendante (2026-09-13) : le moteur déjà lancé (l'Aperçu l'a démarré)
+    // ne relit ses réglages d'encodage qu'à SON propre démarrage (ADR-013) — appliquer
+    // ici ne change rien au direct qui partirait tout de suite. « et diffuser » l'aurait
+    // pourtant laissé croire. Le bouton dit maintenant ce qu'il fait vraiment : appliquer
+    // pour le PROCHAIN lancement, jamais démarrer ce direct-ci.
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "run_preflight") {
         return Promise.resolve({
@@ -194,7 +199,9 @@ describe("LiveBar", () => {
     await userEvent.click(
       await screen.findByRole("button", { name: /démarrer/i }),
     );
-    const applyButton = await screen.findByText(/appliquer.*et diffuser/i);
+    const applyButton = await screen.findByText(
+      /appliquer pour le prochain lancement/i,
+    );
 
     await userEvent.click(applyButton);
 
@@ -203,9 +210,11 @@ describe("LiveBar", () => {
       height: 720,
       fps: 60,
     });
-    await waitFor(() =>
-      expect(invokeMock).toHaveBeenCalledWith("start_stream"),
-    );
+    expect(
+      await screen.findByText(/prochain lancement du moteur/i),
+    ).toBeTruthy();
+    expect(invokeMock).not.toHaveBeenCalledWith("start_stream");
+    expect(screen.queryByText(/en direct/i)).toBeNull();
   });
 
   it("should_ask_again_without_starting_when_the_user_cancels_the_warning", async () => {
