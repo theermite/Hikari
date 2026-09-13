@@ -192,6 +192,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     removeFromScene,
     toggleLock,
     toggleVisible,
+    restartCameraInScene,
   } = useSceneActions(setActionError, layout, persist, setConfirmingDelete);
 
   const reorder = (
@@ -293,6 +294,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
                 onToggleLock={toggleLock}
                 onToggleVisible={toggleVisible}
                 onRemoveFromScene={removeFromScene}
+                onRestartCamera={restartCameraInScene}
                 onOpenSettings={(sceneName, source) => {
                   const initial =
                     source.source_kind === "text"

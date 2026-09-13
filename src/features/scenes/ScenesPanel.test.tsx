@@ -391,6 +391,77 @@ describe("ScenesPanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("should_restart_a_camera_in_one_click_from_its_row_without_opening_settings", async () => {
+    // Jay, 2026-09-13, après avoir testé un vrai débranchement : « j'ai dû aller dans les
+    // réglages et cliquer sur le bouton relancer [...] mets le en icône, à côté du nom, un
+    // clic en moins ». Le bouton existant dans les réglages reste ; celui-ci l'ajoute sur
+    // la ligne elle-même, sans détour par la fenêtre séparée.
+    const user = userEvent.setup();
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([
+      scene({
+        name: "main",
+        has_camera: true,
+        sources: [
+          {
+            name: "Logitech StreamCam",
+            kind: "dshow_input",
+            source_kind: "camera",
+            target_id: "cam-1",
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            background_removal: false,
+            mask_shape: NO_MASK,
+            visible: true,
+          },
+        ],
+      }),
+    ]);
+
+    await user.click(
+      screen.getByRole("button", { name: /Relancer Logitech StreamCam/ }),
+    );
+
+    expect(invokeMock).toHaveBeenCalledWith("restart_camera", {
+      deviceId: "cam-1",
+    });
+    // Le geste reste local à la ligne — aucune fenêtre de réglages ne s'ouvre.
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "open_settings_window",
+      expect.anything(),
+    );
+  });
+
+  it("should_not_offer_the_restart_icon_on_a_non_camera_source", async () => {
+    render(<ScenesPanel {...({} as IDockviewPanelProps)} />);
+    ready([
+      scene({
+        name: "main",
+        sources: [
+          {
+            name: "Fond-Sunny",
+            kind: "monitor_capture",
+            source_kind: "monitor",
+            target_id: "0",
+            x: 0,
+            y: 0,
+            scale_percent: 100,
+            locked: false,
+            background_removal: false,
+            mask_shape: NO_MASK,
+            visible: true,
+          },
+        ],
+      }),
+    ]);
+
+    expect(
+      screen.queryByRole("button", { name: /Relancer Fond-Sunny/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it("should_ouvrir_ou_focaliser_la_meme_fenetre_a_chaque_clic", async () => {
     // Plus de repli local à fermer/rouvrir : chaque clic redemande l'ouverture, et c'est
     // la commande côté Rust qui décide de créer une fenêtre ou de focaliser celle qui

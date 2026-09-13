@@ -6,6 +6,7 @@
 // message suivant. Un cadenas ou un œil qui changerait tout de suite mentirait si la
 // commande échouait.
 
+import { restartCamera } from "../camera/api";
 import {
   deleteScene,
   removeSource,
@@ -77,6 +78,15 @@ export function useSceneActions(
     );
   };
 
+  // Un clic depuis la ligne elle-même (Jay, 2026-09-13, après un débranchement réel) —
+  // jamais besoin de passer par la fenêtre de réglages pour ce seul geste.
+  const restartCameraInScene = (deviceId: string) => {
+    setActionError(null);
+    restartCamera(deviceId).catch((error: unknown) =>
+      setActionError(String(error)),
+    );
+  };
+
   return {
     activate,
     confirmDelete,
@@ -84,5 +94,6 @@ export function useSceneActions(
     removeFromScene,
     toggleLock,
     toggleVisible,
+    restartCameraInScene,
   };
 }

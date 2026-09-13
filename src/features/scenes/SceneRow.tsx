@@ -75,6 +75,9 @@ interface SceneRowProps {
   /** Montre ou cache une source sans la retirer — l'œil de la maquette. */
   onToggleVisible: (scene: string, name: string, visible: boolean) => void;
   onRemoveFromScene: (scene: string, name: string) => void;
+  /** Relance l'appareil derrière une caméra — icône sur la ligne, un clic de moins que
+   * passer par ses réglages (Jay, 2026-09-13, après un débranchement réel testé en direct). */
+  onRestartCamera: (deviceId: string) => void;
   /** Ouvre — ou referme — les réglages de CETTE source. Le même bouton pour toutes : une
    * caméra n'a plus son panneau à part (Jay, 2026-09-06). */
   onOpenSettings: (scene: string, source: SceneSourceInfo) => void;
@@ -109,6 +112,7 @@ export function SceneRow({
   onToggleLock,
   onToggleVisible,
   onRemoveFromScene,
+  onRestartCamera,
   onOpenSettings,
   onAddSource,
   onRequestDelete,
@@ -225,6 +229,17 @@ export function SceneRow({
                   >
                     {SOURCE_ICON[item.kind] ?? "▪"} {item.name}
                   </span>
+                  {item.source_kind === "camera" && (
+                    <button
+                      type="button"
+                      onClick={() => onRestartCamera(item.target_id)}
+                      aria-label={`Relancer ${item.name}`}
+                      title={`Relancer ${item.name} — utile si l'image s'est figée`}
+                      className="px-1 text-hikari-txt-faint transition hover:text-hikari-accent"
+                    >
+                      ↻
+                    </button>
+                  )}
                   <span className="flex shrink-0 items-center gap-0.5">
                     <OrderButton
                       label={`Mettre ${item.name} devant`}
