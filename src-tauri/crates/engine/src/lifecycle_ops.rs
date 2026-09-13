@@ -179,6 +179,7 @@ impl App {
             hidden: std::collections::HashSet::new(),
             scene_filter_state: std::collections::HashMap::new(),
             mask_retry_pending: std::collections::HashMap::new(),
+            camera_health: std::collections::HashMap::new(),
             active_scene: "main".to_string(),
             item_rects: None,
             pending_item_rects: Vec::new(),

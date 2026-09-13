@@ -211,6 +211,7 @@ impl App {
         if !still_shown {
             // La prochaine caméra peut être un autre appareil, avec sa propre définition.
             if let Some(closed) = obs.cameras.remove(&device_id) {
+                obs.camera_health.remove(&device_id);
                 obs.sources.retain(|source| source.name != closed.name);
                 emit(&EngineMessage::Sources {
                     items: obs.sources.clone(),
@@ -377,6 +378,7 @@ impl App {
         }
         for device_id in orphans {
             if let Some(closed) = obs.cameras.remove(&device_id) {
+                obs.camera_health.remove(&device_id);
                 obs.sources.retain(|source| source.name != closed.name);
             }
         }

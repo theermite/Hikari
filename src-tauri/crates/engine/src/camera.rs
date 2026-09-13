@@ -189,6 +189,36 @@ unsafe fn set_active(source: *mut libobs::obs_source_t, active: bool) -> Result<
     Ok(())
 }
 
+/// L'horodatage de la dernière image async que `source` a rendue (2026-09-13, caméra qui
+/// décroche) — `None` tant qu'aucune image n'a encore été décodée (une caméra qui vient de
+/// s'ouvrir), jamais une erreur : c'est un état normal que `camera_watchdog::sample_frame`
+/// sait déjà lire.
+///
+/// `libobs-wrapper` 9.0.4 n'expose aucun accès à la trame async courante (vérifié dans sa
+/// source, 2026-08-04, même limite déjà rencontrée pour la taille — voir
+/// `source_base_size`) : appel brut d'`obs_source_get_frame`, le seul chemin que libobs
+/// documente pour « la trame async actuelle » (`obs.h`, vérifié 2026-09-13). Chaque appel
+/// réussi DOIT être suivi d'`obs_source_release_frame` — la fonction incrémente un compteur
+/// de références à chaque lecture, et l'omettre fuirait une trame par tick.
+pub fn frame_timestamp(source: &ObsSourceRef) -> Result<Option<u64>> {
+    let runtime = source.runtime().clone();
+    let ptr = source.as_ptr();
+    runtime
+        .run_with_obs_result(move || unsafe {
+            // Safety: source_ptr vient d'une valeur VIVANTE dont nous tenons une référence,
+            // et nous sommes sur le fil OBS — même argument que `restart_camera`.
+            let raw = ptr.get_ptr();
+            let frame = libobs::obs_source_get_frame(raw);
+            if frame.is_null() {
+                return None;
+            }
+            let timestamp = (*frame).timestamp;
+            libobs::obs_source_release_frame(raw, frame);
+            Some(timestamp)
+        })
+        .context("lecture horodatage caméra")
+}
+
 /// Adds the ALREADY-BUILT camera `source` to `scene_name` as a new scene item — reuses the
 /// source already open for that device (never builds a second `dshow_input` on the SAME
 /// device, which would reopen it and risk the driver rejecting a 2nd concurrent capture).

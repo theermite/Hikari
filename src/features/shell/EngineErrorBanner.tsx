@@ -19,6 +19,7 @@ interface EngineMessage {
   type: string;
   message?: string;
   id?: string;
+  name?: string;
 }
 
 /** Le refus affiché. `seq` distingue deux refus au texte IDENTIQUE : sans lui, refaire le
@@ -54,6 +55,16 @@ export function EngineErrorBanner() {
       if (msg.type === "platform_error" && msg.message) {
         seq += 1;
         setRefusal({ text: `${msg.id ?? "plateforme"} — ${msg.message}`, seq });
+      }
+      // Une caméra figée relancée toute seule (2026-09-13) — une INFORMATION, jamais un
+      // refus : rien n'a échoué, le moteur vient de faire le geste que Jay faisait à la
+      // main pendant un direct.
+      if (msg.type === "camera_auto_restarted") {
+        noticeSeq += 1;
+        setNotice({
+          text: `Caméra « ${msg.name ?? "inconnue"} » figée — relancée automatiquement.`,
+          seq: noticeSeq,
+        });
       }
     });
     return () => {

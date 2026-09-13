@@ -23,6 +23,7 @@ pub(crate) fn run() -> Result<()> {
         multistream_last_stats_at: Instant::now(),
         audio_last_levels_at: Instant::now(),
         mask_retry_last_at: Instant::now(),
+        camera_watchdog_last_at: Instant::now(),
         cursor: None,
         fitted: (PREVIEW_START_WIDTH, PREVIEW_START_HEIGHT),
         drag: None,

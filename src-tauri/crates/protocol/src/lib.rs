@@ -20,6 +20,7 @@
 
 pub mod audio;
 pub mod broadcast;
+pub mod camera_watchdog;
 pub mod encoding;
 pub mod engine_log;
 pub mod geometry;
@@ -31,6 +32,7 @@ pub mod sources;
 pub mod wire;
 
 pub use audio::*;
+pub use camera_watchdog::*;
 pub use broadcast::*;
 pub use encoding::*;
 pub use engine_log::*;

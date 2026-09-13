@@ -12,7 +12,8 @@ use winit::window::WindowId;
 use crate::multistream::report_platform_frame_stats;
 use crate::stream::{report_frame_stats, FRAME_STATS_INTERVAL};
 use crate::{
-    emit, fit_size, App, EngineEvent, AUDIO_LEVEL_INTERVAL, CAMERA_SLIDE_TICK, MASK_RETRY_TICK,
+    emit, fit_size, App, EngineEvent, AUDIO_LEVEL_INTERVAL, CAMERA_SLIDE_TICK,
+    CAMERA_WATCHDOG_TICK, MASK_RETRY_TICK,
 };
 use hikari_protocol::EngineMessage;
 
@@ -171,6 +172,7 @@ impl ApplicationHandler<EngineEvent> for App {
             .obs
             .as_ref()
             .is_some_and(|obs| !obs.mask_retry_pending.is_empty());
+        let has_cameras = self.obs.as_ref().is_some_and(|obs| !obs.cameras.is_empty());
         if has_slide {
             self.advance_camera_slide();
         }
@@ -178,11 +180,16 @@ impl ApplicationHandler<EngineEvent> for App {
             self.retry_pending_masks();
             self.mask_retry_last_at = Instant::now();
         }
+        if has_cameras && self.camera_watchdog_last_at.elapsed() >= CAMERA_WATCHDOG_TICK {
+            self.check_camera_health();
+            self.camera_watchdog_last_at = Instant::now();
+        }
         if self.stream.is_none()
             && self.multistream.is_empty()
             && !has_audio
             && !has_slide
             && !has_mask_retry
+            && !has_cameras
         {
             event_loop.set_control_flow(ControlFlow::Wait);
             return;
@@ -212,14 +219,17 @@ impl ApplicationHandler<EngineEvent> for App {
         }
         // Wake on the SHORTEST pending deadline: a glide in flight is far more frequent
         // than the audio meter, which is itself far more frequent than a mask retry, which
-        // is itself far more frequent than the frame counters — sleeping for a longer one
-        // would make the faster one visibly stutter.
+        // is itself far more frequent than the camera watchdog, which is itself far more
+        // frequent than the frame counters — sleeping for a longer one would make the
+        // faster one visibly stutter.
         let next = if has_slide {
             CAMERA_SLIDE_TICK
         } else if has_audio {
             AUDIO_LEVEL_INTERVAL
         } else if has_mask_retry {
             MASK_RETRY_TICK
+        } else if has_cameras {
+            CAMERA_WATCHDOG_TICK
         } else {
             FRAME_STATS_INTERVAL
         };

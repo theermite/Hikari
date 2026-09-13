@@ -159,6 +159,24 @@ describe("EngineErrorBanner", () => {
     expect(alert.textContent).not.toContain("refusé");
   });
 
+  it("should_show_a_neutral_notice_when_a_frozen_camera_was_auto_restarted", async () => {
+    // 2026-09-13 — le moteur vient de faire, tout seul, le geste que Jay faisait à la main
+    // pendant un direct de 1 h 51. Rien n'a échoué : ce n'est pas un refus.
+    render(<EngineErrorBanner />);
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+
+    emit({
+      type: "camera_auto_restarted",
+      device_id: "usb#vid_1234",
+      name: "Logitech Brio",
+    });
+
+    const status = screen.getByRole("status");
+    expect(status.textContent).toContain("Logitech Brio");
+    expect(status.textContent).toContain("relancée automatiquement");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("should_keep_showing_a_refusal_over_a_notice", async () => {
     // Un refus est plus urgent qu'une information : si les deux arrivent, c'est le refus
     // que l'utilisateur doit lire.

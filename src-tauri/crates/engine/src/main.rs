@@ -26,6 +26,7 @@ mod bootstrap;
 mod camera;
 mod camera_ops;
 mod camera_slide_ops;
+mod camera_watchdog_ops;
 mod drag_ops;
 mod event_loop;
 mod events;
@@ -88,6 +89,13 @@ const MASK_RETRY_TICK: std::time::Duration = std::time::Duration::from_millis(25
 /// avance quoi qu'il arrive — voir `hikari_protocol::decide_mask_retry`). 10 s, largement
 /// au-delà du temps de démarrage normal d'une caméra.
 const MASK_RETRY_MAX_AGE: std::time::Duration = std::time::Duration::from_secs(10);
+/// À quelle cadence chaque caméra ouverte est contrôlée (2026-09-13, caméra qui décroche —
+/// voir `hikari_protocol::camera_watchdog`). Jay a validé la fenêtre : « je pense que 3 à
+/// 6 secondes pour une caméra, c'est ok » — à ce tick, `STALE_SAMPLES_BEFORE_RESTART` (2)
+/// lectures figées de suite couvrent exactement 3 à 6 s selon où le gel tombe dans le tick
+/// en cours. Pas plus rapide : un contrôle appelle `obs_source_get_frame` sur le fil OBS
+/// pour chaque caméra ouverte, un coût qui n'a aucune raison de rivaliser avec le rendu.
+const CAMERA_WATCHDOG_TICK: std::time::Duration = std::time::Duration::from_secs(3);
 
 /// Emit one protocol message as a single JSON line on stdout. A serialization failure is
 /// reported on stderr rather than swallowed (it must never crash the engine). `pub(crate)`
@@ -212,6 +220,10 @@ struct ObsInner {
     /// `hikari_protocol::confirm_camera_size`).
     mask_retry_pending:
         std::collections::HashMap<(String, String), crate::mask_retry_ops::MaskWait>,
+    /// L'état de santé de chaque caméra OUVERTE, par appareil — jamais par (scène, appareil)
+    /// comme `camera_items` : l'appareil est ce qui décroche, et toutes les scènes qui le
+    /// montrent gèlent ensemble (2026-09-13). Voir `camera_watchdog_ops::check_camera_health`.
+    camera_health: std::collections::HashMap<String, crate::camera_watchdog_ops::CameraHealth>,
     /// The scene currently live on the output channel (multi-scene, tranche 1) — libobs
     /// exposes no "which scene is on this channel" getter, so this is the one piece of
     /// state the engine must track itself rather than read back.
@@ -395,6 +407,9 @@ struct App {
     /// pas retenter à chaque battement d'un glissement de caméra en vol si les deux
     /// coïncident.
     mask_retry_last_at: std::time::Instant,
+    /// Le dernier contrôle de santé des caméras ouvertes (2026-09-13) — sa propre cadence,
+    /// beaucoup plus lente que `mask_retry_last_at`.
+    camera_watchdog_last_at: std::time::Instant,
     /// Last known cursor position in the preview window, in physical pixels. winit reports
     /// press/release WITHOUT coordinates, so the position has to be remembered from the
     /// preceding move event.

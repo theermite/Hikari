@@ -245,7 +245,7 @@ project: Hikari Stream
 |---|---|---|---|
 | **B-pack** | **Installation unique** : empaquetage Tauri + moteur OBS embarqué + première ouverture sur machine vierge (F-001) | **Sensible** | ✅ **prouvée à l'écran 2026-09-05** — installation par utilisateur (le mode « pour tous » échouait en 1603, et interdisait la mise à jour sans mot de passe) |
 | **B-maj** *(hors numérotation PET — née de B-pack)* | Mises à jour reçues dans l'app : bandeau, bouton, redémarrage · canal privé signé · publication en une commande | Sensible | ✅ **prouvée de bout en bout 2026-09-05** : 0.2.0 → 0.3.0 reçue et installée |
-| **B-ui socle** *(hors numérotation PET)* | Pièces communes d'interface + costume de la maquette (îlots, fond, icônes) + répartition + barre du direct | Standard | 🟧 **prouvée à l'écran 2026-09-05**, réexaminée point par point le 2026-09-10 : en-têtes de cartes, ligne Transition et œil montrer/cacher sont en réalité déjà faits ; formes d'onde animées jugées inutiles par Jay (la barre de niveau simple suffit) · **reste seulement** le regroupement des scènes en collections (rien ne le porte côté moteur) |
+| **B-ui socle** *(hors numérotation PET)* | Pièces communes d'interface + costume de la maquette (îlots, fond, icônes) + répartition + barre du direct | Standard | ✅ **prouvée à l'écran 2026-09-13** : collections de scènes (onglets basculables en 1 clic, bouton de création tant qu'aucune n'existe — décision Jay) livrées et vérifiées sur sa session réelle. Aligner l'application sur la maquette est fermé. |
 
 ### Phase P11 — Copilote IA (fin de feuille de route, décision de Jay 2026-09-09)
 
@@ -266,9 +266,9 @@ ont été arbitrées en le faisant, et la trace de l'arbitrage vaut autant que l
 
 | # | Sujet | Brique |
 |---|---|---|
-| 1 | Aligner l'application sur la maquette | B-ui socle (reste) |
+| 1 | Aligner l'application sur la maquette | ✅ **fermée 2026-09-13** (B-ui socle) |
 | 2 | Réglages d'encodage — mesurer la machine et la connexion, **proposer** une définition, une cadence et un débit qui tiennent | ✅ **fermée 2026-09-13** : réglages manuels (résolution/cadence/encodeur/débit, Paramètres) · zoom d'aperçu au changement de résolution corrigé (canevas et résolution de sortie séparés) · pré-vol qui PROPOSE le meilleur palier tenable + bouton Appliquer · **Démarrer lance le pré-vol et informe sans jamais bloquer** (décision Jay : « laisser le choix à l'utilisateur, au moins il était au courant du risque » — bannière avec « Diffuser quand même » et « Appliquer pour le prochain lancement », jamais « et diffuser » : le moteur déjà lancé ne relit ses réglages qu'à son propre démarrage). **Connu et accepté pour ce soir** : tant que le moteur n'est pas relancé, le pré-vol d'un second « Démarrer » juge sur le réglage FICHIER, pas sur ce que le moteur vivant encode réellement — voir note de projet. |
-| 3 | **La caméra qui décroche se relève** — détecter une source qui ne délivre plus, la relancer | **brique neuve** |
+| 3 | **La caméra qui décroche se relève** — détecter une source qui ne délivre plus, la relancer | 🟧 **codée 2026-09-13, pas encore prouvée à l'écran** : contrôle de santé toutes les 3 s sur chaque caméra ouverte (horodatage de sa dernière image, `obs_source_get_frame`), relance automatique après 2 lectures figées de suite (~3-6 s, seuil validé par Jay), message informatif « relancée automatiquement » (jamais un refus). Reste à observer sur une VRAIE caméra qui décroche en vrai — aucun geste ne simule un décrochage matériel réel. |
 | 4 | Le moteur se ferme avec la fenêtre | dette |
 | 5 | Automations — l'écran pour les composer | B-auto (interface) |
 | 6 | Scènes — transitions, mouvements automatiques | B7 (reste) |

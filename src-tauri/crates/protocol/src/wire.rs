@@ -107,6 +107,12 @@ pub enum EngineMessage {
         windows: Vec<CaptureTarget>,
         monitors: Vec<CaptureTarget>,
     },
+    /// Une caméra a été relancée TOUTE SEULE (2026-09-13) — `camera_watchdog::sample_frame`
+    /// l'a trouvée figée deux tours de suite (~6 s) et `RestartCamera` a déjà réparé le
+    /// geste avant que ce message ne parte. Jamais une `Error` : rien n'a été refusé, le
+    /// moteur vient de faire pour Jay le geste qu'il faisait lui-même à la main pendant un
+    /// direct (« je l'ai retirée de la scène et remise »).
+    CameraAutoRestarted { device_id: String, name: String },
 }
 
 /// Commands the controller sends to the engine (controller -> engine), one per line.
