@@ -206,7 +206,7 @@ project: Hikari Stream
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
 | B9 | Détection matériel + réglage sûr + wizard + **presets de scènes** + pré-vol + feu vert (F-002, F-003, F-005, F-010→F-012) | Sensible | 🟧 cœur pré-vol fait (2026-07-19) · wizard/presets restent |
-| B10 | Interaction : chat multi-plateforme + **modération auto + inline** + alertes + pop-up + bandeaux + objectifs (F-030→F-035) | Sensible | ⬜ |
+| B10 | Interaction : chat multi-plateforme + **modération auto + inline** + alertes + pop-up + bandeaux + objectifs (F-030→F-035) | Sensible | 🟧 publié 0.6.0 (2026-09-14) — reste pop-up/bandeaux/objectifs |
 
 ### Phase P5 — Édition (chemin critique visibilité)
 | Brique | Scope | Niveau | Statut |
