@@ -10,10 +10,23 @@ import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useState } from "react";
 
 import { Panel } from "../../components/ui/Panel";
+import { describeAlert } from "./alerts";
 import { banChatUser, timeoutChatUser } from "./api";
 import { filterChatMessages, togglePinned } from "./history";
-import type { ChatPlatform, DisplayedChatMessage } from "./types";
+import type { ChatAlert, ChatPlatform, DisplayedChatMessage } from "./types";
 import { useChat } from "./useChat";
+import { useChatAlerts } from "./useChatAlerts";
+
+// Une icône par famille — assez pour distinguer d'un coup d'œil, jamais un pop-up qui
+// prend toute la place (F-031 : « fines, non intrusives par défaut »).
+const ALERT_ICONS: Record<ChatAlert["kind"], string> = {
+  follow: "➕",
+  subscribe: "⭐",
+  subscription_gift: "🎁",
+  resub: "🔁",
+  cheer: "💎",
+  raid: "🚀",
+};
 
 type Connection = "absent" | "live" | "a_renouveler";
 
@@ -144,6 +157,7 @@ function MessageRow({
 export function ChatPanel(_props: IDockviewPanelProps) {
   const accountReady = useAnyAccountLive();
   const { messages, send } = useChat();
+  const alerts = useChatAlerts();
   const [filter, setFilter] = useState<ChatPlatform | "both">("both");
   const [draft, setDraft] = useState("");
   const [pinnedIds, setPinnedIds] = useState<Set<number>>(new Set());
@@ -194,6 +208,16 @@ export function ChatPanel(_props: IDockviewPanelProps) {
       <div className="flex h-full flex-col gap-2">
         {moderationError ? (
           <p className="text-[11.5px] text-hikari-red">{moderationError}</p>
+        ) : null}
+
+        {alerts.length > 0 ? (
+          <ul className="flex max-h-24 flex-col gap-0.5 overflow-y-auto border-b border-hikari-line pb-2 text-[11.5px]">
+            {alerts.map(({ id, alert }) => (
+              <li key={id} className="text-hikari-accent">
+                {ALERT_ICONS[alert.kind]} {describeAlert(alert)}
+              </li>
+            ))}
+          </ul>
         ) : null}
 
         {pinnedMessages.length > 0 ? (

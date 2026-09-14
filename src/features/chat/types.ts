@@ -19,3 +19,30 @@ export interface ChatMessage {
 export interface DisplayedChatMessage extends ChatMessage {
   id: number;
 }
+
+// Mirrors `ChatAlert` (chat/alerts.rs) — Twitch seulement dans cette partie (voir le
+// module doc du backend). `username`/`from_username` valent `null`, jamais absents, pour
+// un don anonyme : Twitch ne rend aucun nom, Hikari n'en invente pas.
+export type ChatAlert =
+  | { kind: "follow"; username: string }
+  | { kind: "subscribe"; username: string; tier: string }
+  | {
+      kind: "subscription_gift";
+      username: string | null;
+      total: number;
+      tier: string;
+    }
+  | {
+      kind: "resub";
+      username: string;
+      tier: string;
+      cumulative_months: number;
+      message: string;
+    }
+  | { kind: "cheer"; username: string | null; bits: number; message: string }
+  | { kind: "raid"; from_username: string; viewers: number };
+
+export interface DisplayedChatAlert {
+  id: number;
+  alert: ChatAlert;
+}

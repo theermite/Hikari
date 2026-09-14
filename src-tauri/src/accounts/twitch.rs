@@ -14,8 +14,10 @@
 //!
 //! Scope: `channel:read:stream_key` (fetches the ingest key) + `chat:read`/`chat:edit`
 //! (read and send chat over the same IRC connection) + `moderator:manage:banned_users`
-//! (timeout/ban) — all from the chat brick, 2026-09-14, verified via the crate's own
-//! `Scope` constants, matching Twitch's documented scope strings.
+//! (timeout/ban) + `moderator:read:followers`/`channel:read:subscriptions`/`bits:read`
+//! (alerts — follow, subscribe/gift/resub, cheer ; raid needs no scope at all) — all from
+//! the chat brick, 2026-09-14, verified via the crate's own `Scope` constants, matching
+//! Twitch's documented scope strings.
 
 use std::fmt;
 
@@ -60,19 +62,27 @@ impl fmt::Display for TwitchAuthError {
 
 impl std::error::Error for TwitchAuthError {}
 
-/// The stream key scope, chat read/send, plus moderation — widened 2026-09-14 for the
-/// chat brick (Jay: widening OAuth scope so Hikari can manage chat inside the app is the
-/// whole point of owning the cockpit end to end). `ModeratorManageBannedUsers` is the
+/// The stream key scope, chat read/send, moderation, plus alerts — widened 2026-09-14 for
+/// the chat brick (Jay: widening OAuth scope so Hikari can manage chat inside the app is
+/// the whole point of owning the cockpit end to end). `ModeratorManageBannedUsers` is the
 /// scope the "Ban User" Helix endpoint documents (covers both timeout and permanent ban —
 /// verified against the crate's own `Scope` constant and two independent third-party
-/// clients mirroring Twitch's reference, 2026-09-14, `channel:moderate` was NOT the right
-/// name here — that scope covers reading moderation events, not acting on them).
+/// clients mirroring Twitch's reference, `channel:moderate` was NOT the right name here —
+/// that scope covers reading moderation events, not acting on them). The three alert
+/// scopes each gate one EventSub family (verified against the crate's own `Scope`
+/// constants and Twitch's own EventSub subscription-types reference, 2026-09-14):
+/// `ModeratorReadFollowers` (`channel.follow`), `ChannelReadSubscriptions`
+/// (`channel.subscribe`/`.gift`/`.message`), `BitsRead` (`channel.cheer`). `channel.raid`
+/// needs no scope at all — not added here, there is nothing to add.
 fn required_scopes() -> Vec<Scope> {
     vec![
         Scope::ChannelReadStreamKey,
         Scope::ChatRead,
         Scope::ChatEdit,
         Scope::ModeratorManageBannedUsers,
+        Scope::ModeratorReadFollowers,
+        Scope::ChannelReadSubscriptions,
+        Scope::BitsRead,
     ]
 }
 
@@ -184,11 +194,11 @@ mod tests {
     // (extrait le 2026-09-09 pour que YouTube l'utilise aussi).
 
     #[test]
-    fn should_request_stream_key_chat_and_moderation_scopes() {
+    fn should_request_stream_key_chat_moderation_and_alert_scopes() {
         // Hikari asks for exactly the scopes it needs today — a regression guard: if a
         // future change silently widens this further, this test catches it. Widening
-        // scope is a deliberate choice, not a drift — these were made 2026-09-14 for the
-        // chat brick (read/send, then moderation, same session).
+        // scope is a deliberate choice, not a drift — all made 2026-09-14, same session
+        // (read/send, then moderation, then alerts).
         let scopes = required_scopes();
         assert_eq!(
             scopes,
@@ -197,6 +207,9 @@ mod tests {
                 Scope::ChatRead,
                 Scope::ChatEdit,
                 Scope::ModeratorManageBannedUsers,
+                Scope::ModeratorReadFollowers,
+                Scope::ChannelReadSubscriptions,
+                Scope::BitsRead,
             ]
         );
     }

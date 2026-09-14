@@ -1,19 +1,21 @@
-//! Chat fusionné — connexion en lecture à Twitch (IRC) et YouTube (sondage), réponse
-//! (Twitch seulement) et modération inline (Twitch seulement : mise en sourdine,
-//! bannissement). Ni l'outil de référence déjà en usage chez Jay (`chat-overlay`,
-//! Python/Qt) ni cette étape n'implémentent l'envoi ou la modération YouTube : le scope
-//! demandé reste `youtube.readonly`, à élargir seulement quand une brique l'utilisera
-//! réellement (même principe que `accounts::twitch::required_scopes` — élargir un scope
-//! est une décision, jamais une dérive silencieuse).
+//! Chat fusionné — connexion en lecture à Twitch (IRC) et YouTube (sondage), réponse et
+//! modération inline (Twitch seulement), et alertes Twitch (follow, abonnement, don en
+//! bits, raid — EventSub, une connexion à part du chat). Ni l'outil de référence déjà en
+//! usage chez Jay (`chat-overlay`, Python/Qt) ni cette étape n'implémentent l'envoi, la
+//! modération ou les alertes côté YouTube : le scope demandé reste `youtube.readonly`, à
+//! élargir seulement quand une brique l'utilisera réellement (même principe que
+//! `accounts::twitch::required_scopes` — élargir un scope est une décision, jamais une
+//! dérive silencieuse).
 //!
-//! Chaque message reçu est émis comme événement `chat-message` ; la fusion visuelle des
-//! deux plateformes, le filtre et la limite d'historique vivent côté interface
-//! (`src/features/chat/history.ts`) — ce module ne retient aucun historique, seulement
-//! les poignées nécessaires pour répondre, modérer et couper la connexion.
+//! Chaque message reçu est émis comme événement `chat-message`, chaque alerte comme
+//! `chat-alert` ; la fusion visuelle, le filtre et la limite d'historique vivent côté
+//! interface (`src/features/chat/history.ts`) — ce module ne retient aucun historique,
+//! seulement les poignées nécessaires pour répondre, modérer et couper les connexions.
 //!
-//! Auto-modération (spam, liens, mots interdits), alertes, bandeaux et objectifs restent
+//! Auto-modération (spam, liens, mots interdits), médias/bandeaux et objectifs restent
 //! hors de cette partie (voir le découpage convenu avec Jay, 2026-09-14).
 
+pub mod alerts;
 pub mod moderation;
 pub mod twitch;
 pub mod youtube;
@@ -39,12 +41,13 @@ pub struct ChatMessage {
 }
 
 /// Ce que le pont conserve entre deux commandes — les poignées des connexions en cours,
-/// pour pouvoir répondre, modérer (Twitch) et couper (les deux) sans les rouvrir à
+/// pour pouvoir répondre, modérer (Twitch) et couper (toutes) sans les rouvrir à
 /// l'aveugle.
 #[derive(Default)]
 struct ChatRuntime {
     twitch: Option<twitch::TwitchChatHandle>,
     youtube: Option<youtube::YouTubeChatHandle>,
+    alerts: Option<alerts::AlertsHandle>,
 }
 
 #[derive(Default)]
@@ -68,9 +71,9 @@ fn twitch_handle(state: &State<'_, ChatState>) -> Result<twitch::TwitchChatHandl
         .ok_or_else(|| "chat Twitch non connecté".to_string())
 }
 
-/// Connecte le chat des comptes REELLEMENT utilisables — jamais un jeton expiré à
-/// l'aveugle : cette partie ne renouvelle rien elle-même, l'écran Comptes reste la seule
-/// voie de reconnexion (portée volontairement resserrée, voir le module doc).
+/// Connecte le chat et les alertes des comptes REELLEMENT utilisables — jamais un jeton
+/// expiré à l'aveugle : cette partie ne renouvelle rien elle-même, l'écran Comptes reste
+/// la seule voie de reconnexion (portée volontairement resserrée, voir le module doc).
 #[tauri::command]
 pub(crate) async fn chat_connect(
     app: AppHandle,
@@ -88,17 +91,22 @@ pub(crate) async fn chat_connect(
             )
             .await
             {
-                Ok(account) => match twitch::connect(
-                    app.clone(),
-                    account.login,
-                    account.id,
-                    &token.access_token,
-                ) {
-                    Ok(handle) => lock(&state).twitch = Some(handle),
-                    Err(err) => {
-                        let _ = app.emit("chat-error", format!("Twitch : {err}"));
+                Ok(account) => {
+                    match twitch::connect(
+                        app.clone(),
+                        account.login,
+                        account.id.clone(),
+                        &token.access_token,
+                    ) {
+                        Ok(handle) => lock(&state).twitch = Some(handle),
+                        Err(err) => {
+                            let _ = app.emit("chat-error", format!("Twitch : {err}"));
+                        }
                     }
-                },
+                    let alerts_handle =
+                        alerts::connect(app.clone(), account.id, token.access_token.clone());
+                    lock(&state).alerts = Some(alerts_handle);
+                }
                 Err(err) => {
                     let _ = app.emit(
                         "chat-error",
@@ -151,6 +159,9 @@ pub(crate) fn chat_disconnect(state: State<'_, ChatState>) {
     let mut guard = lock(&state);
     if let Some(handle) = guard.youtube.take() {
         youtube::disconnect(&handle);
+    }
+    if let Some(handle) = guard.alerts.take() {
+        alerts::disconnect(&handle);
     }
     // Le client Twitch n'a pas de méthode `close()` explicite dans le crate : l'abandonner
     // ferme sa connexion (le crate le documente comme le chemin normal d'arrêt).
