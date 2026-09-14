@@ -24,9 +24,12 @@ type Client = TwitchIRCClient<SecureTCPTransport, StaticLoginCredentials>;
 pub struct TwitchChatHandle {
     client: Client,
     channel: String,
-    /// Le SIEN — Hikari se modère toujours lui-même (voir `moderation.rs`).
+    /// Le SIEN — Hikari se modère toujours lui-même (voir `moderation.rs`), et c'est
+    /// aussi l'identifiant sous lequel `send` s'affiche lui-même (voir plus bas).
     broadcaster_id: String,
     access_token: Secret,
+    /// Gardé pour que `send` puisse émettre l'écho de son propre message (voir plus bas).
+    app: AppHandle,
 }
 
 /// Ouvre la connexion IRC pour `login` (le SIEN — Hikari rejoint toujours son propre
@@ -73,16 +76,33 @@ pub fn connect(
         channel: login,
         broadcaster_id,
         access_token: access_token.clone(),
+        app,
     })
 }
 
-/// Envoie `text` sur le salon déjà rejoint — la réponse (F-030 « réponse », première partie).
+/// Envoie `text` sur le salon déjà rejoint — la réponse (F-030 « réponse », première
+/// partie). Twitch ne renvoie JAMAIS le message d'un compte sur sa propre connexion IRC
+/// (comportement standard, pas un bug côté serveur) — sans l'écho ci-dessous, Jay voyait
+/// les messages des autres arriver mais jamais les siens (2026-09-14, vu à l'écran).
+/// `broadcaster_id` sert ici de `user_id` : c'est le SIEN, le même que celui que la
+/// modération cible sur ses propres messages.
 pub async fn send(handle: &TwitchChatHandle, text: String) -> Result<(), String> {
     handle
         .client
-        .say(handle.channel.clone(), text)
+        .say(handle.channel.clone(), text.clone())
         .await
-        .map_err(|err| format!("envoi au chat Twitch échoué : {err}"))
+        .map_err(|err| format!("envoi au chat Twitch échoué : {err}"))?;
+
+    let _ = handle.app.emit(
+        "chat-message",
+        ChatMessage {
+            platform: Platform::Twitch,
+            username: handle.channel.clone(),
+            user_id: Some(handle.broadcaster_id.clone()),
+            text,
+        },
+    );
+    Ok(())
 }
 
 /// Met `user_id` en sourdine — la modération inline (cette partie).
