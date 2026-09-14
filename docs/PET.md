@@ -1129,14 +1129,25 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
 - **Vérité externe** : l'API de détection d'encodeurs (**prouvée** au spike : `ENGINE:ENCODERS`) + les checks. 🟢.
 - **Autonomie** : 🟢.
 
-### B10 — Interaction : chat + modération + alertes · Sensible · 🟡 (API plateformes)
+### B10 — Interaction : chat + modération + alertes · Sensible · 🟧 (publié 0.6.0, reste pop-up/bandeaux/objectifs)
 - **Objectif** : chat multi-plateforme + modération auto + inline + alertes + pop-up + bandeaux + objectifs (F-030→F-035).
-- **Approche décidée** : connexions chat **officielles** par plateforme (Twitch IRC/EventSub, YouTube) ; modération inline (timeout/ban/épingler).
-- **Fichiers** : `src-tauri/src/chat/*` · `src/features/{chat,alerts}/*`.
-- **Tests TDG** : `should_timeout_user_from_message` · `should_raise_alert_when_event` · `should_merge_multiplatform_chat`.
-- **Critère d'acceptation** : chat multi-plateforme fusionné · modération inline OK · alertes déclenchées.
-- **Vérité externe** : les API **officielles** chat/EventSub des plateformes — **à confirmer par veille** (versions, scopes). 🟡.
-- **Autonomie** : 🟡 — confirmer les API plateformes d'abord.
+- **Fait, publié 0.6.0 (2026-09-14)** : chat Twitch (IRC, `twitch-irc` 6.1.2) + YouTube
+  (sondage REST) fusionné, lecture + réponse (Twitch) · modération inline Twitch (sourdine,
+  bannissement, épingler local) · alertes Twitch (EventSub WebSocket : follow, abonnement
+  direct/offert/resign, bits, raid) · heure des messages, activable. YouTube reste hors
+  modération/alertes (scope non élargi tant qu'aucune brique ne l'utilise). Fichiers :
+  `src-tauri/src/chat/{mod,twitch,youtube,moderation,alerts}.rs` ·
+  `src/features/chat/*`. Modération auto (spam/liens/mots interdits) hors de cette partie.
+- **Reste** : médias pop-up + bandeaux sur le stream (F-033/F-034) — deux chemins décidés
+  (natif : image/GIF/vidéo déjà construit ; web : WebView2 réutilisé, jamais un second
+  moteur type CEF), choix laissé à l'utilisateur. Un spike de superposition permanente
+  (scène sur un second canal libobs) a bloqué le moteur le 2026-09-14 sans cause trouvée —
+  retiré, à reprendre avec plus de prudence avant de construire dessus. Objectifs/notes du
+  créateur (F-035) pas commencés.
+- **Vérité externe** : Twitch IRC + Helix (modération) + EventSub (alertes) — confirmés en
+  conditions réelles (chat lu/écrit, publié). YouTube : sondage confirmé, jamais élargi.
+  🟢 pour ce qui est livré, 🟡 pour le reste (WebView2 réutilisé jamais essayé dans ce
+  moteur).
 
 ## 7quinquies. Fiches — VAGUES 4+ (finition, publication, avatar, livraison) *(ajouté 2026-07-17)*
 
