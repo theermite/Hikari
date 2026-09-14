@@ -241,13 +241,24 @@ pub fn parse_user_login(body: &str) -> Result<String> {
     }
 }
 
-/// Le login du compte connecté, et rien d'autre — même schéma que `fetch_display_name`,
-/// pour le moment de la connexion au chat où seul le nom de salon à rejoindre compte.
-pub async fn fetch_login(
+/// Ce que la connexion au chat a besoin de savoir sur le compte : le login pour rejoindre
+/// SON salon, l'identifiant pour SE modérer soi-même (`chat/moderation.rs` — Hikari
+/// modère toujours son propre salon, jamais un tiers, donc `broadcaster_id ==
+/// moderator_id == id`).
+pub struct TwitchAccount {
+    pub id: String,
+    pub login: String,
+}
+
+/// Le login ET l'identifiant du compte connecté, en UN seul appel — remplace deux
+/// fetchers séparés qui auraient chacun relu `GET /helix/users` (moderation brick,
+/// 2026-09-14 : la modération a besoin de l'identifiant que la connexion au chat lisait
+/// déjà sans le garder).
+pub async fn fetch_account(
     http: &reqwest::Client,
     client_id: &str,
     access_token: &Secret,
-) -> Result<String> {
+) -> Result<TwitchAccount> {
     let compte = helix(
         http,
         client_id,
@@ -256,7 +267,10 @@ pub async fn fetch_login(
     )
     .await
     .context("lecture du compte Twitch")?;
-    parse_user_login(&compte)
+    Ok(TwitchAccount {
+        id: parse_user_id(&compte)?,
+        login: parse_user_login(&compte)?,
+    })
 }
 
 /// Un appel à l'interface Twitch, avec les deux en-têtes qu'elle exige. Le corps est rendu

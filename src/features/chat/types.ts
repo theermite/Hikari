@@ -7,6 +7,10 @@ export interface ChatMessage {
   platform: ChatPlatform;
   username: string;
   text: string;
+  // Présent seulement sur Twitch — nécessaire aux actions de modération (mise en
+  // sourdine, bannissement), qui ciblent un compte, jamais un pseudonyme affiché.
+  // `undefined` pour YouTube : la modération n'y est pas implémentée dans cette partie.
+  user_id?: string;
 }
 
 // Un message tel que le panneau l'affiche — porte un identifiant stable pour la clé de

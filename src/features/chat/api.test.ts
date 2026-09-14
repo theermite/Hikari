@@ -7,7 +7,13 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 import { invoke } from "@tauri-apps/api/core";
-import { connectChat, disconnectChat, sendChatMessage } from "./api";
+import {
+  banChatUser,
+  connectChat,
+  disconnectChat,
+  sendChatMessage,
+  timeoutChatUser,
+} from "./api";
 
 describe("chat api", () => {
   beforeEach(() => {
@@ -38,5 +44,26 @@ describe("chat api", () => {
     await disconnectChat();
 
     expect(invoke).toHaveBeenCalledExactlyOnceWith("chat_disconnect");
+  });
+
+  it("should_call_chat_timeout_user_command_with_user_and_duration_when_muting", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await timeoutChatUser("141981764", 600);
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("chat_timeout_user", {
+      userId: "141981764",
+      durationSecs: 600,
+    });
+  });
+
+  it("should_call_chat_ban_user_command_with_the_targeted_user_when_banning", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await banChatUser("141981764");
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("chat_ban_user", {
+      userId: "141981764",
+    });
   });
 });

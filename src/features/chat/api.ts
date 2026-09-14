@@ -17,3 +17,17 @@ export function sendChatMessage(text: string): Promise<void> {
 export function disconnectChat(): Promise<void> {
   return invoke("chat_disconnect");
 }
+
+/** Met `userId` en sourdine sur Twitch pour `durationSecs` secondes — la modération
+ * inline (mise en sourdine). Twitch seulement : voir le module doc de `chat/mod.rs`. */
+export function timeoutChatUser(
+  userId: string,
+  durationSecs: number,
+): Promise<void> {
+  return invoke("chat_timeout_user", { userId, durationSecs });
+}
+
+/** Bannit `userId` définitivement sur Twitch — la modération inline (bannissement). */
+export function banChatUser(userId: string): Promise<void> {
+  return invoke("chat_ban_user", { userId });
+}

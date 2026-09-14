@@ -145,6 +145,7 @@ fn parse_one_message(item: &serde_json::Value) -> Option<ChatMessage> {
         platform: Platform::YouTube,
         username,
         text,
+        user_id: None,
     })
 }
 
@@ -206,12 +207,14 @@ mod tests {
                 ChatMessage {
                     platform: Platform::YouTube,
                     username: "Ange".to_string(),
-                    text: "coucou".to_string()
+                    text: "coucou".to_string(),
+                    user_id: None,
                 },
                 ChatMessage {
                     platform: Platform::YouTube,
                     username: "Jay".to_string(),
-                    text: "hello".to_string()
+                    text: "hello".to_string(),
+                    user_id: None,
                 },
             ]
         );

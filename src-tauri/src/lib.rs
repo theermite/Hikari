@@ -35,6 +35,8 @@ pub fn run() {
             commands::account_status,
             chat::chat_connect,
             chat::chat_send,
+            chat::chat_timeout_user,
+            chat::chat_ban_user,
             chat::chat_disconnect,
             deck_bridge::deck_list_keys,
             deck_bridge::deck_trigger_key,

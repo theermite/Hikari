@@ -13,9 +13,9 @@
 //! server, no redirect URI to register.
 //!
 //! Scope: `channel:read:stream_key` (fetches the ingest key) + `chat:read`/`chat:edit`
-//! (chat brick, 2026-09-14 — read and send chat over the same IRC connection) — all three
-//! verified via the crate's own `Scope` constants, matching Twitch's documented scope
-//! strings.
+//! (read and send chat over the same IRC connection) + `moderator:manage:banned_users`
+//! (timeout/ban) — all from the chat brick, 2026-09-14, verified via the crate's own
+//! `Scope` constants, matching Twitch's documented scope strings.
 
 use std::fmt;
 
@@ -60,16 +60,19 @@ impl fmt::Display for TwitchAuthError {
 
 impl std::error::Error for TwitchAuthError {}
 
-/// The stream key scope, plus chat read/send — widened 2026-09-14 for the chat brick
-/// (Jay: widening OAuth scope so Hikari can manage chat inside the app is the whole point
-/// of owning the cockpit end to end). Still nothing broader than what a shipped feature
-/// uses today: no moderation scope yet (`channel:moderate` / `moderator:manage:banned_users`
-/// wait for the moderation increment).
+/// The stream key scope, chat read/send, plus moderation — widened 2026-09-14 for the
+/// chat brick (Jay: widening OAuth scope so Hikari can manage chat inside the app is the
+/// whole point of owning the cockpit end to end). `ModeratorManageBannedUsers` is the
+/// scope the "Ban User" Helix endpoint documents (covers both timeout and permanent ban —
+/// verified against the crate's own `Scope` constant and two independent third-party
+/// clients mirroring Twitch's reference, 2026-09-14, `channel:moderate` was NOT the right
+/// name here — that scope covers reading moderation events, not acting on them).
 fn required_scopes() -> Vec<Scope> {
     vec![
         Scope::ChannelReadStreamKey,
         Scope::ChatRead,
         Scope::ChatEdit,
+        Scope::ModeratorManageBannedUsers,
     ]
 }
 
@@ -181,11 +184,11 @@ mod tests {
     // (extrait le 2026-09-09 pour que YouTube l'utilise aussi).
 
     #[test]
-    fn should_request_stream_key_and_chat_scopes() {
+    fn should_request_stream_key_chat_and_moderation_scopes() {
         // Hikari asks for exactly the scopes it needs today — a regression guard: if a
-        // future change silently widens this further (e.g. moderation scopes without
-        // deciding to), this test catches it. Widening scope is a deliberate choice, not
-        // a drift — this one was made 2026-09-14 for the chat brick.
+        // future change silently widens this further, this test catches it. Widening
+        // scope is a deliberate choice, not a drift — these were made 2026-09-14 for the
+        // chat brick (read/send, then moderation, same session).
         let scopes = required_scopes();
         assert_eq!(
             scopes,
@@ -193,6 +196,7 @@ mod tests {
                 Scope::ChannelReadStreamKey,
                 Scope::ChatRead,
                 Scope::ChatEdit,
+                Scope::ModeratorManageBannedUsers,
             ]
         );
     }

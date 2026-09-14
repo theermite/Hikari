@@ -4,6 +4,7 @@ import {
   CHAT_HISTORY_CAP,
   filterChatMessages,
   pushChatMessage,
+  togglePinned,
 } from "./history";
 import type { ChatMessage, DisplayedChatMessage } from "./types";
 
@@ -58,5 +59,20 @@ describe("chat history", () => {
     history = pushChatMessage(history, message("youtube", "Jay", "b"), 2);
 
     expect(filterChatMessages(history, "both")).toHaveLength(2);
+  });
+
+  it("should_pin_a_message_not_already_pinned", () => {
+    const pinned = togglePinned(new Set(), 3);
+    expect(pinned.has(3)).toBe(true);
+  });
+
+  it("should_unpin_a_message_already_pinned", () => {
+    const pinned = togglePinned(new Set([3]), 3);
+    expect(pinned.has(3)).toBe(false);
+  });
+
+  it("should_leave_other_pinned_ids_untouched", () => {
+    const pinned = togglePinned(new Set([1, 2]), 3);
+    expect(pinned).toEqual(new Set([1, 2, 3]));
   });
 });

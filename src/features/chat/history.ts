@@ -35,3 +35,20 @@ export function filterChatMessages(
     ? history
     : history.filter((message) => message.platform === filter);
 }
+
+/** « Épingler » un message est purement local à cette partie (aucun appel réseau) — un
+ * ensemble d'identifiants gardés visibles, jamais retiré par la limite d'historique
+ * ci-dessus tant que le panneau reste ouvert. Toggle : épingler un id déjà présent le
+ * retire. */
+export function togglePinned(
+  pinned: ReadonlySet<number>,
+  id: number,
+): Set<number> {
+  const next = new Set(pinned);
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+  return next;
+}
