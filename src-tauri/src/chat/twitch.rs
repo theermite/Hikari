@@ -61,6 +61,7 @@ pub fn connect(
                         username: privmsg.sender.name,
                         user_id: Some(privmsg.sender.id),
                         text: privmsg.message_text,
+                        timestamp_ms: crate::chat::now_millis(),
                     },
                 );
             }
@@ -100,6 +101,7 @@ pub async fn send(handle: &TwitchChatHandle, text: String) -> Result<(), String>
             username: handle.channel.clone(),
             user_id: Some(handle.broadcaster_id.clone()),
             text,
+            timestamp_ms: crate::chat::now_millis(),
         },
     );
     Ok(())

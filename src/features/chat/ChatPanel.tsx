@@ -12,7 +12,8 @@ import { useEffect, useState } from "react";
 import { Panel } from "../../components/ui/Panel";
 import { describeAlert } from "./alerts";
 import { banChatUser, timeoutChatUser } from "./api";
-import { filterChatMessages, togglePinned } from "./history";
+import { loadChatSettings, saveChatSettings } from "./chatSettings";
+import { filterChatMessages, formatMessageTime, togglePinned } from "./history";
 import type { ChatAlert, ChatPlatform, DisplayedChatMessage } from "./types";
 import { useChat } from "./useChat";
 import { useChatAlerts } from "./useChatAlerts";
@@ -91,12 +92,14 @@ function moderationHandlers(refreshError: (message: string) => void) {
 function MessageRow({
   message,
   pinned,
+  showTime,
   onTogglePin,
   onTimeout,
   onBan,
 }: {
   message: DisplayedChatMessage;
   pinned: boolean;
+  showTime: boolean;
   onTogglePin: () => void;
   onTimeout: () => void;
   onBan: () => void;
@@ -106,6 +109,11 @@ function MessageRow({
   return (
     <li className="flex items-start justify-between gap-2 text-[12.5px] leading-snug">
       <p className="min-w-0 flex-1">
+        {showTime ? (
+          <span className="text-hikari-txt-faint">
+            {formatMessageTime(message.timestamp_ms)}{" "}
+          </span>
+        ) : null}
         <span
           aria-hidden="true"
           className={
@@ -162,6 +170,25 @@ export function ChatPanel(_props: IDockviewPanelProps) {
   const [draft, setDraft] = useState("");
   const [pinnedIds, setPinnedIds] = useState<Set<number>>(new Set());
   const [moderationError, setModerationError] = useState<string | null>(null);
+  const [showTime, setShowTime] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadChatSettings().then((settings) => {
+      if (!cancelled) setShowTime(settings.showTimestamps);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleShowTime = () => {
+    const next = !showTime;
+    setShowTime(next);
+    saveChatSettings({ showTimestamps: next }).catch((error: unknown) => {
+      console.error("chat: saveChatSettings failed", error);
+    });
+  };
 
   const { onTimeout, onBan } = moderationHandlers(setModerationError);
   const togglePin = (id: number) =>
@@ -187,7 +214,7 @@ export function ChatPanel(_props: IDockviewPanelProps) {
     <Panel
       title="Chat"
       actions={
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1">
           {FILTERS.map(({ mode, label }) => (
             <button
               key={mode}
@@ -202,6 +229,15 @@ export function ChatPanel(_props: IDockviewPanelProps) {
               {label}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={toggleShowTime}
+            title={showTime ? "Masquer l'heure" : "Afficher l'heure"}
+            aria-pressed={showTime}
+            className={`text-[11px] ${showTime ? "text-hikari-accent" : "text-hikari-txt-faint"}`}
+          >
+            🕐
+          </button>
         </div>
       }
     >
@@ -227,6 +263,7 @@ export function ChatPanel(_props: IDockviewPanelProps) {
                 key={message.id}
                 message={message}
                 pinned
+                showTime={showTime}
                 onTogglePin={() => togglePin(message.id)}
                 onTimeout={() => message.user_id && onTimeout(message.user_id)}
                 onBan={() => message.user_id && onBan(message.user_id)}
@@ -246,6 +283,7 @@ export function ChatPanel(_props: IDockviewPanelProps) {
                 key={message.id}
                 message={message}
                 pinned={pinnedIds.has(message.id)}
+                showTime={showTime}
                 onTogglePin={() => togglePin(message.id)}
                 onTimeout={() => message.user_id && onTimeout(message.user_id)}
                 onBan={() => message.user_id && onBan(message.user_id)}

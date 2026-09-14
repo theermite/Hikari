@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CHAT_HISTORY_CAP,
   filterChatMessages,
+  formatMessageTime,
   pushChatMessage,
   togglePinned,
 } from "./history";
@@ -13,7 +14,7 @@ function message(
   username: string,
   text: string,
 ): ChatMessage {
-  return { platform, username, text };
+  return { platform, username, text, timestamp_ms: 0 };
 }
 
 describe("chat history", () => {
@@ -23,8 +24,20 @@ describe("chat history", () => {
     history = pushChatMessage(history, message("youtube", "Jay", "hello"), 2);
 
     expect(history).toEqual([
-      { platform: "twitch", username: "Ange", text: "coucou", id: 1 },
-      { platform: "youtube", username: "Jay", text: "hello", id: 2 },
+      {
+        platform: "twitch",
+        username: "Ange",
+        text: "coucou",
+        timestamp_ms: 0,
+        id: 1,
+      },
+      {
+        platform: "youtube",
+        username: "Jay",
+        text: "hello",
+        timestamp_ms: 0,
+        id: 2,
+      },
     ]);
   });
 
@@ -46,10 +59,22 @@ describe("chat history", () => {
     history = pushChatMessage(history, message("youtube", "Jay", "b"), 2);
 
     expect(filterChatMessages(history, "twitch")).toEqual([
-      { platform: "twitch", username: "Ange", text: "a", id: 1 },
+      {
+        platform: "twitch",
+        username: "Ange",
+        text: "a",
+        timestamp_ms: 0,
+        id: 1,
+      },
     ]);
     expect(filterChatMessages(history, "youtube")).toEqual([
-      { platform: "youtube", username: "Jay", text: "b", id: 2 },
+      {
+        platform: "youtube",
+        username: "Jay",
+        text: "b",
+        timestamp_ms: 0,
+        id: 2,
+      },
     ]);
   });
 
@@ -74,5 +99,17 @@ describe("chat history", () => {
   it("should_leave_other_pinned_ids_untouched", () => {
     const pinned = togglePinned(new Set([1, 2]), 3);
     expect(pinned).toEqual(new Set([1, 2, 3]));
+  });
+
+  it("should_format_a_timestamp_as_24_hour_hh_mm", () => {
+    const date = new Date();
+    date.setHours(9, 5, 30, 0);
+    expect(formatMessageTime(date.getTime())).toBe("09:05");
+  });
+
+  it("should_pad_single_digit_hours_and_minutes", () => {
+    const date = new Date();
+    date.setHours(0, 2, 0, 0);
+    expect(formatMessageTime(date.getTime())).toBe("00:02");
   });
 });

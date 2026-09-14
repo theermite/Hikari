@@ -90,7 +90,10 @@ async fn poll_loop(
         match get(http, access_token, &url).await {
             Ok(body) => {
                 let (messages, next_token, interval_ms) = parse_chat_page(&body);
-                for message in messages {
+                for mut message in messages {
+                    // Horodaté ICI, pas dans `parse_chat_page` (pure, testée sur des
+                    // pages figées) : c'est le moment réel où Hikari voit le message.
+                    message.timestamp_ms = crate::chat::now_millis();
                     let _ = app.emit("chat-message", message);
                 }
                 page_token = next_token;
@@ -146,6 +149,9 @@ fn parse_one_message(item: &serde_json::Value) -> Option<ChatMessage> {
         username,
         text,
         user_id: None,
+        // Rempli au moment de l'émission réelle (`poll_loop`), jamais ici : cette
+        // fonction reste pure et testable sur des pages figées.
+        timestamp_ms: 0,
     })
 }
 
@@ -209,12 +215,14 @@ mod tests {
                     username: "Ange".to_string(),
                     text: "coucou".to_string(),
                     user_id: None,
+                    timestamp_ms: 0,
                 },
                 ChatMessage {
                     platform: Platform::YouTube,
                     username: "Jay".to_string(),
                     text: "hello".to_string(),
                     user_id: None,
+                    timestamp_ms: 0,
                 },
             ]
         );

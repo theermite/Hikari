@@ -11,6 +11,9 @@ export interface ChatMessage {
   // sourdine, bannissement), qui ciblent un compte, jamais un pseudonyme affiché.
   // `undefined` pour YouTube : la modération n'y est pas implémentée dans cette partie.
   user_id?: string;
+  // Quand Hikari a reçu le message (millisecondes Unix) — jamais l'horodatage de la
+  // plateforme (voir `chat/mod.rs`, `now_millis`).
+  timestamp_ms: number;
 }
 
 // Un message tel que le panneau l'affiche — porte un identifiant stable pour la clé de

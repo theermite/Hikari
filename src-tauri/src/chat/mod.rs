@@ -38,6 +38,23 @@ pub struct ChatMessage {
     /// ciblent un compte, jamais un pseudonyme affiché. `None` pour YouTube : la
     /// modération n'y est pas implémentée dans cette partie (voir le module doc).
     pub user_id: Option<String>,
+    /// Quand Hikari a reçu le message (millisecondes Unix) — jamais l'horodatage de la
+    /// plateforme : Twitch et YouTube ne le rendent pas dans la même forme (l'un un champ
+    /// direct, l'autre RFC 3339), et la différence ne se voit pas à l'affichage sur un
+    /// chat en direct. Jay, 2026-09-14 : « avoir l'heure des messages devant, même en
+    /// option » — l'option (afficher/masquer) vit côté interface, ce champ existe
+    /// toujours.
+    pub timestamp_ms: u64,
+}
+
+/// L'heure actuelle en millisecondes Unix — la seule entrée non pure des sites d'émission
+/// de message, isolée ici pour qu'elle se lise en un seul endroit plutôt que répétée à
+/// chaque site d'émission (Twitch, deux fois, et YouTube).
+pub(crate) fn now_millis() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /// Ce que le pont conserve entre deux commandes — les poignées des connexions en cours,

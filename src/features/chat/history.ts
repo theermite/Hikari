@@ -36,6 +36,17 @@ export function filterChatMessages(
     : history.filter((message) => message.platform === filter);
 }
 
+/** L'heure affichée devant un message, HH:MM (24 h, heure locale de la machine — le
+ * chat se lit pendant que Jay est devant, jamais dans un fuseau à part). Jay, 2026-09-14 :
+ * « même si c'est en option » — le formatage vit ici, l'option (afficher/masquer) dans
+ * `ChatPanel.tsx`. */
+export function formatMessageTime(timestampMs: number): string {
+  const date = new Date(timestampMs);
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
 /** « Épingler » un message est purement local à cette partie (aucun appel réseau) — un
  * ensemble d'identifiants gardés visibles, jamais retiré par la limite d'historique
  * ci-dessus tant que le panneau reste ouvert. Toggle : épingler un id déjà présent le
