@@ -11,6 +11,14 @@ Kata source (MNK-GoRin methodology) and, if a received file was edited locally
 WARNING listing the drifted files. It NEVER blocks the push (exit 0) — the right
 fix is social/process (edit the source, re-propagate), not a hard stop.
 
+**CLAUDE.md check (2026-09-14)**: same trigger, same WARN-never-BLOCK, runs
+`scripts/check-claude-md.py` on this repo's CLAUDE.md file(s). Nothing ran
+that checker anywhere before this — a stale entry point could rot silently
+forever (audit 2026-09-13, 42 files, most carrying a dead path or a document
+long abandoned). Unlike the drift check, this one ALSO runs from Kata itself:
+a project's identity file is never exempt just because it lives in the
+canonical repo.
+
 Locating the source:
 - env MNK_GORIN_SRC if set (absolute path to the Kata repo), else
 - a sibling directory named "Kata" (all repos live side by side:
@@ -29,6 +37,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -39,6 +48,12 @@ import drift  # noqa: E402
 SYNC_DIRS = ("rules", "agents", "hooks", "skills")
 CANONICAL_NAME = "Kata"
 _GIT_PUSH_RE = re.compile(r"\bgit\s+push\b")
+# Reconnait la ligne de resume de check-claude-md.py PAR SA FORME, jamais par
+# sa position. `lines[:-1]` supposait que le resume est toujours la derniere
+# ligne -- faux des que le script plante avant de l'imprimer (relecture
+# independante 2026-09-14) : la derniere ligne restante devient alors un vrai
+# defaut, et l'ancien code l'avalait avec le resume absent.
+_SUMMARY_RE = re.compile(r"^\d+ fichier\(s\), \d+ defaut\(s\)$")
 
 
 def _find_source(repo_root: Path) -> Path | None:
@@ -71,6 +86,80 @@ def _drifted_files(data: dict) -> list[str]:
     return drift.classify_project(source / ".claude", dst_claude, SYNC_DIRS)["drifted"]
 
 
+def _claude_md_files(repo_root: Path) -> list[Path]:
+    """This repo's CLAUDE.md file(s) -- root and/or .claude/, either or both."""
+    candidates = (repo_root / "CLAUDE.md", repo_root / ".claude" / "CLAUDE.md")
+    return [p for p in candidates if p.is_file()]
+
+
+def _checker_script(repo_root: Path, source: Path | None) -> Path | None:
+    """Where scripts/check-claude-md.py lives for this repo, or None.
+
+    Kata carries its own copy; a propagated project reads it from the source.
+    Absent (old Kata, source unreachable) -> None, caller degrades silently.
+    """
+    base = repo_root if common.canonical_project_name(repo_root) == CANONICAL_NAME else source
+    if base is None:
+        return None
+    script = base / "scripts" / "check-claude-md.py"
+    return script if script.is_file() else None
+
+
+def _run_checker(script: Path, files: list[Path]) -> str:
+    """stdout of `check-claude-md.py --check`, or "" on any failure to run it."""
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script), *(str(f) for f in files), "--check"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return result.stdout if result.returncode != 0 else ""
+
+
+def _defect_lines(stdout: str) -> list[str]:
+    """`stdout` minus its trailing "N fichier(s), M defaut(s)" summary line.
+
+    The summary is dropped by its own SHAPE, never by position: a checker
+    crash (e.g. a CLAUDE.md with invalid encoding) can print defects for an
+    earlier file then die before reaching its own summary print -- the last
+    surviving line is then a real defect, never the summary (independent
+    review, 2026-09-14).
+    """
+    lines = [ln.strip() for ln in stdout.splitlines() if ln.strip()]
+    return [ln for ln in lines if not _SUMMARY_RE.match(ln)]
+
+
+def _stale_claude_md_lines(data: dict) -> list[str]:
+    """Defect lines from `check-claude-md.py --check` on this repo's CLAUDE.md(s).
+
+    [] for any guard miss: not a push, no CLAUDE.md here, or the checker
+    script itself is unreachable (never crash a push over a missing tool).
+    """
+    if not _GIT_PUSH_RE.search(common.get_command(data)):
+        return []
+    repo_root = common.find_repo_root()
+    files = _claude_md_files(repo_root)
+    if not files:
+        return []
+    script = _checker_script(repo_root, _find_source(repo_root))
+    if script is None:
+        return []
+    return _defect_lines(_run_checker(script, files))
+
+
+def _emit_claude_md_warning(lines: list[str]) -> None:
+    listing = "\n".join(f"  ~ {ln}" for ln in lines)
+    common.warn(
+        common.format_warn(
+            f"{len(lines)} defaut(s) dans le(s) CLAUDE.md de ce depot",
+            "Corriger (chemin mort, document abandonne, taille) puis relancer "
+            f"le controle avant de pousser a nouveau.\n{listing}",
+            reference="Kata/scripts/check-claude-md.py",
+        )
+    )
+
+
 def _emit_warning(drifted: list[str]) -> None:
     listing = "\n".join(f"  ~ {f}" for f in drifted)
     common.warn(
@@ -91,6 +180,9 @@ def main() -> int:
     drifted = _drifted_files(data)
     if drifted:
         _emit_warning(drifted)
+    stale = _stale_claude_md_lines(data)
+    if stale:
+        _emit_claude_md_warning(stale)
     return 0  # WARN never blocks the push
 
 

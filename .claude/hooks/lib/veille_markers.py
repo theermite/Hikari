@@ -24,7 +24,7 @@ import json
 import os
 import re
 
-from transcript_reader import iter_assistant_text, iter_tool_calls
+from transcript_reader import assistant_text_blocks, iter_assistant_text, iter_tool_calls
 from veille_config import (
     MARKER_RE,
     RECOVERY_LINE_HINTS,
@@ -43,30 +43,23 @@ _CODE_BLOCK = re.compile(r"```.*?```|`[^`]*`", re.DOTALL)
 _REVIEW_FAMILY = re.compile(r"famille[^\S\n]*:[^\S\n]*([^,\n]+)", re.IGNORECASE)
 
 
-def extract_text(entry) -> str:
-    chunks: list[str] = []
-
-    def walk(node):
-        if isinstance(node, str):
-            chunks.append(node)
-        elif isinstance(node, dict):
-            for _, v in node.items():
-                walk(v)
-        elif isinstance(node, list):
-            for item in node:
-                walk(item)
-
-    walk(entry)
-    return "\n".join(chunks)
-
-
 def _entry_text(raw: str) -> str:
-    """Plain text of a transcript line, with our own recovery/block lines removed
-    (they contain literal marker templates that would otherwise be re-matched)."""
+    """What Takumi actually SAID on this transcript line, recovery lines removed.
+
+    Before 2026-09-14 this walked the WHOLE JSON tree, so a tool result
+    quoting marker-shaped text -- this very module's own docstring, a recovery
+    message, any file read whose content says "[VEILLE] ..." -- was
+    indistinguishable from a marker Takumi actually wrote. Caught live: Read
+    on this file made the guard refuse a genuine retry, twice, on a phrase
+    quoted in a recovery message elsewhere in this codebase. Text extraction
+    itself lives in transcript_reader.assistant_text_blocks (shared with
+    iter_assistant_text -- one reader, not two, Honesty.md's first question).
+    """
     try:
-        text = extract_text(json.loads(raw))
+        entry = json.loads(raw)
     except (json.JSONDecodeError, ValueError):
-        text = raw
+        return ""
+    text = "\n".join(assistant_text_blocks(entry))
     kept = [ln for ln in text.splitlines()
             if not any(h in ln for h in RECOVERY_LINE_HINTS)]
     return "\n".join(kept)
@@ -92,6 +85,32 @@ def marker_digest(marker_line: str) -> str:
     return hashlib.sha256(marker_line.encode("utf-8")).hexdigest()[:16]
 
 
+def _scan_speech_turns(lines: list[str], limit: int) -> tuple[str, str, str] | None:
+    """Walk `lines` backwards, spending the budget only on Takumi's own turns.
+
+    A tool result or a `tool_use` input costs nothing: it is not something
+    Takumi said (see _entry_text). Real cost measured by independent review
+    (2026-09-14): median 274 RAW lines between a genuine marker and the write
+    it covers -- a budget spent per raw line starved on tool-heavy sessions.
+    """
+    spent = 0
+    for raw in reversed(lines):
+        raw = raw.strip()
+        if not raw:
+            continue
+        text = _entry_text(raw)
+        if not text:
+            continue
+        spent += 1
+        matches = _concrete_markers(text)
+        if matches:
+            line = matches[-1].group(0).strip()
+            return matches[-1].group(1), line, marker_digest(line)
+        if spent >= limit:
+            break
+    return None
+
+
 def latest_marker(transcript_path: str) -> tuple[str, str, str] | None:
     """Return (marker_type, marker_line, hash) of the most recent marker, or None."""
     if not transcript_path or not os.path.isfile(transcript_path):
@@ -101,15 +120,7 @@ def latest_marker(transcript_path: str) -> tuple[str, str, str] | None:
             lines = f.readlines()
     except OSError:
         return None
-    for raw in reversed(lines[-TRANSCRIPT_SCAN_LIMIT:]):
-        raw = raw.strip()
-        if not raw:
-            continue
-        matches = _concrete_markers(_entry_text(raw))
-        if matches:
-            line = matches[-1].group(0).strip()
-            return matches[-1].group(1), line, marker_digest(line)
-    return None
+    return _scan_speech_turns(lines, TRANSCRIPT_SCAN_LIMIT)
 
 
 def has_web_veille_call(transcript_path: str) -> bool:

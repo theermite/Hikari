@@ -66,6 +66,26 @@ def iter_tool_calls(transcript_path: str | Path, tool_name: str | None = None) -
             yield block
 
 
+def assistant_text_blocks(entry: dict) -> list[str]:
+    """Text blocks Takumi actually SAID in this one parsed entry, or [].
+
+    Only role == "assistant" counts: a tool_use input or a tool_result's
+    content sits in the same JSON tree as his real text blocks but is never
+    something he said (independent review, 2026-09-14 -- veille_markers.py and
+    veille-extended.py each duplicated this before sharing it here).
+    """
+    if not isinstance(entry, dict):
+        return []
+    msg = entry.get("message") or entry
+    if not isinstance(msg, dict) or msg.get("role") != "assistant":
+        return []
+    content = msg.get("content")
+    if not isinstance(content, list):
+        return []
+    return [b.get("text", "") for b in content
+            if isinstance(b, dict) and b.get("type") == "text" and b.get("text")]
+
+
 def iter_assistant_text(transcript_path: str | Path, limit: int = 20) -> Iterator[str]:
     """Yield text content from recent assistant messages, latest-first.
 
@@ -76,24 +96,11 @@ def iter_assistant_text(transcript_path: str | Path, limit: int = 20) -> Iterato
     for entry in iter_entries(transcript_path):
         if count >= limit:
             return
-        msg = entry.get("message") or entry
-        if not isinstance(msg, dict):
-            continue
-        if msg.get("role") != "assistant":
-            continue
-        content = msg.get("content")
-        if not isinstance(content, list):
-            continue
-        for block in content:
-            if not isinstance(block, dict):
-                continue
-            if block.get("type") == "text":
-                text = block.get("text", "")
-                if text:
-                    yield text
-                    count += 1
-                    if count >= limit:
-                        return
+        for text in assistant_text_blocks(entry):
+            yield text
+            count += 1
+            if count >= limit:
+                return
 
 
 def count_turns(transcript_path: str | Path) -> tuple[int, int]:

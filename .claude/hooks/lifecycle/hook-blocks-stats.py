@@ -193,7 +193,7 @@ def _emit_summary(blocks: dict, warns: dict, overcome: dict) -> None:
         cand = ", ".join(sorted(overcome))
         print(f"hook-friction: {sum(overcome.values())} block(s) overcome by retry "
               f"(possible parasite): {cand}. If any hindered you, note it under "
-              f"'Hooks Friction' in MNK-GoRin-Notes-Jay.md.", file=sys.stderr)
+              f"'Hooks Friction' in Shinzo/02-Projets/Kata-Notes-Jay.md.", file=sys.stderr)
 
 
 def main() -> None:

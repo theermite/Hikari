@@ -56,27 +56,57 @@ def in_extended_scope(file_path: str) -> bool:
     return any(part.replace("\\", "/").lower() in norm for part in EXTENDED_SCOPE_PARTS)
 
 
-def extract_text(node) -> str:
-    """Best-effort plain text extraction from a JSONL transcript entry."""
-    chunks: list[str] = []
+def extract_text(entry) -> str:
+    """Text Takumi actually SAID in this transcript entry, or "" if it is not
+    his turn.
 
-    def walk(n):
-        if isinstance(n, str):
-            chunks.append(n)
-        elif isinstance(n, dict):
-            for k, v in n.items():
-                if k in ("text", "content", "message", "value"):
-                    walk(v)
-                elif k == "type" and v == "text":
-                    pass
-                else:
-                    walk(v)
-        elif isinstance(n, list):
-            for item in n:
-                walk(item)
-
-    walk(node)
+    Before 2026-09-14 this walked the WHOLE JSON tree, so a tool result
+    quoting marker-shaped text (a file read whose content says "[VEILLE] ...")
+    was indistinguishable from a marker Takumi actually wrote — same defect,
+    found the same day, as veille_markers.py's own _entry_text. Only role ==
+    "assistant" content blocks of type "text" count.
+    """
+    msg = (entry.get("message") or entry) if isinstance(entry, dict) else None
+    if not isinstance(msg, dict) or msg.get("role") != "assistant":
+        return ""
+    content = msg.get("content")
+    if not isinstance(content, list):
+        return ""
+    chunks = [b.get("text", "") for b in content
+              if isinstance(b, dict) and b.get("type") == "text" and b.get("text")]
     return "\n".join(chunks)
+
+
+def _speech_turns_have_a_marker(lines: list[str], limit: int) -> bool:
+    """Walk `lines` backwards, spending the budget only on Takumi's own turns.
+
+    TRANSCRIPT_SCAN_LIMIT counts SPEECH TURNS, never raw transcript lines
+    (independent review, 2026-09-14): a tool result answering in between costs
+    nothing against the budget, since `extract_text` returns "" for anything
+    that is not role == "assistant" text. A budget spent per raw line starves
+    on tool-heavy sessions -- 83% of real markers sat beyond the old 40-line
+    budget once tool-result echoes stopped padding it out.
+    """
+    import json
+
+    spent = 0
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue  # not a parseable entry: never something Takumi said
+        text = extract_text(entry)
+        if not text:
+            continue
+        spent += 1
+        if MARKER_RE.search(text):
+            return True
+        if spent >= limit:
+            break
+    return False
 
 
 def scan_transcript_for_marker(transcript_path: str) -> bool:
@@ -87,24 +117,7 @@ def scan_transcript_for_marker(transcript_path: str) -> bool:
             lines = f.readlines()
     except OSError:
         return False
-
-    import json
-
-    recent = lines[-TRANSCRIPT_SCAN_LIMIT:] if len(lines) > TRANSCRIPT_SCAN_LIMIT else lines
-    for line in reversed(recent):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            entry = json.loads(line)
-        except (json.JSONDecodeError, ValueError):
-            if MARKER_RE.search(line):
-                return True
-            continue
-        text = extract_text(entry)
-        if MARKER_RE.search(text):
-            return True
-    return False
+    return _speech_turns_have_a_marker(lines, TRANSCRIPT_SCAN_LIMIT)
 
 
 def main() -> None:
