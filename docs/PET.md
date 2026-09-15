@@ -1150,9 +1150,10 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
      sélecteur de fichier existant (`src/features/scenes`). Vide = permanent, comme avant.
      **Pas encore vu à l'écran.**
   3. ✅ **Codé et testé (2026-09-15)** — une alerte Twitch peut déclencher un média pop-up
-     réglé pour elle (`ChatSettings.alertMedia`, `src/features/chat/alertMedia.ts`).
-     **Manque encore une interface pour RENSEIGNER le réglage** (le mapping reste vide par
-     défaut, rien à configurer à l'écran) — sans elle, cette étape est codée mais inutilisable.
+     réglé pour elle (`ChatSettings.alertMedia`, `src/features/chat/alertMedia.ts`), avec
+     son écran de réglage (Paramètres → « Alertes → médias », `AlertMediaSettingsPanel.tsx`).
+     **Les trois étapes sont utilisables de bout en bout — aucune n'a encore été VUE à
+     l'écran par Jay.**
 
   Un spike de superposition permanente
   (scène sur un second canal libobs) a bloqué le moteur le 2026-09-14 sans cause trouvée —
