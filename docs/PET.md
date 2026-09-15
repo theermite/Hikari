@@ -1149,8 +1149,10 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
   2. ✅ **Codé et testé (2026-09-15)** — un champ « ponctuel (secondes) » à côté du
      sélecteur de fichier existant (`src/features/scenes`). Vide = permanent, comme avant.
      **Pas encore vu à l'écran.**
-  3. Le lien chat/alertes → média précis (`src/features/chat`, `crates/automation`) — chantier
-     séparé, pas avant que 1 et 2 soient prouvés.
+  3. ✅ **Codé et testé (2026-09-15)** — une alerte Twitch peut déclencher un média pop-up
+     réglé pour elle (`ChatSettings.alertMedia`, `src/features/chat/alertMedia.ts`).
+     **Manque encore une interface pour RENSEIGNER le réglage** (le mapping reste vide par
+     défaut, rien à configurer à l'écran) — sans elle, cette étape est codée mais inutilisable.
 
   Un spike de superposition permanente
   (scène sur un second canal libobs) a bloqué le moteur le 2026-09-14 sans cause trouvée —
