@@ -42,18 +42,6 @@ export function addCaptureSource(
   return invoke("add_capture_source", { scene, kind, targetId, name });
 }
 
-/** Pose un média pop-up (image/vidéo, F-033/F-034) dans `scene` — le moteur programme
- * lui-même son retrait après `durationMs`, jamais une minuterie côté app. */
-export function addTimedMedia(
-  scene: string,
-  kind: SourceKind,
-  targetId: string,
-  name: string,
-  durationMs: number,
-): Promise<void> {
-  return invoke("add_timed_media", { scene, kind, targetId, name, durationMs });
-}
-
 /** Montre une source DÉJÀ POSÉE (médiathèque) pendant `durationMs`, puis la cache — jamais
  * ne la retire, pour qu'un bouton de deck puisse la redéclencher à volonté. */
 export function showMediaFor(
