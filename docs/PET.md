@@ -1152,8 +1152,14 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
   3. ✅ **Codé et testé (2026-09-15)** — une alerte Twitch peut déclencher un média pop-up
      réglé pour elle (`ChatSettings.alertMedia`, `src/features/chat/alertMedia.ts`), avec
      son écran de réglage (Paramètres → « Alertes → médias », `AlertMediaSettingsPanel.tsx`).
-     **Les trois étapes sont utilisables de bout en bout — aucune n'a encore été VUE à
-     l'écran par Jay.**
+  4. ✅ **Prouvé à l'écran le 2026-09-15** — recouvrement permanent : une scène réservée
+     (« DSK », `scenes::OVERLAY_SCENE_NAME`) créée automatiquement par le moteur, posée sur
+     le canal de sortie 1, visible sur TOUTE scène active. C'était le vrai besoin derrière
+     F-033/F-034 (pas un média posé dans une scène choisie) — le spike du 2026-09-14 avait
+     échoué en touchant le canal avant l'initialisation vidéo ; corrigé structurellement
+     (la commande n'agit qu'après confirmation complète du moteur). Les alertes et le
+     déclenchement manuel posent désormais leur média sur cette scène, sans champ scène à
+     choisir. Jay confirme : « la source (l'image) s'affiche bien sur toutes les scènes ».
 
   Un spike de superposition permanente
   (scène sur un second canal libobs) a bloqué le moteur le 2026-09-14 sans cause trouvée —

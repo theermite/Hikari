@@ -303,25 +303,32 @@ posée pendant une durée choisie, puis se retire d'elle-même, sans action manu
 distingue d'une source ordinaire (F-020) : cette dernière est permanente, choisie et retirée à
 la main.
 
-**Ce que le moteur doit savoir faire** (n'existe pas encore, à construire) :
+**Ce que le moteur sait faire** (construit et prouvé le 2026-09-15) :
 | Capacité | État |
 |---|---|
-| Poser une image/vidéo dans une scène | ✅ déjà câblé (`AddCaptureSource`) |
-| La transparence du fichier (alpha PNG/GIF/WebM) | ✅ déjà native au format, rien à ajouter |
-| Un délai d'affichage posé sur CETTE source précise | ⬜ à construire (aucun champ de durée sur une source aujourd'hui) |
-| La disparition automatique au bout du délai, sans appel manuel | ⬜ à construire (aucun message combiné "afficher puis retirer") |
+| Poser une image/vidéo dans une scène | ✅ câblé (`AddCaptureSource`) |
+| La transparence du fichier (alpha PNG/GIF/WebM) | ✅ native au format, rien à ajouter |
+| Un délai d'affichage posé sur CETTE source précise | ✅ `AddTimedMedia`, le moteur programme lui-même le retrait |
+| La disparition automatique au bout du délai, sans appel manuel | ✅ même commande, testé et prouvé à l'écran |
 | Vidéo en boucle par défaut, jamais coupée avant la fin du délai voulu | ⚠️ existe en boucle infinie forcée (`"looping": true`) — à rendre compatible avec un délai fini |
+
+**Visible sur TOUTE scène, pas une scène choisie (clarifié avec Jay le 2026-09-15)** :
+le premier jet posait le média dans une scène précise, choisie à la configuration — ce
+n'était pas le besoin. Une **scène de recouvrement permanent**, réservée
+(`scenes::OVERLAY_SCENE_NAME`, « DSK »), créée automatiquement par le moteur au démarrage
+et posée sur le canal de sortie 1 : libobs la compose PAR-DESSUS le canal 0 (la scène
+active) en permanence, quel que soit le changement de scène. Tout média pop-up s'y pose
+d'office. Dérisqué et confirmé à l'écran le 2026-09-15 — le spike de la veille avait
+bloqué le moteur en touchant le canal AVANT que la vidéo soit initialisée ; la commande
+n'agit désormais qu'après confirmation complète de l'initialisation.
 
 **Bandeaux d'information (F-034)** : même mécanique de délai/disparition automatique que
 F-033 — un bandeau est un cas particulier de média temporaire (texte ou image en bande),
 jamais un système séparé.
 
-**Hors de cette clarification** (chantier suivant, pas cette session) : relier un événement du
-chat ou une alerte (émote, don, follow) à un fichier précis à afficher automatiquement — exige
-un mapping événement→média qui n'existe pas encore (`Action` d'automation ne sait aujourd'hui
-que basculer la visibilité d'une source déjà posée, jamais en créer une à la volée). Le
-déclenchement manuel (bouton, fichier choisi à la main) est le premier pas ; le lien
-automatique au chat suit.
+**Fait le 2026-09-15** : relier une alerte Twitch (follow, sub, don, raid) à un média
+précis, réglé dans Paramètres → « Alertes → médias » — un fichier + une durée par type
+d'alerte, posé sur la scène de recouvrement dès que l'alerte arrive.
 
 ---
 
