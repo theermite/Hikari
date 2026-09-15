@@ -275,6 +275,21 @@ pub enum ControllerCommand {
         target_id: String,
         name: String,
     },
+    /// Pose une image/vidéo dans `scene`, et retire la source D'ELLE-MÊME au bout de
+    /// `duration_ms` (F-033/F-034, médias pop-up et bandeaux, CDC §3quinquies) — jamais
+    /// un `AddCaptureSource` suivi d'un `RemoveSource` minuté côté app : ce dernier
+    /// perdrait la source si l'app redémarre entre les deux, le moteur non.
+    ///
+    /// `kind` doit être `Image` ou `Video` (`validate_timed_media_kind`) ; `duration_ms`
+    /// est ramené dans les bornes utilisables (`clamp_timed_media_duration_ms`) avant
+    /// d'être appliqué.
+    AddTimedMedia {
+        scene: String,
+        kind: SourceKind,
+        target_id: String,
+        name: String,
+        duration_ms: u64,
+    },
     /// Removes a source from `scene` only. Other scenes keep theirs.
     RemoveSource { scene: String, name: String },
     /// Moves a source one step in front of, or behind, the others in `scene`. Which source

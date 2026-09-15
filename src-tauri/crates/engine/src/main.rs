@@ -82,6 +82,10 @@ const CAMERA_SLIDE_TICK: std::time::Duration = std::time::Duration::from_millis(
 /// se voit — quatre tentatives par seconde suffisent largement à rattraper l'instant où le
 /// pilote commence enfin à rendre.
 const MASK_RETRY_TICK: std::time::Duration = std::time::Duration::from_millis(250);
+/// How often a pending pop-up media's deadline is checked (F-033/F-034, 2026-09-15). Same
+/// cadence as the mask retry — a pop-up disappearing a quarter-second late is unnoticeable,
+/// and checking faster would wake the loop for no visible gain.
+const TIMED_MEDIA_TICK: std::time::Duration = std::time::Duration::from_millis(250);
 /// Plafond d'ÂGE avant d'abandonner un masque en attente et de le dire à l'utilisateur
 /// (2026-09-09, relecture indépendante avant publication, TROISIÈME passage — un compteur de
 /// tentatives ACTIVES, posé au second passage, ne progressait jamais pour une entrée dont la
@@ -423,7 +427,18 @@ struct App {
     /// shown in both the outgoing and the incoming scene). `about_to_wait` advances it every
     /// tick; unrelated to `drag`, which is a mouse gesture, never an automatic one.
     camera_slide: Option<CameraSlide>,
+    /// Médias pop-up en attente de leur propre retrait (F-033/F-034, 2026-09-15) — programmé
+    /// PAR LE MOTEUR, jamais par l'app : un `setTimeout` côté app perdrait la source si
+    /// l'app redémarre entre l'ajout et l'échéance, le moteur non.
+    pending_timed_removals: Vec<PendingTimedRemoval>,
     obs: Option<ObsInner>,
+}
+
+/// Une source posée avec une date de péremption — voir `pending_timed_removals`.
+struct PendingTimedRemoval {
+    scene: String,
+    name: String,
+    deadline: std::time::Instant,
 }
 
 /// A camera gliding from its placement in the scene just left to its OWN saved placement in

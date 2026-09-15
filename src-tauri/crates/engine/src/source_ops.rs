@@ -3,7 +3,7 @@
 
 use hikari_protocol::EngineMessage;
 
-use crate::{camera, emit, sources, text_ops, App, SceneSource};
+use crate::{camera, emit, sources, text_ops, App, PendingTimedRemoval, SceneSource};
 
 impl App {
     /// Moves a source one step in front of, or behind, the others in its scene — une caméra
@@ -362,5 +362,84 @@ impl App {
             });
         }
         self.emit_scene_list();
+    }
+
+    /// Pose un média pop-up (image/vidéo, F-033/F-034) et programme son propre retrait —
+    /// voir `PendingTimedRemoval`. Jamais un `AddCaptureSource` + minuterie côté app :
+    /// celle-ci perdrait la source si l'app redémarre entre les deux, le moteur non.
+    pub(crate) fn handle_add_timed_media(
+        &mut self,
+        scene: String,
+        kind: hikari_protocol::SourceKind,
+        target_id: String,
+        name: String,
+        duration_ms: u64,
+    ) {
+        if let Err(err) = hikari_protocol::validate_timed_media_kind(kind) {
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
+            return;
+        }
+        if self.obs.is_none() {
+            emit(&EngineMessage::Error {
+                message: "AddTimedMedia avant l'initialisation".into(),
+            });
+            return;
+        }
+        let taken = self.source_names_in_scene(&scene);
+        if let Err(err) = hikari_protocol::validate_source_name(&name, &taken) {
+            let message = match err {
+                hikari_protocol::SceneNameError::Empty => "le nom du média est vide".to_string(),
+                hikari_protocol::SceneNameError::Duplicate => {
+                    format!("« {name} » existe déjà dans cette scène")
+                }
+            };
+            emit(&EngineMessage::Error { message });
+            return;
+        }
+        let Some(obs) = &mut self.obs else { return };
+        match sources::add_capture_to_scene(&mut obs.context, kind, &target_id, &name, &scene) {
+            Ok(item) => {
+                obs.scene_sources.entry(scene.clone()).or_default().insert(
+                    0,
+                    SceneSource {
+                        name: name.clone(),
+                        kind: kind.libobs_id().to_string(),
+                        source_kind: kind,
+                        target_id,
+                        item,
+                    },
+                );
+                obs.item_rects = None;
+                let duration_ms = hikari_protocol::clamp_timed_media_duration_ms(duration_ms);
+                self.pending_timed_removals.push(PendingTimedRemoval {
+                    scene,
+                    name,
+                    deadline: std::time::Instant::now()
+                        + std::time::Duration::from_millis(duration_ms),
+                });
+            }
+            Err(err) => {
+                emit(&EngineMessage::Error {
+                    message: err.to_string(),
+                });
+                return;
+            }
+        }
+        self.emit_scene_list();
+    }
+
+    /// Retire toute source dont l'échéance est passée. Appelée depuis `about_to_wait`
+    /// uniquement quand `pending_timed_removals` n'est pas vide (2026-09-15).
+    pub(crate) fn expire_timed_media(&mut self) {
+        let now = std::time::Instant::now();
+        let (due, pending): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pending_timed_removals)
+            .into_iter()
+            .partition(|removal| removal.deadline <= now);
+        self.pending_timed_removals = pending;
+        for removal in due {
+            self.handle_remove_source(removal.scene, removal.name);
+        }
     }
 }

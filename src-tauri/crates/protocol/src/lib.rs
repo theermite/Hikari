@@ -29,6 +29,7 @@ pub mod mask_retry;
 pub mod platform;
 pub mod scenes;
 pub mod sources;
+pub mod timed_media;
 pub mod wire;
 
 pub use audio::*;
@@ -42,4 +43,5 @@ pub use mask_retry::*;
 pub use platform::*;
 pub use scenes::*;
 pub use sources::*;
+pub use timed_media::*;
 pub use wire::*;

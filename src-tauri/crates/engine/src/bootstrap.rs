@@ -28,6 +28,7 @@ pub(crate) fn run() -> Result<()> {
         fitted: (PREVIEW_START_WIDTH, PREVIEW_START_HEIGHT),
         drag: None,
         camera_slide: None,
+        pending_timed_removals: Vec::new(),
     };
     event_loop.run_app(&mut app)?;
     Ok(())

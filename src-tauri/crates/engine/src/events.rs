@@ -93,6 +93,13 @@ pub(crate) enum EngineEvent {
         target_id: String,
         name: String,
     },
+    AddTimedMedia {
+        scene: String,
+        kind: hikari_protocol::SourceKind,
+        target_id: String,
+        name: String,
+        duration_ms: u64,
+    },
     RemoveSource {
         scene: String,
         name: String,

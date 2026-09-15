@@ -146,6 +146,13 @@ fn should_roundtrip_every_source_command() {
             target_id: "LoL".to_string(),
             name: "Jeu".to_string(),
         },
+        ControllerCommand::AddTimedMedia {
+            scene: "main".to_string(),
+            kind: SourceKind::Image,
+            target_id: "C:\\medias\\hype.png".to_string(),
+            name: "Pop-up".to_string(),
+            duration_ms: 4_000,
+        },
         ControllerCommand::RemoveSource {
             scene: "main".to_string(),
             name: "Jeu".to_string(),
