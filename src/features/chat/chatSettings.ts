@@ -28,8 +28,12 @@ function getStore(): Promise<Store> {
 
 export async function loadChatSettings(): Promise<ChatSettings> {
   const store = await getStore();
-  const saved = await store.get<ChatSettings>(SETTINGS_KEY);
-  return saved ?? DEFAULT_CHAT_SETTINGS;
+  const saved = await store.get<Partial<ChatSettings>>(SETTINGS_KEY);
+  // Fusionné sur les valeurs par défaut, jamais lu tel quel : un fichier écrit AVANT
+  // l'existence d'un champ (ici `alertMedia`, ajouté après `showTimestamps`) ne le porte
+  // pas, et le lire tel quel rendait `undefined` là où l'écran de réglage attendait un
+  // objet — plantage silencieux, page blanche (vécu 2026-09-15, fichier réel de Jay).
+  return { ...DEFAULT_CHAT_SETTINGS, ...saved };
 }
 
 export async function saveChatSettings(settings: ChatSettings): Promise<void> {

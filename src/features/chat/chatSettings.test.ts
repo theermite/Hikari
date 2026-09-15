@@ -28,6 +28,18 @@ describe("chat settings", () => {
     expect(settings).toEqual({ showTimestamps: false, alertMedia: {} });
   });
 
+  it("should_default_alert_media_when_reading_a_file_saved_before_that_field_existed", async () => {
+    // Vécu en vrai le 2026-09-15 : le fichier réel de Jay ne portait que showTimestamps
+    // (écrit par la 0.6.0, avant alertMedia) — le lire tel quel plantait l'écran de
+    // réglage sur `undefined[kind]`, page blanche silencieuse.
+    storeState.value = { showTimestamps: true };
+
+    const { loadChatSettings } = await import("./chatSettings");
+    const settings = await loadChatSettings();
+
+    expect(settings).toEqual({ showTimestamps: true, alertMedia: {} });
+  });
+
   it("should_roundtrip_a_saved_preference", async () => {
     const { loadChatSettings, saveChatSettings } = await import(
       "./chatSettings"
