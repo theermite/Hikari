@@ -7,6 +7,10 @@
 /// ever happen on the winit/event-loop thread, never on the stdin-reader thread itself).
 pub(crate) enum EngineEvent {
     Exit,
+    /// SPIKE (2026-09-15) — voir `ControllerCommand::SetOverlayScene`.
+    SetOverlayScene {
+        scene: String,
+    },
     StartStream,
     StopStream,
     StartMultistream {

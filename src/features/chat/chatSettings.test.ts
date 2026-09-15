@@ -62,7 +62,7 @@ describe("chat settings", () => {
     await saveChatSettings({
       showTimestamps: false,
       alertMedia: {
-        follow: { scene: "main", kind: "image", path: "C:\\a.png", durationMs: 2_000 },
+        follow: { kind: "image", path: "C:\\a.png", durationMs: 2_000 },
       },
     });
     // Un autre écran patch un champ SANS connaître le reste.
@@ -70,7 +70,6 @@ describe("chat settings", () => {
 
     expect(result.showTimestamps).toBe(true);
     expect(result.alertMedia.follow).toEqual({
-      scene: "main",
       kind: "image",
       path: "C:\\a.png",
       durationMs: 2_000,
@@ -88,13 +87,12 @@ describe("chat settings", () => {
     await saveChatSettings({
       showTimestamps: false,
       alertMedia: {
-        cheer: { scene: "main", kind: "video", path: "C:\\hype.mp4", durationMs: 4_000 },
+        cheer: { kind: "video", path: "C:\\hype.mp4", durationMs: 4_000 },
       },
     });
     const settings = await loadChatSettings();
 
     expect(settings.alertMedia.cheer).toEqual({
-      scene: "main",
       kind: "video",
       path: "C:\\hype.mp4",
       durationMs: 4_000,

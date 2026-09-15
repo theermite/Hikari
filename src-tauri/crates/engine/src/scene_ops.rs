@@ -41,6 +41,25 @@ impl App {
         self.emit_scene_list();
     }
 
+    /// SPIKE (2026-09-15) — voir `scenes::set_overlay_channel`. Garde du même filet que
+    /// tout handler ici : `self.obs.is_none()` refuse plutôt que d'attendre, ce qui
+    /// EMPÊCHE STRUCTURELLEMENT de toucher un canal avant que la sortie vidéo existe —
+    /// la cause probable du blocage du 2026-09-14 (touché pendant `try_init`, avant que
+    /// `self.obs` soit assigné).
+    pub(crate) fn handle_set_overlay_scene(&mut self, scene: String) {
+        let Some(obs) = &mut self.obs else {
+            emit(&EngineMessage::Error {
+                message: "SetOverlayScene avant l'initialisation".into(),
+            });
+            return;
+        };
+        if let Err(err) = scenes::set_overlay_channel(&mut obs.context, &scene) {
+            emit(&EngineMessage::Error {
+                message: err.to_string(),
+            });
+        }
+    }
+
     /// Switches the live scene through the app's one fade transition (B7). `duration_ms`
     /// (already `hikari_protocol::clamp_transition_duration_ms`-clamped by the caller, and
     /// re-clamped here as the defensive floor) is `0` for an instant cut. Errors clearly on

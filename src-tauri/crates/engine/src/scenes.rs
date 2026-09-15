@@ -56,6 +56,26 @@ pub fn delete_scene(context: &mut ObsContext, name: &str) -> Result<()> {
     Ok(())
 }
 
+/// Le nom RÉSERVÉ de la scène de recouvrement permanent (F-033/F-034, dérisqué et confirmé
+/// à l'écran le 2026-09-15 : un média posé ici s'affiche sur TOUTE scène active). Créée
+/// automatiquement par le moteur, jamais par l'utilisateur — exclue de la liste normale des
+/// scènes côté app (même nom, en dur, côté TypeScript : `OVERLAY_SCENE_NAME`).
+pub const OVERLAY_SCENE_NAME: &str = "DSK";
+
+/// Pose `scene` sur le canal de sortie 1, composé PAR-DESSUS le canal 0 (la transition,
+/// donc la scène active) par libobs lui-même, en PERMANENCE. Jamais appelé avant que
+/// `self.obs` existe : la tentative du 2026-09-14 a bloqué `try_init` en touchant un canal
+/// avant que la sortie vidéo existe (dérisqué et confirmé le 2026-09-15).
+pub fn set_overlay_channel(context: &mut ObsContext, name: &str) -> Result<()> {
+    let scene = context
+        .get_scene(name)
+        .context("recherche scène")?
+        .context("scène introuvable")?;
+    scene
+        .set_to_channel(1)
+        .context("pose de la scène sur le canal de recouvrement")
+}
+
 /// Makes `name` the live scene, fading through the app's one transition over
 /// `duration_ms` (`0` = instant cut). The scene that was live before stays fully intact
 /// (its sources, filters, everything) as an ordinary inactive scene; switching back to it

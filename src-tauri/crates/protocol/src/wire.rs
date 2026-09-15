@@ -124,6 +124,12 @@ pub enum EngineMessage {
 pub enum ControllerCommand {
     /// Create a scene with the given name.
     CreateScene { name: String },
+    /// SPIKE (2026-09-15) — pose `scene` sur le canal de sortie 1, composé PAR-DESSUS le
+    /// canal 0 (la scène active via la transition) par libobs lui-même, en permanence, quel
+    /// que soit le changement de scène. Jamais appelé avant que le moteur ait confirmé son
+    /// initialisation complète (`self.obs.is_some()`) — la tentative du 2026-09-14 a bloqué
+    /// `try_init` en touchant un canal trop tôt, avant que la sortie vidéo existe.
+    SetOverlayScene { scene: String },
     /// Ask the engine to emit the current scene's sources.
     ListSources,
     /// Puts the camera `device_id` into `scene`. One libobs source per DEVICE, created the

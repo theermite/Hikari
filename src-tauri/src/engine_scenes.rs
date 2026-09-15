@@ -173,6 +173,17 @@ pub(crate) fn create_scene(state: State<EngineState>, name: String) -> Result<()
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi CreateScene au moteur: {err}"))
 }
 
+/// SPIKE (2026-09-15) — pose `scene` en recouvrement permanent sur toutes les autres.
+/// Voir `ControllerCommand::SetOverlayScene`. Jetable : pas de bouton dans l'interface,
+/// déclenché depuis la fenêtre de développement pour ce dérisquage.
+#[tauri::command]
+pub(crate) fn set_overlay_scene(
+    state: State<EngineState>,
+    scene: String,
+) -> Result<(), String> {
+    send_command(&state, ControllerCommand::SetOverlayScene { scene })
+}
+
 /// Switches the live scene through a fondu (B7). `duration_ms` should come from
 /// `hikari_protocol::TRANSITION_DURATIONS_MS` — the engine re-clamps it regardless
 /// (`clamp_transition_duration_ms`), `0` being an instant cut. Requires the engine running.

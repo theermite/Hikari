@@ -2,6 +2,13 @@
 // the fields this screen actually reads (F-003 spirit: never invent a shape the wire
 // hasn't sent). Not a full protocol port; extend when a screen needs another field.
 
+/** Le nom RÉSERVÉ de la scène de recouvrement permanent (F-033/F-034) — créée par le
+ * moteur, jamais par l'utilisateur. MÊME nom en dur côté Rust (`scenes::OVERLAY_SCENE_NAME`,
+ * `crates/engine/src/scenes.rs`) : dérisqué et confirmé à l'écran le 2026-09-15, un média
+ * posé ici s'affiche sur TOUTE scène active. Exclue de toute liste/action normale de scène
+ * (`useEngineSessionSync.ts`, `ScenesPanel.tsx`) — jamais switchable, jamais supprimable. */
+export const OVERLAY_SCENE_NAME = "DSK";
+
 /** One scene as the engine sees it, mirroring `hikari_protocol::SceneInfo`. Field names are
  * the wire's own snake_case — renaming them here would silently stop matching the JSON. */
 /** Ce qu'une source vise : quelque chose de vivant à capturer, ou un fichier du disque. */

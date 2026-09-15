@@ -7,6 +7,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
 import { addTimedMedia } from "../scenes/api";
+import { OVERLAY_SCENE_NAME } from "../scenes/types";
 import type { ChatSettings } from "./chatSettings";
 import type { AlertMediaRule, ChatAlert } from "./types";
 
@@ -33,7 +34,7 @@ export function useAlertMedia(settings: ChatSettings) {
       const rule = ruleForAlert(event.payload, settings.alertMedia);
       if (!rule) return;
       const name = alertMediaSourceName(event.payload.kind, Date.now());
-      addTimedMedia(rule.scene, rule.kind, rule.path, name, rule.durationMs).catch(
+      addTimedMedia(OVERLAY_SCENE_NAME, rule.kind, rule.path, name, rule.durationMs).catch(
         (error: unknown) => {
           console.error("alertMedia: addTimedMedia failed", error);
         },

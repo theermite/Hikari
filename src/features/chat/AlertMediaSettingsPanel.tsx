@@ -4,6 +4,10 @@
 // Deux boutons de famille (Image/Vidéo) au lieu du grand sélecteur `AddSourceModal` :
 // une alerte n'a que deux familles pertinentes (jamais un jeu, une fenêtre ou un écran),
 // le montrer réduirait la carte à ce qui compte.
+//
+// Pas de champ scène (retiré le 2026-09-15) : le média se pose sur la scène de
+// recouvrement permanent (`OVERLAY_SCENE_NAME`), visible quelle que soit la scène active
+// — c'était le vrai besoin de Jay, pas un choix par scène.
 
 import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
@@ -16,18 +20,16 @@ import type { AlertMediaRule, ChatAlert } from "./types";
 
 type Kind = ChatAlert["kind"];
 
-const DEFAULT_SCENE = "main";
 const DEFAULT_SECONDS = "3";
 
 interface Draft {
-  scene: string;
   seconds: string;
 }
 
 function draftFor(rule: AlertMediaRule | undefined): Draft {
   return rule
-    ? { scene: rule.scene, seconds: String(rule.durationMs / 1000) }
-    : { scene: DEFAULT_SCENE, seconds: DEFAULT_SECONDS };
+    ? { seconds: String(rule.durationMs / 1000) }
+    : { seconds: DEFAULT_SECONDS };
 }
 
 function AlertMediaRow({
@@ -62,12 +64,7 @@ function AlertMediaRow({
     }).then((path) => {
       if (typeof path !== "string") return;
       const durationMs = parseTimedMediaSeconds(draft.seconds) ?? 3_000;
-      onChange({
-        scene: draft.scene.trim() || DEFAULT_SCENE,
-        kind: fileKind,
-        path,
-        durationMs,
-      });
+      onChange({ kind: fileKind, path, durationMs });
     });
   };
 
@@ -76,8 +73,8 @@ function AlertMediaRow({
     setDraft(next);
     if (!rule) return; // Rien à corriger tant qu'aucun fichier n'est choisi.
     const durationMs = parseTimedMediaSeconds(next.seconds);
-    if (durationMs === null || !next.scene.trim()) return;
-    onChange({ ...rule, scene: next.scene.trim(), durationMs });
+    if (durationMs === null) return;
+    onChange({ ...rule, durationMs });
   };
 
   return (
@@ -86,14 +83,6 @@ function AlertMediaRow({
         {ALERT_KIND_LABEL[kind]}
       </span>
 
-      <input
-        type="text"
-        value={draft.scene}
-        onChange={(event) => commitField({ scene: event.target.value })}
-        placeholder="scène"
-        aria-label={`Scène pour l'alerte ${ALERT_KIND_LABEL[kind]}`}
-        className="w-24 rounded-[6px] border border-hikari-line bg-hikari-bg px-2 py-1 text-[12px] text-hikari-txt placeholder:text-hikari-txt-faint"
-      />
       <input
         type="number"
         min="0"

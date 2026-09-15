@@ -111,6 +111,7 @@ impl ApplicationHandler<EngineEvent> for App {
                 target_id,
                 name,
             } => self.handle_add_capture_source(scene, kind, target_id, name),
+            EngineEvent::SetOverlayScene { scene } => self.handle_set_overlay_scene(scene),
             EngineEvent::AddTimedMedia {
                 scene,
                 kind,

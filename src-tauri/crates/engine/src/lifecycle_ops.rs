@@ -18,8 +18,8 @@ use winit::window::Window;
 use crate::multistream::{start_multistream, stop_one};
 use crate::stream::{start_stream, StreamState};
 use crate::{
-    emit, outline, sources, transitions, App, ObsInner, SceneSource, MONITOR_CAPTURE_NAME,
-    PREVIEW_START_HEIGHT, PREVIEW_START_WIDTH,
+    emit, outline, scenes, sources, transitions, App, ObsInner, SceneSource,
+    MONITOR_CAPTURE_NAME, PREVIEW_START_HEIGHT, PREVIEW_START_WIDTH,
 };
 
 /// Build the "main" scene with a screen capture, as an ORDINARY source.
@@ -198,6 +198,33 @@ impl App {
             )]),
         });
         self.window = Some(Sendable(window));
+
+        // La scène de recouvrement permanent (F-033/F-034) — créée ici, APRÈS que
+        // `self.obs` existe (la garde structurelle qui a manqué le 2026-09-14 : toucher un
+        // canal avant que la sortie vidéo existe a bloqué `try_init` sans un seul message).
+        // Idempotent : une session déjà rejouée peut l'avoir recréée depuis le disque avant
+        // ce point (elle apparaissait comme une scène ordinaire pendant le dérisquage du
+        // 2026-09-15) — la retrouver n'est jamais une erreur, seul le canal doit être reposé
+        // à CHAQUE lancement (`obs_set_output_source` ne survit pas à un redémarrage).
+        {
+            let obs = self.obs.as_mut().expect("obs vient d'être assigné");
+            let existing = scenes::list_scene_names(&mut obs.context).unwrap_or_default();
+            if !existing.iter().any(|name| name == scenes::OVERLAY_SCENE_NAME) {
+                if let Err(err) = scenes::create_scene(&mut obs.context, scenes::OVERLAY_SCENE_NAME)
+                {
+                    emit(&EngineMessage::Error {
+                        message: format!("création scène de recouvrement : {err}"),
+                    });
+                }
+            }
+            if let Err(err) = scenes::set_overlay_channel(&mut obs.context, scenes::OVERLAY_SCENE_NAME)
+            {
+                emit(&EngineMessage::Error {
+                    message: format!("pose de la scène de recouvrement : {err}"),
+                });
+            }
+        }
+
         // Le VRAI inventaire, jamais une scène déclarée vide à la main.
         //
         // Ce message annonçait « main est vide » alors que la capture d'écran de démarrage

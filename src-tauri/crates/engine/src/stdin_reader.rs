@@ -144,6 +144,9 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                 Ok(ControllerCommand::ListCaptureTargets) => {
                     let _ = proxy.send_event(EngineEvent::ListCaptureTargets);
                 }
+                Ok(ControllerCommand::SetOverlayScene { scene }) => {
+                    let _ = proxy.send_event(EngineEvent::SetOverlayScene { scene });
+                }
                 Ok(ControllerCommand::AddCaptureSource {
                     scene,
                     kind,

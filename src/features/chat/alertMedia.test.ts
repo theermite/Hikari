@@ -30,11 +30,10 @@ describe("ruleForAlert", () => {
 
   it("should_return_the_rule_matching_the_alerts_own_kind", () => {
     const mapping: ChatSettings["alertMedia"] = {
-      cheer: { scene: "main", kind: "video", path: "C:\\hype.mp4", durationMs: 4_000 },
+      cheer: { kind: "video", path: "C:\\hype.mp4", durationMs: 4_000 },
     };
 
     expect(ruleForAlert(cheer, mapping)).toEqual({
-      scene: "main",
       kind: "video",
       path: "C:\\hype.mp4",
       durationMs: 4_000,
