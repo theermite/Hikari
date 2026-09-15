@@ -8,6 +8,7 @@
 import type { IDockviewPanelProps } from "dockview-react";
 import { Panel } from "../../../components/ui/Panel";
 import { SectionTitle } from "../../../components/ui/SectionTitle";
+import { AlertMediaSettingsPanel } from "../../chat/AlertMediaSettingsPanel";
 import { AccountsPanel } from "./AccountsPanel";
 import { EncodingSettingsPanel } from "./EncodingSettingsPanel";
 
@@ -19,6 +20,8 @@ export function SettingsPanel(props: IDockviewPanelProps) {
         <AccountsPanel {...props} />
         <SectionTitle>Encodage</SectionTitle>
         <EncodingSettingsPanel {...props} />
+        <SectionTitle>Alertes → médias</SectionTitle>
+        <AlertMediaSettingsPanel {...props} />
       </div>
     </Panel>
   );

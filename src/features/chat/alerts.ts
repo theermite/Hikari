@@ -20,6 +20,28 @@ export function pushAlert(
     : next;
 }
 
+/** Chaque type d'alerte que le protocole connaît — source unique pour tout écran qui doit
+ * les lister (aujourd'hui : réglage d'un média pop-up). Une liste fermée, jamais devinée
+ * depuis un objet TypeScript dont l'ordre n'est pas garanti. */
+export const ALERT_KINDS: ChatAlert["kind"][] = [
+  "follow",
+  "subscribe",
+  "subscription_gift",
+  "resub",
+  "cheer",
+  "raid",
+];
+
+/** Le libellé lisible de chaque type — jamais le mot anglais de l'API affiché tel quel. */
+export const ALERT_KIND_LABEL: Record<ChatAlert["kind"], string> = {
+  follow: "Nouveau suivi",
+  subscribe: "Abonnement",
+  subscription_gift: "Abonnement offert",
+  resub: "Resign",
+  cheer: "Bits (don)",
+  raid: "Raid",
+};
+
 const ANONYME = "Quelqu'un";
 
 /** Le texte affiché pour une alerte — une phrase, jamais un jargon d'API (« tier »,

@@ -36,3 +36,17 @@ export async function saveChatSettings(settings: ChatSettings): Promise<void> {
   const store = await getStore();
   await store.set(SETTINGS_KEY, settings);
 }
+
+/** Pose SEULEMENT les champs donnés, en relisant le store juste avant d'écrire — jamais
+ * depuis un état local chargé une fois au montage. Le panneau Chat (bouton horloge) et
+ * l'écran de réglage des alertes écrivent le MÊME fichier ; réécrire l'objet entier
+ * depuis un état périmé effacerait silencieusement ce que l'autre vient de poser (même
+ * défaut déjà vécu sur l'encodage, `encodingSettings.ts`, 2026-09-13). */
+export async function patchChatSettings(
+  over: Partial<ChatSettings>,
+): Promise<ChatSettings> {
+  const current = await loadChatSettings();
+  const next = { ...current, ...over };
+  await saveChatSettings(next);
+  return next;
+}

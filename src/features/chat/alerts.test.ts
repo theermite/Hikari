@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { ALERTS_HISTORY_CAP, describeAlert, pushAlert } from "./alerts";
+import {
+  ALERT_KIND_LABEL,
+  ALERT_KINDS,
+  ALERTS_HISTORY_CAP,
+  describeAlert,
+  pushAlert,
+} from "./alerts";
 import type { ChatAlert, DisplayedChatAlert } from "./types";
 
 describe("chat alerts", () => {
@@ -118,5 +124,22 @@ describe("chat alerts", () => {
       viewers: 42,
     };
     expect(describeAlert(alert)).toBe("Raid de Ange avec 42 spectateurs");
+  });
+});
+
+describe("ALERT_KINDS / ALERT_KIND_LABEL", () => {
+  it("should_give_a_plain_french_label_to_every_listed_kind", () => {
+    // Une liste fermée (ALERT_KINDS) qui n'a pas son libellé serait un bouton vide dans
+    // l'écran de réglage — cette symétrie doit tenir, jamais supposée.
+    for (const kind of ALERT_KINDS) {
+      expect(ALERT_KIND_LABEL[kind]).toBeTruthy();
+    }
+  });
+
+  it("should_list_every_alert_kind_the_protocol_knows", () => {
+    const kinds = new Set(ALERT_KINDS);
+    expect(kinds).toEqual(
+      new Set(["follow", "subscribe", "subscription_gift", "resub", "cheer", "raid"]),
+    );
   });
 });

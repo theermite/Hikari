@@ -16,7 +16,7 @@ import { banChatUser, timeoutChatUser } from "./api";
 import {
   DEFAULT_CHAT_SETTINGS,
   loadChatSettings,
-  saveChatSettings,
+  patchChatSettings,
 } from "./chatSettings";
 import { filterChatMessages, formatMessageTime, togglePinned } from "./history";
 import type { ChatAlert, ChatPlatform, DisplayedChatMessage } from "./types";
@@ -191,11 +191,11 @@ export function ChatPanel(_props: IDockviewPanelProps) {
   const showTime = settings.showTimestamps;
 
   const toggleShowTime = () => {
-    const next = { ...settings, showTimestamps: !settings.showTimestamps };
-    setSettings(next);
-    saveChatSettings(next).catch((error: unknown) => {
-      console.error("chat: saveChatSettings failed", error);
-    });
+    patchChatSettings({ showTimestamps: !settings.showTimestamps })
+      .then(setSettings)
+      .catch((error: unknown) => {
+        console.error("chat: patchChatSettings failed", error);
+      });
   };
 
   const { onTimeout, onBan } = moderationHandlers(setModerationError);
