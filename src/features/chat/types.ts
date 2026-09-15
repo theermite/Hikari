@@ -50,13 +50,12 @@ export interface DisplayedChatAlert {
   alert: ChatAlert;
 }
 
-// Ce qu'une alerte déclenche comme média pop-up (F-033/F-034) — posé sur la scène de
-// recouvrement permanent (`OVERLAY_SCENE_NAME`, dérisqué et confirmé le 2026-09-15), donc
-// visible quelle que soit la scène active. Plus de champ scène : ce n'était pas le besoin
-// de Jay, corrigé le 2026-09-15. Le KIND reste explicite (jamais déduit de l'extension —
-// .gif vaut pour les deux familles côté sélecteur, `sourcePicker.ts`).
+// Ce qu'une alerte déclenche (F-033/F-034) : une source DÉJÀ POSÉE, EN PERMANENCE, dans
+// la médiathèque (`OVERLAY_SCENE_NAME`) — jamais recréée puis détruite à chaque alerte
+// (Jay, 2026-09-15 : « il faut que la source reste », pour un redéclenchement futur par
+// deck). Son nom DANS la médiathèque est le type d'alerte lui-même (`ChatAlert["kind"]`) :
+// une seule médiathèque, une source par type, jamais de collision à gérer. Ni chemin ni
+// kind ici — ils vivent dans la source déjà posée, pas dans ce réglage.
 export interface AlertMediaRule {
-  kind: "image" | "video";
-  path: string;
   durationMs: number;
 }

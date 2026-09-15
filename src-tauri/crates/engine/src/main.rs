@@ -431,11 +431,22 @@ struct App {
     /// PAR LE MOTEUR, jamais par l'app : un `setTimeout` côté app perdrait la source si
     /// l'app redémarre entre l'ajout et l'échéance, le moteur non.
     pending_timed_removals: Vec<PendingTimedRemoval>,
+    /// Sources DÉJÀ POSÉES (une médiathèque) en attente de leur propre mise en sourdine
+    /// visuelle (`ShowMediaFor`, 2026-09-15) — jamais un retrait : Jay doit pouvoir
+    /// redéclencher la même source depuis un deck sans jamais la reconfigurer.
+    pending_hides: Vec<PendingHide>,
     obs: Option<ObsInner>,
 }
 
 /// Une source posée avec une date de péremption — voir `pending_timed_removals`.
 struct PendingTimedRemoval {
+    scene: String,
+    name: String,
+    deadline: std::time::Instant,
+}
+
+/// Une source montrée avec une date de remise en sourdine — voir `pending_hides`.
+struct PendingHide {
     scene: String,
     name: String,
     deadline: std::time::Instant,

@@ -21,6 +21,7 @@ import { ComingSoon } from "../../components/ui/ComingSoon";
 import { IconButton, OrderButton, SOURCE_ICON } from "./ScenesControls";
 import { SceneThumb } from "./SceneThumb";
 import { labelFor, type SceneLayout } from "./sceneLayout";
+import { OVERLAY_SCENE_NAME } from "./types";
 import type { SceneInfo, SceneSourceInfo, SourceOrder } from "./types";
 
 /** One line saying what the scene holds, in plain words — the point of étape 3 point 4:
@@ -119,6 +120,11 @@ export function SceneRow({
   onCancelDelete,
   onConfirmDelete,
 }: SceneRowProps) {
+  // La médiathèque (F-033/F-034) : jamais en direct, jamais supprimable — le moteur la
+  // recrée seul au démarrage (Jay, 2026-09-15). Le contenu reste éditable comme une
+  // scène ordinaire : c'est ce qui lui permet de recadrer ses médias sur l'aperçu.
+  const isOverlay = scene.name === OVERLAY_SCENE_NAME;
+
   return (
     // Le nom de la scène est porté par la LIGNE, pas seulement par son bouton : c'est ce
     // qui permet à un lecteur d'écran d'annoncer « scène Chat Ermite » en arrivant dessus,
@@ -156,16 +162,25 @@ export function SceneRow({
             type="button"
             onClick={() => onActivate(scene.name)}
             onDoubleClick={() => onStartRename(scene.name)}
-            disabled={live}
-            title={live ? "Scène en direct" : "Basculer sur cette scène"}
+            disabled={live || isOverlay}
+            title={
+              isOverlay
+                ? "Médiathèque — visible sur toutes les scènes, jamais en direct"
+                : live
+                  ? "Scène en direct"
+                  : "Basculer sur cette scène"
+            }
             className={`flex-1 text-left ${
               live
                 ? "cursor-default font-medium text-hikari-accent"
-                : "text-hikari-txt hover:text-hikari-accent"
+                : isOverlay
+                  ? "cursor-default text-hikari-txt-dim"
+                  : "text-hikari-txt hover:text-hikari-accent"
             }`}
           >
             {labelFor(scene.name, layout)}
             {live && " ● en direct"}
+            {isOverlay && " 🖼️ médiathèque"}
           </button>
         )}
 
@@ -203,7 +218,7 @@ export function SceneRow({
           </IconButton>
           <IconButton
             label={`Supprimer ${labelFor(scene.name, layout)}`}
-            disabled={totalCount <= 1}
+            disabled={totalCount <= 1 || isOverlay}
             onClick={() => onRequestDelete(scene.name)}
           >
             ✕

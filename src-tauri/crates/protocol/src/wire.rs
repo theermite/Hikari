@@ -296,6 +296,19 @@ pub enum ControllerCommand {
         name: String,
         duration_ms: u64,
     },
+    /// Montre une source DÉJÀ POSÉE dans `scene` pendant `duration_ms`, puis la CACHE —
+    /// jamais ne la retire (Jay, 2026-09-15 : « il faut que j'aie un endroit […] dans
+    /// lequel je mettrai toutes mes images […] que je vais vouloir déclencher avec un
+    /// bouton, une automatisation »). Une médiathèque se déclenche à volonté ; `AddTimedMedia`
+    /// la détruirait après un seul usage, ce qui la rendrait inutilisable au second clic.
+    ///
+    /// `duration_ms` est ramené dans les bornes utilisables
+    /// (`clamp_timed_media_duration_ms`) avant d'être appliqué.
+    ShowMediaFor {
+        scene: String,
+        name: String,
+        duration_ms: u64,
+    },
     /// Removes a source from `scene` only. Other scenes keep theirs.
     RemoveSource { scene: String, name: String },
     /// Moves a source one step in front of, or behind, the others in `scene`. Which source

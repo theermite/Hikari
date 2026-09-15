@@ -270,6 +270,25 @@ pub(crate) fn add_timed_media(
     )
 }
 
+/// Montre une source DÉJÀ POSÉE (médiathèque) pendant `duration_ms`, puis la cache — jamais
+/// ne la retire, pour qu'un bouton de deck puisse la redéclencher à volonté.
+#[tauri::command]
+pub(crate) fn show_media_for(
+    state: State<EngineState>,
+    scene: String,
+    name: String,
+    duration_ms: u64,
+) -> Result<(), String> {
+    send_command(
+        &state,
+        ControllerCommand::ShowMediaFor {
+            scene,
+            name,
+            duration_ms,
+        },
+    )
+}
+
 /// Removes a capture from one scene (brique Sources).
 #[tauri::command]
 pub(crate) fn remove_source(

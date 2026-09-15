@@ -175,6 +175,17 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                         duration_ms,
                     });
                 }
+                Ok(ControllerCommand::ShowMediaFor {
+                    scene,
+                    name,
+                    duration_ms,
+                }) => {
+                    let _ = proxy.send_event(EngineEvent::ShowMediaFor {
+                        scene,
+                        name,
+                        duration_ms,
+                    });
+                }
                 Ok(ControllerCommand::RemoveSource { scene, name }) => {
                     let _ = proxy.send_event(EngineEvent::RemoveSource { scene, name });
                 }

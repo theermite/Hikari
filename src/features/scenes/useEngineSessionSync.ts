@@ -32,7 +32,6 @@ import {
 import { loadSession, saveSession } from "./sceneLayout";
 import { buildReplay, toSession } from "./session";
 import type { TextSettings } from "./textSettings";
-import { OVERLAY_SCENE_NAME } from "./types";
 import type { CaptureTarget, EngineMessage, SceneInfo } from "./types";
 
 type State =
@@ -228,14 +227,13 @@ export function useEngineSessionSync(params: {
     const unlisten = listen<EngineMessage>("engine-message", (event) => {
       const msg = event.payload;
       if (msg.type === "scene_list" && msg.scenes && msg.active) {
-        // La scène de recouvrement (F-033/F-034) n'est jamais une scène normale — retirée
-        // ICI, au seul point d'entrée, pour qu'aucun écran ni la persistance ne la voie
-        // jamais (jamais switchable, jamais sauvegardée, jamais rejouée en double).
-        const scenes = msg.scenes.filter(
-          (scene) => scene.name !== OVERLAY_SCENE_NAME,
-        );
-        setState({ status: "ready", scenes, active: msg.active });
-        stateRef.current = scenes;
+        // La scène de recouvrement (F-033/F-034) EST une médiathèque persistante (Jay,
+        // 2026-09-15 : « il faut que la source reste ») — elle reste dans l'inventaire et
+        // la sauvegarde comme n'importe quelle scène, pour que son contenu survive à un
+        // redémarrage. Ce qui la distingue se règle à l'écran (jamais switchable, jamais
+        // supprimable), pas ici.
+        setState({ status: "ready", scenes: msg.scenes, active: msg.active });
+        stateRef.current = msg.scenes;
         activeRef.current = msg.active;
         // Le rejeu part d'ICI, au premier inventaire reçu, et non du signal de démarrage :
         // il calcule ce qui MANQUE au moteur, donc il lui faut d'abord savoir ce que le
@@ -257,7 +255,7 @@ export function useEngineSessionSync(params: {
         // tronqué — c'est le défaut qui a écrasé la session de Jay le 2026-09-08.
         if (restored.current && restoreOk.current && !replaying.current) {
           saveSession(
-            toSession(scenes, msg.active, audioRef.current),
+            toSession(msg.scenes, msg.active, audioRef.current),
           ).catch(() => undefined);
         }
       }

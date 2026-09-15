@@ -29,6 +29,7 @@ pub(crate) fn run() -> Result<()> {
         drag: None,
         camera_slide: None,
         pending_timed_removals: Vec::new(),
+        pending_hides: Vec::new(),
     };
     event_loop.run_app(&mut app)?;
     Ok(())

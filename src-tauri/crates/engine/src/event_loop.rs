@@ -119,6 +119,11 @@ impl ApplicationHandler<EngineEvent> for App {
                 name,
                 duration_ms,
             } => self.handle_add_timed_media(scene, kind, target_id, name, duration_ms),
+            EngineEvent::ShowMediaFor {
+                scene,
+                name,
+                duration_ms,
+            } => self.handle_show_media_for(scene, name, duration_ms),
             EngineEvent::RemoveSource { scene, name } => self.handle_remove_source(scene, name),
             EngineEvent::ReorderSource {
                 scene,
@@ -181,6 +186,7 @@ impl ApplicationHandler<EngineEvent> for App {
             .as_ref()
             .is_some_and(|obs| !obs.mask_retry_pending.is_empty());
         let has_timed_media = !self.pending_timed_removals.is_empty();
+        let has_pending_hides = !self.pending_hides.is_empty();
         if has_slide {
             self.advance_camera_slide();
         }
@@ -190,6 +196,9 @@ impl ApplicationHandler<EngineEvent> for App {
         }
         if has_timed_media {
             self.expire_timed_media();
+        }
+        if has_pending_hides {
+            self.expire_pending_hides();
         }
         // Le contrôle de santé automatique (2026-09-13) est COUPÉ (2026-09-13, même soir) :
         // testé en vrai, il a relancé une caméra SAINE en boucle. `obs_source_get_frame`
@@ -205,6 +214,7 @@ impl ApplicationHandler<EngineEvent> for App {
             && !has_slide
             && !has_mask_retry
             && !has_timed_media
+            && !has_pending_hides
         {
             event_loop.set_control_flow(ControlFlow::Wait);
             return;
@@ -242,7 +252,7 @@ impl ApplicationHandler<EngineEvent> for App {
             AUDIO_LEVEL_INTERVAL
         } else if has_mask_retry {
             MASK_RETRY_TICK
-        } else if has_timed_media {
+        } else if has_timed_media || has_pending_hides {
             TIMED_MEDIA_TICK
         } else {
             FRAME_STATS_INTERVAL

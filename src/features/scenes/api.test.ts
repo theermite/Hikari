@@ -12,6 +12,7 @@ import {
   deleteScene,
   listCaptureTargets,
   removeSource,
+  showMediaFor,
   switchScene,
 } from "./api";
 
@@ -95,6 +96,18 @@ describe("scenes api", () => {
     expect(invoke).toHaveBeenCalledExactlyOnceWith("remove_source", {
       scene: "main",
       name: "Jeu",
+    });
+  });
+
+  it("should_pass_scene_name_and_duration_when_showing_a_library_media", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await showMediaFor("DSK", "cheer", 4_000);
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("show_media_for", {
+      scene: "DSK",
+      name: "cheer",
+      durationMs: 4_000,
     });
   });
 });

@@ -3,7 +3,7 @@
 
 use hikari_protocol::EngineMessage;
 
-use crate::{camera, emit, sources, text_ops, App, PendingTimedRemoval, SceneSource};
+use crate::{camera, emit, sources, text_ops, App, PendingHide, PendingTimedRemoval, SceneSource};
 
 impl App {
     /// Moves a source one step in front of, or behind, the others in its scene — une caméra
@@ -440,6 +440,34 @@ impl App {
         self.pending_timed_removals = pending;
         for removal in due {
             self.handle_remove_source(removal.scene, removal.name);
+        }
+    }
+
+    /// Montre une source DÉJÀ POSÉE pendant `duration_ms`, puis la cache — jamais ne la
+    /// retire (médiathèque, 2026-09-15 : une source de deck se redéclenche à volonté,
+    /// sans jamais être reconfigurée). Réutilise `handle_set_source_visible` telle
+    /// quelle : montrer et cacher ne sont pas un geste nouveau, seule la programmation
+    /// de l'échéance l'est.
+    pub(crate) fn handle_show_media_for(&mut self, scene: String, name: String, duration_ms: u64) {
+        self.handle_set_source_visible(scene.clone(), name.clone(), true);
+        let duration_ms = hikari_protocol::clamp_timed_media_duration_ms(duration_ms);
+        self.pending_hides.push(PendingHide {
+            scene,
+            name,
+            deadline: std::time::Instant::now() + std::time::Duration::from_millis(duration_ms),
+        });
+    }
+
+    /// Cache toute source dont l'échéance est passée. Appelée depuis `about_to_wait`
+    /// uniquement quand `pending_hides` n'est pas vide (2026-09-15).
+    pub(crate) fn expire_pending_hides(&mut self) {
+        let now = std::time::Instant::now();
+        let (due, pending): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pending_hides)
+            .into_iter()
+            .partition(|hide| hide.deadline <= now);
+        self.pending_hides = pending;
+        for hide in due {
+            self.handle_set_source_visible(hide.scene, hide.name, false);
         }
     }
 }

@@ -62,24 +62,21 @@ describe("chat settings", () => {
     await saveChatSettings({
       showTimestamps: false,
       alertMedia: {
-        follow: { kind: "image", path: "C:\\a.png", durationMs: 2_000 },
+        follow: { durationMs: 2_000 },
       },
     });
     // Un autre écran patch un champ SANS connaître le reste.
     const result = await patchChatSettings({ showTimestamps: true });
 
     expect(result.showTimestamps).toBe(true);
-    expect(result.alertMedia.follow).toEqual({
-      kind: "image",
-      path: "C:\\a.png",
-      durationMs: 2_000,
-    });
+    expect(result.alertMedia.follow).toEqual({ durationMs: 2_000 });
     expect(await loadChatSettings()).toEqual(result);
   });
 
   it("should_roundtrip_an_alert_media_rule", async () => {
-    // Un média pop-up (F-033/F-034) déclenché par une alerte : le moteur veut le kind
-    // et le chemin exacts, aucune déduction depuis l'extension (ambiguë sur .gif).
+    // Un média pop-up (F-033/F-034) déclenché par une alerte : la source vit en
+    // permanence dans la médiathèque, sous le nom du type d'alerte — seule la durée
+    // d'affichage est un réglage propre à ce type.
     const { loadChatSettings, saveChatSettings } = await import(
       "./chatSettings"
     );
@@ -87,15 +84,11 @@ describe("chat settings", () => {
     await saveChatSettings({
       showTimestamps: false,
       alertMedia: {
-        cheer: { kind: "video", path: "C:\\hype.mp4", durationMs: 4_000 },
+        cheer: { durationMs: 4_000 },
       },
     });
     const settings = await loadChatSettings();
 
-    expect(settings.alertMedia.cheer).toEqual({
-      kind: "video",
-      path: "C:\\hype.mp4",
-      durationMs: 4_000,
-    });
+    expect(settings.alertMedia.cheer).toEqual({ durationMs: 4_000 });
   });
 });

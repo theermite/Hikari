@@ -16,6 +16,7 @@ import {
   switchScene,
 } from "./api";
 import type { SceneLayout } from "./sceneLayout";
+import { OVERLAY_SCENE_NAME } from "./types";
 import type { SourceOrder } from "./types";
 
 export function useSceneActions(
@@ -25,6 +26,9 @@ export function useSceneActions(
   setConfirmingDelete: (name: string | null) => void,
 ) {
   const activate = (name: string, transitionMs: number) => {
+    // La médiathèque (F-033/F-034) n'est jamais une scène EN DIRECT — la basculer
+    // couperait le canal de recouvrement qui la rend visible partout (Jay, 2026-09-15).
+    if (name === OVERLAY_SCENE_NAME) return;
     setActionError(null);
     switchScene(name, transitionMs).catch((error: unknown) =>
       setActionError(String(error)),
@@ -32,6 +36,9 @@ export function useSceneActions(
   };
 
   const confirmDelete = (name: string) => {
+    // Jamais supprimable depuis cet écran : elle est recréée par le moteur au
+    // démarrage, la supprimer viderait la médiathèque sans le vouloir.
+    if (name === OVERLAY_SCENE_NAME) return;
     setActionError(null);
     setConfirmingDelete(null);
     deleteScene(name)

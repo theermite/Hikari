@@ -153,6 +153,11 @@ fn should_roundtrip_every_source_command() {
             name: "Pop-up".to_string(),
             duration_ms: 4_000,
         },
+        ControllerCommand::ShowMediaFor {
+            scene: "DSK".to_string(),
+            name: "cheer".to_string(),
+            duration_ms: 4_000,
+        },
         ControllerCommand::RemoveSource {
             scene: "main".to_string(),
             name: "Jeu".to_string(),

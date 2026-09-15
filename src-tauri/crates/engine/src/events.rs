@@ -104,6 +104,11 @@ pub(crate) enum EngineEvent {
         name: String,
         duration_ms: u64,
     },
+    ShowMediaFor {
+        scene: String,
+        name: String,
+        duration_ms: u64,
+    },
     RemoveSource {
         scene: String,
         name: String,

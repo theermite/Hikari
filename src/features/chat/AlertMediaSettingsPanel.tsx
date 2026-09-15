@@ -1,18 +1,23 @@
-// Réglage « Alertes → médias » (F-033/F-034) — un média pop-up par type d'alerte
-// Twitch, réutilisant EXACTEMENT la capacité déjà posée côté Scènes (`AddTimedMedia`).
+// Réglage « Alertes → médias » (F-033/F-034) — un média par type d'alerte Twitch, posé
+// EN PERMANENCE dans la médiathèque (`OVERLAY_SCENE_NAME`), jamais recréé puis détruit à
+// chaque alerte (Jay, 2026-09-15 : « il faut que la source reste », pour un redéclenchement
+// futur par deck). Le nom de la source DANS la médiathèque est le type d'alerte lui-même —
+// une seule médiathèque, une source par type, jamais de collision à gérer.
 //
 // Deux boutons de famille (Image/Vidéo) au lieu du grand sélecteur `AddSourceModal` :
 // une alerte n'a que deux familles pertinentes (jamais un jeu, une fenêtre ou un écran),
 // le montrer réduirait la carte à ce qui compte.
-//
-// Pas de champ scène (retiré le 2026-09-15) : le média se pose sur la scène de
-// recouvrement permanent (`OVERLAY_SCENE_NAME`), visible quelle que soit la scène active
-// — c'était le vrai besoin de Jay, pas un choix par scène.
 
 import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import type { IDockviewPanelProps } from "dockview-react";
-import { FILE_FILTERS, nameFromPath, parseTimedMediaSeconds } from "../scenes/sourcePicker";
+import {
+  addCaptureSource,
+  removeSource,
+  setSourceVisible,
+} from "../scenes/api";
+import { FILE_FILTERS, parseTimedMediaSeconds } from "../scenes/sourcePicker";
+import { OVERLAY_SCENE_NAME } from "../scenes/types";
 import { ALERT_KIND_LABEL, ALERT_KINDS } from "./alerts";
 import { loadChatSettings, patchChatSettings } from "./chatSettings";
 import type { ChatSettings } from "./chatSettings";
@@ -21,16 +26,6 @@ import type { AlertMediaRule, ChatAlert } from "./types";
 type Kind = ChatAlert["kind"];
 
 const DEFAULT_SECONDS = "3";
-
-interface Draft {
-  seconds: string;
-}
-
-function draftFor(rule: AlertMediaRule | undefined): Draft {
-  return rule
-    ? { seconds: String(rule.durationMs / 1000) }
-    : { seconds: DEFAULT_SECONDS };
-}
 
 function AlertMediaRow({
   kind,
@@ -43,16 +38,19 @@ function AlertMediaRow({
   onChange: (next: AlertMediaRule) => void;
   onRemove: () => void;
 }) {
-  const [draft, setDraft] = useState<Draft>(() => draftFor(rule));
+  const [seconds, setSeconds] = useState(
+    rule ? String(rule.durationMs / 1000) : DEFAULT_SECONDS,
+  );
 
   // La ligne suit le réglage RÉEL (un autre écran a pu le changer) tant que l'utilisateur
-  // n'est pas en train d'y taper — sans ça, chaque frappe serait effacée par le réglage
-  // encore identique venu du store.
+  // n'est pas en train d'y taper.
   useEffect(() => {
-    setDraft(draftFor(rule));
+    setSeconds(rule ? String(rule.durationMs / 1000) : DEFAULT_SECONDS);
   }, [rule]);
 
-  const pick = (fileKind: AlertMediaRule["kind"]) => {
+  // Pose (ou remplace) la source de médiathèque pour CE type d'alerte — toujours nommée
+  // d'après le type, cachée par défaut : seule une alerte, ou plus tard un deck, la montre.
+  const pick = (fileKind: "image" | "video") => {
     open({
       multiple: false,
       filters: [
@@ -63,18 +61,23 @@ function AlertMediaRow({
       ],
     }).then((path) => {
       if (typeof path !== "string") return;
-      const durationMs = parseTimedMediaSeconds(draft.seconds) ?? 3_000;
-      onChange({ kind: fileKind, path, durationMs });
+      removeSource(OVERLAY_SCENE_NAME, kind)
+        .catch(() => {}) // Rien à remplacer la première fois — sans importance.
+        .then(() => addCaptureSource(OVERLAY_SCENE_NAME, fileKind, path, kind))
+        .then(() => setSourceVisible(OVERLAY_SCENE_NAME, kind, false))
+        .then(() => {
+          const durationMs = parseTimedMediaSeconds(seconds) ?? 3_000;
+          onChange({ durationMs });
+        });
     });
   };
 
-  const commitField = (over: Partial<Draft>) => {
-    const next = { ...draft, ...over };
-    setDraft(next);
-    if (!rule) return; // Rien à corriger tant qu'aucun fichier n'est choisi.
-    const durationMs = parseTimedMediaSeconds(next.seconds);
+  const commitSeconds = (value: string) => {
+    setSeconds(value);
+    if (!rule) return; // Rien à corriger tant qu'aucun média n'est posé.
+    const durationMs = parseTimedMediaSeconds(value);
     if (durationMs === null) return;
-    onChange({ ...rule, durationMs });
+    onChange({ durationMs });
   };
 
   return (
@@ -87,8 +90,8 @@ function AlertMediaRow({
         type="number"
         min="0"
         step="0.5"
-        value={draft.seconds}
-        onChange={(event) => commitField({ seconds: event.target.value })}
+        value={seconds}
+        onChange={(event) => commitSeconds(event.target.value)}
         aria-label={`Durée en secondes pour l'alerte ${ALERT_KIND_LABEL[kind]}`}
         className="w-16 rounded-[6px] border border-hikari-line bg-hikari-bg px-2 py-1 text-[12px] text-hikari-txt"
       />
@@ -97,8 +100,15 @@ function AlertMediaRow({
       {rule ? (
         <>
           <span className="min-w-0 flex-1 truncate text-[11.5px] text-hikari-txt-dim">
-            {nameFromPath(rule.path)}
+            média posé dans la médiathèque
           </span>
+          <button
+            type="button"
+            onClick={() => pick("image")}
+            className="rounded-[6px] border border-hikari-line px-2 py-1 text-[11.5px] text-hikari-txt-dim transition hover:border-hikari-accent hover:text-hikari-txt"
+          >
+            Changer…
+          </button>
           <button
             type="button"
             onClick={onRemove}
@@ -146,8 +156,9 @@ export function AlertMediaSettingsPanel(_props: IDockviewPanelProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-[11px] text-hikari-txt-faint">
-        Un média qui apparaît puis disparaît tout seul quand l'alerte arrive. Vide = rien
-        ne s'affiche pour ce type.
+        Le média reste posé — une alerte le montre puis le cache, sans jamais le
+        détruire. Vide = rien ne s'affiche pour ce type. Position et taille se règlent
+        dans le panneau Scènes, sur la scène « 🖼️ médiathèque ».
       </p>
       {ALERT_KINDS.map((kind) => (
         <AlertMediaRow
@@ -156,6 +167,7 @@ export function AlertMediaSettingsPanel(_props: IDockviewPanelProps) {
           rule={settings.alertMedia[kind]}
           onChange={(rule) => apply({ ...settings.alertMedia, [kind]: rule })}
           onRemove={() => {
+            removeSource(OVERLAY_SCENE_NAME, kind).catch(() => {});
             const { [kind]: _removed, ...rest } = settings.alertMedia;
             apply(rest);
           }}
