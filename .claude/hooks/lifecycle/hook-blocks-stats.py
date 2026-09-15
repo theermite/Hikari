@@ -43,6 +43,7 @@ sys.path.insert(0, str(LIB_DIR))
 
 from common import find_repo_root  # noqa: E402
 from friction import detect_overcome_blocks, signature  # noqa: E402
+from transcript_reader import entry_message  # noqa: E402
 from transcript_reader import iter_entries  # noqa: E402
 
 # Le marqueur arrive RAREMENT en debut de ligne. Le harnais le prefixe du nom de
@@ -99,12 +100,8 @@ def read_input() -> dict:
 
 def entry_role(entry: object) -> str:
     """Best-effort role extraction (transcript shape varies: nested or flat)."""
-    if not isinstance(entry, dict):
-        return ""
-    msg = entry.get("message")
-    if isinstance(msg, dict):
-        return msg.get("role") or ""
-    return entry.get("role", "") or ""
+    msg = entry_message(entry)
+    return (msg.get("role") or "") if msg is not None else ""
 
 
 def extract_text(node: object) -> str:

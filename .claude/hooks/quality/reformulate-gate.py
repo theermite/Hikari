@@ -55,7 +55,7 @@ LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
 from common import block, get_file_path, pass_through, read_hook_input  # type: ignore  # noqa: E402
-from transcript_reader import iter_entries  # type: ignore  # noqa: E402
+from transcript_reader import entry_message, iter_entries  # type: ignore  # noqa: E402
 
 # Files exempt from the gate (methodology, docs, configs)
 SKIP_PATH_PARTS = (
@@ -172,8 +172,8 @@ def _window_entries(transcript_path: str):
     instruction-bearing user message. tool_result deliveries AND continuation
     nudges do NOT close the window."""
     for entry in iter_entries(transcript_path):
-        msg = entry.get("message") or entry
-        if not isinstance(msg, dict):
+        msg = entry_message(entry)
+        if msg is None:
             continue
         if (
             msg.get("role") == "user"
@@ -267,8 +267,8 @@ def has_approved_plan(transcript_path: str) -> bool:
     plan_ids: list[str] = []
     result_error: dict[str, bool] = {}
     for entry in iter_entries(transcript_path):
-        msg = entry.get("message") or entry
-        if not isinstance(msg, dict):
+        msg = entry_message(entry)
+        if msg is None:
             continue
         if msg.get("role") == "user":
             _collect_results(msg, result_error)

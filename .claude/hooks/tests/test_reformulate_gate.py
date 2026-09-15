@@ -398,3 +398,18 @@ def test_malformed_types_in_payload_pass_through():
     )
     assert r.returncode == 0, f"malformed payload must fail open: {r.stderr!r}"
     assert b"Traceback" not in r.stderr
+
+
+# --- 2e relecture independante (2026-09-15) : meme motif non garde ici -------
+
+
+def test_a_non_object_transcript_line_does_not_crash_plan_detection(tmp_path):
+    entries = _one_prior_write() + [
+        None,
+        _assistant_tool("ExitPlanMode", "p1", {"plan": "do bricks 1-3"}),
+        _tool_result("p1", is_error=False),
+    ]
+    transcript = _write_transcript(tmp_path, *entries)
+    r = _run(transcript)
+    assert r.returncode == 0, f"approved plan should still pass: {r.stderr!r}"
+    assert b"Traceback" not in r.stderr

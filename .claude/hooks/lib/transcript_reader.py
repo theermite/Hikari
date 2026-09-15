@@ -15,31 +15,75 @@ from pathlib import Path
 from typing import Any, Iterator
 
 
+# iter_entries: every OSError or ValueError from opening OR READING the file
+# (missing file, a permission denial, an unencodable path -- 10th and 11th
+# independent reviews, 2026-09-15) is swallowed the same way -- this is a
+# best-effort reader, never a hard requirement. It reads the open file object
+# directly
+# rather than read_text().splitlines() (10th review): str.splitlines() also
+# breaks on the Unicode line separators U+2028, U+2029 and NEL (\x85) --
+# legal INSIDE a JSON string value (a prompt pasted from Word/PDF, a file
+# read by the Read tool), which silently cut one valid entry into two invalid
+# ones. Universal-newline text mode only ever splits on \n, \r or \r\n. It
+# also avoids loading the whole file into one string before splitting it a
+# second time -- measured on a real 63.7 MB transcript: 573.1 MB peak before
+# this change (both reverse=True and reverse=False, the two were identical),
+# 1.3 MB after for reverse=False (true streaming), 74.6 MB for reverse=True
+# (still one list of lines, but only one, and proportional to file size).
 def iter_entries(transcript_path: str | Path, reverse: bool = True) -> Iterator[dict[str, Any]]:
     """Yield parsed JSONL entries from the transcript.
 
     Returns latest-first when reverse=True (default — most hooks scan
-    recent activity). Malformed lines are skipped silently.
-
-    Empty/missing transcript yields nothing — caller decides policy.
+    recent activity). Malformed lines are skipped silently. Empty/missing
+    transcript yields nothing — caller decides policy.
     """
     p = Path(transcript_path) if transcript_path else None
-    if not p or not p.exists():
+    if not p:
         return
     try:
-        lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
+        with p.open(encoding="utf-8", errors="replace") as f:
+            lines = reversed(list(f)) if reverse else f
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    yield json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+    except (OSError, ValueError):
         return
-    if reverse:
-        lines = reversed(lines)
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            yield json.loads(line)
-        except (json.JSONDecodeError, ValueError):
-            continue
+
+
+# entry_message closes a 9-site family (2026-09-14/15, 3 rounds of review):
+# a transcript JSON line can be valid yet non-object (`null`), and callers
+# assumed a dict. 3 rounds searched for a CODE SHAPE
+# ("entry.get('message') or entry") instead of the FAMILY -- context-gauge.py's
+# own inline parsing matched neither shape textually and was missed twice.
+#
+# Importers that want the fallback: iter_tool_calls, assistant_text_blocks and
+# count_turns (this file), brief_builder.py, friction.py, logs-first.py,
+# reformulate-gate.py, veille-extended.py, hook-blocks-stats.entry_role.
+#
+# context-gauge.py deliberately does NOT import THIS function: the 6th review
+# found its fallback ("no dict message? use the entry itself") made
+# context-gauge accept a `usage` field placed flat on the entry, a shape it
+# has never accepted (test_a_flat_usage_is_not_accepted). It DOES import
+# iter_entries, though (9th review, 2026-09-15): 3 earlier rounds each found
+# one more way a hand-rolled copy of file-reading + json.loads in
+# context-gauge.py had drifted narrower than this module's own error handling
+# -- isinstance on usage, then int()/OverflowError, then json.loads/ValueError,
+# each fixed one line higher in the same function. The file-open itself (no
+# errors="replace") was the line above all three, and losing THAT one meant
+# one bad byte anywhere in the transcript discarded every measurement already
+# read, not just the offending line. Delegating the read to iter_entries ends
+# the pattern instead of closing it a 4th time.
+def entry_message(entry) -> dict | None:
+    """The "message" dict a transcript entry carries, or None."""
+    if not isinstance(entry, dict):
+        return None
+    msg = entry.get("message") or entry
+    return msg if isinstance(msg, dict) else None
 
 
 def iter_tool_calls(transcript_path: str | Path, tool_name: str | None = None) -> Iterator[dict[str, Any]]:
@@ -49,9 +93,8 @@ def iter_tool_calls(transcript_path: str | Path, tool_name: str | None = None) -
     Each yielded dict contains at least: name, input.
     """
     for entry in iter_entries(transcript_path):
-        # Claude Code transcript shape varies; defensive extraction.
-        msg = entry.get("message") or entry
-        if not isinstance(msg, dict):
+        msg = entry_message(entry)
+        if msg is None:
             continue
         content = msg.get("content")
         if not isinstance(content, list):
@@ -74,10 +117,8 @@ def assistant_text_blocks(entry: dict) -> list[str]:
     something he said (independent review, 2026-09-14 -- veille_markers.py and
     veille-extended.py each duplicated this before sharing it here).
     """
-    if not isinstance(entry, dict):
-        return []
-    msg = entry.get("message") or entry
-    if not isinstance(msg, dict) or msg.get("role") != "assistant":
+    msg = entry_message(entry)
+    if msg is None or msg.get("role") != "assistant":
         return []
     content = msg.get("content")
     if not isinstance(content, list):
@@ -110,8 +151,8 @@ def count_turns(transcript_path: str | Path) -> tuple[int, int]:
     """
     user, assistant = 0, 0
     for entry in iter_entries(transcript_path, reverse=False):
-        msg = entry.get("message") or entry
-        if not isinstance(msg, dict):
+        msg = entry_message(entry)
+        if msg is None:
             continue
         role = msg.get("role")
         if role == "user":

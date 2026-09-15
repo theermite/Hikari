@@ -91,3 +91,18 @@ def test_clean_session_has_no_overcome(tmp_path):
 
 def test_missing_transcript_returns_empty():
     assert friction.detect_overcome_blocks("") == {}
+
+
+# --- 2e relecture independante (2026-09-15) : meme motif non garde ici -------
+
+
+def test_a_non_object_entry_does_not_crash_the_scan(tmp_path):
+    t = _write(
+        tmp_path,
+        _use("Edit", "X.py", "t1"),
+        _result("t1", True, "BLOCKED: x"),
+        _use("Edit", "X.py", "t2"),
+        _result("t2", False, "ok"),
+        None,
+    )
+    assert friction.detect_overcome_blocks(str(t)) == {"x": 1}

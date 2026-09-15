@@ -27,7 +27,7 @@ LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
 from common import get_file_path, pass_through, read_hook_input, warn  # type: ignore
-from transcript_reader import iter_entries  # type: ignore
+from transcript_reader import entry_message, iter_entries  # type: ignore
 
 # Keywords suggesting log/error inspection
 LOG_KEYWORDS = re.compile(
@@ -35,6 +35,64 @@ LOG_KEYWORDS = re.compile(
     r"\.log\b|/var/log|journalctl|docker logs|tail -f|tail -n)",
     re.IGNORECASE,
 )
+
+
+def _entries_since_last_user(transcript_path: str) -> list[dict]:
+    """Entries after the last user message, chronological order."""
+    after: list[dict] = []
+    for entry in iter_entries(transcript_path):
+        msg = entry_message(entry)
+        if msg is not None and msg.get("role") == "user":
+            break
+        after.append(entry)
+    after.reverse()
+    return after
+
+
+def _reads_logs(name: str, inp: dict) -> bool:
+    """True if this tool_use block's target text mentions logs/errors.
+
+    "Bash" is deliberately absent from the map: the pre-refactor code had a
+    dead `if name == "Bash": pass` branch here, so a Bash command mentioning
+    log keywords never counted. 4th independent review (2026-09-15): keeping
+    the split-out function iso-behaviour matters more than completing a
+    heuristic no one asked to widen -- resurrecting the branch loosened a
+    gate silently. Widening this is a real decision, not a refactor side
+    effect; make it its own change, with its own test, if it's wanted.
+    """
+    target = {
+        "Read": inp.get("file_path"),
+        "Grep": inp.get("pattern"),
+    }.get(name)
+    return bool(target) and bool(LOG_KEYWORDS.search(target.lower()))
+
+
+_FAILURE_RE = re.compile(
+    r"(error|exit\s*code\s*[1-9]|stderr|exception|failed|traceback)", re.IGNORECASE
+)
+
+
+def _tool_result_text(blk: dict) -> str:
+    content = blk.get("content")
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    return "".join(c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text")
+
+
+def _looks_like_failure(blk: dict) -> bool:
+    return bool(blk.get("is_error")) or bool(_FAILURE_RE.search(_tool_result_text(blk)))
+
+
+def _scan_block(blk: dict, had_failed_bash: bool) -> tuple[bool, bool]:
+    """One content block's contribution: (marks a failure, reads logs after one)."""
+    btype = blk.get("type")
+    if btype == "tool_use":
+        return False, had_failed_bash and _reads_logs(blk.get("name", ""), blk.get("input") or {})
+    if btype == "tool_result":
+        return _looks_like_failure(blk), False
+    return False, False
 
 
 def analyze_recent_sequence(transcript_path: str) -> tuple[bool, bool]:
@@ -45,69 +103,22 @@ def analyze_recent_sequence(transcript_path: str) -> tuple[bool, bool]:
     if not transcript_path:
         return False, True  # No transcript = pass
 
-    entries_reversed = list(iter_entries(transcript_path))
-    # Find last user message index, then take entries AFTER it (chronological)
-    entries_after_user: list[dict] = []
-    for entry in entries_reversed:
-        msg = entry.get("message") or entry
-        if isinstance(msg, dict) and msg.get("role") == "user":
-            break
-        entries_after_user.append(entry)
-    entries_after_user.reverse()  # Now chronological within current turn
-
     had_failed_bash = False
     read_logs_after_fail = False
 
-    for entry in entries_after_user:
-        msg = entry.get("message") or entry
-        if not isinstance(msg, dict):
+    for entry in _entries_since_last_user(transcript_path):
+        msg = entry_message(entry)
+        if msg is None:
             continue
         content = msg.get("content")
         if not isinstance(content, list):
             continue
-
         for blk in content:
             if not isinstance(blk, dict):
                 continue
-            btype = blk.get("type")
-
-            if btype == "tool_use":
-                name = blk.get("name", "")
-                inp = blk.get("input") or {}
-                if name == "Bash":
-                    # Track that a Bash was attempted; failure detection comes from tool_result
-                    pass
-                elif name == "Read":
-                    fp = (inp.get("file_path") or "").lower()
-                    if had_failed_bash and LOG_KEYWORDS.search(fp):
-                        read_logs_after_fail = True
-                elif name == "Grep":
-                    pat = (inp.get("pattern") or "").lower()
-                    if had_failed_bash and LOG_KEYWORDS.search(pat):
-                        read_logs_after_fail = True
-                elif name == "Bash":
-                    cmd = (inp.get("command") or "").lower()
-                    if had_failed_bash and LOG_KEYWORDS.search(cmd):
-                        read_logs_after_fail = True
-
-            elif btype == "tool_result":
-                # Look for failure indicators in result text
-                tr_content = blk.get("content")
-                tr_text = ""
-                if isinstance(tr_content, str):
-                    tr_text = tr_content
-                elif isinstance(tr_content, list):
-                    for c in tr_content:
-                        if isinstance(c, dict) and c.get("type") == "text":
-                            tr_text += c.get("text", "")
-                is_error = blk.get("is_error", False)
-                # Heuristic: tool_result mentions error/exit code/stderr
-                if is_error or re.search(
-                    r"(error|exit\s*code\s*[1-9]|stderr|exception|failed|traceback)",
-                    tr_text,
-                    re.IGNORECASE,
-                ):
-                    had_failed_bash = True
+            failed, read_after = _scan_block(blk, had_failed_bash)
+            had_failed_bash = had_failed_bash or failed
+            read_logs_after_fail = read_logs_after_fail or read_after
 
     return had_failed_bash, read_logs_after_fail
 

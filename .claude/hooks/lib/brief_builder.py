@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from session_state import state_dir  # type: ignore  # lib/ added to sys.path by hook
-from transcript_reader import iter_entries, iter_tool_calls  # type: ignore
+from transcript_reader import entry_message, iter_entries, iter_tool_calls  # type: ignore
 
 
 BRIEF_NAME_TEMPLATE = "handoff-{session_id}.md"
@@ -54,8 +54,8 @@ def _extract_text(content: Any) -> str:
 def _iter_user_messages(transcript_path: str | Path) -> Iterator[str]:
     """Yield user message text, latest-first."""
     for entry in iter_entries(transcript_path):
-        msg = entry.get("message") or entry
-        if not isinstance(msg, dict):
+        msg = entry_message(entry)
+        if msg is None:
             continue
         if msg.get("role") != "user":
             continue
@@ -67,8 +67,8 @@ def _iter_user_messages(transcript_path: str | Path) -> Iterator[str]:
 def _iter_assistant_messages(transcript_path: str | Path) -> Iterator[str]:
     """Yield assistant text, latest-first."""
     for entry in iter_entries(transcript_path):
-        msg = entry.get("message") or entry
-        if not isinstance(msg, dict):
+        msg = entry_message(entry)
+        if msg is None:
             continue
         if msg.get("role") != "assistant":
             continue

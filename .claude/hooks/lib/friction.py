@@ -20,7 +20,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from transcript_reader import iter_entries  # noqa: E402
+from transcript_reader import entry_message, iter_entries  # noqa: E402
 
 _BLOCK_RE = re.compile(r"BLOCKED:\s*(.+)", re.IGNORECASE)
 MAX_SIG_WORDS = 9
@@ -34,8 +34,8 @@ def signature(reason: str) -> str:
 
 
 def _content_blocks(entry: dict) -> list:
-    msg = entry.get("message") or entry
-    if not isinstance(msg, dict):
+    msg = entry_message(entry)
+    if msg is None:
         return []
     content = msg.get("content")
     return content if isinstance(content, list) else []

@@ -204,3 +204,18 @@ def test_code_that_merely_talks_about_a_block_is_still_rejected():
         "    'PreToolUse: [x]: BLOCKED: un motif'",
     ):
         assert not hbs.EVENEMENT_RE.match(ligne), ligne
+
+
+# --- entry_role, factorisee sur entry_message (4e relecture, 2026-09-15) ----
+
+
+def test_entry_role_reads_the_nested_message_shape():
+    assert hbs.entry_role({"message": {"role": "assistant"}}) == "assistant"
+
+
+def test_entry_role_reads_the_flat_shape():
+    assert hbs.entry_role({"role": "user"}) == "user"
+
+
+def test_entry_role_survives_a_non_object_entry():
+    assert hbs.entry_role(None) == ""

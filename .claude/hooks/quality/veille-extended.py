@@ -32,6 +32,7 @@ LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
 from common import block, get_file_path, pass_through, read_hook_input  # type: ignore
+from transcript_reader import entry_message  # type: ignore
 
 # Extended scope: paths that require veille evidence beyond source code
 EXTENDED_SCOPE_PARTS = (
@@ -64,10 +65,12 @@ def extract_text(entry) -> str:
     quoting marker-shaped text (a file read whose content says "[VEILLE] ...")
     was indistinguishable from a marker Takumi actually wrote — same defect,
     found the same day, as veille_markers.py's own _entry_text. Only role ==
-    "assistant" content blocks of type "text" count.
+    "assistant" content blocks of type "text" count. `entry_message` is the
+    ONE shared reader now (4th independent review, 2026-09-15 -- an inline
+    copy here is what let "closes the family" stay wrong twice in a row).
     """
-    msg = (entry.get("message") or entry) if isinstance(entry, dict) else None
-    if not isinstance(msg, dict) or msg.get("role") != "assistant":
+    msg = entry_message(entry)
+    if msg is None or msg.get("role") != "assistant":
         return ""
     content = msg.get("content")
     if not isinstance(content, list):

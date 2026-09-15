@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 
-from brief_builder import collect_open_threads  # noqa: E402
+from brief_builder import _iter_assistant_messages, _iter_user_messages, collect_open_threads  # noqa: E402
 
 
 def _transcript(tmp_path: Path, textes_assistant) -> Path:
@@ -98,3 +98,24 @@ def test_the_brief_says_so_when_nothing_is_pending(tmp_path):
     brief = build_brief(str(t), "sess-1", trigger="manual")
 
     assert "suspens" in brief.lower()
+
+
+# --- 2e relecture independante (2026-09-15) : meme motif non garde ici -------
+
+
+def test_should_survive_a_non_object_entry_when_reading_assistant_messages(tmp_path):
+    p = tmp_path / "t.jsonl"
+    with p.open("w", encoding="utf-8") as f:
+        f.write(json.dumps({"message": {"role": "assistant", "content": [{"type": "text", "text": "bonjour"}]}}) + "\n")
+        f.write(json.dumps(None) + "\n")
+    assert list(_iter_assistant_messages(p)) == ["bonjour"]
+
+
+def test_should_survive_a_non_object_entry_when_reading_user_messages(tmp_path):
+    # 4e relecture independante (2026-09-15) : « 1 test par site » ne comptait
+    # que 5 sites sur 6 -- celui-ci manquait.
+    p = tmp_path / "t.jsonl"
+    with p.open("w", encoding="utf-8") as f:
+        f.write(json.dumps({"message": {"role": "user", "content": "corrige X"}}) + "\n")
+        f.write(json.dumps(None) + "\n")
+    assert list(_iter_user_messages(p)) == ["corrige X"]

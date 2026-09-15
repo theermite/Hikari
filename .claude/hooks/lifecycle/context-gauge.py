@@ -33,13 +33,13 @@ moins chere que fermer puis rouvrir une session.
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 from common import pass_through, read_hook_input  # noqa: E402
 from session_state import read_state, write_state  # noqa: E402
+from transcript_reader import iter_entries  # noqa: E402
 
 # Zone de degradation annoncee par Jay (2026-09-06). Absolus, pas une fraction :
 # une fraction changerait de sens le jour ou la fenetre change.
@@ -47,6 +47,35 @@ SEUIL_ALERTE = 600_000
 SEUIL_REPRISE = 700_000
 
 _ETAT = "context-gauge"
+
+
+def _dernier_usage(transcript_path) -> dict | None:
+    """Le dernier bloc `usage` valide trouve en lisant le fichier dans l'ordre.
+
+    9e relecture independante (2026-09-15) : les 3 tours precedents (isinstance
+    sur usage, int()/OverflowError, json.loads()/ValueError) fermaient chacun
+    UNE ligne d'une copie a la main de la lecture de transcript, une ligne plus
+    haut a chaque fois -- jusqu'a l'ouverture du fichier elle-meme, qui n'avait
+    pas `errors="replace"` : un seul octet non decodable a la fin du fichier
+    (une derniere ligne en cours d'ecriture par le harnais) faisait perdre TOUT
+    ce qui avait deja ete lu, y compris une mesure valide. Plutot qu'un 4e
+    correctif ligne par ligne, cette fonction delegue entierement la lecture a
+    transcript_reader.iter_entries, qui tient deja les 3 gardes. Seule
+    l'acceptation du contenu reste volontairement plus etroite qu'un import
+    direct de entry_message (rejette un `usage` pose a plat sur l'entree,
+    5e relecture) : verifiee ici, pas dans le lecteur partage.
+    """
+    dernier = None
+    for entree in iter_entries(transcript_path, reverse=False):
+        if not isinstance(entree, dict):
+            continue
+        msg = entree.get("message")
+        if not isinstance(msg, dict):
+            continue
+        u = msg.get("usage")
+        if isinstance(u, dict):
+            dernier = u
+    return dernier
 
 
 def context_size(transcript_path) -> int | None:
@@ -57,28 +86,24 @@ def context_size(transcript_path) -> int | None:
 
     Rend None, jamais 0, quand la mesure est absente — un faux zero se lit
     comme « tout va bien », et c'est exactement le defaut que cette jauge
-    existe pour eviter.
+    existe pour eviter. Meme regle si `usage` porte une valeur non numerique
+    (6e relecture independante, 2026-09-15) : le crash n'etait ferme que sur
+    la forme plate, refusee de toute facon ; il restait vivant sur la forme
+    imbriquee, la seule que ce hook lit en production. Le fichier lui-meme
+    n'est plus ouvert ici (9e relecture) : `iter_entries` gere deja l'absence
+    du fichier et un octet non decodable, sans lever.
     """
-    dernier = None
-    try:
-        with Path(transcript_path).open(encoding="utf-8") as f:
-            for ligne in f:
-                try:
-                    d = json.loads(ligne)
-                except json.JSONDecodeError:
-                    continue
-                u = (d.get("message") or {}).get("usage")
-                if isinstance(u, dict):
-                    dernier = u
-    except (OSError, UnicodeDecodeError):
-        return None
+    dernier = _dernier_usage(transcript_path)
     if not dernier:
         return None
-    return sum(
-        int(dernier.get(k) or 0)
-        for k in ("input_tokens", "cache_creation_input_tokens",
-                  "cache_read_input_tokens")
-    )
+    try:
+        return sum(
+            int(dernier.get(k) or 0)
+            for k in ("input_tokens", "cache_creation_input_tokens",
+                      "cache_read_input_tokens")
+        )
+    except (TypeError, ValueError, OverflowError):
+        return None
 
 
 def level(tokens: int | None) -> str:

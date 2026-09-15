@@ -131,3 +131,76 @@ def test_the_resume_message_names_the_way_out():
     texte = jauge.message(720_000, "reprise")
     assert "clear" in texte.lower()
     assert "suspens" in texte.lower()
+
+# --- 3e relecture independante (2026-09-15) : 9e site du meme motif ---------
+
+
+def test_a_non_object_entry_does_not_crash_the_read(tmp_path):
+    p = tmp_path / "t.jsonl"
+    with p.open("w", encoding="utf-8") as f:
+        f.write(json.dumps({"message": {"usage": {"input_tokens": 42}}}) + "\n")
+        f.write(json.dumps(None) + "\n")
+    assert jauge.context_size(p) == 42
+
+
+def test_a_flat_usage_is_not_accepted(tmp_path):
+    # 5e relecture independante (2026-09-15) : le garde contre le plantage ne
+    # doit pas, au passage, elargir ce que ce hook accepte. Un `usage` pose a
+    # plat sur l'entree (pas sous `message`) reste ignore, comme avant.
+    p = tmp_path / "t.jsonl"
+    with p.open("w", encoding="utf-8") as f:
+        f.write(json.dumps({"usage": {"input_tokens": 999000}}) + "\n")
+    assert jauge.context_size(p) is None
+
+
+def test_a_non_dict_message_is_not_accepted(tmp_path):
+    p = tmp_path / "t.jsonl"
+    with p.open("w", encoding="utf-8") as f:
+        f.write(json.dumps({"message": "texte"}) + "\n")
+    assert jauge.context_size(p) is None
+
+
+def test_a_non_numeric_usage_value_does_not_crash(tmp_path):
+    # 6e relecture independante (2026-09-15) : la variante plate du crash
+    # etait fermee, la variante imbriquee (la seule que ce hook lit en
+    # production) restait vivante.
+    p = tmp_path / "t.jsonl"
+    with p.open("w", encoding="utf-8") as f:
+        f.write(json.dumps({"message": {"usage": {"input_tokens": "abc"}}}) + "\n")
+    assert jauge.context_size(p) is None
+
+
+def test_an_infinite_usage_value_does_not_crash(tmp_path):
+    # 7e relecture independante (2026-09-15) : (TypeError, ValueError)
+    # n'attrape pas OverflowError -- int(float("inf")) leve celle-ci, pas
+    # ValueError. json accepte Infinity/-Infinity nativement.
+    p = tmp_path / "t.jsonl"
+    with p.open("w", encoding="utf-8") as f:
+        f.write('{"message": {"usage": {"input_tokens": Infinity}}}\n')
+    assert jauge.context_size(p) is None
+
+
+def test_a_huge_digit_literal_does_not_crash_the_parse(tmp_path):
+    # 8e relecture independante (2026-09-15) : json.loads() peut lever un
+    # ValueError NU (pas un JSONDecodeError) sur un litteral entier de plus
+    # de 4300 chiffres (limite Python 3.11+). La copie en ligne de ce hook
+    # n'attrapait que JSONDecodeError, plus etroit que le lecteur canonique
+    # (transcript_reader.iter_entries) qui attrape deja les deux.
+    p = tmp_path / "t.jsonl"
+    chiffres = "9" * 4400
+    p.write_text('{"message": {"usage": {"input_tokens": ' + chiffres + "}}}\n", encoding="utf-8")
+    assert jauge.context_size(p) is None
+
+
+def test_should_keep_the_reading_when_a_later_line_is_not_decodable(tmp_path):
+    # 9e relecture independante (2026-09-15) : l'ouverture du fichier, une
+    # ligne au-dessus de tout ce que les 3 tours precedents avaient ferme,
+    # n'avait pas errors="replace". Un seul octet non decodable en fin de
+    # fichier (une derniere ligne en cours d'ecriture par le harnais) faisait
+    # perdre TOUTE la mesure deja lue -- pas juste la ligne fautive.
+    p = tmp_path / "t.jsonl"
+    valide = json.dumps({"message": {"usage": {"input_tokens": 650_000}}}).encode("utf-8")
+    with p.open("wb") as f:
+        f.write(valide + b"\n")
+        f.write(b"\xe9crit-en-cours" + b"\xff")  # octet latin-1 invalide en utf-8, sans \n
+    assert jauge.context_size(p) == 650_000
