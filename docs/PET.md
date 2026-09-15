@@ -1142,10 +1142,12 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
   — deux chemins décidés (natif : image/GIF/vidéo déjà construit ; web : WebView2 réutilisé,
   jamais un second moteur type CEF), choix laissé à l'utilisateur. Découpage validé avec Jay
   le 2026-09-15, chemin natif en premier :
-  1. Le moteur apprend à retirer une source tout seul après un délai (`crates/protocol` +
-     `crates/engine`) — fondation dont dépendent les deux étapes suivantes.
-  2. Un déclenchement manuel côté interface (choisir un fichier + un délai, le voir à l'écran)
-     (`src/features/scenes`).
+  1. ✅ **Codé et compilé (2026-09-15)** — le moteur retire une source tout seul après un
+     délai (`AddTimedMedia`, `crates/protocol` + `crates/engine`), 5 tests unitaires sur les
+     bornes/refus, aller-retour de protocole testé. **Pas encore vu à l'écran** : aucun
+     déclencheur ne l'appelle encore.
+  2. 🟧 Un déclenchement manuel côté interface (choisir un fichier + un délai, le voir à
+     l'écran) (`src/features/scenes`) — prochaine étape.
   3. Le lien chat/alertes → média précis (`src/features/chat`, `crates/automation`) — chantier
      séparé, pas avant que 1 et 2 soient prouvés.
 
