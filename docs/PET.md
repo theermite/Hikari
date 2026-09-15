@@ -1146,8 +1146,9 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
      délai (`AddTimedMedia`, `crates/protocol` + `crates/engine`), 5 tests unitaires sur les
      bornes/refus, aller-retour de protocole testé. **Pas encore vu à l'écran** : aucun
      déclencheur ne l'appelle encore.
-  2. 🟧 Un déclenchement manuel côté interface (choisir un fichier + un délai, le voir à
-     l'écran) (`src/features/scenes`) — prochaine étape.
+  2. ✅ **Codé et testé (2026-09-15)** — un champ « ponctuel (secondes) » à côté du
+     sélecteur de fichier existant (`src/features/scenes`). Vide = permanent, comme avant.
+     **Pas encore vu à l'écran.**
   3. Le lien chat/alertes → média précis (`src/features/chat`, `crates/automation`) — chantier
      séparé, pas avant que 1 et 2 soient prouvés.
 
