@@ -120,8 +120,8 @@ Organisées selon le parcours 0→6 + boucle. Identifiants `F-XXX`.
 | F-030 | Chat intégré (multi-plateforme) + **modération auto** (spam, liens, mots interdits) + **actions inline** (timeout / ban / épingler au survol d'un message) |
 | F-031 | Alertes follow / sub / don (fines, non intrusives par défaut) |
 | F-032 | Événements automatiques (au degré voulu) |
-| F-033 | Médias pop-up (émotes, gifs, petites vidéos qui apparaissent puis disparaissent) |
-| F-034 | Bandeaux d'information (notifications qui apparaissent puis disparaissent) |
+| F-033 | Médias pop-up (émotes, gifs, petites vidéos qui apparaissent puis disparaissent) — **détail en §3quinquies** |
+| F-034 | Bandeaux d'information (notifications qui apparaissent puis disparaissent) — **détail en §3quinquies** |
 | F-035 | Objectifs & notes du créateur, modifiables, affichés sur le stream |
 
 ### Étape 4 — Édition (chemin critique visibilité)
@@ -284,6 +284,44 @@ d'UNE source. Un créateur qui a passé du temps sur son rendu ne repart jamais 
 **Hors de cette clarification** : le « masque avancé » où une AUTRE SOURCE (vidéo, animation)
 sert de masque reste un chantier à part, non scopé ici — différent de la pile de filtres
 ci-dessus, qui ne concerne que des formes et effets calculés.
+
+### §3quinquies — Médias pop-up et bandeaux (F-033/F-034 détaillé, clarifié avec Jay le 2026-09-15)
+
+**Pourquoi cette section existe** : F-033/F-034 tenaient en une ligne de tableau depuis la
+conception — trop court pour coder, contrairement à F-036 (§3quater). Clarifié avant le
+premier code, après lecture du moteur existant.
+
+**Deux chemins, au choix de l'utilisateur** (décision de Jay, 2026-09-14) :
+- **Natif** : image, GIF ou vidéo transparente sur disque, posée par le moteur (`SourceKind::Image`/`Video`, déjà câblés en libobs). Zéro dépendance neuve.
+- **Web** : une page HTML rendue dans WebView2 (déjà embarqué), pour une animation qui réagit à une donnée (ex. montant du don affiché). Jamais un second moteur type CEF — poids mesuré : +93 à 200 Mo contre 0 pour réutiliser l'existant.
+
+**Cette section couvre le chemin natif en premier** — le chemin web est un chantier suivant,
+non détaillé ici.
+
+**La règle (BLOQUANTE)** : un média pop-up est une source **temporaire** — elle apparaît, reste
+posée pendant une durée choisie, puis se retire d'elle-même, sans action manuelle. Ce qui la
+distingue d'une source ordinaire (F-020) : cette dernière est permanente, choisie et retirée à
+la main.
+
+**Ce que le moteur doit savoir faire** (n'existe pas encore, à construire) :
+| Capacité | État |
+|---|---|
+| Poser une image/vidéo dans une scène | ✅ déjà câblé (`AddCaptureSource`) |
+| La transparence du fichier (alpha PNG/GIF/WebM) | ✅ déjà native au format, rien à ajouter |
+| Un délai d'affichage posé sur CETTE source précise | ⬜ à construire (aucun champ de durée sur une source aujourd'hui) |
+| La disparition automatique au bout du délai, sans appel manuel | ⬜ à construire (aucun message combiné "afficher puis retirer") |
+| Vidéo en boucle par défaut, jamais coupée avant la fin du délai voulu | ⚠️ existe en boucle infinie forcée (`"looping": true`) — à rendre compatible avec un délai fini |
+
+**Bandeaux d'information (F-034)** : même mécanique de délai/disparition automatique que
+F-033 — un bandeau est un cas particulier de média temporaire (texte ou image en bande),
+jamais un système séparé.
+
+**Hors de cette clarification** (chantier suivant, pas cette session) : relier un événement du
+chat ou une alerte (émote, don, follow) à un fichier précis à afficher automatiquement — exige
+un mapping événement→média qui n'existe pas encore (`Action` d'automation ne sait aujourd'hui
+que basculer la visibilité d'une source déjà posée, jamais en créer une à la volée). Le
+déclenchement manuel (bouton, fichier choisi à la main) est le premier pas ; le lien
+automatique au chat suit.
 
 ---
 

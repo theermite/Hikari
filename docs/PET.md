@@ -1138,9 +1138,18 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
   modération/alertes (scope non élargi tant qu'aucune brique ne l'utilise). Fichiers :
   `src-tauri/src/chat/{mod,twitch,youtube,moderation,alerts}.rs` ·
   `src/features/chat/*`. Modération auto (spam/liens/mots interdits) hors de cette partie.
-- **Reste** : médias pop-up + bandeaux sur le stream (F-033/F-034) — deux chemins décidés
-  (natif : image/GIF/vidéo déjà construit ; web : WebView2 réutilisé, jamais un second
-  moteur type CEF), choix laissé à l'utilisateur. Un spike de superposition permanente
+- **Reste** : médias pop-up + bandeaux sur le stream (F-033/F-034, détaillé au CDC §3quinquies)
+  — deux chemins décidés (natif : image/GIF/vidéo déjà construit ; web : WebView2 réutilisé,
+  jamais un second moteur type CEF), choix laissé à l'utilisateur. Découpage validé avec Jay
+  le 2026-09-15, chemin natif en premier :
+  1. Le moteur apprend à retirer une source tout seul après un délai (`crates/protocol` +
+     `crates/engine`) — fondation dont dépendent les deux étapes suivantes.
+  2. Un déclenchement manuel côté interface (choisir un fichier + un délai, le voir à l'écran)
+     (`src/features/scenes`).
+  3. Le lien chat/alertes → média précis (`src/features/chat`, `crates/automation`) — chantier
+     séparé, pas avant que 1 et 2 soient prouvés.
+
+  Un spike de superposition permanente
   (scène sur un second canal libobs) a bloqué le moteur le 2026-09-14 sans cause trouvée —
   retiré, à reprendre avec plus de prudence avant de construire dessus. Objectifs/notes du
   créateur (F-035) pas commencés.
