@@ -179,6 +179,21 @@ export function searchAll(targets: CaptureTargets, query: string): SearchHit[] {
   );
 }
 
+/** Lit le champ « ponctuel (secondes) » de la fenêtre d'ajout — un média pop-up
+ * (F-033/F-034). `null` veut dire « permanent », le comportement d'avant cette
+ * fonctionnalité : un champ vide ou un nombre invalide ne DOIT jamais poser un média
+ * ponctuel par erreur. Le moteur ramène de toute façon la valeur dans ses propres bornes
+ * (`clamp_timed_media_duration_ms`) ; ce parsing ne fait que distinguer « rien tapé » de
+ * « une durée ».
+ */
+export function parseTimedMediaSeconds(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const seconds = Number(trimmed);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return Math.round(seconds * 1000);
+}
+
 /** Le nom donné au fichier une fois posé dans la scène : son nom, sans le chemin ni
  * l'extension. C'est ce que l'utilisateur reconnaît. */
 export function nameFromPath(path: string): string {

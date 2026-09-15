@@ -5,6 +5,7 @@ import {
   fold,
   matchesSearch,
   nameFromPath,
+  parseTimedMediaSeconds,
   SOURCE_FAMILIES,
   searchAll,
   targetsFor,
@@ -306,5 +307,25 @@ describe("la famille TEXTE", () => {
     const texte = SOURCE_FAMILIES.find((f) => f.kind === "text");
 
     expect(texte?.hint.length).toBeGreaterThan(10);
+  });
+});
+
+describe("parseTimedMediaSeconds", () => {
+  it("should_read_no_duration_from_an_empty_field", () => {
+    // Un champ vide veut dire « permanent » : le comportement d'avant cette fonctionnalité,
+    // jamais changé sans que l'utilisateur ait tapé un chiffre.
+    expect(parseTimedMediaSeconds("")).toBeNull();
+    expect(parseTimedMediaSeconds("   ")).toBeNull();
+  });
+
+  it("should_convert_seconds_to_milliseconds", () => {
+    expect(parseTimedMediaSeconds("4")).toBe(4_000);
+    expect(parseTimedMediaSeconds("0.5")).toBe(500);
+  });
+
+  it("should_reject_a_zero_negative_or_non_numeric_value", () => {
+    expect(parseTimedMediaSeconds("0")).toBeNull();
+    expect(parseTimedMediaSeconds("-3")).toBeNull();
+    expect(parseTimedMediaSeconds("abc")).toBeNull();
   });
 });

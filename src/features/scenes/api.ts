@@ -42,6 +42,18 @@ export function addCaptureSource(
   return invoke("add_capture_source", { scene, kind, targetId, name });
 }
 
+/** Pose un média pop-up (image/vidéo, F-033/F-034) dans `scene` — le moteur programme
+ * lui-même son retrait après `durationMs`, jamais une minuterie côté app. */
+export function addTimedMedia(
+  scene: string,
+  kind: SourceKind,
+  targetId: string,
+  name: string,
+  durationMs: number,
+): Promise<void> {
+  return invoke("add_timed_media", { scene, kind, targetId, name, durationMs });
+}
+
 /** Removes a capture from one scene. Other scenes keep theirs. */
 export function removeSource(scene: string, name: string): Promise<void> {
   return invoke("remove_source", { scene, name });

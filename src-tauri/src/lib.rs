@@ -65,6 +65,7 @@ pub fn run() {
             engine_audio::set_monitor_volume,
             engine_scenes::list_capture_targets,
             engine_scenes::add_capture_source,
+            engine_scenes::add_timed_media,
             engine_scenes::remove_source,
             engine_scenes::reorder_source,
             engine_scenes::set_source_order,

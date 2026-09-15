@@ -31,6 +31,9 @@ interface AddSourceModalProps {
   draftText: string;
   onDraftTextChange: (value: string) => void;
   onAddText: (scene: string, texte: string) => void;
+  /** Le champ « ponctuel (secondes) » — vide veut dire permanent (F-033/F-034). */
+  popupSeconds: string;
+  onPopupSecondsChange: (value: string) => void;
   targets: CaptureTargets | null;
   targetsError: string | null;
   search: string;
@@ -54,6 +57,8 @@ export function AddSourceModal({
   draftText,
   onDraftTextChange,
   onAddText,
+  popupSeconds,
+  onPopupSecondsChange,
   targets,
   targetsError,
   search,
@@ -124,14 +129,32 @@ export function AddSourceModal({
               </button>
             </>
           ) : chosenIsFile ? (
-            <button
-              type="button"
-              data-autofocus
-              onClick={() => onPickFile(addingTo, chosenFamily)}
-              className="self-start rounded-[6px] bg-hikari-accent px-3 py-1.5 text-[12.5px] font-medium text-[#1a1206] transition hover:brightness-110"
-            >
-              Choisir un fichier…
-            </button>
+            <div className="flex flex-col gap-1.5">
+              {/* Vide = permanent, comme avant cette fonctionnalité. Un nombre pose un
+              média qui disparaît de lui-même (F-033/F-034) — jamais l'inverse par défaut. */}
+              <label className="flex items-center gap-1.5 text-[12px] text-hikari-txt-dim">
+                Ponctuel, pendant
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={popupSeconds}
+                  onChange={(event) => onPopupSecondsChange(event.target.value)}
+                  placeholder="permanent"
+                  aria-label="Durée d'affichage en secondes, vide pour un média permanent"
+                  className="w-20 rounded-[6px] border border-hikari-line bg-hikari-bg px-2 py-1 text-[12.5px] text-hikari-txt placeholder:text-hikari-txt-faint"
+                />
+                secondes
+              </label>
+              <button
+                type="button"
+                data-autofocus
+                onClick={() => onPickFile(addingTo, chosenFamily)}
+                className="self-start rounded-[6px] bg-hikari-accent px-3 py-1.5 text-[12.5px] font-medium text-[#1a1206] transition hover:brightness-110"
+              >
+                Choisir un fichier…
+              </button>
+            </div>
           ) : targetsError ? (
             <p className="text-hikari-red">❌ {targetsError}</p>
           ) : targets === null ? (

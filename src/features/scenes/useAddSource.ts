@@ -7,8 +7,13 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useRef, useState } from "react";
 import { addCameraSource, listCameras } from "../camera/api";
 import type { CaptureTargets } from "./AddSourceModal";
-import { addCaptureSource, listCaptureTargets } from "./api";
-import { FILE_FILTERS, nameFromPath, SOURCE_FAMILIES } from "./sourcePicker";
+import { addCaptureSource, addTimedMedia, listCaptureTargets } from "./api";
+import {
+  FILE_FILTERS,
+  nameFromPath,
+  parseTimedMediaSeconds,
+  SOURCE_FAMILIES,
+} from "./sourcePicker";
 import type { CaptureTarget, SceneInfo, SourceKind } from "./types";
 
 interface State {
@@ -38,6 +43,10 @@ export function useAddSource(
   const [search, setSearch] = useState("");
   /** Le texte en cours de saisie dans la fenêtre d'ajout. */
   const [draftText, setDraftText] = useState("");
+  /** Le champ « ponctuel (secondes) » — vide par défaut, donc permanent comme avant cette
+   * fonctionnalité (F-033/F-034). Propre à la famille FICHIER, remis à vide en changeant
+   * de famille pour ne jamais reporter une durée sur un choix suivant sans rapport. */
+  const [popupSeconds, setPopupSeconds] = useState("");
   const chosenIsFile =
     SOURCE_FAMILIES.find((f) => f.kind === chosenFamily)?.isFile ?? false;
   const searchInput = useRef<HTMLInputElement>(null);
@@ -126,10 +135,12 @@ export function useAddSource(
     );
   };
 
-  /** Ouvre le sélecteur du système, puis pose le fichier choisi dans la scène. Un abandon
-   * (aucun fichier retenu) ne fait rien et ne dit rien : ce n'est pas une erreur. */
+  /** Ouvre le sélecteur du système, puis pose le fichier choisi dans la scène — de façon
+   * permanente, ou pour `popupSeconds` s'il porte un nombre (F-033/F-034, média pop-up).
+   * Un abandon (aucun fichier retenu) ne fait rien et ne dit rien : ce n'est pas une erreur. */
   const pickFile = (scene: string, kind: SourceKind) => {
     setActionError(null);
+    const durationMs = parseTimedMediaSeconds(popupSeconds);
     open({
       multiple: false,
       filters: [
@@ -142,7 +153,11 @@ export function useAddSource(
       .then((path) => {
         if (typeof path !== "string") return;
         setAddingTo(null);
-        return addCaptureSource(scene, kind, path, nameFromPath(path));
+        setPopupSeconds("");
+        const name = nameFromPath(path);
+        return durationMs === null
+          ? addCaptureSource(scene, kind, path, name)
+          : addTimedMedia(scene, kind, path, name, durationMs);
       })
       .catch((error: unknown) => setActionError(String(error)));
   };
@@ -164,5 +179,7 @@ export function useAddSource(
     addToScene,
     addText,
     pickFile,
+    popupSeconds,
+    setPopupSeconds,
   };
 }

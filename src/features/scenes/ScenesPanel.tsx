@@ -117,6 +117,8 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
     addToScene,
     addText,
     pickFile,
+    popupSeconds,
+    setPopupSeconds,
   } = useAddSource(state, addingTo, setAddingTo, setActionError);
 
   // Le « + » de l'onglet vit hors de l'arbre de ce panneau : il demande, on repond en
@@ -336,6 +338,8 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         draftText={draftText}
         onDraftTextChange={setDraftText}
         onAddText={addText}
+        popupSeconds={popupSeconds}
+        onPopupSecondsChange={setPopupSeconds}
         targets={pickerTargets}
         targetsError={targetsError}
         search={search}
@@ -344,6 +348,7 @@ export function ScenesPanel(_props: IDockviewPanelProps) {
         onFamilyChange={(kind) => {
           setFamily(kind);
           setSearch("");
+          setPopupSeconds("");
         }}
         onSearchChange={setSearch}
         onPickFile={pickFile}

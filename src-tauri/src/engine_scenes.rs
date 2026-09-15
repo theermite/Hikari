@@ -236,6 +236,29 @@ pub(crate) fn add_capture_source(
     )
 }
 
+/// Pose un média pop-up (image/vidéo, F-033/F-034) dans une scène — le moteur programme
+/// lui-même son retrait après `duration_ms`, jamais une minuterie côté app.
+#[tauri::command]
+pub(crate) fn add_timed_media(
+    state: State<EngineState>,
+    scene: String,
+    kind: hikari_protocol::SourceKind,
+    target_id: String,
+    name: String,
+    duration_ms: u64,
+) -> Result<(), String> {
+    send_command(
+        &state,
+        ControllerCommand::AddTimedMedia {
+            scene,
+            kind,
+            target_id,
+            name,
+            duration_ms,
+        },
+    )
+}
+
 /// Removes a capture from one scene (brique Sources).
 #[tauri::command]
 pub(crate) fn remove_source(

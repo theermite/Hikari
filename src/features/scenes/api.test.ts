@@ -7,6 +7,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import {
   addCaptureSource,
+  addTimedMedia,
   createScene,
   deleteScene,
   listCaptureTargets,
@@ -68,6 +69,20 @@ describe("scenes api", () => {
       kind: "game",
       targetId: "LoL",
       name: "Jeu",
+    });
+  });
+
+  it("should_pass_scene_kind_target_name_and_duration_when_adding_a_timed_media", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await addTimedMedia("main", "image", "C:\\medias\\hype.png", "Pop-up", 4_000);
+
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("add_timed_media", {
+      scene: "main",
+      kind: "image",
+      targetId: "C:\\medias\\hype.png",
+      name: "Pop-up",
+      durationMs: 4_000,
     });
   });
 
