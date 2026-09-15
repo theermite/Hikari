@@ -2,7 +2,13 @@
 // personne pour l'entendre.
 
 import { describe, expect, it, vi } from "vitest";
-import { acceptsAdd, onAddRequested, requestAdd } from "./panelActions";
+import {
+  acceptsAdd,
+  onAddRequested,
+  onScreenRequested,
+  requestAdd,
+  requestScreen,
+} from "./panelActions";
 
 describe("panelActions", () => {
   it("should_reach_the_panel_that_registered", () => {
@@ -52,5 +58,19 @@ describe("panelActions", () => {
     expect(acceptsAdd("scenes")).toBe(true);
     off();
     expect(acceptsAdd("scenes")).toBe(false);
+  });
+
+  it("should_reach_the_shell_with_the_requested_screen_id", () => {
+    const handler = vi.fn();
+    const off = onScreenRequested(handler);
+
+    requestScreen("cockpit");
+
+    expect(handler).toHaveBeenCalledExactlyOnceWith("cockpit");
+    off();
+  });
+
+  it("should_do_nothing_when_nobody_listens_for_a_screen", () => {
+    expect(() => requestScreen("cockpit")).not.toThrow();
   });
 });

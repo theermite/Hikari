@@ -35,7 +35,7 @@ import {
   saveLayout,
 } from "./layout";
 import { PanelTab } from "./PanelTab";
-import { onPresetRequested } from "./panelActions";
+import { onPresetRequested, onScreenRequested } from "./panelActions";
 import { AccountsPanel } from "./panels/AccountsPanel";
 import { PlaceholderPanel } from "./panels/PlaceholderPanel";
 import { SettingsPanel } from "./panels/SettingsPanel";
@@ -321,6 +321,13 @@ export function Cockpit() {
       });
     }
   }, []);
+
+  // Un écran sans Aperçu (Paramètres) demande le retour au cockpit après une action dont
+  // il veut montrer le résultat — même raison que « + » et les dispositions : ce contenu
+  // vit hors de la coque, il ne peut pas décider de l'écran lui-même.
+  useEffect(() => {
+    return onScreenRequested(openScreen);
+  }, [openScreen]);
 
   const screen = screenFor(screenId);
 

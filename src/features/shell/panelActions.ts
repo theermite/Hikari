@@ -57,3 +57,25 @@ export function onPresetRequested(handler: PresetHandler): () => void {
     presetHandlers.delete(handler);
   };
 }
+
+/** Les demandes de changement d'ÉCRAN (Cockpit Live, Paramètres...), même mécanisme.
+ *
+ * Un écran comme Paramètres n'a pas d'Aperçu — un bouton « Tester » qui y pose un média
+ * doit pouvoir ramener l'utilisateur sur le cockpit pour qu'il voie le résultat, sans que
+ * ce bouton connaisse la coque (Jay, 2026-09-15 : « je ne vois pas l'aperçu »). */
+type ScreenHandler = (screenId: string) => void;
+
+const screenHandlers = new Set<ScreenHandler>();
+
+/** Demande à la coque d'ouvrir l'écran `screenId`. Sans écouteur, ne fait rien. */
+export function requestScreen(screenId: string): void {
+  for (const handler of screenHandlers) handler(screenId);
+}
+
+/** Abonne la coque aux demandes d'écran. Renvoie de quoi se désabonner. */
+export function onScreenRequested(handler: ScreenHandler): () => void {
+  screenHandlers.add(handler);
+  return () => {
+    screenHandlers.delete(handler);
+  };
+}
