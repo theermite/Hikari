@@ -3,16 +3,20 @@
 // devant chaque message (Jay, 2026-09-14 : « même si c'est en option »).
 
 import { load, type Store } from "@tauri-apps/plugin-store";
+import type { AlertMediaRule, ChatAlert } from "./types";
 
 const STORE_FILE = "chat-settings.json";
 const SETTINGS_KEY = "settings";
 
 export interface ChatSettings {
   showTimestamps: boolean;
+  /** Un média pop-up (F-033/F-034) par type d'alerte — absent = aucun déclenchement. */
+  alertMedia: Partial<Record<ChatAlert["kind"], AlertMediaRule>>;
 }
 
 export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
   showTimestamps: false,
+  alertMedia: {},
 };
 
 let storePromise: Promise<Store> | null = null;

@@ -10,9 +10,14 @@ import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useState } from "react";
 
 import { Panel } from "../../components/ui/Panel";
+import { useAlertMedia } from "./alertMedia";
 import { describeAlert } from "./alerts";
 import { banChatUser, timeoutChatUser } from "./api";
-import { loadChatSettings, saveChatSettings } from "./chatSettings";
+import {
+  DEFAULT_CHAT_SETTINGS,
+  loadChatSettings,
+  saveChatSettings,
+} from "./chatSettings";
 import { filterChatMessages, formatMessageTime, togglePinned } from "./history";
 import type { ChatAlert, ChatPlatform, DisplayedChatMessage } from "./types";
 import { useChat } from "./useChat";
@@ -170,22 +175,25 @@ export function ChatPanel(_props: IDockviewPanelProps) {
   const [draft, setDraft] = useState("");
   const [pinnedIds, setPinnedIds] = useState<Set<number>>(new Set());
   const [moderationError, setModerationError] = useState<string | null>(null);
-  const [showTime, setShowTime] = useState(false);
+  const [settings, setSettings] = useState(DEFAULT_CHAT_SETTINGS);
 
   useEffect(() => {
     let cancelled = false;
-    loadChatSettings().then((settings) => {
-      if (!cancelled) setShowTime(settings.showTimestamps);
+    loadChatSettings().then((loaded) => {
+      if (!cancelled) setSettings(loaded);
     });
     return () => {
       cancelled = true;
     };
   }, []);
 
+  useAlertMedia(settings);
+  const showTime = settings.showTimestamps;
+
   const toggleShowTime = () => {
-    const next = !showTime;
-    setShowTime(next);
-    saveChatSettings({ showTimestamps: next }).catch((error: unknown) => {
+    const next = { ...settings, showTimestamps: !settings.showTimestamps };
+    setSettings(next);
+    saveChatSettings(next).catch((error: unknown) => {
       console.error("chat: saveChatSettings failed", error);
     });
   };

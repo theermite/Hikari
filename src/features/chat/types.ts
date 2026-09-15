@@ -49,3 +49,13 @@ export interface DisplayedChatAlert {
   id: number;
   alert: ChatAlert;
 }
+
+// Ce qu'une alerte déclenche comme média pop-up (F-033/F-034) : la SCÈNE cible, le
+// KIND explicite (jamais déduit de l'extension — .gif vaut pour les deux familles côté
+// sélecteur, `sourcePicker.ts`) et le chemin exact, tels que choisis à la configuration.
+export interface AlertMediaRule {
+  scene: string;
+  kind: "image" | "video";
+  path: string;
+  durationMs: number;
+}

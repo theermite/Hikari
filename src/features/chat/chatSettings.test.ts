@@ -25,7 +25,7 @@ describe("chat settings", () => {
 
     const settings = await loadChatSettings();
 
-    expect(settings).toEqual({ showTimestamps: false });
+    expect(settings).toEqual({ showTimestamps: false, alertMedia: {} });
   });
 
   it("should_roundtrip_a_saved_preference", async () => {
@@ -33,9 +33,32 @@ describe("chat settings", () => {
       "./chatSettings"
     );
 
-    await saveChatSettings({ showTimestamps: true });
+    await saveChatSettings({ showTimestamps: true, alertMedia: {} });
     const settings = await loadChatSettings();
 
-    expect(settings).toEqual({ showTimestamps: true });
+    expect(settings).toEqual({ showTimestamps: true, alertMedia: {} });
+  });
+
+  it("should_roundtrip_an_alert_media_rule", async () => {
+    // Un média pop-up (F-033/F-034) déclenché par une alerte : le moteur veut le kind
+    // et le chemin exacts, aucune déduction depuis l'extension (ambiguë sur .gif).
+    const { loadChatSettings, saveChatSettings } = await import(
+      "./chatSettings"
+    );
+
+    await saveChatSettings({
+      showTimestamps: false,
+      alertMedia: {
+        cheer: { scene: "main", kind: "video", path: "C:\\hype.mp4", durationMs: 4_000 },
+      },
+    });
+    const settings = await loadChatSettings();
+
+    expect(settings.alertMedia.cheer).toEqual({
+      scene: "main",
+      kind: "video",
+      path: "C:\\hype.mp4",
+      durationMs: 4_000,
+    });
   });
 });
