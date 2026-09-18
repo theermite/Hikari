@@ -1,7 +1,7 @@
 ---
 name: pre-rag-audit
 description: Audit Knowledge Base before RAG indexation. Garbage in = garbage out.
-model: opus
+model: sonnet
 ---
 
 # /pre-rag-audit — Audit Knowledge Base Before RAG Indexation

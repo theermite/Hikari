@@ -1,7 +1,7 @@
 ---
 name: session-end
 description: End dev session. Full test suite, session report, Shinzo sync, docs update, scoring, save report.
-model: opus
+model: sonnet
 ---
 
 # /session-end — Close Dev Session

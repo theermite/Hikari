@@ -1,7 +1,7 @@
 ---
 name: concevoir
 description: Full project conception workflow. POUR QUOI, research, CDC, PET, mockup prototype, slide presentation. Architecture 2 documents (CDC + PET).
-model: opus
+model: sonnet
 ---
 
 # /concevoir — Design a Project or Feature

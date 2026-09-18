@@ -1,7 +1,7 @@
 ---
 name: dev
 description: Feature development with gates. Research, CDC check, non-tech PREPARE, TDG, code, non-tech VALIDATE, Shinzo sync. Updates PET per brick.
-model: opus
+model: sonnet
 ---
 
 # /dev — Develop a Feature

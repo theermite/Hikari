@@ -179,3 +179,33 @@ def has_read_file(transcript_path: str | Path, file_path_substring: str) -> bool
         if needle in fp.replace("\\", "/"):
             return True
     return False
+
+
+def has_instructions_attachment(transcript_path: str | Path, file_path_substring: str) -> bool:
+    """Return True if the file's content was already delivered as a harness
+    instructions attachment (CLAUDE.md / .claude/rules/*.md auto-loaded at
+    session start), not just via an explicit Read tool call.
+
+    Confirmed on a real transcript (2026-09-18): Claude Code writes one entry
+    shaped {"attachment": {"type": "instructions", "files": [{"path": ...}]}}
+    carrying the full text of every project-instructions file. A caller that
+    only checks Read tool calls misses this and re-asks for content the model
+    already has -- paid for twice, every session.
+    """
+    needle = file_path_substring.replace("\\", "/")
+    for entry in iter_entries(transcript_path):
+        if not isinstance(entry, dict):
+            continue
+        att = entry.get("attachment")
+        if not isinstance(att, dict) or att.get("type") != "instructions":
+            continue
+        files = att.get("files")
+        if not isinstance(files, list):
+            continue
+        for f in files:
+            if not isinstance(f, dict):
+                continue
+            fp = f.get("path", "") or ""
+            if needle in fp.replace("\\", "/"):
+                return True
+    return False

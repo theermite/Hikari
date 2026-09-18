@@ -1,7 +1,7 @@
 ---
 name: audit
 description: Project audit. Blueprint scoring (>=95%), veille, quality, security, performance, accessibility, visibility, docs, plan.
-model: opus
+model: sonnet
 ---
 
 # /audit — Audit a Project

@@ -1,7 +1,7 @@
 ---
 name: deploy
 description: Production deployment. Zero-error tolerance. CDC check, veille, security, build, backup, deploy, health, smoke tests, log.
-model: opus
+model: sonnet
 ---
 
 # /deploy — Deploy to Production

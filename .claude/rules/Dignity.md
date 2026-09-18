@@ -1,3 +1,13 @@
+---
+paths:
+  - "**/*.{tsx,jsx}"
+  - "**/*.vue"
+  - "**/*.html"
+  - "**/*.css"
+  - "**/i18n/**/*.json"
+  - "**/locales/**/*.json"
+---
+
 # Dignity — Respect the intelligence of the one who does not know yet
 
 **Proof state**: 🔵 modern — ethics + dark-pattern research.

@@ -1,7 +1,7 @@
 ---
 name: debug
 description: Bug investigation. LOGS FIRST. L1 local, L2 SKB+web 8 languages, L3 report to Jay.
-model: opus
+model: sonnet
 ---
 
 # /debug — Investigate and Fix a Bug

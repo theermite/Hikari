@@ -1,7 +1,7 @@
 ---
 name: commit
 description: Pre-commit review + CDC alignment + atomic check + stage + commit + push.
-model: opus
+model: sonnet
 ---
 
 # /commit — Commit Changes

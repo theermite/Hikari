@@ -1,3 +1,13 @@
+---
+paths:
+  - "**/*.{ex,exs}"
+  - "**/*.{ts,tsx,js,jsx}"
+  - "**/*.py"
+  - "**/*.rs"
+  - "**/test/**"
+  - "**/tests/**"
+---
+
 # Quality — BLOCKING Gates
 
 **Proof state**: 🟢 robust — TDG, coverage, quality engineering.

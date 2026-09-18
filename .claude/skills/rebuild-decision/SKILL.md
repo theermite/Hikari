@@ -1,7 +1,7 @@
 ---
 name: rebuild-decision
 description: Evaluate Rebuild vs Fix for a struggling module. Metrics, criteria, cost comparison, documented decision.
-model: opus
+model: sonnet
 ---
 
 # /rebuild-decision — Rebuild vs Fix Evaluation

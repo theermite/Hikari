@@ -1,7 +1,7 @@
 ---
 name: extract-lego
 description: Extract a component from the current project into @shinkofa/ui (Shinkofa-Shared). Full workflow from identification to verified replacement.
-model: opus
+model: sonnet
 ---
 
 # /extract-lego — Extract Component to Lego Library

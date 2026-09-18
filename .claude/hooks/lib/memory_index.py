@@ -100,14 +100,36 @@ def _ligne(fiche: dict) -> str:
     return f"- [{fiche['name']}]({fiche['fichier']}) — {desc}"
 
 
-def _sections(fiches: list[dict], types: tuple[str, ...]) -> list[str]:
+# Le harnais coupe MEMORY.md a 200 lignes OU 25 Ko, selon ce qui arrive en premier
+# (mesure reelle 2026-09-18 : la coupure tombait a la ligne 115, pas 200 -- nos
+# descriptions completes pesaient trop lourd en octets). Le sommaire CHARGE porte
+# donc une description courte ; README.md (jamais charge automatiquement) garde
+# la description entiere.
+#
+# La valeur n'est pas arbitraire : sur 184 fiches chargees (mesure du jour), le
+# seul texte "- [Titre](fichier.md) — " pese deja ~20 Ko avant la moindre
+# description. 25 caracteres de description est le maximum mesure qui tient
+# encore sous 25 Ko avec ce nombre de fiches -- baisser encore le nombre de
+# fiches chargees (chantier en cours) redonnera de la marge pour l'allonger.
+LIMITE_DESCRIPTION_CHARGEE = 25
+
+
+def _ligne_courte(fiche: dict) -> str:
+    desc = fiche["description"] or "(sans description)"
+    if len(desc) > LIMITE_DESCRIPTION_CHARGEE:
+        coupe = desc[:LIMITE_DESCRIPTION_CHARGEE].rsplit(" ", 1)[0].rstrip()
+        desc = f"{coupe}…"
+    return f"- [{fiche['name']}]({fiche['fichier']}) — {desc}"
+
+
+def _sections(fiches: list[dict], types: tuple[str, ...], rendre=_ligne) -> list[str]:
     blocs = []
     for type_ in types:
         lot = [f for f in fiches if f["type"] == type_]
         if not lot:
             continue
         blocs.append(f"\n## {type_} — {LEGENDE.get(type_, '')} ({len(lot)})\n")
-        blocs.extend(_ligne(f) for f in sorted(lot, key=lambda f: f["name"].lower()))
+        blocs.extend(rendre(f) for f in sorted(lot, key=lambda f: f["name"].lower()))
     return blocs
 
 
@@ -138,7 +160,7 @@ def rendre_index_charge(fiches: list[dict]) -> str:
         "> Sommaire généré par `Kata/.claude/hooks/lib/memory_index.py` — ne pas éditer.",
         "> Le reste (projet, référence) vit dans `README.md`, à ouvrir quand le sujet le demande.",
     ]
-    return "\n".join(tete + _sections(retenus, TYPES_CHARGES)) + "\n"
+    return "\n".join(tete + _sections(retenus, TYPES_CHARGES, rendre=_ligne_courte)) + "\n"
 
 
 def ecrire_index(dossier: Path | None = None) -> dict:

@@ -1,7 +1,7 @@
 ---
 name: Deep Research Master
 description: Multi-source research, competitive intel, market analysis.
-model: opus
+model: sonnet
 expertise: senior
 tools:
   - WebSearch

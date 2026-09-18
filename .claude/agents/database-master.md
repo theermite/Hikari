@@ -1,7 +1,7 @@
 ---
 name: Database Master
 description: PostgreSQL 18, Ecto/SQLAlchemy/Prisma, optimization. BACKUP MANDATORY.
-model: opus
+model: sonnet
 expertise: senior
 tools:
   - Read

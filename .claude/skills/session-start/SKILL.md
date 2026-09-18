@@ -1,7 +1,7 @@
 ---
 name: session-start
 description: Start a dev session. Environment detect, Shinzo sync, recap, CDC+PET check, pre-existing errors, plan.
-model: opus
+model: sonnet
 ---
 
 # /session-start — Begin Dev Session
