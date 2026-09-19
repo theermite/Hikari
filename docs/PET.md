@@ -1194,11 +1194,17 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
 - **Fichiers** : `src-tauri/src/publish/*` · `src/features/publish/*`. **Tests** : `should_refresh_token_before_publish` · `should_target_correct_platform`.
 - **Vérité externe** : API upload **officielles** — **veille au démarrage** (quotas, scopes). 🟡.
 - **F-054 codée le 2026-09-19** (demande directe de Jay, hors ordre du plan ci-dessus) :
-  panneau « Infos direct » — titre/catégorie/tags Twitch, `accounts::twitch_channel` +
-  `src/features/streaminfo/*`. Scope OAuth élargi (`channel:manage:broadcast`) — Jay doit
-  reconnecter son compte Twitch. **Non prouvée à l'écran** (build Rust non vérifiable dans
-  l'environnement de cette session). F-050→F-053 (publication/planning/miniatures/Kobo)
-  restent hors scope, non commencés.
+  panneau « Infos direct » — titre/catégorie/tags Twitch (`accounts::twitch_channel`) PUIS
+  titre/description/catégorie/tags YouTube (`accounts::youtube_channel`,
+  `YoutubeSection.tsx`, même panneau), même session. Scopes OAuth élargis
+  (`channel:manage:broadcast` Twitch, `youtube` YouTube) — Jay doit reconnecter les deux
+  comptes. YouTube n'a pas de PATCH partiel (contrairement à Twitch) : le snippet complet
+  est relu et fusionné avant chaque écriture. Défaut de longue date fermé au passage :
+  `youtube::refresh` n'avait aucun appelant nulle part dans le dépôt, un jeton YouTube
+  expiré restait donc mort (dette notée depuis le 2026-09-09) — `youtube::usable_token` le
+  branche enfin. **Non prouvé à l'écran** (build Rust non vérifiable dans l'environnement
+  de cette session). F-050→F-053 (publication/planning/miniatures/Kobo) restent hors
+  scope, non commencés.
 
 ### B13 — Avatar VRM étape 1 (Spout2) · Standard · 🟡 (source Spout2)
 - **Objectif** : avatar VRM via source externe (Spout2).
