@@ -27,11 +27,13 @@ export function useAlertMedia(settings: ChatSettings) {
     const unlisten = listen<ChatAlert>("chat-alert", (event) => {
       const rule = ruleForAlert(event.payload, settings.alertMedia);
       if (!rule) return;
-      showMediaFor(OVERLAY_SCENE_NAME, event.payload.kind, rule.durationMs).catch(
-        (error: unknown) => {
-          console.error("alertMedia: showMediaFor failed", error);
-        },
-      );
+      showMediaFor(
+        OVERLAY_SCENE_NAME,
+        event.payload.kind,
+        rule.durationMs,
+      ).catch((error: unknown) => {
+        console.error("alertMedia: showMediaFor failed", error);
+      });
     });
 
     return () => {

@@ -21,8 +21,8 @@ import { ComingSoon } from "../../components/ui/ComingSoon";
 import { IconButton, OrderButton, SOURCE_ICON } from "./ScenesControls";
 import { SceneThumb } from "./SceneThumb";
 import { labelFor, type SceneLayout } from "./sceneLayout";
-import { OVERLAY_SCENE_NAME } from "./types";
 import type { SceneInfo, SceneSourceInfo, SourceOrder } from "./types";
+import { OVERLAY_SCENE_NAME } from "./types";
 
 /** One line saying what the scene holds, in plain words — the point of étape 3 point 4:
  * knowing without switching. */

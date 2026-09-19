@@ -10,8 +10,8 @@
 
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useEffect, useState } from "react";
 import type { IDockviewPanelProps } from "dockview-react";
+import { useEffect, useState } from "react";
 import {
   addCaptureSource,
   removeSource,
@@ -24,8 +24,8 @@ import type { EngineMessage } from "../scenes/types";
 import { OVERLAY_SCENE_NAME } from "../scenes/types";
 import { requestScreen } from "../shell/panelActions";
 import { ALERT_KIND_LABEL, ALERT_KINDS } from "./alerts";
-import { loadChatSettings, patchChatSettings } from "./chatSettings";
 import type { ChatSettings } from "./chatSettings";
+import { loadChatSettings, patchChatSettings } from "./chatSettings";
 import type { AlertMediaRule, ChatAlert } from "./types";
 
 type Kind = ChatAlert["kind"];
@@ -121,9 +121,11 @@ function AlertMediaRow({
           <button
             type="button"
             onClick={() => {
-              const durationMs = parseTimedMediaSeconds(seconds) ?? rule.durationMs;
+              const durationMs =
+                parseTimedMediaSeconds(seconds) ?? rule.durationMs;
               showMediaFor(OVERLAY_SCENE_NAME, kind, durationMs).catch(
-                (error: unknown) => console.error("alertMedia: test failed", error),
+                (error: unknown) =>
+                  console.error("alertMedia: test failed", error),
               );
               // Paramètres n'a pas d'Aperçu — ramener sur le cockpit pour que le résultat
               // se voie tout de suite (Jay, 2026-09-15 : « je ne vois pas l'aperçu »).
@@ -187,8 +189,12 @@ export function AlertMediaSettingsPanel(_props: IDockviewPanelProps) {
     const unlisten = listen<EngineMessage>("engine-message", (event) => {
       const msg = event.payload;
       if (msg.type !== "scene_list" || !msg.scenes) return;
-      const overlay = msg.scenes.find((scene) => scene.name === OVERLAY_SCENE_NAME);
-      setPosedNames(new Set(overlay?.sources.map((source) => source.name) ?? []));
+      const overlay = msg.scenes.find(
+        (scene) => scene.name === OVERLAY_SCENE_NAME,
+      );
+      setPosedNames(
+        new Set(overlay?.sources.map((source) => source.name) ?? []),
+      );
     });
     // Le moteur ne renvoie `scene_list` que sur un vrai changement — cet écran, ouvert
     // après le dernier, attendrait sinon indéfiniment (même défaut déjà fermé ailleurs,
@@ -209,8 +215,8 @@ export function AlertMediaSettingsPanel(_props: IDockviewPanelProps) {
     <div className="flex flex-col gap-1.5">
       <p className="text-[11px] text-hikari-txt-faint">
         Le média reste posé — une alerte le montre puis le cache, sans jamais le
-        détruire. Vide = rien ne s'affiche pour ce type. Position et taille se règlent
-        dans le panneau Scènes, sur la scène « 🖼️ médiathèque ».
+        détruire. Vide = rien ne s'affiche pour ce type. Position et taille se
+        règlent dans le panneau Scènes, sur la scène « 🖼️ médiathèque ».
       </p>
       {ALERT_KINDS.map((kind) => (
         <AlertMediaRow

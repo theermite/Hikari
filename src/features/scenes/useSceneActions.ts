@@ -16,8 +16,8 @@ import {
   switchScene,
 } from "./api";
 import type { SceneLayout } from "./sceneLayout";
-import { OVERLAY_SCENE_NAME } from "./types";
 import type { SourceOrder } from "./types";
+import { OVERLAY_SCENE_NAME } from "./types";
 
 export function useSceneActions(
   setActionError: (message: string | null) => void,

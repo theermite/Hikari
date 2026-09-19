@@ -139,7 +139,14 @@ describe("ALERT_KINDS / ALERT_KIND_LABEL", () => {
   it("should_list_every_alert_kind_the_protocol_knows", () => {
     const kinds = new Set(ALERT_KINDS);
     expect(kinds).toEqual(
-      new Set(["follow", "subscribe", "subscription_gift", "resub", "cheer", "raid"]),
+      new Set([
+        "follow",
+        "subscribe",
+        "subscription_gift",
+        "resub",
+        "cheer",
+        "raid",
+      ]),
     );
   });
 });

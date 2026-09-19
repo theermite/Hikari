@@ -55,9 +55,8 @@ describe("chat settings", () => {
     // Deux écrans écrivent ce fichier : l'écran Chat (bouton horloge) et l'écran de
     // réglage des alertes. Un `set` complet reconstruit depuis un état chargé au montage
     // effacerait ce que l'autre vient de poser — même défaut vécu sur l'encodage.
-    const { loadChatSettings, saveChatSettings, patchChatSettings } = await import(
-      "./chatSettings"
-    );
+    const { loadChatSettings, saveChatSettings, patchChatSettings } =
+      await import("./chatSettings");
 
     await saveChatSettings({
       showTimestamps: false,

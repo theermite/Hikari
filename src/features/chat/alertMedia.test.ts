@@ -5,7 +5,12 @@ import type { ChatAlert } from "./types";
 
 describe("ruleForAlert", () => {
   const follow: ChatAlert = { kind: "follow", username: "Ange" };
-  const cheer: ChatAlert = { kind: "cheer", username: "Ange", bits: 500, message: "" };
+  const cheer: ChatAlert = {
+    kind: "cheer",
+    username: "Ange",
+    bits: 500,
+    message: "",
+  };
 
   it("should_return_null_when_nothing_is_configured_for_this_alert_kind", () => {
     // Pas de média par défaut : une alerte sans réglage ne doit rien afficher.
