@@ -1243,6 +1243,11 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
 - **Approche** : débit/stabilité **lus du moteur** (source unique, prouvé) ; stats persistées localement ; viewers via API plateformes (dégradation propre si indispo — jamais un zéro trompeur).
 - **Fichiers** : `src/features/tracking/*` · `src-tauri/src/stats.rs`. **Tests** : `should_report_bitrate_from_engine` · `should_degrade_gracefully_when_platform_down`.
 - **Vérité externe** : stats moteur (prouvées) 🟢 · compteur viewers = API plateformes 🟡 (veille).
+- **F-062 codée le 2026-09-19** (demande directe de Jay, hors ordre de ce plan) : la case
+  « Spectateurs » de `LiveBar.tsx` (posée le 2026-09-05, jamais alimentée) sonde
+  désormais `accounts::twitch_channel::fetch_viewer_count` (Get Streams, aucun scope) tant
+  que le direct est en cours. **Non prouvée à l'écran.** L'écran Suivi lui-même
+  (F-060/F-061, stats persistées, débit/stabilité) reste hors scope, non commencé.
 
 ### B-pack — Installation unique · Sensible · 🟡-léger (bundling + ex-épreuve e)
 - **Objectif** : empaquetage Tauri + moteur OBS embarqué (`libobs-bootstrapper`) + somme de contrôle + 1ère ouverture sur machine vierge (F-001).
