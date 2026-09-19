@@ -82,6 +82,12 @@ export function LiveBar() {
   // voir `commands.rs::stream_viewer_count`) — jamais un zéro qui laisserait croire que
   // personne ne regarde (F-062, Jay 2026-09-05 : « n/a si aucun compte n'est connecté »).
   const [viewers, setViewers] = useState<number | null>(null);
+  // Un test envoie un vrai flux vers l'ingest Twitch (`bandwidthtest`, F-063) — mesurable
+  // côté Twitch, mais rien ne se publie ni ne prévient personne. Le moteur ne renvoie pas
+  // ce drapeau dans ses messages (`Started` ne distingue pas), donc cet écran le garde
+  // lui-même : sans lui, un test afficherait « EN DIRECT », le mensonge que Dignity.md
+  // interdit en premier (jamais laisser croire à un direct qui n'existe pas).
+  const [testMode, setTestMode] = useState(false);
   /** Une référence et non l'état : l'écoute du moteur est posée une seule fois et
    * garderait sinon la valeur du premier rendu, c'est-à-dire `false` pour toujours. */
   const pendingRef = useRef(false);
@@ -107,6 +113,7 @@ export function LiveBar() {
       }
       if (msg.type === "stream_stopped") {
         setLiveSince(null);
+        setTestMode(false);
         askEngine(false);
       }
       if (msg.type === "frames" && "dropped" in msg) {
@@ -175,14 +182,18 @@ export function LiveBar() {
 
   const live = liveSince !== null;
 
-  async function startNow() {
+  async function startNow(test = false) {
+    // Posé AVANT l'appel : le message `started` arrive après, et c'est lui qui bascule le
+    // badge — le drapeau doit déjà être en place à ce moment-là.
+    setTestMode(test);
     askEngine(true);
     try {
-      await invoke("start_stream");
+      await invoke("start_stream", { test });
     } catch (cause: unknown) {
       // Le refus du contrôleur (moteur éteint) et celui du moteur (cible absente)
       // arrivent par deux chemins différents ; les deux doivent se lire au même endroit.
       setError(String(cause));
+      setTestMode(false);
       askEngine(false);
     }
   }
@@ -226,6 +237,14 @@ export function LiveBar() {
     await startNow();
   }
 
+  // Le test (F-063, OBS "Stream Test") EST déjà la mesure réseau — passer par le pré-vol
+  // avant lui referait la même vérification deux fois. Jamais de pré-vol ici, contrairement
+  // à `toggle()`.
+  async function testNow() {
+    setError(null);
+    await startNow(true);
+  }
+
   async function applyForNextTime(composition: {
     width: number;
     height: number;
@@ -265,9 +284,28 @@ export function LiveBar() {
         {checking ? "Vérification…" : live ? "Arrêter" : "Démarrer"}
       </button>
 
+      {/* F-063 — un flux réel part vers l'ingest Twitch, marqué `bandwidthtest`, sans
+          jamais se publier ni prévenir personne (voir `rtmp_target` côté moteur). Absent
+          pendant un direct ou un test déjà en cours : un second test par-dessus le premier
+          n'a pas de sens. */}
+      {!live ? (
+        <button
+          type="button"
+          onClick={testNow}
+          disabled={pending || checking}
+          title="Envoie un flux réel à Twitch, mesurable, sans se publier ni prévenir personne"
+          className="rounded-full border border-hikari-line px-3 py-1.5 text-[13px] text-hikari-txt-dim transition hover:text-hikari-txt disabled:opacity-60
+            focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-hikari-accent"
+        >
+          Tester
+        </button>
+      ) : null}
+
       {live ? (
         <>
-          <Badge tone="live">EN DIRECT</Badge>
+          <Badge tone={testMode ? "accent" : "live"}>
+            {testMode ? "TEST" : "EN DIRECT"}
+          </Badge>
           <span className="font-mono text-[13px] tabular-nums text-hikari-txt">
             {formatElapsed(elapsed)}
           </span>

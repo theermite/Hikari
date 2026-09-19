@@ -50,6 +50,24 @@ pub fn resolve_target(
     }
 }
 
+/// Ajoute le marqueur de test Twitch à `key` (F-stream-test, 2026-09-19, Jay : « la
+/// fonction existe sur OBS ») — un vrai flux part vers l'ingest Twitch, mesurable dans
+/// Twitch Inspector, mais RIEN ne se publie ni ne prévient les abonnés (vérifié
+/// dev.twitch.tv, guide Twitch Inspector, 2026-09-19 : "?bandwidthtest=true" ajouté après
+/// la clé). Idempotent : appeler deux fois ne double jamais le paramètre — une clé qui
+/// porte déjà le marqueur (relance après un premier test) ressort inchangée plutôt que
+/// de coller un second `?bandwidthtest=true` qui casserait l'adresse.
+pub fn with_bandwidth_test(key: &str) -> String {
+    const MARKER: &str = "bandwidthtest=true";
+    if key.contains(MARKER) {
+        key.to_string()
+    } else if key.contains('?') {
+        format!("{key}&{MARKER}")
+    } else {
+        format!("{key}?{MARKER}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -79,6 +97,25 @@ mod tests {
             resolve_target(None, Some("cle")),
             Err(TargetError::Incomplete)
         );
+    }
+
+    #[test]
+    fn should_append_the_bandwidth_test_marker_when_absent() {
+        assert_eq!(with_bandwidth_test("live_44322889_a34ub"), "live_44322889_a34ub?bandwidthtest=true");
+    }
+
+    #[test]
+    fn should_join_the_marker_with_an_ampersand_when_the_key_already_has_a_query() {
+        assert_eq!(
+            with_bandwidth_test("cle?autre=1"),
+            "cle?autre=1&bandwidthtest=true"
+        );
+    }
+
+    #[test]
+    fn should_not_duplicate_the_marker_when_the_key_already_carries_it() {
+        let deja = "cle?bandwidthtest=true";
+        assert_eq!(with_bandwidth_test(deja), deja);
     }
 
     #[test]

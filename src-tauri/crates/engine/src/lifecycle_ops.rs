@@ -238,7 +238,10 @@ impl App {
 
     /// Starts a stream if none is running yet and the engine is initialized. A second
     /// `StartStream` while one is already live is a no-op (never double-attach an output).
-    pub(crate) fn handle_start_stream(&mut self) {
+    ///
+    /// `test`: forwarded to `start_stream` — Twitch's bandwidth-test marker on the key,
+    /// never a different code path (see `stream::rtmp_target`).
+    pub(crate) fn handle_start_stream(&mut self, test: bool) {
         let Some(obs) = &mut self.obs else {
             emit(&EngineMessage::Error {
                 message: "StartStream avant l'initialisation".into(),
@@ -248,7 +251,7 @@ impl App {
         if self.stream.is_some() {
             return;
         }
-        match start_stream(&mut obs.context) {
+        match start_stream(&mut obs.context, test) {
             Ok(output) => {
                 self.stream = Some(StreamState {
                     output,

@@ -11,7 +11,7 @@ pub(crate) enum EngineEvent {
     SetOverlayScene {
         scene: String,
     },
-    StartStream,
+    StartStream { test: bool },
     StopStream,
     StartMultistream {
         targets: Vec<hikari_protocol::StreamTarget>,

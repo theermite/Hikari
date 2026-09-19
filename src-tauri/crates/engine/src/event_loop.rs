@@ -46,7 +46,7 @@ impl ApplicationHandler<EngineEvent> for App {
         let before = self.scene_contents_fingerprint();
         match event {
             EngineEvent::Exit => event_loop.exit(),
-            EngineEvent::StartStream => self.handle_start_stream(),
+            EngineEvent::StartStream { test } => self.handle_start_stream(test),
             EngineEvent::StopStream => self.handle_stop_stream(),
             EngineEvent::StartMultistream { targets } => self.handle_start_multistream(targets),
             EngineEvent::StopMultistream => self.handle_stop_multistream(),

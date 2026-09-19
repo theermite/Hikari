@@ -181,7 +181,16 @@ pub enum ControllerCommand {
     /// (`HIKARI_RTMP_SERVER`/`HIKARI_RTMP_KEY`, B2a scope). The wire NEVER carries a key —
     /// account-sourced targets (B2b, OAuth + vault) will replace the env-var mechanism,
     /// not add a secret-over-IPC path this brick would have to un-build later.
-    StartStream,
+    ///
+    /// `test`: appends Twitch's bandwidth-test marker to the key before attaching the
+    /// output (`with_bandwidth_test`, 2026-09-19, Jay: "la fonction existe sur OBS") — a
+    /// real stream reaches Twitch's ingest, measurable, but nothing publishes or notifies
+    /// anyone. `#[serde(default)]`: an older saved line with no field still parses, as
+    /// `false` — the safe reading (never test-mode by silent default).
+    StartStream {
+        #[serde(default)]
+        test: bool,
+    },
     /// Stop the current stream. The engine process and its preview stay alive. If no
     /// stream is running, this is a silent no-op — no `StreamStopped` is emitted, since
     /// nothing was actually stopped (revisit before B4/B5 if a deck needs an ack either way).

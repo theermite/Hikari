@@ -90,7 +90,7 @@ fn controller_command_strategy() -> impl Strategy<Value = ControllerCommand> {
         ),
         (any::<String>(), any::<String>())
             .prop_map(|(device_id, scene)| ControllerCommand::RemoveCamera { device_id, scene }),
-        Just(ControllerCommand::StartStream),
+        any::<bool>().prop_map(|test| ControllerCommand::StartStream { test }),
         Just(ControllerCommand::StopStream),
         Just(ControllerCommand::Stop),
         (any::<String>(), any::<u32>())

@@ -236,9 +236,13 @@ fn stop_engine_inner(state: &EngineState) -> Result<(), String> {
 /// A missing target is therefore NOT detectable here: the engine answers with an
 /// `Error` message the interface displays. Better a real refusal from the engine than a
 /// guess from the controller about an environment it does not own.
+///
+/// `test` (2026-09-19) : diffusion réelle vers l'ingest Twitch, marquée
+/// `bandwidthtest` — mesurable, mais rien ne se publie ni ne prévient personne. Voir
+/// `hikari_protocol::with_bandwidth_test`.
 #[tauri::command]
-pub(crate) fn start_stream(state: State<EngineState>) -> Result<(), String> {
-    send(&state, ControllerCommand::StartStream, "StartStream")?;
+pub(crate) fn start_stream(state: State<EngineState>, test: bool) -> Result<(), String> {
+    send(&state, ControllerCommand::StartStream { test }, "StartStream")?;
     if let Ok(mut guard) = state.0.lock() {
         guard.streaming = true;
     }

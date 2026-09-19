@@ -36,19 +36,31 @@ pub struct StreamState {
 /// annonçait « en direct ». Une adresse inventée fabrique une séance entière que personne
 /// ne voit, et on ne l'apprend qu'après. L'absence est désormais un refus, pas un défaut
 /// de configuration silencieux.
-fn rtmp_target() -> Result<(String, String)> {
+///
+/// `test` : ajoute le marqueur de test Twitch à la clé (`with_bandwidth_test`,
+/// 2026-09-19) — un vrai flux part vers l'ingest, mesurable, mais rien ne se publie ni ne
+/// prévient personne.
+fn rtmp_target(test: bool) -> Result<(String, String)> {
     let server = std::env::var("HIKARI_RTMP_SERVER").ok();
     let key = std::env::var("HIKARI_RTMP_KEY").ok();
-    hikari_protocol::resolve_target(server.as_deref(), key.as_deref())
-        .map_err(|err| anyhow::anyhow!(err.message()))
+    let (server, key) = hikari_protocol::resolve_target(server.as_deref(), key.as_deref())
+        .map_err(|err| anyhow::anyhow!(err.message()))?;
+    let key = if test {
+        hikari_protocol::with_bandwidth_test(&key)
+    } else {
+        key
+    };
+    Ok((server, key))
 }
 
 /// Starts a real RTMP stream of the current scene: NVENC if available (reported, never a
 /// silent software fallback), AAC audio, RTMP service attached via the low-level FFI path
 /// (`libobs-simple` only records — the pont doesn't expose services, same as `sys`
 /// itself). Transcribed from the B0.0 spike (`rtmp_output` + `run_with_obs!`), proven GO.
-pub fn start_stream(context: &mut ObsContext) -> Result<ObsOutputRef> {
-    let (server, key) = rtmp_target()?;
+///
+/// `test` : voir `rtmp_target`.
+pub fn start_stream(context: &mut ObsContext, test: bool) -> Result<ObsOutputRef> {
+    let (server, key) = rtmp_target(test)?;
 
     let output_info = OutputInfo::new("rtmp_output", "hikari-stream", None, None);
     let mut output = context

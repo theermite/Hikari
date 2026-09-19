@@ -23,8 +23,8 @@ pub(crate) fn spawn_stdin_command_reader(proxy: EventLoopProxy<EngineEvent>) {
                     let _ = proxy.send_event(EngineEvent::Exit);
                     break;
                 }
-                Ok(ControllerCommand::StartStream) => {
-                    let _ = proxy.send_event(EngineEvent::StartStream);
+                Ok(ControllerCommand::StartStream { test }) => {
+                    let _ = proxy.send_event(EngineEvent::StartStream { test });
                 }
                 Ok(ControllerCommand::StopStream) => {
                     let _ = proxy.send_event(EngineEvent::StopStream);

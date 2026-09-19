@@ -102,7 +102,7 @@ describe("LiveBar", () => {
     // Le pré-vol tourne D'ABORD (mesure réelle) : l'appel à `start_stream` arrive après,
     // jamais dans le même battement que le clic.
     await waitFor(() =>
-      expect(invokeMock).toHaveBeenCalledWith("start_stream"),
+      expect(invokeMock).toHaveBeenCalledWith("start_stream", { test: false }),
     );
     expect(screen.queryByText(/en direct/i)).toBeNull();
   });
@@ -171,7 +171,7 @@ describe("LiveBar", () => {
     await userEvent.click(screen.getByText(/diffuser quand même/i));
 
     await waitFor(() =>
-      expect(invokeMock).toHaveBeenCalledWith("start_stream"),
+      expect(invokeMock).toHaveBeenCalledWith("start_stream", { test: false }),
     );
   });
 
@@ -384,6 +384,68 @@ describe("LiveBar", () => {
     );
 
     expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+
+  // F-063 — le test OBS-like : un flux réel part vers l'ingest Twitch, jamais publié.
+  it("should_offer_a_test_stream_button_when_nothing_is_streaming", async () => {
+    render(<LiveBar />);
+
+    expect(await screen.findByRole("button", { name: /tester/i })).toBeTruthy();
+  });
+
+  it("should_start_a_test_stream_without_running_the_preflight_first", async () => {
+    // Le test EST déjà la mesure réseau (OBS "Stream Test") : repasser par le pré-vol
+    // referait la même vérification deux fois.
+    render(<LiveBar />);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /tester/i }),
+    );
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("start_stream", { test: true }),
+    );
+    expect(invokeMock).not.toHaveBeenCalledWith("run_preflight");
+  });
+
+  it("should_show_test_not_en_direct_once_a_test_stream_is_running", async () => {
+    // Dignity.md : jamais laisser croire à un direct qui n'existe pas. Le moteur ne
+    // renvoie pas le drapeau de test dans son message `started` — l'écran doit donc le
+    // garder lui-même, posé avant l'appel.
+    render(<LiveBar />);
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /tester/i }),
+    );
+    emit({ type: "started" });
+
+    expect(screen.getByText("TEST")).toBeTruthy();
+    expect(screen.queryByText(/en direct/i)).toBeNull();
+  });
+
+  it("should_hide_the_test_button_once_streaming", async () => {
+    // Un second test par-dessus un direct ou un test déjà en cours n'a pas de sens.
+    render(<LiveBar />);
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+    emit({ type: "started" });
+
+    expect(screen.queryByRole("button", { name: /tester/i })).toBeNull();
+  });
+
+  it("should_return_to_offline_without_the_test_flag_after_a_test_stream_stops", async () => {
+    render(<LiveBar />);
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+    await userEvent.click(
+      await screen.findByRole("button", { name: /tester/i }),
+    );
+    emit({ type: "started" });
+    await screen.findByText("TEST");
+
+    emit({ type: "stream_stopped" });
+
+    expect(await screen.findByRole("button", { name: /tester/i })).toBeTruthy();
+    expect(screen.queryByText("TEST")).toBeNull();
   });
 });
 
