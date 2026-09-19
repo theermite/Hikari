@@ -7,8 +7,9 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::engine_lifecycle::{reload_broadcast_target, EngineState, TargetReload};
 
+use crate::accounts::twitch_channel::{CategorySuggestion, ChannelInfo, ChannelInfoPatch};
 use crate::accounts::vault::{Platform, Secret, StoredToken};
-use crate::accounts::{twitch, twitch_stream, vault, youtube};
+use crate::accounts::{twitch, twitch_channel, twitch_stream, vault, youtube};
 
 /// What the frontend shows while waiting for the user to authorize in their browser.
 #[derive(Clone, serde::Serialize)]
@@ -235,4 +236,66 @@ async fn try_connect_youtube(app: &AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub(crate) fn account_status() -> crate::accounts::AccountStatus {
     crate::accounts::read_status()
+}
+
+/// Le jeton Twitch utilisable ET l'identifiant du diffuseur — le duo que les trois
+/// commandes d'infos de diffusion (F-054) redemandent chacune. `usable_token` renouvelle
+/// déjà un jeton expiré (voir son doc, correctif chat 2026-09-19) ; `fetch_account` est le
+/// même appel `GET /helix/users` que la connexion au chat fait déjà.
+///
+/// Le message renvoyé distingue « pas de compte » (String vide, silencieux côté appelant)
+/// de « compte mort, reconnecte-toi » — jamais confondus, sinon Jay chercherait à changer
+/// un titre alors que son compte a simplement besoin d'être reconnecté.
+async fn resolve_twitch_channel(
+    http: &reqwest::Client,
+) -> Result<(Secret, String), String> {
+    let token = twitch::usable_token(http)
+        .await
+        .map_err(|err| format!("Twitch : {err} — reconnecte le compte dans Paramètres"))?
+        .ok_or_else(|| "connecte ton compte Twitch dans Paramètres".to_string())?;
+    let broadcaster_id = twitch_stream::fetch_account(http, twitch::TWITCH_CLIENT_ID, &token.access_token)
+        .await
+        .map_err(|err| format!("Twitch : identifiant illisible ({err})"))?
+        .id;
+    Ok((token.access_token, broadcaster_id))
+}
+
+/// Les infos ACTUELLES de la chaîne (titre, catégorie, tags) — lues à l'ouverture du
+/// panneau Infos direct (F-054).
+#[tauri::command]
+pub(crate) async fn stream_info_get() -> Result<ChannelInfo, String> {
+    let http = reqwest::Client::new();
+    let (access_token, broadcaster_id) = resolve_twitch_channel(&http).await?;
+    twitch_channel::fetch_channel_info(&http, twitch::TWITCH_CLIENT_ID, &access_token, &broadcaster_id)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+/// Les catégories Twitch correspondant à `query` — pour le sélecteur qui cherche à la
+/// frappe.
+#[tauri::command]
+pub(crate) async fn stream_info_search_categories(
+    query: String,
+) -> Result<Vec<CategorySuggestion>, String> {
+    let http = reqwest::Client::new();
+    let (access_token, _broadcaster_id) = resolve_twitch_channel(&http).await?;
+    twitch_channel::search_categories(&http, twitch::TWITCH_CLIENT_ID, &access_token, &query)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+/// Écrit `patch` sur la chaîne du compte connecté (F-054).
+#[tauri::command]
+pub(crate) async fn stream_info_update(patch: ChannelInfoPatch) -> Result<(), String> {
+    let http = reqwest::Client::new();
+    let (access_token, broadcaster_id) = resolve_twitch_channel(&http).await?;
+    twitch_channel::update_channel_info(
+        &http,
+        twitch::TWITCH_CLIENT_ID,
+        &access_token,
+        &broadcaster_id,
+        &patch,
+    )
+    .await
+    .map_err(|err| err.to_string())
 }

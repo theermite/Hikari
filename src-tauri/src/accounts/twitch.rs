@@ -74,6 +74,13 @@ impl std::error::Error for TwitchAuthError {}
 /// `ModeratorReadFollowers` (`channel.follow`), `ChannelReadSubscriptions`
 /// (`channel.subscribe`/`.gift`/`.message`), `BitsRead` (`channel.cheer`). `channel.raid`
 /// needs no scope at all — not added here, there is nothing to add.
+///
+/// `ChannelManageBroadcast` — widened 2026-09-19 for F-054 (changer titre/catégorie/tags
+/// depuis Hikari, sans passer par le site Twitch) : c'est le scope que Twitch documente
+/// pour `PATCH /helix/channels` (dev.twitch.tv/docs/api/reference, Modify Channel
+/// Information, vérifié 2026-09-19). Élargir un scope est une décision, jamais une
+/// dérive silencieuse (voir l'en-tête du module) — Jay reconnectera son compte Twitch
+/// une fois pour l'accorder, comme lors de chaque élargissement précédent.
 fn required_scopes() -> Vec<Scope> {
     vec![
         Scope::ChannelReadStreamKey,
@@ -83,6 +90,7 @@ fn required_scopes() -> Vec<Scope> {
         Scope::ModeratorReadFollowers,
         Scope::ChannelReadSubscriptions,
         Scope::BitsRead,
+        Scope::ChannelManageBroadcast,
     ]
 }
 
@@ -236,11 +244,12 @@ mod tests {
     // (extrait le 2026-09-09 pour que YouTube l'utilise aussi).
 
     #[test]
-    fn should_request_stream_key_chat_moderation_and_alert_scopes() {
+    fn should_request_stream_key_chat_moderation_alert_and_broadcast_scopes() {
         // Hikari asks for exactly the scopes it needs today — a regression guard: if a
         // future change silently widens this further, this test catches it. Widening
-        // scope is a deliberate choice, not a drift — all made 2026-09-14, same session
-        // (read/send, then moderation, then alerts).
+        // scope is a deliberate choice, not a drift — read/send, moderation and alerts
+        // all made 2026-09-14 (same session), `ChannelManageBroadcast` added 2026-09-19
+        // for F-054 (titre/catégorie/tags).
         let scopes = required_scopes();
         assert_eq!(
             scopes,
@@ -252,6 +261,7 @@ mod tests {
                 Scope::ModeratorReadFollowers,
                 Scope::ChannelReadSubscriptions,
                 Scope::BitsRead,
+                Scope::ChannelManageBroadcast,
             ]
         );
     }

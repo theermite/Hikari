@@ -22,6 +22,7 @@ import { watchForOverlay } from "../preview/domSuppression";
 import { PreviewPanel } from "../preview/PreviewPanel";
 import { PrepPanel } from "../scenes/PrepPanel";
 import { ScenesPanel } from "../scenes/ScenesPanel";
+import { StreamInfoPanel } from "../streaminfo/StreamInfoPanel";
 import { UpdateBanner } from "../updates/UpdateBanner";
 import { VersionTag } from "../updates/VersionTag";
 import { gapForDensity } from "./density";
@@ -94,6 +95,7 @@ const PANEL_COMPONENTS: Record<
   prep: PrepPanel,
   audio: AudioPanel,
   chat: ChatPanel,
+  streaminfo: StreamInfoPanel,
 };
 
 /** Applique une disposition : chaque panneau du cockpit se montre ou se cache.
@@ -176,11 +178,20 @@ function buildDefaultLayout(api: DockviewApi): void {
 
   // La carte Préparation ferme la colonne de gauche, sous les scènes — la place
   // que la maquette lui donne. Elle ne se voit qu'en disposition Préparation.
-  api.addPanel({
+  const prep = api.addPanel({
     id: "prep",
     component: "prep",
     title: "Préparation",
     position: { referencePanel: scenes.id, direction: "below" },
+  });
+
+  // Titre/catégorie/tags (F-054) — sous Préparation : un réglage qu'on ajuste avant de
+  // partir en direct, parfois pendant, jamais en plein milieu d'un jeu (Focus l'exclut).
+  api.addPanel({
+    id: "streaminfo",
+    component: "streaminfo",
+    title: "Infos direct",
+    position: { referencePanel: prep.id, direction: "below" },
   });
 
   // Ni Pré-vol ni Caméra dans la disposition du direct (2026-09-06) :

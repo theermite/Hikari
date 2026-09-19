@@ -34,8 +34,11 @@ const VERSION_KEY = "layoutVersion";
  *
  * 5 : la carte Préparation entre dans le cockpit (2026-09-07). Aucune disposition déjà
  * enregistrée ne la connaît, et le rattrapage panneau par panneau la poserait sans sa
- * place — la rebâtir la met là où la maquette la veut, sous les scènes. */
-export const LAYOUT_VERSION = 5;
+ * place — la rebâtir la met là où la maquette la veut, sous les scènes.
+ *
+ * 6 : le panneau Infos direct entre dans le cockpit (2026-09-19, F-054) — sous
+ * Préparation, même raison que la version 5. */
+export const LAYOUT_VERSION = 6;
 
 let storePromise: Promise<Store> | null = null;
 
@@ -110,6 +113,12 @@ export const COCKPIT_PANELS: CockpitPanel[] = [
     id: "prep",
     title: "Préparation",
     anchor: ["scenes"],
+    direction: "below",
+  },
+  {
+    id: "streaminfo",
+    title: "Infos direct",
+    anchor: ["prep", "scenes"],
     direction: "below",
   },
   {

@@ -273,9 +273,14 @@ pub async fn fetch_account(
     })
 }
 
-/// Un appel à l'interface Twitch, avec les deux en-têtes qu'elle exige. Le corps est rendu
-/// tel quel : la lecture appartient aux fonctions pures ci-dessus, vérifiables sans réseau.
-async fn helix(
+/// Un appel GET à l'interface Twitch, avec les deux en-têtes qu'elle exige. Le corps est
+/// rendu tel quel : la lecture appartient aux fonctions pures ci-dessus, vérifiables sans
+/// réseau.
+///
+/// `pub(crate)` depuis 2026-09-19 : `accounts::twitch_channel` (infos de diffusion,
+/// F-054) le réutilise pour ses propres lectures — mêmes deux en-têtes que Twitch exige
+/// PARTOUT, jamais réécrits une deuxième fois.
+pub(crate) async fn helix(
     http: &reqwest::Client,
     client_id: &str,
     access_token: &Secret,
@@ -288,6 +293,32 @@ async fn helix(
         .send()
         .await
         .context("appel à Twitch")?;
+    lire_reponse(reponse).await
+}
+
+/// Un appel PATCH à l'interface Twitch, corps JSON — même principe que `helix` (GET), pour
+/// les appels qui MODIFIENT plutôt qu'ils ne lisent (`accounts::twitch_channel`, F-054).
+pub(crate) async fn helix_patch<T: serde::Serialize + ?Sized>(
+    http: &reqwest::Client,
+    client_id: &str,
+    access_token: &Secret,
+    url: &str,
+    body: &T,
+) -> Result<String> {
+    let reponse = http
+        .patch(url)
+        .header("Client-Id", client_id)
+        .bearer_auth(access_token.expose())
+        .json(body)
+        .send()
+        .await
+        .context("appel à Twitch")?;
+    lire_reponse(reponse).await
+}
+
+/// Le corps d'une réponse Twitch, ou une erreur si elle a refusé — partagé par `helix` et
+/// `helix_patch`, seule la manière d'ENVOYER la requête diffère entre les deux.
+async fn lire_reponse(reponse: reqwest::Response) -> Result<String> {
     let statut = reponse.status();
     let corps = reponse.text().await.context("réponse Twitch illisible")?;
     if !statut.is_success() {

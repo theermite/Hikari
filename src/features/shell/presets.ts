@@ -47,10 +47,12 @@ export function resolvePreset(saved: string | null): PresetId {
  * relancerait le moteur et couperait la diffusion. */
 const SHOWN: Record<PresetId, readonly string[]> = {
   // Tout ce qui sert à MONTER le direct : la carte Préparation apparaît, le chat
-  // s'efface — personne ne regarde encore.
-  preparation: ["scenes", "preview", "audio", "deck", "prep"],
-  // Le direct : le chat revient, la carte Préparation s'efface, et tout reste sous la main.
-  live: ["scenes", "preview", "audio", "deck", "chat"],
+  // s'efface — personne ne regarde encore. Infos direct (titre/catégorie/tags) aussi :
+  // c'est le moment où on les règle.
+  preparation: ["scenes", "preview", "audio", "deck", "prep", "streaminfo"],
+  // Le direct : le chat revient, la carte Préparation s'efface, et tout reste sous la
+  // main — Infos direct reste accessible, un titre se corrige parfois en cours de route.
+  live: ["scenes", "preview", "audio", "deck", "chat", "streaminfo"],
   // Le strict nécessaire. Les scènes restent — basculer d'un clic est la promesse du
   // produit, et c'est le seul geste qu'on fait encore quand on est pris par le jeu.
   focus: ["scenes", "preview"],
