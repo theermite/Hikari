@@ -745,6 +745,23 @@ contextes JavaScript sont séparés, il ne les traverse pas (ADR-005).
 - **Vérité externe** : la diffusion (prouvée B0.0, transcrite).
 - **Pré-vol** : `cargo test --workspace` exit 0 · brique non ambiguë.
 
+**F-063 — stream de test, codée le 2026-09-19** (demande directe de Jay, hors ordre de ce
+plan : « une chose que j'aimerais bien avoir c'est la possibilité de faire un stream test.
+la fonction existe sur OBS »). `StartStream` porte désormais un drapeau `test: bool` de
+bout en bout (protocole → moteur) ; à `true`, la clé RTMP reçoit le marqueur Twitch
+`bandwidthtest=true` (`hikari_protocol::with_bandwidth_test`, vérifié via dev.twitch.tv et
+recherche web 2026-09-19) — un flux réel part vers l'ingest, mesurable côté Twitch, mais
+rien ne se publie ni ne prévient personne. Bouton « Tester » dans `LiveBar.tsx`, visible
+hors direct seulement ; le moteur ne renvoyant pas ce drapeau dans `Started`, l'écran le
+garde lui-même (`testMode`) pour ne **jamais** afficher « EN DIRECT » sur un test
+(Dignity.md). Tests : `crates/protocol/src/broadcast.rs` (3 cas unitaires) + round-trip
+proptest étendu · `LiveBar.test.tsx` (5 cas, bouton visible/cache, appel sans pré-vol,
+badge TEST, retour à l'état hors-direct). **Non vérifié dans cet environnement** : la
+compilation de `crates/engine`/`src-tauri` échoue ici sur `libobs` absent (pkg-config,
+gap d'environnement Linux préexistant, sans rapport avec ce changement) — revue manuelle
+ligne à ligne des 6 fichiers Rust touchés + `cargo test -p hikari-protocol` vert (36 tests)
+en compensation ; reste à confirmer sur la machine Windows de Jay.
+
 #### B2b — Comptes OAuth + coffre · Critique · ✅ FAIT (Twitch + YouTube, prouvés en conditions réelles)
 
 > **Pivot suite au challenge de Jay** : le flux prévu (Authorization Code + PKCE) exige un
