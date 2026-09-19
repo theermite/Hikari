@@ -1202,9 +1202,14 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
   est relu et fusionné avant chaque écriture. Défaut de longue date fermé au passage :
   `youtube::refresh` n'avait aucun appelant nulle part dans le dépôt, un jeton YouTube
   expiré restait donc mort (dette notée depuis le 2026-09-09) — `youtube::usable_token` le
-  branche enfin. **Non prouvé à l'écran** (build Rust non vérifiable dans l'environnement
-  de cette session). F-050→F-053 (publication/planning/miniatures/Kobo) restent hors
-  scope, non commencés.
+  branche enfin. F-050→F-053 (publication/planning/miniatures/Kobo) restent hors scope,
+  non commencés.
+- **Testé par Jay, replacé le même jour** : le chat et les infos direct marchaient, mais
+  le panneau cockpit fixe encombrait l'interface (son mot). Déplacé dans le bouton
+  « Préréglage » de la barre du direct (`PresetPopover.tsx`, modale ouverte à la
+  demande) — le panneau `StreamInfoPanel` n'existe plus, remplacé par `TwitchSection.tsx`
+  + `YoutubeSection.tsx` montés dans la modale. **Ce déplacement non plus pas prouvé à
+  l'écran** (build Rust non vérifiable dans l'environnement de cette session).
 
 ### B13 — Avatar VRM étape 1 (Spout2) · Standard · 🟡 (source Spout2)
 - **Objectif** : avatar VRM via source externe (Spout2).
