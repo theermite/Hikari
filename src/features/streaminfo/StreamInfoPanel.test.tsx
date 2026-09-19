@@ -35,6 +35,20 @@ beforeEach(() => {
   vi.mocked(api.searchCategories).mockReset();
   vi.mocked(api.updateStreamInfo).mockReset();
   vi.mocked(api.getStreamInfo).mockResolvedValue(channelInfo());
+  // Le volet YouTube (`YoutubeSection`) vit dans le même panneau — ces tests ne parlent
+  // que de Twitch, mais le composant monte les deux. Résolu par défaut pour ne pas le
+  // laisser planter sur un appel non mocké ; son propre comportement est testé à part,
+  // dans YoutubeSection.test.tsx.
+  vi.mocked(api.getYoutubeStreamInfo).mockReset();
+  vi.mocked(api.getYoutubeCategories).mockReset();
+  vi.mocked(api.updateYoutubeStreamInfo).mockReset();
+  vi.mocked(api.getYoutubeStreamInfo).mockResolvedValue({
+    title: "",
+    description: "",
+    category_id: "",
+    tags: [],
+  });
+  vi.mocked(api.getYoutubeCategories).mockResolvedValue([]);
 });
 
 afterEach(cleanup);
@@ -71,7 +85,9 @@ describe("StreamInfoPanel", () => {
 
     await user.clear(title);
 
-    expect(screen.getByRole("button", { name: /publier/i })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /publier sur twitch/i }),
+    ).toBeDisabled();
   });
 
   it("should_disable_publish_when_the_title_exceeds_140_characters", async () => {
@@ -82,7 +98,9 @@ describe("StreamInfoPanel", () => {
     await user.clear(title);
     await user.type(title, "x".repeat(141));
 
-    expect(screen.getByRole("button", { name: /publier/i })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /publier sur twitch/i }),
+    ).toBeDisabled();
   });
 
   it("should_add_a_tag_on_enter_and_remove_it_on_click", async () => {
@@ -90,7 +108,9 @@ describe("StreamInfoPanel", () => {
     render(<StreamInfoPanel {...props()} />);
     await screen.findByDisplayValue("Session de dev");
 
-    const tagInput = screen.getByPlaceholderText(/ajouter un tag/i);
+    // Par le label, pas le placeholder : les volets Twitch et YouTube partagent le même
+    // texte de placeholder, seul le label Twitch porte le compte "(n/10)".
+    const tagInput = screen.getByLabelText(/tags \(/i);
     await user.type(tagInput, "Speedrun{Enter}");
 
     expect(screen.getByText("Speedrun")).toBeInTheDocument();
@@ -118,7 +138,9 @@ describe("StreamInfoPanel", () => {
 
     await user.clear(title);
     await user.type(title, "Nouveau titre");
-    await user.click(screen.getByRole("button", { name: /publier/i }));
+    await user.click(
+      screen.getByRole("button", { name: /publier sur twitch/i }),
+    );
 
     await waitFor(() => {
       expect(api.updateStreamInfo).toHaveBeenCalledExactlyOnceWith({
@@ -136,7 +158,9 @@ describe("StreamInfoPanel", () => {
     const title = await screen.findByDisplayValue("Session de dev");
 
     await user.type(title, "!");
-    await user.click(screen.getByRole("button", { name: /publier/i }));
+    await user.click(
+      screen.getByRole("button", { name: /publier sur twitch/i }),
+    );
 
     expect(
       await screen.findByText("Twitch a refusé (401) : scope manquant"),

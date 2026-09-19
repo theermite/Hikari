@@ -1,17 +1,22 @@
-// Panneau « Infos direct » (F-054) — changer titre, catégorie et tags Twitch sans
-// quitter Hikari, plutôt que par le site Twitch dans un onglet à part (Jay, 2026-09-19).
+// Panneau « Infos direct » (F-054) — changer titre/catégorie/tags Twitch ET
+// titre/description/catégorie/tags YouTube sans quitter Hikari, plutôt que par le site de
+// chaque plateforme dans un onglet à part (Jay, 2026-09-19).
 //
-// Twitch seulement pour l'instant : YouTube n'a ni le même scope ni la même API pour ce
-// geste (`accounts::twitch.rs`, `required_scopes`) — dessiné et marqué « à venir »
-// (`ComingSoon`), jamais un bouton qui prétendrait le faire (Dignity).
+// Le volet YouTube (`YoutubeSection`) vit dans son propre fichier : les deux plateformes
+// ne partagent ni la forme de leurs champs (YouTube a une description, pas Twitch ; sa
+// catégorie est un menu fermé, pas une recherche) ni leur contrat d'écriture (PATCH
+// partiel réel côté Twitch, snippet complet fusionné côté YouTube — voir
+// `accounts/youtube_channel.rs`) — les forcer dans un seul composant aurait fait plus de
+// branches conditionnelles qu'un second fichier n'en coûte.
 
 import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useRef, useState } from "react";
-import { ComingSoon } from "../../components/ui/ComingSoon";
 import { Panel } from "../../components/ui/Panel";
+import { SectionTitle } from "../../components/ui/SectionTitle";
 import { getStreamInfo, searchCategories, updateStreamInfo } from "./api";
 import { debounce } from "./debounce";
 import type { CategorySuggestion, ChannelInfoPatch } from "./types";
+import { YoutubeSection } from "./YoutubeSection";
 
 const TITLE_MAX = 140;
 const TAGS_MAX = 10;
@@ -150,6 +155,8 @@ export function StreamInfoPanel(_props: IDockviewPanelProps) {
   return (
     <Panel title="Infos direct">
       <div className="flex flex-col gap-3">
+        <SectionTitle>Twitch</SectionTitle>
+
         {saveError ? (
           <p role="alert" className="text-[12.5px] text-hikari-red">
             {saveError}
@@ -260,10 +267,6 @@ export function StreamInfoPanel(_props: IDockviewPanelProps) {
           />
         </fieldset>
 
-        <ComingSoon what="changer aussi les infos YouTube depuis cet écran">
-          <span className="text-[11px] text-hikari-txt-faint">YouTube</span>
-        </ComingSoon>
-
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -271,13 +274,17 @@ export function StreamInfoPanel(_props: IDockviewPanelProps) {
             disabled={!canPublish}
             className="rounded-full bg-hikari-accent px-4 py-1.5 text-[13px] font-semibold text-[#1a1206] transition hover:brightness-110 disabled:opacity-50"
           >
-            {saving ? "Publication…" : "Publier"}
+            {saving ? "Publication…" : "Publier sur Twitch"}
           </button>
           {saved ? (
             <span className="text-[12px] text-hikari-green">
               Publié sur Twitch.
             </span>
           ) : null}
+        </div>
+
+        <div className="border-t border-hikari-line pt-3">
+          <YoutubeSection />
         </div>
       </div>
     </Panel>

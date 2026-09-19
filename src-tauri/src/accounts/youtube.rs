@@ -14,10 +14,14 @@
 //!    Authorization Code + PKCE needs a local HTTP listener (`tiny_http`, 53M+ downloads,
 //!    used instead of hand-parsing raw HTTP) to receive the one redirect, then shuts down.
 //!
-//! Scope: `youtube.readonly` — confirmed the minimum accepted scope for `liveStreams.list`
-//! (the endpoint that returns `cdn.ingestionInfo.streamName`, the stream key) directly from
-//! Google's own `liveStreams/list` reference page ("requires ... at least one of: youtube.readonly,
-//! youtube, youtube.force-ssl" — the first is the least-privileged of the three).
+//! Scope: `youtube` (lecture-écriture) depuis le 2026-09-19, élargi pour F-054 côté
+//! YouTube — changer titre/description/catégorie/tags demande `videos.update` et
+//! `liveBroadcasts.list`, qui exigent `youtube` ou `youtube.force-ssl` (vérifié
+//! developers.google.com/youtube/v3/docs/videos/update, 2026-09-19). `youtube.readonly`
+//! suffisait avant, pour `liveStreams.list` seul (la clé de diffusion) — élargir un scope
+//! est une décision, jamais une dérive silencieuse (même principe que
+//! `accounts::twitch::required_scopes`) : Jay reconnectera son compte YouTube une fois
+//! pour l'accorder.
 //!
 //! PKCE mechanics (verifier/state/challenge) are NOT duplicated here — see `accounts::oauth`,
 //! built provider-agnostic for exactly this reuse.
@@ -29,15 +33,16 @@ use serde::Deserialize;
 use crate::accounts::oauth::{
     code_challenge_from_verifier, generate_code_verifier, generate_state,
 };
-use crate::accounts::vault::{merge_refreshed, now_unix, Secret, StoredToken};
+use crate::accounts::vault::{self, merge_refreshed, now_unix, Platform, Secret, StoredToken};
 
 /// Fixed loopback port for the local redirect listener. Google requires the exact redirect
 /// URI to be pre-registered in Cloud Console (no documented wildcard-port exception found
 /// in Google's own reference for Desktop apps) — so this MUST match what Jay registers.
 pub const REDIRECT_PORT: u16 = 8731;
-/// The one scope Hikari needs — read-only access to list live streams (stream key lookup).
-/// Confirmed as the least-privileged of the 3 scopes `liveStreams.list` accepts.
-const SCOPE: &str = "https://www.googleapis.com/auth/youtube.readonly";
+/// Le scope dont Hikari a besoin — lecture-écriture, requis par `videos.update` et
+/// `liveBroadcasts.list` (F-054 YouTube, 2026-09-19). Couvre aussi `liveStreams.list`
+/// (clé de diffusion), qui acceptait déjà ce scope avant l'élargissement.
+const SCOPE: &str = "https://www.googleapis.com/auth/youtube";
 const AUTH_ENDPOINT: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT: &str = "https://oauth2.googleapis.com/token";
 
@@ -374,6 +379,54 @@ pub async fn refresh(
         token.refresh_token.as_deref(),
         now_unix(),
     ))
+}
+
+/// Le jeton YouTube RÉELLEMENT utilisable maintenant — même rôle que
+/// `accounts::twitch::usable_token`, pour la même raison : avant cette fonction, `refresh`
+/// existait mais n'avait AUCUN appelant nulle part dans le dépôt (repéré en session,
+/// 2026-09-19 — noté comme dette dans la note de projet depuis le 2026-09-09) ; un jeton
+/// YouTube expiré restait donc mort jusqu'à une reconnexion manuelle, pour une opération
+/// que la machine sait faire seule. Nécessaire dès maintenant : F-054 côté YouTube
+/// (`accounts::youtube_channel`) doit pouvoir écrire sans redemander une connexion à
+/// chaque jeton expiré.
+///
+/// `client_id`/`client_secret` viennent de l'environnement (`YOUTUBE_CLIENT_ID`/
+/// `YOUTUBE_CLIENT_SECRET`, voir `commands.rs`) — absents, la fonction le DIT plutôt que
+/// de deviner ou de silencieusement rendre `Ok(None)` (ce qui se lirait comme « aucun
+/// compte », un mensonge quand un jeton existe bel et bien dans le coffre).
+///
+/// `Ok(None)` = aucun compte rangé. `Ok(Some(_))` = jeton utilisable. `Err(_)` = un compte
+/// existe mais son renouvellement a échoué (ou la configuration manque) — le seul cas où
+/// prévenir l'utilisateur est justifié.
+pub async fn usable_token(http: &reqwest::Client) -> Result<Option<StoredToken>, String> {
+    let token = match vault::load(Platform::YouTube) {
+        Ok(Some(token)) => token,
+        Ok(None) => return Ok(None),
+        Err(err) => {
+            eprintln!("[youtube] coffre illisible ({err})");
+            return Ok(None);
+        }
+    };
+
+    if !vault::is_expired(&token, now_unix()) {
+        return Ok(Some(token));
+    }
+
+    let client_id = std::env::var("YOUTUBE_CLIENT_ID")
+        .map_err(|_| "variable d'environnement YOUTUBE_CLIENT_ID absente".to_string())?;
+    let client_secret = std::env::var("YOUTUBE_CLIENT_SECRET")
+        .map_err(|_| "variable d'environnement YOUTUBE_CLIENT_SECRET absente".to_string())?;
+    let client_secret = Secret::new(client_secret);
+
+    match refresh(&token, &client_id, &client_secret, http).await {
+        Ok(renewed) => {
+            if let Err(err) = vault::store(Platform::YouTube, &renewed) {
+                eprintln!("[youtube] jeton renouvelé mais non rangé ({err})");
+            }
+            Ok(Some(renewed))
+        }
+        Err(err) => Err(format!("renouvellement refusé ({err})")),
+    }
 }
 
 #[cfg(test)]

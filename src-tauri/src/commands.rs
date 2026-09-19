@@ -9,7 +9,8 @@ use crate::engine_lifecycle::{reload_broadcast_target, EngineState, TargetReload
 
 use crate::accounts::twitch_channel::{CategorySuggestion, ChannelInfo, ChannelInfoPatch};
 use crate::accounts::vault::{Platform, Secret, StoredToken};
-use crate::accounts::{twitch, twitch_channel, twitch_stream, vault, youtube};
+use crate::accounts::youtube_channel::{CategoryOption, VideoInfo, VideoInfoPatch};
+use crate::accounts::{twitch, twitch_channel, twitch_stream, vault, youtube, youtube_channel};
 
 /// What the frontend shows while waiting for the user to authorize in their browser.
 #[derive(Clone, serde::Serialize)]
@@ -311,6 +312,49 @@ pub(crate) async fn stream_viewer_count() -> Result<Option<u32>, String> {
     let http = reqwest::Client::new();
     let (access_token, broadcaster_id) = resolve_twitch_channel(&http).await?;
     twitch_channel::fetch_viewer_count(&http, twitch::TWITCH_CLIENT_ID, &access_token, &broadcaster_id)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+/// Le jeton YouTube utilisable — même rôle que `resolve_twitch_channel`, pour le même
+/// besoin (F-054 côté YouTube). `usable_token` renouvelle déjà un jeton expiré (voir son
+/// doc, `accounts::youtube.rs` — même correctif que Twitch, longtemps sans appelant réel).
+async fn resolve_youtube_channel(http: &reqwest::Client) -> Result<Secret, String> {
+    let token = youtube::usable_token(http)
+        .await
+        .map_err(|err| format!("YouTube : {err} — reconnecte le compte dans Paramètres"))?
+        .ok_or_else(|| "connecte ton compte YouTube dans Paramètres".to_string())?;
+    Ok(token.access_token)
+}
+
+/// Les infos ACTUELLES du direct YouTube actif — lues à l'ouverture du panneau Infos
+/// direct, volet YouTube (F-054).
+#[tauri::command]
+pub(crate) async fn youtube_stream_info_get() -> Result<VideoInfo, String> {
+    let http = reqwest::Client::new();
+    let access_token = resolve_youtube_channel(&http).await?;
+    youtube_channel::fetch_active_video_info(&http, &access_token)
+        .await
+        .map_err(|err| err.to_string())
+}
+
+/// Les catégories YouTube disponibles pour la France — taxonomie fixe, jamais une
+/// recherche comme côté Twitch (voir `youtube_channel.rs`).
+#[tauri::command]
+pub(crate) async fn youtube_stream_info_categories() -> Result<Vec<CategoryOption>, String> {
+    let http = reqwest::Client::new();
+    let access_token = resolve_youtube_channel(&http).await?;
+    youtube_channel::fetch_categories(&http, &access_token, "FR")
+        .await
+        .map_err(|err| err.to_string())
+}
+
+/// Écrit `patch` sur le direct YouTube actif du compte connecté (F-054).
+#[tauri::command]
+pub(crate) async fn youtube_stream_info_update(patch: VideoInfoPatch) -> Result<(), String> {
+    let http = reqwest::Client::new();
+    let access_token = resolve_youtube_channel(&http).await?;
+    youtube_channel::update_active_video_info(&http, &access_token, &patch)
         .await
         .map_err(|err| err.to_string())
 }

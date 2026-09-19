@@ -13,6 +13,7 @@ pub mod twitch_channel;
 pub mod twitch_stream;
 pub mod vault;
 pub mod youtube;
+pub mod youtube_channel;
 
 /// L'etat d'un compte, tel que l'ecran Comptes doit l'afficher a l'ouverture.
 ///

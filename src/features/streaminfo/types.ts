@@ -1,6 +1,7 @@
-// Types F-054 — miroir des structures Rust (`accounts::twitch_channel`), aucune
-// redéfinition de logique côté interface : la validation vit dans le backend
-// (`validate_patch`), ce module ne fait que nommer la forme des données.
+// Types F-054 — miroir des structures Rust (`accounts::twitch_channel`,
+// `accounts::youtube_channel`), aucune redéfinition de logique côté interface : la
+// validation vit dans le backend (`validate_patch`), ce module ne fait que nommer la
+// forme des données.
 
 export interface ChannelInfo {
   title: string;
@@ -21,5 +22,30 @@ export interface CategorySuggestion {
 export interface ChannelInfoPatch {
   title?: string;
   game_id?: string;
+  tags?: string[];
+}
+
+/** Miroir de `youtube_channel::VideoInfo`. */
+export interface VideoInfo {
+  title: string;
+  description: string;
+  category_id: string;
+  tags: string[];
+}
+
+/** Miroir de `youtube_channel::CategoryOption` — taxonomie fixe YouTube, pas une
+ * recherche libre comme côté Twitch. */
+export interface CategoryOption {
+  id: string;
+  name: string;
+}
+
+/** Miroir de `youtube_channel::VideoInfoPatch` — même contrat « champ absent = pas
+ * touché » que côté Twitch, même si la fusion elle-même se fait côté backend sur le
+ * snippet complet (YouTube ne connaît pas le PATCH partiel, voir `youtube_channel.rs`). */
+export interface VideoInfoPatch {
+  title?: string;
+  description?: string;
+  category_id?: string;
   tags?: string[];
 }
