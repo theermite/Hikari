@@ -37,8 +37,13 @@ const VERSION_KEY = "layoutVersion";
  * place — la rebâtir la met là où la maquette la veut, sous les scènes.
  *
  * 6 : le panneau Infos direct entre dans le cockpit (2026-09-19, F-054) — sous
- * Préparation, même raison que la version 5. */
-export const LAYOUT_VERSION = 6;
+ * Préparation, même raison que la version 5.
+ *
+ * 7 : le panneau Infos direct EN RESSORT, même jour (Jay : « ça encombre l'interface »)
+ * — déplacé dans le bouton « Préréglage » de `LiveBar.tsx`. Une disposition sauvegardée
+ * à la version 6 désignerait un composant qui n'existe plus ; même raison que la
+ * version 4. */
+export const LAYOUT_VERSION = 7;
 
 let storePromise: Promise<Store> | null = null;
 
@@ -113,12 +118,6 @@ export const COCKPIT_PANELS: CockpitPanel[] = [
     id: "prep",
     title: "Préparation",
     anchor: ["scenes"],
-    direction: "below",
-  },
-  {
-    id: "streaminfo",
-    title: "Infos direct",
-    anchor: ["prep", "scenes"],
     direction: "below",
   },
   {

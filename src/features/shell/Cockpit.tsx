@@ -22,7 +22,6 @@ import { watchForOverlay } from "../preview/domSuppression";
 import { PreviewPanel } from "../preview/PreviewPanel";
 import { PrepPanel } from "../scenes/PrepPanel";
 import { ScenesPanel } from "../scenes/ScenesPanel";
-import { StreamInfoPanel } from "../streaminfo/StreamInfoPanel";
 import { UpdateBanner } from "../updates/UpdateBanner";
 import { VersionTag } from "../updates/VersionTag";
 import { gapForDensity } from "./density";
@@ -95,7 +94,6 @@ const PANEL_COMPONENTS: Record<
   prep: PrepPanel,
   audio: AudioPanel,
   chat: ChatPanel,
-  streaminfo: StreamInfoPanel,
 };
 
 /** Applique une disposition : chaque panneau du cockpit se montre ou se cache.
@@ -178,21 +176,16 @@ function buildDefaultLayout(api: DockviewApi): void {
 
   // La carte Préparation ferme la colonne de gauche, sous les scènes — la place
   // que la maquette lui donne. Elle ne se voit qu'en disposition Préparation.
-  const prep = api.addPanel({
+  api.addPanel({
     id: "prep",
     component: "prep",
     title: "Préparation",
     position: { referencePanel: scenes.id, direction: "below" },
   });
 
-  // Titre/catégorie/tags (F-054) — sous Préparation : un réglage qu'on ajuste avant de
-  // partir en direct, parfois pendant, jamais en plein milieu d'un jeu (Focus l'exclut).
-  api.addPanel({
-    id: "streaminfo",
-    component: "streaminfo",
-    title: "Infos direct",
-    position: { referencePanel: prep.id, direction: "below" },
-  });
+  // Titre/catégorie/tags (F-054) : plus un panneau cockpit fixe depuis le 2026-09-19
+  // (Jay : « ça encombre l'interface ») — déplacé dans le bouton « Préréglage » de la
+  // barre du direct (`PresetPopover.tsx`, ouvert depuis `LiveBar.tsx`).
 
   // Ni Pré-vol ni Caméra dans la disposition du direct (2026-09-06) :
   //   — le Pré-vol a son entrée dans la barre latérale, et deux portes pour un même écran

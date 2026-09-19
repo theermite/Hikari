@@ -7,16 +7,11 @@
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { IDockviewPanelProps } from "dockview-react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "./api";
-import { StreamInfoPanel } from "./StreamInfoPanel";
+import { TwitchSection } from "./TwitchSection";
 
 vi.mock("./api");
-
-function props(): IDockviewPanelProps {
-  return {} as IDockviewPanelProps;
-}
 
 function channelInfo(
   overrides: Partial<Awaited<ReturnType<typeof api.getStreamInfo>>> = {},
@@ -35,27 +30,13 @@ beforeEach(() => {
   vi.mocked(api.searchCategories).mockReset();
   vi.mocked(api.updateStreamInfo).mockReset();
   vi.mocked(api.getStreamInfo).mockResolvedValue(channelInfo());
-  // Le volet YouTube (`YoutubeSection`) vit dans le même panneau — ces tests ne parlent
-  // que de Twitch, mais le composant monte les deux. Résolu par défaut pour ne pas le
-  // laisser planter sur un appel non mocké ; son propre comportement est testé à part,
-  // dans YoutubeSection.test.tsx.
-  vi.mocked(api.getYoutubeStreamInfo).mockReset();
-  vi.mocked(api.getYoutubeCategories).mockReset();
-  vi.mocked(api.updateYoutubeStreamInfo).mockReset();
-  vi.mocked(api.getYoutubeStreamInfo).mockResolvedValue({
-    title: "",
-    description: "",
-    category_id: "",
-    tags: [],
-  });
-  vi.mocked(api.getYoutubeCategories).mockResolvedValue([]);
 });
 
 afterEach(cleanup);
 
-describe("StreamInfoPanel", () => {
+describe("TwitchSection", () => {
   it("should_prefill_title_category_and_tags_from_twitch", async () => {
-    render(<StreamInfoPanel {...props()} />);
+    render(<TwitchSection />);
 
     expect(
       await screen.findByDisplayValue("Session de dev"),
@@ -70,7 +51,7 @@ describe("StreamInfoPanel", () => {
       "connecte ton compte Twitch dans Paramètres",
     );
 
-    render(<StreamInfoPanel {...props()} />);
+    render(<TwitchSection />);
 
     expect(
       await screen.findByText("connecte ton compte Twitch dans Paramètres"),
@@ -80,7 +61,7 @@ describe("StreamInfoPanel", () => {
 
   it("should_disable_publish_when_the_title_is_emptied", async () => {
     const user = userEvent.setup();
-    render(<StreamInfoPanel {...props()} />);
+    render(<TwitchSection />);
     const title = await screen.findByDisplayValue("Session de dev");
 
     await user.clear(title);
@@ -92,7 +73,7 @@ describe("StreamInfoPanel", () => {
 
   it("should_disable_publish_when_the_title_exceeds_140_characters", async () => {
     const user = userEvent.setup();
-    render(<StreamInfoPanel {...props()} />);
+    render(<TwitchSection />);
     const title = await screen.findByDisplayValue("Session de dev");
 
     await user.clear(title);
@@ -105,12 +86,10 @@ describe("StreamInfoPanel", () => {
 
   it("should_add_a_tag_on_enter_and_remove_it_on_click", async () => {
     const user = userEvent.setup();
-    render(<StreamInfoPanel {...props()} />);
+    render(<TwitchSection />);
     await screen.findByDisplayValue("Session de dev");
 
-    // Par le label, pas le placeholder : les volets Twitch et YouTube partagent le même
-    // texte de placeholder, seul le label Twitch porte le compte "(n/10)".
-    const tagInput = screen.getByLabelText(/tags \(/i);
+    const tagInput = screen.getByPlaceholderText(/ajouter un tag/i);
     await user.type(tagInput, "Speedrun{Enter}");
 
     expect(screen.getByText("Speedrun")).toBeInTheDocument();
@@ -124,7 +103,7 @@ describe("StreamInfoPanel", () => {
     vi.mocked(api.getStreamInfo).mockResolvedValue(
       channelInfo({ tags: Array.from({ length: 10 }, (_, i) => `tag${i}`) }),
     );
-    render(<StreamInfoPanel {...props()} />);
+    render(<TwitchSection />);
     await screen.findByDisplayValue("Session de dev");
 
     expect(screen.getByPlaceholderText("Maximum atteint")).toBeDisabled();
@@ -133,7 +112,7 @@ describe("StreamInfoPanel", () => {
   it("should_publish_only_the_changed_fields", async () => {
     const user = userEvent.setup();
     vi.mocked(api.updateStreamInfo).mockResolvedValue(undefined);
-    render(<StreamInfoPanel {...props()} />);
+    render(<TwitchSection />);
     const title = await screen.findByDisplayValue("Session de dev");
 
     await user.clear(title);
@@ -154,7 +133,7 @@ describe("StreamInfoPanel", () => {
     vi.mocked(api.updateStreamInfo).mockRejectedValue(
       "Twitch a refusé (401) : scope manquant",
     );
-    render(<StreamInfoPanel {...props()} />);
+    render(<TwitchSection />);
     const title = await screen.findByDisplayValue("Session de dev");
 
     await user.type(title, "!");

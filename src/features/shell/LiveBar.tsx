@@ -4,8 +4,9 @@
 // savait démarrer une diffusion depuis la brique B2a ; l'application, elle, n'exposait
 // aucun bouton pour le lui demander. Cette barre ferme les deux manques d'un coup.
 //
-// Elle n'affiche QUE ce que le moteur rapporte. Pas de compteur de spectateurs tant que
-// les plateformes ne sont pas branchées : un zéro à la place d'une donnée absente ment
+// Elle n'affiche QUE ce que le moteur (ou les plateformes, pour les spectateurs, F-062)
+// rapportent vraiment. Le compteur de spectateurs affiche « n/a » plutôt qu'un zéro tant
+// qu'aucune valeur réelle n'est revenue : un zéro à la place d'une donnée absente ment
 // plus qu'il n'informe.
 //
 // L'état ne bascule JAMAIS de façon optimiste. Cliquer « Démarrer » envoie la demande et
@@ -21,6 +22,7 @@ import { runPreflight } from "../preflight/api";
 import { applyProposedComposition } from "../preflight/applyProposal";
 import type { PreflightOutcome } from "../preflight/types";
 import { type DropVerdict, dropRate, dropVerdict } from "./frames";
+import { PresetPopover } from "./PresetPopover";
 
 /** Les seuls messages moteur que cette barre lit. */
 type EngineMessage =
@@ -247,13 +249,10 @@ export function LiveBar() {
   return (
     <div className="flex flex-shrink-0 items-center gap-3 border-b border-hikari-line px-4 py-2.5">
       {/* Le sélecteur de préréglage de la maquette (« LoL du soir ») : un préréglage
-          réunit des plateformes, une collection de scènes et un titre de direct. Aucun de
-          ces trois concepts n'existe encore côté moteur. */}
-      <ComingSoon what="choisir un préréglage de direct (plateformes, scènes, titre)">
-        <span className="flex items-center gap-1.5 rounded-full border border-hikari-line px-3 py-1.5 text-[12.5px] text-hikari-txt-dim">
-          Préréglage <span className="font-medium text-hikari-txt">—</span> ▾
-        </span>
-      </ComingSoon>
+          réunit des plateformes, une collection de scènes et un titre de direct. Seul le
+          titre (et catégorie/tags, F-054) est câblé aujourd'hui — plateformes et scènes
+          restent hors de ce bouton tant qu'aucune brique moteur ne les porte. */}
+      <PresetPopover />
 
       <button
         type="button"
