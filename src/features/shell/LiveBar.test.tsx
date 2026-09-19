@@ -289,8 +289,61 @@ describe("LiveBar", () => {
     // Une valeur morte sans raison est une impasse. Elle doit dire ce qui la remplirait.
     render(<LiveBar />);
 
-    const slot = await screen.findByTitle(/aucun compte/i);
+    const slot = await screen.findByTitle(/une fois en direct/i);
     expect(slot).toBeTruthy();
+  });
+
+  it("should_show_the_real_viewer_count_once_live", async () => {
+    // F-062, câblé le 2026-09-19 : le sondage part dès que le moteur annonce le direct.
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "run_preflight") return Promise.resolve(PREFLIGHT_OK);
+      if (cmd === "stream_viewer_count") return Promise.resolve(1234);
+      return Promise.resolve(undefined);
+    });
+    render(<LiveBar />);
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+
+    emit({ type: "started" });
+
+    expect(await screen.findByText("1 234")).toBeTruthy();
+    expect(screen.queryByText("n/a")).toBeNull();
+  });
+
+  it("should_return_to_n_a_when_the_stream_stops", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "run_preflight") return Promise.resolve(PREFLIGHT_OK);
+      if (cmd === "stream_viewer_count") return Promise.resolve(42);
+      return Promise.resolve(undefined);
+    });
+    render(<LiveBar />);
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+    emit({ type: "started" });
+    await screen.findByText("42");
+
+    emit({ type: "stream_stopped" });
+
+    expect(await screen.findByText("n/a")).toBeTruthy();
+  });
+
+  it("should_keep_showing_n_a_silently_when_the_viewer_count_cannot_be_read", async () => {
+    // Un compte mort ou absent refuse `stream_viewer_count` — jamais un bandeau d'erreur
+    // pour une donnée de confort, la case retombe simplement sur "n/a" (commands.rs).
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "run_preflight") return Promise.resolve(PREFLIGHT_OK);
+      if (cmd === "stream_viewer_count")
+        return Promise.reject("connecte ton compte Twitch dans Paramètres");
+      return Promise.resolve(undefined);
+    });
+    render(<LiveBar />);
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+
+    emit({ type: "started" });
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("stream_viewer_count"),
+    );
+    expect(screen.getByText("n/a")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("should_report_an_engine_error_that_answers_its_own_request", async () => {

@@ -76,6 +76,10 @@ export function LiveBar() {
   const [preflightWarning, setPreflightWarning] =
     useState<PreflightOutcome | null>(null);
   const [applied, setApplied] = useState(false);
+  // `null` = pas de chiffre à montrer (hors direct, ou compte absent/refusé côté backend,
+  // voir `commands.rs::stream_viewer_count`) — jamais un zéro qui laisserait croire que
+  // personne ne regarde (F-062, Jay 2026-09-05 : « n/a si aucun compte n'est connecté »).
+  const [viewers, setViewers] = useState<number | null>(null);
   /** Une référence et non l'état : l'écoute du moteur est posée une seule fois et
    * garderait sinon la valeur du premier rendu, c'est-à-dire `false` pour toujours. */
   const pendingRef = useRef(false);
@@ -133,6 +137,38 @@ export function LiveBar() {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
+  }, [liveSince]);
+
+  // F-062 — sondage plutôt que poussé par le moteur : le compteur vient de Twitch, pas de
+  // libobs, et Twitch ne pousse rien pour ça. 30 s : assez frais pour un cockpit, sans
+  // harceler l'API pendant tout un direct de plusieurs heures.
+  useEffect(() => {
+    if (liveSince === null) {
+      setViewers(null);
+      return;
+    }
+    let cancelled = false;
+    const poll = () => {
+      invoke<number | null>("stream_viewer_count")
+        .then((count) => {
+          // `?? null` normalise : l'état ne doit porter que `number | null`, jamais
+          // `undefined` — un test l'a prouvé (mock par défaut sans cas prévu pour cette
+          // commande), et un rendu qui suppose "jamais undefined" est le genre de défaut
+          // qu'un contrôle strict `=== null` laisse passer en silence jusqu'au crash.
+          if (!cancelled) setViewers(count ?? null);
+        })
+        .catch(() => {
+          // Silencieux à dessein : une case qui retombe sur "n/a" vaut mieux qu'un
+          // bandeau d'erreur répété toutes les 30 s pour une donnée de confort — la
+          // vraie erreur (compte mort) se voit déjà ailleurs (Comptes, Chat).
+        });
+    };
+    poll();
+    const id = setInterval(poll, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, [liveSince]);
 
   const live = liveSince !== null;
@@ -261,12 +297,21 @@ export function LiveBar() {
           « de cette manière je le vois tout de même et je sais où il est »). Elle affiche
           « n/a », jamais un zéro : montrer la case renseigne, inventer un chiffre ment.
           Le titre au survol dit ce qui la remplirait, pour qu'une valeur morte ne soit
-          pas une impasse. Elle se remplira quand les plateformes seront branchées. */}
+          pas une impasse — vrai à la fois hors direct et si Twitch refuse la lecture
+          (compte mort), sans distinguer les deux ici : la vraie erreur se voit déjà
+          ailleurs (Comptes, Chat). F-062 câblé le 2026-09-19 : `stream_viewer_count`. */}
       <span
         className="text-[12.5px] text-hikari-txt-dim"
-        title="Aucun compte connecté — le nombre de spectateurs arrivera avec Twitch ou YouTube"
+        title={
+          viewers === null
+            ? "Apparaît une fois en direct, avec Twitch connecté"
+            : undefined
+        }
       >
-        Spectateurs <span className="text-hikari-txt-faint">n/a</span>
+        Spectateurs{" "}
+        <span className="text-hikari-txt-faint">
+          {viewers === null ? "n/a" : viewers.toLocaleString("fr-FR")}
+        </span>
       </span>
 
       {/* Les emplacements que la maquette prévoit et que rien n'alimente encore. Dessinés

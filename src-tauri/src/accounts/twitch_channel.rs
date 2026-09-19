@@ -1,15 +1,16 @@
-//! Infos de diffusion Twitch — titre, catégorie, tags (F-054, changement rapide depuis
-//! Hikari plutôt que depuis le site Twitch).
+//! Infos de diffusion Twitch — titre, catégorie, tags (F-054) et compteur de spectateurs
+//! en direct (F-062) — changement/lecture rapides depuis Hikari plutôt que depuis le site
+//! Twitch.
 //!
 //! Réutilise le pont HTTP déjà écrit pour la clé de diffusion
 //! (`twitch_stream::helix`/`helix_patch`) — mêmes deux en-têtes que Twitch exige partout
 //! (Client-Id, jeton porteur), jamais réécrits une troisième fois.
 //!
-//! Les fonctions de lecture (`parse_channel_info`, `parse_categories`) sont PURES, comme
-//! le reste des lecteurs Twitch de ce module (`twitch_stream.rs`) : vérifiables sans
-//! réseau, sur les formes exactes que Twitch documente
-//! (dev.twitch.tv/docs/api/reference, Get/Modify Channel Information, Search
-//! Categories — vérifié 2026-09-19).
+//! Les fonctions de lecture (`parse_channel_info`, `parse_categories`,
+//! `parse_viewer_count`) sont PURES, comme le reste des lecteurs Twitch de ce module
+//! (`twitch_stream.rs`) : vérifiables sans réseau, sur les formes exactes que Twitch
+//! documente (dev.twitch.tv/docs/api/reference, Get/Modify Channel Information, Search
+//! Categories, Get Streams — vérifié 2026-09-19).
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -192,6 +193,42 @@ pub async fn update_channel_info(
     Ok(())
 }
 
+/// Le compteur de spectateurs ACTUEL du compte connecté — `None` si le direct n'est pas
+/// en cours (Twitch rend une liste vide dans ce cas, jamais une entrée avec `viewer_count:
+/// 0` — un stream de 0 spectateur RÉEL est indiscernable d'un stream arrêté sans ce
+/// distinguo, voir `parse_viewer_count`).
+pub async fn fetch_viewer_count(
+    http: &reqwest::Client,
+    client_id: &str,
+    access_token: &Secret,
+    broadcaster_id: &str,
+) -> Result<Option<u32>> {
+    let url = format!("https://api.twitch.tv/helix/streams?user_id={broadcaster_id}");
+    let body = helix(http, client_id, access_token, &url)
+        .await
+        .context("lecture du compteur de spectateurs")?;
+    parse_viewer_count(&body)
+}
+
+/// Lit la réponse de `GET /helix/streams?user_id=...` — `data` est VIDE quand ce diffuseur
+/// n'est pas en direct (documenté par Twitch), jamais une entrée à `viewer_count: 0`. Ce
+/// distinguo est le seul moyen honnête d'afficher soit un vrai chiffre, soit « n/a » —
+/// jamais un zéro qui laisserait croire que personne ne regarde un direct qui n'existe pas
+/// (même principe que `LiveBar.tsx`, qui refuse déjà d'inventer un zéro).
+pub fn parse_viewer_count(body: &str) -> Result<Option<u32>> {
+    let value: serde_json::Value =
+        serde_json::from_str(body).context("réponse Twitch illisible (spectateurs)")?;
+    let entries = value
+        .get("data")
+        .and_then(|data| data.as_array())
+        .context("Twitch n'a pas rendu de liste de directs")?;
+    Ok(entries
+        .first()
+        .and_then(|entry| entry.get("viewer_count"))
+        .and_then(|count| count.as_u64())
+        .map(|count| count as u32))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,6 +355,26 @@ mod tests {
             validate_patch(&ChannelInfoPatch::default()),
             Err("rien à mettre à jour".to_string())
         );
+    }
+
+    #[test]
+    fn should_read_the_viewer_count_of_a_live_stream() {
+        let body = r#"{"data":[{"id":"1","user_id":"141981764","viewer_count":78365,"type":"live"}]}"#;
+        assert_eq!(parse_viewer_count(body).unwrap(), Some(78365));
+    }
+
+    #[test]
+    fn should_read_no_viewer_count_when_the_stream_is_not_live() {
+        // Twitch rend `data:[]` quand ce diffuseur n'est pas en direct — jamais une entrée
+        // à 0. Confondre les deux ferait afficher « 0 spectateur » sur un stream arrêté.
+        assert_eq!(parse_viewer_count(r#"{"data":[]}"#).unwrap(), None);
+    }
+
+    #[test]
+    fn should_refuse_a_viewer_count_answer_that_is_not_the_expected_shape() {
+        for body in ["", "pas du json", "{}"] {
+            assert!(parse_viewer_count(body).is_err(), "body = {body}");
+        }
     }
 
     #[test]

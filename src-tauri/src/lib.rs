@@ -36,6 +36,7 @@ pub fn run() {
             commands::stream_info_get,
             commands::stream_info_search_categories,
             commands::stream_info_update,
+            commands::stream_viewer_count,
             chat::chat_connect,
             chat::chat_send,
             chat::chat_timeout_user,

@@ -299,3 +299,18 @@ pub(crate) async fn stream_info_update(patch: ChannelInfoPatch) -> Result<(), St
     .await
     .map_err(|err| err.to_string())
 }
+
+/// Le compteur de spectateurs actuel (F-062) — `None` sans compte connecté ou hors
+/// direct, jamais un zéro inventé (voir `twitch_channel::parse_viewer_count`). Appelée en
+/// sondage par `LiveBar` pendant qu'elle affiche « en direct » : une erreur ici (compte
+/// absent, réseau) reste silencieuse côté utilisateur — la case affiche « n/a », comme
+/// avant que cette commande existe, jamais un bandeau d'erreur répété toutes les 30 s pour
+/// une donnée de confort.
+#[tauri::command]
+pub(crate) async fn stream_viewer_count() -> Result<Option<u32>, String> {
+    let http = reqwest::Client::new();
+    let (access_token, broadcaster_id) = resolve_twitch_channel(&http).await?;
+    twitch_channel::fetch_viewer_count(&http, twitch::TWITCH_CLIENT_ID, &access_token, &broadcaster_id)
+        .await
+        .map_err(|err| err.to_string())
+}
