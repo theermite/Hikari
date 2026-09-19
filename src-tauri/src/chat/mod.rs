@@ -88,19 +88,25 @@ fn twitch_handle(state: &State<'_, ChatState>) -> Result<twitch::TwitchChatHandl
         .ok_or_else(|| "chat Twitch non connecté".to_string())
 }
 
-/// Connecte le chat et les alertes des comptes REELLEMENT utilisables — jamais un jeton
-/// expiré à l'aveugle : cette partie ne renouvelle rien elle-même, l'écran Comptes reste
-/// la seule voie de reconnexion (portée volontairement resserrée, voir le module doc).
+/// Connecte le chat et les alertes des comptes REELLEMENT utilisables.
+///
+/// Un jeton Twitch expiré n'est PAS traité comme absent : `accounts::twitch::usable_token`
+/// le renouvelle d'abord (même geste que le démarrage d'un direct,
+/// `broadcast_target.rs`) — avant ce correctif, cette fonction s'arrêtait à
+/// `vault::is_expired` et abandonnait en silence, alors que l'écran Comptes annonçait ce
+/// même compte « connecté ». Chat coupé dans les deux sens, aucune erreur visible : le
+/// symptôme exact rapporté par Jay le 2026-09-19. Un renouvellement qui échoue VRAIMENT
+/// (compte révoqué, réseau injoignable), lui, est dit — c'est le seul cas où l'écran
+/// Comptes reste la voie de reconnexion.
 #[tauri::command]
 pub(crate) async fn chat_connect(
     app: AppHandle,
     state: State<'_, ChatState>,
 ) -> Result<(), String> {
-    let now = vault::now_unix();
+    let http = reqwest::Client::new();
 
-    if let Ok(Some(token)) = vault::load(Platform::Twitch) {
-        if !vault::is_expired(&token, now) {
-            let http = reqwest::Client::new();
+    match crate::accounts::twitch::usable_token(&http).await {
+        Ok(Some(token)) => {
             match crate::accounts::twitch_stream::fetch_account(
                 &http,
                 TWITCH_CLIENT_ID,
@@ -132,7 +138,16 @@ pub(crate) async fn chat_connect(
                 }
             }
         }
+        Ok(None) => {}
+        Err(err) => {
+            let _ = app.emit(
+                "chat-error",
+                format!("Twitch : {err} — reconnecte le compte dans Paramètres"),
+            );
+        }
     }
+
+    let now = vault::now_unix();
 
     if let Ok(Some(token)) = vault::load(Platform::YouTube) {
         if !vault::is_expired(&token, now) {

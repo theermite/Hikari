@@ -8,46 +8,19 @@ use crate::accounts::vault::{self, Platform, Secret, StoredToken};
 
 /// La destination de diffusion du compte connecté, s'il y en a un.
 ///
-/// Rend `None` sans bruit quand aucun compte n'est connecté : ouvrir Hikari sans compte est
-/// un usage normal. Un échec de lecture, lui, est TRACÉ — sinon une clé illisible
-/// ressemblerait à une absence de compte, et Jay chercherait au mauvais endroit.
+/// Rend `None` sans bruit quand aucun compte n'est connecté ou que le renouvellement a
+/// échoué : ouvrir Hikari sans compte est un usage normal, et cette partie ne parle qu'au
+/// moteur — c'est `chat/mod.rs::chat_connect` qui porte le SEUL chemin où un renouvellement
+/// refusé doit être dit à Jay (`chat-error`), voir `accounts::twitch::usable_token`.
 pub(crate) async fn resolve_broadcast_target() -> Option<(String, Secret)> {
-    let token = match vault::load(Platform::Twitch) {
+    let http = reqwest::Client::new();
+    let token = match twitch::usable_token(&http).await {
         Ok(Some(token)) => token,
         Ok(None) => return None,
         Err(err) => {
-            eprintln!("[twitch] coffre illisible ({err}) — diffusion sans destination");
+            eprintln!("[twitch] {err} — diffusion sans destination");
             return None;
         }
-    };
-    let http = reqwest::Client::new();
-    // Un jeton expiré n'est PAS un compte perdu : le coffre garde le jeton de
-    // rafraîchissement depuis la connexion. Abandonner ici (ce que faisait la version
-    // précédente) demandait à l'utilisateur de se reconnecter à la main toutes les quelques
-    // heures, pour une opération que la machine sait faire seule.
-    //
-    // On ne redemande une connexion QUE si Twitch refuse vraiment le renouvellement —
-    // jeton révoqué de son côté, ou réseau injoignable.
-    let token = if vault::is_expired(&token, vault::now_unix()) {
-        match twitch::refresh(&token, TWITCH_CLIENT_ID, &http).await {
-            Ok(renewed) => {
-                if let Err(err) = vault::store(Platform::Twitch, &renewed) {
-                    // Le renouvellement a marché, l'écriture non : on diffuse quand même
-                    // avec le jeton neuf, mais la trace dit pourquoi ça recommencera au
-                    // prochain lancement.
-                    eprintln!("[twitch] jeton renouvelé mais non rangé ({err})");
-                }
-                renewed
-            }
-            Err(err) => {
-                eprintln!(
-                    "[twitch] renouvellement refusé ({err}) — reconnecte le compte dans Paramètres"
-                );
-                return None;
-            }
-        }
-    } else {
-        token
     };
     match twitch_stream::fetch_target(&http, TWITCH_CLIENT_ID, &token.access_token).await {
         Ok((server, key, nom)) => {

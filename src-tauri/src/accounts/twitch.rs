@@ -25,7 +25,7 @@ use anyhow::{Context, Result};
 use twitch_oauth2::tokens::DeviceUserTokenBuilder;
 use twitch_oauth2::Scope;
 
-use crate::accounts::vault::{merge_refreshed, now_unix, Secret, StoredToken};
+use crate::accounts::vault::{self, merge_refreshed, now_unix, Platform, Secret, StoredToken};
 
 /// Hikari's own Twitch application identity — a "Public" client type (dev.twitch.tv
 /// console), registered 2026-07-18 by Jay. A `client_id` identifies the APP, not a user
@@ -182,6 +182,48 @@ pub async fn refresh(
 fn token_expires_in_secs(token: &twitch_oauth2::UserToken) -> u64 {
     use twitch_oauth2::TwitchToken;
     token.expires_in().as_secs()
+}
+
+/// Le jeton Twitch RÉELLEMENT utilisable maintenant — chargé, renouvelé s'il a expiré,
+/// rangé si le renouvellement a marché. Point d'entrée unique pour toute partie qui a
+/// besoin d'appeler Twitch (diffusion, chat) : avant cette fonction, `broadcast_target.rs`
+/// portait ce geste en entier et `chat/mod.rs` s'arrêtait au seul `is_expired`, sans
+/// jamais tenter le renouvellement — un compte que l'écran Comptes annonce « connecté »
+/// (`Connection::Live`, `accounts/mod.rs`, car renouvelable) coupait donc le chat en
+/// silence, exactement le symptôme rapporté par Jay le 2026-09-19 (« rien ne s'affiche,
+/// dans les deux sens »).
+///
+/// `Ok(None)` = aucun compte rangé, rien à signaler (ouvrir Hikari sans compte est normal).
+/// `Ok(Some(_))` = un jeton utilisable, éventuellement tout juste renouvelé.
+/// `Err(_)` = un compte existe mais est mort (renouvellement refusé par Twitch, ou réseau
+/// injoignable) — le SEUL cas où prévenir l'utilisateur est justifié, il doit se
+/// reconnecter dans Paramètres.
+pub async fn usable_token(http: &reqwest::Client) -> Result<Option<StoredToken>, String> {
+    let token = match vault::load(Platform::Twitch) {
+        Ok(Some(token)) => token,
+        Ok(None) => return Ok(None),
+        Err(err) => {
+            eprintln!("[twitch] coffre illisible ({err})");
+            return Ok(None);
+        }
+    };
+
+    if !vault::is_expired(&token, now_unix()) {
+        return Ok(Some(token));
+    }
+
+    match refresh(&token, TWITCH_CLIENT_ID, http).await {
+        Ok(renewed) => {
+            if let Err(err) = vault::store(Platform::Twitch, &renewed) {
+                // Le renouvellement a marché, l'écriture non : on rend quand même le jeton
+                // neuf à l'appelant, mais la trace dit pourquoi ça recommencera au prochain
+                // lancement (même choix que `resolve_broadcast_target` avant l'extraction).
+                eprintln!("[twitch] jeton renouvelé mais non rangé ({err})");
+            }
+            Ok(Some(renewed))
+        }
+        Err(err) => Err(format!("renouvellement refusé ({err})")),
+    }
 }
 
 #[cfg(test)]
