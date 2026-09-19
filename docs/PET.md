@@ -217,7 +217,7 @@ project: Hikari Stream
 | Brique | Scope | Niveau | Statut |
 |---|---|---|---|
 | B8 | Kit de marque + propagation (F-004, F-072) | Standard | ⬜ |
-| B12 | Publication native + planning + miniatures + infos diffusion + pont Kobo (F-050→F-054) | Sensible | ⬜ |
+| B12 | Publication native + planning + miniatures + infos diffusion + pont Kobo (F-050→F-054) | Sensible | 🟧 F-054 codée, non prouvée à l'écran (2026-09-19) — reste F-050→F-053 |
 
 ### Phase P7 — Avatar
 | Brique | Scope | Niveau | Statut |
@@ -1193,6 +1193,12 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
 - **Approche** : upload via API **officielles** (YouTube Data, Twitch) ; OAuth **réutilisé de B2** ; jeton relu frais à chaque publication (assertion). Pied de description constant par marque.
 - **Fichiers** : `src-tauri/src/publish/*` · `src/features/publish/*`. **Tests** : `should_refresh_token_before_publish` · `should_target_correct_platform`.
 - **Vérité externe** : API upload **officielles** — **veille au démarrage** (quotas, scopes). 🟡.
+- **F-054 codée le 2026-09-19** (demande directe de Jay, hors ordre du plan ci-dessus) :
+  panneau « Infos direct » — titre/catégorie/tags Twitch, `accounts::twitch_channel` +
+  `src/features/streaminfo/*`. Scope OAuth élargi (`channel:manage:broadcast`) — Jay doit
+  reconnecter son compte Twitch. **Non prouvée à l'écran** (build Rust non vérifiable dans
+  l'environnement de cette session). F-050→F-053 (publication/planning/miniatures/Kobo)
+  restent hors scope, non commencés.
 
 ### B13 — Avatar VRM étape 1 (Spout2) · Standard · 🟡 (source Spout2)
 - **Objectif** : avatar VRM via source externe (Spout2).
