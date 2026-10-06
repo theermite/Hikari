@@ -142,9 +142,40 @@ def _print_overcome(rows: list[dict], top: int) -> None:
     print("  -> review these first: reclassify WARN, narrow the trigger, or fix.")
 
 
-def render(rows: list[dict], n_sessions: int, top: int) -> None:
+def cost_summary(entries: list[dict]) -> dict:
+    """What the guards cost per session, over the sessions that measured it.
+
+    Jay 2026-09-28 asked for the real number instead of an estimate from
+    memory. Sessions recorded before the meter existed carry no `cost` and are
+    left out of the average rather than counted as zero. Each SessionEnd
+    measures the WHOLE journal, so a resumed session keeps only its last entry
+    (independent review, 2026-09-29)."""
+    last: dict = {}
+    for i, e in enumerate(entries):
+        if isinstance(e.get("cost"), dict):
+            last[e.get("session_id") or f"#{i}"] = e["cost"]
+    costs = list(last.values())
+    tokens = [int(c.get("tokens_est", 0) or 0) for c in costs]
+    if not tokens:
+        return {"sessions": 0, "avg_tokens": 0, "max_tokens": 0, "refusals": 0}
+    return {"sessions": len(tokens), "avg_tokens": sum(tokens) // len(tokens),
+            "max_tokens": max(tokens),
+            "refusals": sum(int(c.get("refusals", 0) or 0) for c in costs)}
+
+
+def _print_cost(entries: list[dict]) -> None:
+    c = cost_summary(entries)
+    if not c["sessions"]:
+        return
+    print(f"\n  Cost in the conversation ({c['sessions']} measured session(s), estimation "
+          f"~4 characters per token): average ~{c['avg_tokens']} tokens/session, "
+          f"max ~{c['max_tokens']}, {c['refusals']} refusal(s) in total.")
+
+
+def render(rows: list[dict], n_sessions: int, top: int, entries: list[dict] | None = None) -> None:
     print("=== Guardrail-fatigue cumulative report (A2-v2) ===")
     print(f"sessions recorded: {n_sessions}")
+    _print_cost(entries or [])
     if not rows:
         print("\n  (journal empty — nothing recorded yet; A2 writes at SessionEnd)")
         return
@@ -172,7 +203,7 @@ def main() -> int:
 
     entries = load_entries(args.journal)
     rows = aggregate(entries)
-    render(rows, n_sessions=len(entries), top=args.top)
+    render(rows, n_sessions=len(entries), top=args.top, entries=entries)
     return 0
 
 

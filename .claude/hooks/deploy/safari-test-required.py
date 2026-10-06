@@ -33,7 +33,7 @@ from common import (  # noqa: E402
     warn,
 )
 from session_state import mark_once  # noqa: E402
-from transcript_reader import iter_assistant_text  # noqa: E402
+from transcript_reader import iter_spoken_text  # noqa: E402
 
 STATE_NAME = "deploy-safari"
 
@@ -63,7 +63,7 @@ def _has_safari_marker(transcript_path: str | None) -> tuple[bool, bool]:
     if not transcript_path:
         return False, False
     try:
-        chunks = list(iter_assistant_text(transcript_path, limit=40))
+        chunks = list(iter_spoken_text(transcript_path, limit=40))
     except Exception:
         return False, False
     blob = "\n".join(chunks)

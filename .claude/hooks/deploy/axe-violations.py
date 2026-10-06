@@ -32,7 +32,7 @@ from common import (  # noqa: E402
     warn,
 )
 from session_state import mark_once  # noqa: E402
-from transcript_reader import iter_assistant_text  # noqa: E402
+from transcript_reader import iter_spoken_text  # noqa: E402
 
 STATE_NAME = "deploy-axe"
 
@@ -46,7 +46,7 @@ def _scan_markers(transcript_path: str) -> tuple[bool, bool]:
     if not transcript_path:
         return False, False
     try:
-        chunks = list(iter_assistant_text(transcript_path, limit=60))
+        chunks = list(iter_spoken_text(transcript_path, limit=60))
     except Exception:
         return False, False
     blob = "\n".join(chunks)

@@ -182,4 +182,17 @@ def test_block_message_names_the_channel_that_survives(tmp_path):
     transcript = _write_transcript(tmp_path, *_one_prior_write())
     r = _run(transcript)
     assert r.returncode == 2
-    assert b".claude/state/reformulation" in r.stderr
+    assert b".claude/state/said.md" in r.stderr
+
+
+def test_the_shared_said_channel_unlocks_the_gate(tmp_path):
+    # 2026-09-28: one channel for every guard (transcript_reader.is_said_file);
+    # reformulation*.md stays accepted as its first shipped name.
+    entries = _one_prior_write() + [
+        _assistant_tool("Write", "r1", {"file_path": "D:/repo/.claude/state/said-7.md",
+                                        "content": "REFORMULATION fichiers b.py"}),
+        _tool_result("r1"),
+    ]
+    transcript = _write_transcript(tmp_path, *entries)
+    r = _run(transcript)
+    assert r.returncode == 0, r.stderr

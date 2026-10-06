@@ -29,7 +29,7 @@ sys.path.insert(0, str(HERE.parent / "lib"))
 sys.path.insert(0, str(HERE))
 
 from common import pass_through, read_hook_input  # noqa: E402
-from transcript_reader import iter_assistant_text  # noqa: E402
+from transcript_reader import iter_spoken_text  # noqa: E402
 from _log import append_jsonl, hash_snippet, now_iso, to_minutes  # noqa: E402
 from session_state import read_state, write_state  # noqa: E402
 
@@ -99,7 +99,7 @@ def main() -> None:
         pass_through()
 
     try:
-        chunks = list(iter_assistant_text(transcript_path, limit=4))
+        chunks = list(iter_spoken_text(transcript_path, limit=4))
     except Exception:
         pass_through()
     if not chunks:
@@ -107,7 +107,7 @@ def main() -> None:
 
     # Only scan the MOST recent assistant turn — older turns were processed
     # at their own time. This keeps the hook cheap and dedup small.
-    # iter_assistant_text yields latest-first, so [0] = most recent.
+    # iter_spoken_text yields latest-first, so [0] = most recent.
     text = chunks[0] if chunks else ""
     if not text:
         pass_through()

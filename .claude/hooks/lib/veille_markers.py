@@ -24,7 +24,7 @@ import json
 import os
 import re
 
-from transcript_reader import assistant_text_blocks, iter_assistant_text, iter_tool_calls
+from transcript_reader import errored_tool_ids, iter_spoken_text, iter_tool_calls, spoken_blocks
 from veille_config import (
     MARKER_RE,
     RECOVERY_LINE_HINTS,
@@ -43,7 +43,7 @@ _CODE_BLOCK = re.compile(r"```.*?```|`[^`]*`", re.DOTALL)
 _REVIEW_FAMILY = re.compile(r"famille[^\S\n]*:[^\S\n]*([^,\n]+)", re.IGNORECASE)
 
 
-def _entry_text(raw: str) -> str:
+def _entry_text(raw: str, errored: set | None = None) -> str:
     """What Takumi actually SAID on this transcript line, recovery lines removed.
 
     Before 2026-09-14 this walked the WHOLE JSON tree, so a tool result
@@ -52,14 +52,20 @@ def _entry_text(raw: str) -> str:
     indistinguishable from a marker Takumi actually wrote. Caught live: Read
     on this file made the guard refuse a genuine retry, twice, on a phrase
     quoted in a recovery message elsewhere in this codebase. Text extraction
-    itself lives in transcript_reader.assistant_text_blocks (shared with
-    iter_assistant_text -- one reader, not two, Honesty.md's first question).
+    itself lives in transcript_reader.spoken_blocks (shared with
+    iter_spoken_text -- one reader, not two, Honesty.md's first question).
+    Since 2026-09-28 that includes the said-file channel: the journal drops
+    Takumi's text when his thinking is split in two, never his tool calls.
+    `errored` = failed tool ids already seen (read backwards, a result comes
+    before its call); the caller updates it with transcript_reader.errored_tool_ids.
     """
     try:
         entry = json.loads(raw)
     except (json.JSONDecodeError, ValueError):
         return ""
-    text = "\n".join(assistant_text_blocks(entry))
+    if errored is not None:
+        errored |= errored_tool_ids(entry)
+    text = "\n".join(spoken_blocks(entry, errored or set()))
     kept = [ln for ln in text.splitlines()
             if not any(h in ln for h in RECOVERY_LINE_HINTS)]
     return "\n".join(kept)
@@ -94,11 +100,12 @@ def _scan_speech_turns(lines: list[str], limit: int) -> tuple[str, str, str] | N
     it covers -- a budget spent per raw line starved on tool-heavy sessions.
     """
     spent = 0
+    errored: set = set()
     for raw in reversed(lines):
         raw = raw.strip()
         if not raw:
             continue
-        text = _entry_text(raw)
+        text = _entry_text(raw, errored)
         if not text:
             continue
         spent += 1
@@ -157,7 +164,7 @@ def latest_review_verdict(transcript_path: str, limit: int = 40) -> str | None:
     if not transcript_path:
         return None
     try:
-        for text in iter_assistant_text(transcript_path, limit=limit):
+        for text in iter_spoken_text(transcript_path, limit=limit, include_reviewer=True):
             spoken = _CODE_BLOCK.sub(" ", text or "")
             match = _REVIEW_VERDICT.search(spoken)
             if match:
@@ -176,7 +183,7 @@ def latest_review_family(transcript_path: str, limit: int = 40) -> str | None:
     if not transcript_path:
         return None
     try:
-        for text in iter_assistant_text(transcript_path, limit=limit):
+        for text in iter_spoken_text(transcript_path, limit=limit, include_reviewer=True):
             spoken = _CODE_BLOCK.sub(" ", text or "")
             verdict = _REVIEW_VERDICT.search(spoken)
             if not verdict:

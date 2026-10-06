@@ -73,7 +73,7 @@ from common import (  # noqa: E402
 )
 from marker_fields import field_label_present  # noqa: E402
 from session_state import read_state, write_state  # noqa: E402
-from transcript_reader import iter_assistant_text  # noqa: E402
+from transcript_reader import iter_spoken_text  # noqa: E402
 
 
 # --- Configuration -----------------------------------------------------------
@@ -260,7 +260,7 @@ def latest_marker(transcript_path: str) -> tuple[str, str, str] | None:
     """
     if not transcript_path or not os.path.isfile(transcript_path):
         return None
-    for text in iter_assistant_text(transcript_path, limit=TRANSCRIPT_SCAN_LIMIT):
+    for text in iter_spoken_text(transcript_path, limit=TRANSCRIPT_SCAN_LIMIT):
         found = _marker_from_text(text)
         if found:
             return found

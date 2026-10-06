@@ -43,6 +43,7 @@ sys.path.insert(0, str(LIB_DIR))
 
 from common import find_repo_root  # noqa: E402
 from friction import detect_overcome_blocks, signature  # noqa: E402
+from hook_cost import measure as measure_cost  # noqa: E402
 from transcript_reader import entry_message  # noqa: E402
 from transcript_reader import iter_entries  # noqa: E402
 
@@ -168,9 +169,10 @@ def now_iso() -> str:
 
 
 def _append_journal(session_id: str, blocks: dict, warns: dict, overcome: dict,
-                    lues: int) -> None:
+                    lues: int, cost: dict) -> None:
     entry = {"session_id": session_id, "ts": now_iso(),
-             "blocks": blocks, "warns": warns, "overcome": overcome, "lues": lues}
+             "blocks": blocks, "warns": warns, "overcome": overcome, "lues": lues,
+             "cost": cost}
     state_path = find_repo_root() / STATE_REL
     try:
         state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -205,9 +207,13 @@ def main() -> None:
     # passe » et « le compteur est casse » s'ecrivent pareil — et c'est ce qui a
     # laisse croire pendant trois mois que nos garde-fous se taisaient : 115
     # sessions ecrites dans ce depot, 5 lignes au journal.
-    _append_journal(session_id, blocks, warns, overcome, lues)
+    # What the guards cost in the conversation (Jay 2026-09-28) — see lib/hook_cost.py.
+    cost = measure_cost(transcript_path)
+    _append_journal(session_id, blocks, warns, overcome, lues, cost)
     if blocks or warns:
         _emit_summary(blocks, warns, overcome)
+    print(f"hook-cost: ~{cost['tokens_est']} tokens (estimation) written by guards into the "
+          f"conversation, {cost['refusals']} refusal(s)", file=sys.stderr)
     sys.exit(0)
 
 

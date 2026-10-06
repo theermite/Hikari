@@ -77,7 +77,7 @@ from common import (  # noqa: E402
 )
 from marker_fields import field_filled, field_value  # noqa: E402
 from shell_parse import simple_commands  # noqa: E402
-from transcript_reader import iter_assistant_text  # noqa: E402
+from transcript_reader import iter_spoken_text  # noqa: E402
 
 # These name a command, they never run it.
 _PRINTERS = {"echo", "print", "printf"}
@@ -390,7 +390,7 @@ def main():
         pass_through()
 
     transcript = data.get("transcript_path", "")
-    texts = list(iter_assistant_text(transcript, limit=TRANSCRIPT_LOOKBACK)) if transcript else []
+    texts = list(iter_spoken_text(transcript, limit=TRANSCRIPT_LOOKBACK, include_reviewer=True)) if transcript else []
     failures = count_failures(texts)
 
     message = verdict(raw, texts, failures)

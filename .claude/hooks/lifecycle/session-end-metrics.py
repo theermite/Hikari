@@ -35,7 +35,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "lib"))
 
 from common import find_repo_root, pass_through, read_hook_input  # noqa: E402
-from transcript_reader import iter_assistant_text  # noqa: E402
+from transcript_reader import iter_spoken_text  # noqa: E402
 
 
 SNIPPET_NAME = "last-session-metrics.md"
@@ -76,7 +76,7 @@ def _todos_in_unpushed_diff(repo: Path) -> dict[str, int]:
 
 def _veille_markers(transcript_path: str) -> dict[str, int]:
     counts = {"VEILLE": 0, "SKB": 0, "VEILLE-SKIP": 0}
-    for text in iter_assistant_text(transcript_path, limit=200):
+    for text in iter_spoken_text(transcript_path, limit=200):
         for m in VEILLE_RE.finditer(text):
             tag = m.group(1)
             if tag in counts:

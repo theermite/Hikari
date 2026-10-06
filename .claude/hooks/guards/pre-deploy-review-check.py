@@ -49,7 +49,7 @@ from common import (  # noqa: E402
     read_hook_input,
 )
 from shell_parse import simple_commands  # noqa: E402
-from transcript_reader import iter_assistant_text  # noqa: E402
+from transcript_reader import iter_spoken_text  # noqa: E402
 
 # Legitimate reasons to ship without a fresh pair of eyes. Closed on purpose: an
 # open motif field becomes "pas le temps" within a week.
@@ -406,7 +406,7 @@ def main():
         pass_through()  # most Bash calls ship nothing: do not read the transcript
 
     transcript = data.get("transcript_path", "")
-    texts = list(iter_assistant_text(transcript, limit=TRANSCRIPT_LOOKBACK)) if transcript else []
+    texts = list(iter_spoken_text(transcript, limit=TRANSCRIPT_LOOKBACK, include_reviewer=True)) if transcript else []
 
     message = verdict(command, texts)
     if message:

@@ -26,7 +26,7 @@ sys.path.insert(0, str(LIB_DIR))
 
 from common import format_warn, pass_through, read_hook_input, warn  # noqa: E402
 from session_state import mark_once  # noqa: E402
-from transcript_reader import iter_assistant_text  # noqa: E402
+from transcript_reader import iter_spoken_text  # noqa: E402
 
 
 MEMORY_CLAIM_PATTERNS = [
@@ -52,7 +52,7 @@ def main() -> None:
     session_id = data.get("session_id", "") or "no-session"
     transcript_path = data.get("transcript_path", "")
 
-    for text in iter_assistant_text(transcript_path, limit=10):
+    for text in iter_spoken_text(transcript_path, limit=10):
         if not MEMORY_RE.search(text):
             continue
         topic_match = TOPIC_RE.search(text)
@@ -62,7 +62,7 @@ def main() -> None:
         if mark_once("rules-vs-memory", topic, session_id=session_id):
             warn(format_warn(
                 f"Memory-claim sur sujet methodo detecte ({topic})",
-                f"Re-lis la regle source avant d'affirmer. Files: rules/*.md ou mnk/. "
+                "Re-lis la regle source avant d'affirmer. Files: rules/*.md ou mnk/. "
                 "Memoire interne du modele = stale (date d'entrainement)",
                 reference="rules/Monozukuri.md + rules/Honesty.md (preuve, jamais affirmation)",
             ))

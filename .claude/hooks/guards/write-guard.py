@@ -21,6 +21,10 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+from transcript_reader import is_said_file, norm_path  # noqa: E402
 
 
 # Order matters: more specific patterns first so the BLOCKED message names the
@@ -350,9 +354,13 @@ def check_state_protection(file_path):
     """`.claude/state/` holds guard-owned counters (e.g. the VEILLE-SKIP
     threshold). Only a hook's own session_state.write_state() has a
     legitimate reason to touch it; a direct Write/Edit is exactly how the
-    counter gets zeroed out from under the guard it protects (independent
-    review, 2026-08-18 — brief 'Couche-Etat-Hooks-Defauts')."""
-    if "/.claude/state/" in f"/{file_path}":
+    counter gets zeroed out from under the guard it protects (review
+    2026-08-18). Except a said-file (`said*.md`/`reformulation*.md`): speech the
+    guards read back, not a counter — refusing it killed the channel (09-28).
+    Canonical path for both: `..`, `./`, `//`, case beat a raw substring (09-29)."""
+    if is_said_file(file_path):
+        return None
+    if "/.claude/state/" in "/" + norm_path(file_path) + "/":
         return (
             "BLOCKED: .claude/state/ is machine-managed guard state, not hand-edited. "
             "RECOVERY: if a counter is stuck, fix the hook that maintains it "

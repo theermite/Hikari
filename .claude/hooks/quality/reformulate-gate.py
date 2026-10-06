@@ -45,7 +45,6 @@ already recorded for has_approved_plan.
 from __future__ import annotations
 
 import os
-import posixpath
 import re
 import sys
 import unicodedata
@@ -56,7 +55,13 @@ LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
 from common import block, get_file_path, pass_through, read_hook_input  # type: ignore  # noqa: E402
-from transcript_reader import entry_message, iter_entries  # type: ignore  # noqa: E402
+from transcript_reader import (  # type: ignore  # noqa: E402
+    entry_message,
+    iter_entries,
+    errored_tool_ids,
+    norm_path,
+    spoken_blocks,
+)
 
 # Files exempt from the gate (methodology, docs, configs)
 SKIP_PATH_PARTS = (
@@ -73,13 +78,9 @@ SKIP_PATH_PARTS = (
 )
 
 
-def _norm_path(path: str) -> str:
-    """Canonical form for every path decision in this gate: forward slashes,
-    `.`/`..` collapsed, lower case. A raw-string compare let
-    `~/.claude/plans/../../repo/src/x.py` pass as a plan file (independent
-    review 2026-09-26, 2nd round). posixpath.normpath is pure string work — it
-    never touches the disk; a symlink can still change a path's meaning."""
-    return posixpath.normpath(path.replace("\\", "/")).lower()
+# Every path decision in this gate uses the ONE canonical form, shared with the
+# said channel (transcript_reader.norm_path, `.`/`..` collapsed, 2026-09-26).
+_norm_path = norm_path
 
 
 def is_plan_file(path: str) -> bool:
@@ -95,21 +96,6 @@ def is_plan_file(path: str) -> bool:
     return any(target.startswith(_norm_path(str(r / "plans")) + "/") for r in roots)
 
 
-def is_state_reformulation_file(path: str) -> bool:
-    """`<any repo>/.claude/state/reformulation*.md`, nothing looser.
-
-    A reformulation written there is always visible to the gate: the harness
-    records every tool_use, but drops a text block whenever the model's thinking
-    is split in two (measured 2026-09-26: 391 such messages, 0 text blocks kept).
-    Not anchored to one repo on purpose — a session routinely writes into a
-    sibling repo; the body must still carry a real reformulation marker."""
-    parts = _norm_path(path).split("/")
-    return (
-        len(parts) >= 3
-        and parts[-3:-1] == [".claude", "state"]
-        and parts[-1].startswith("reformulation")
-        and parts[-1].endswith(".md")
-    )
 
 # Reformulation patterns — observable evidence in assistant output
 REFORMULATION_PATTERNS = (
@@ -266,57 +252,26 @@ def count_writes_this_turn(transcript_path: str) -> int:
     return sum(1 for tid in write_ids if result_error.get(tid) is False)
 
 
-def _state_file_reformulation(blk) -> str:
-    """Text a Write|Edit put into .claude/state/reformulation*.md, else ""."""
-    if not isinstance(blk, dict) or blk.get("type") != "tool_use":
-        return ""
-    if blk.get("name") not in ("Write", "Edit"):
-        return ""
-    inp = blk.get("input")
-    if not isinstance(inp, dict):
-        return ""
-    path = inp.get("file_path")
-    if not isinstance(path, str):
-        return ""
-    if not is_state_reformulation_file(path):
-        return ""
-    body = inp.get("content") if blk.get("name") == "Write" else inp.get("new_string")
-    return body if isinstance(body, str) else ""
-
-
 def has_reformulation_marker(transcript_path: str) -> bool:
-    """Check assistant text since the last real instruction for a reformulation.
+    """Check what Takumi said since the last real instruction for a reformulation.
 
     The boundary is the last real, instruction-bearing user message; both
     tool_result deliveries and continuation nudges keep the window open, so a
     reformulation emitted before a blocked attempt or a "go" is still honored.
+
+    "Said" = his text AND the shared said-file channel
+    (transcript_reader.spoken_blocks, 2026-09-28): the journal drops his text
+    when his thinking is split in two, never his tool calls. A said-file write
+    that FAILED counts for nothing; one still in flight counts — results land
+    only after every tool call of the message (independent review 2026-09-27).
     """
     if not transcript_path:
         return False
     texts: list[str] = []
-    state_writes: list[tuple[object, str]] = []
-    result_error: dict[str, bool] = {}
+    errored: set = set()
     for msg in _window_entries(transcript_path):
-        if msg.get("role") == "user":
-            _collect_results(msg, result_error)
-            continue
-        if msg.get("role") != "assistant":
-            continue
-        content = msg.get("content")
-        if not isinstance(content, list):
-            continue
-        for blk in content:
-            if isinstance(blk, dict) and blk.get("type") == "text" and blk.get("text"):
-                texts.append(blk["text"])
-            body = _state_file_reformulation(blk)
-            if body:
-                state_writes.append((blk.get("id"), body))
-    # A state-file write that FAILED (another guard refused it, a file lock)
-    # left no reformulation anywhere — it does not count (independent review
-    # 2026-09-27). One still in flight does: the journal writes results only
-    # after every tool call of the message, so "reformulate + edit" in one
-    # message would otherwise be refused; its content is already in the journal.
-    texts.extend(body for tid, body in state_writes if result_error.get(tid) is not True)
+        errored |= errored_tool_ids(msg)
+        texts.extend(spoken_blocks(msg, errored))
     blob = "\n".join(texts)
     return any(p.search(blob) for p in REFORMULATION_PATTERNS)
 
@@ -367,7 +322,7 @@ BLOCK_MSG = (
     "state (1) what you understood, (2) what you'll do, (3) what you won't touch, "
     "(4) files impacted. Use the keyword REFORMULATION or a numbered list mentioning "
     "files. If your text is not seen (the journal drops it when thinking is split), "
-    "Write the same reformulation to <project>/.claude/state/reformulation.md — a "
+    "Write the same reformulation to <project>/.claude/state/said.md — a "
     "tool call is always recorded. See rules/Workflows.md 'Reformulate before coding'."
 )
 

@@ -154,6 +154,13 @@ After any block (hook, rule, tool refusal): (1) read the full message → (2) ex
 (3) adapt → (4) retry once → (5) else escalate (cause + alternative + question). Never
 passive, never silently degraded. Violation = -20.
 
+**A marker the guard did not see (2026-09-28)**: the session journal drops Takumi's text
+whenever his thinking is saved in two pieces (391/391 measured, 2026-09-26) — never his tool
+calls. When a guard misses a marker he did emit (reformulation, `[VEILLE]`, `[REVIEW-BRIEF]`,
+`[ROBUSTNESS]`, `[EN-SUSPENS]`…), write the same text to `<repo>/.claude/state/said-<n>.md`:
+every guard reads that channel (`lib/transcript_reader.iter_spoken_text`). A reviewer's own
+verdict is read from its hand-back, never from Takumi's retelling.
+
 ## Jidoka — process-defect gates (discipline-enforced, no hook)
 
 Machine defects (secret, veille, complexity, rm, quick-fix) are held by Ring 0 hooks.

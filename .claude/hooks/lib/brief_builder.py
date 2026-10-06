@@ -26,7 +26,13 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from session_state import state_dir  # type: ignore  # lib/ added to sys.path by hook
-from transcript_reader import entry_message, iter_entries, iter_tool_calls  # type: ignore
+from transcript_reader import (  # type: ignore
+    entry_message,
+    errored_tool_ids,
+    iter_entries,
+    iter_tool_calls,
+    spoken_blocks,
+)
 
 
 BRIEF_NAME_TEMPLATE = "handoff-{session_id}.md"
@@ -65,14 +71,14 @@ def _iter_user_messages(transcript_path: str | Path) -> Iterator[str]:
 
 
 def _iter_assistant_messages(transcript_path: str | Path) -> Iterator[str]:
-    """Yield assistant text, latest-first."""
+    """Yield what Takumi said, latest-first — his text AND the said-file
+    channel (transcript_reader.spoken_blocks, 2026-09-28): the journal drops
+    his text when his thinking is split in two, and an [EN-SUSPENS] lost there
+    was lost at the next warm resume too."""
+    errored: set = set()
     for entry in iter_entries(transcript_path):
-        msg = entry_message(entry)
-        if msg is None:
-            continue
-        if msg.get("role") != "assistant":
-            continue
-        text = _extract_text(msg.get("content"))
+        errored |= errored_tool_ids(entry)
+        text = "\n".join(spoken_blocks(entry, errored))
         if text:
             yield text
 

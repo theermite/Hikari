@@ -123,6 +123,27 @@ def test_direct_edit_to_state_dir_is_blocked():
     assert "BLOCKED" in result.stderr
 
 
+def test_the_said_channel_is_the_one_writable_file_in_state():
+    # 2026-09-28: the reformulation channel shipped on 09-26 was dead on
+    # arrival — this guard refused every write under .claude/state/. A said
+    # file is speech, not a guard counter (lib/transcript_reader.is_said_file).
+    for path in (".claude/state/said-1.md", r"C:\repo\.claude\state\reformulation.md"):
+        result = _run(path, "REFORMULATION")
+        assert result.returncode == 0, (path, result.stderr)
+
+
+def test_counters_next_to_the_said_channel_stay_protected():
+    for path in (".claude/state/said-1.json", ".claude/state/said/x.md",
+                 ".claude/state/said-1.md/../veille-skips-abc.json",
+                 r"C:\repo\.claude\state\veille-skips-abc.json",
+                 # independent review 2026-09-29: `./`, `//` and case walked past
+                 # the raw substring test
+                 r"C:\r\.claude\.\state\c.json", "r/.claude/./state/c.json",
+                 "r/.claude//state/c.json", "r/.CLAUDE/STATE/c.json"):
+        result = _run(path, "{}")
+        assert result.returncode == 2, (path, result.stderr)
+
+
 def test_a_file_merely_named_state_elsewhere_is_not_blocked():
     # The block targets the .claude/state/ directory, not any file with
     # "state" in its name — e.g. a project's own src/state/store.ts.

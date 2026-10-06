@@ -22,6 +22,7 @@ transcript -> BLOCK with recovery message.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
@@ -31,8 +32,8 @@ HOOK_DIR = Path(__file__).resolve().parent
 LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
-from common import block, get_file_path, pass_through, read_hook_input  # type: ignore
-from transcript_reader import entry_message  # type: ignore
+from common import block, get_file_path, pass_through, read_hook_input  # type: ignore  # noqa: E402
+from transcript_reader import errored_tool_ids, spoken_blocks  # type: ignore  # noqa: E402
 
 # Extended scope: paths that require veille evidence beyond source code
 EXTENDED_SCOPE_PARTS = (
@@ -57,27 +58,22 @@ def in_extended_scope(file_path: str) -> bool:
     return any(part.replace("\\", "/").lower() in norm for part in EXTENDED_SCOPE_PARTS)
 
 
-def extract_text(entry) -> str:
+def extract_text(entry, errored: set | None = None) -> str:
     """Text Takumi actually SAID in this transcript entry, or "" if it is not
     his turn.
 
     Before 2026-09-14 this walked the WHOLE JSON tree, so a tool result
     quoting marker-shaped text (a file read whose content says "[VEILLE] ...")
     was indistinguishable from a marker Takumi actually wrote — same defect,
-    found the same day, as veille_markers.py's own _entry_text. Only role ==
-    "assistant" content blocks of type "text" count. `entry_message` is the
-    ONE shared reader now (4th independent review, 2026-09-15 -- an inline
-    copy here is what let "closes the family" stay wrong twice in a row).
+    found the same day, as veille_markers.py's own _entry_text. The inline copy
+    that followed is gone too (2026-09-28): transcript_reader.spoken_blocks is
+    the ONE reader, and it hears the said-file channel — the journal drops
+    Takumi's text when his thinking is split in two, never his tool calls.
+    `errored` = failed tool ids already seen, updated here (read backwards).
     """
-    msg = entry_message(entry)
-    if msg is None or msg.get("role") != "assistant":
-        return ""
-    content = msg.get("content")
-    if not isinstance(content, list):
-        return ""
-    chunks = [b.get("text", "") for b in content
-              if isinstance(b, dict) and b.get("type") == "text" and b.get("text")]
-    return "\n".join(chunks)
+    if errored is not None:
+        errored |= errored_tool_ids(entry)
+    return "\n".join(spoken_blocks(entry, errored or set()))
 
 
 def _speech_turns_have_a_marker(lines: list[str], limit: int) -> bool:
@@ -90,9 +86,8 @@ def _speech_turns_have_a_marker(lines: list[str], limit: int) -> bool:
     on tool-heavy sessions -- 83% of real markers sat beyond the old 40-line
     budget once tool-result echoes stopped padding it out.
     """
-    import json
-
     spent = 0
+    errored: set = set()
     for line in reversed(lines):
         line = line.strip()
         if not line:
@@ -101,7 +96,7 @@ def _speech_turns_have_a_marker(lines: list[str], limit: int) -> bool:
             entry = json.loads(line)
         except (json.JSONDecodeError, ValueError):
             continue  # not a parseable entry: never something Takumi said
-        text = extract_text(entry)
+        text = extract_text(entry, errored)
         if not text:
             continue
         spent += 1
