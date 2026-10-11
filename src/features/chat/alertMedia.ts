@@ -8,6 +8,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
 import { showMediaFor } from "../scenes/api";
 import { OVERLAY_SCENE_NAME } from "../scenes/types";
+import { requestScreen } from "../shell/panelActions";
 import type { ChatSettings } from "./chatSettings";
 import type { AlertMediaRule, ChatAlert } from "./types";
 
@@ -18,6 +19,25 @@ export function ruleForAlert(
   mapping: ChatSettings["alertMedia"],
 ): AlertMediaRule | null {
   return mapping[alert.kind] ?? null;
+}
+
+/** Le temps laissé à l'aperçu natif pour réapparaître avant d'allumer le média de test. À
+ * confirmer à l'écran (Jay) : une valeur trop courte reproduit le défaut, trop longue
+ * ralentit le geste. */
+export const TEST_SHOW_DELAY_MS = 700;
+
+/** Le bouton « Tester » : ramène sur le cockpit, PUIS montre le média. Le chrono du média
+ * court dès qu'il s'allume — le lancer avant que l'aperçu soit revenu l'éteignait pendant
+ * le changement d'écran, sans que personne ne l'ait vu. */
+export function previewAlertMedia(kind: ChatAlert["kind"], durationMs: number) {
+  requestScreen("cockpit");
+  setTimeout(() => {
+    showMediaFor(OVERLAY_SCENE_NAME, kind, durationMs).catch(
+      (error: unknown) => {
+        console.error("alertMedia: test failed", error);
+      },
+    );
+  }, TEST_SHOW_DELAY_MS);
 }
 
 /** Écoute les alertes Twitch et montre leur média réglé, s'il y en a un — la source vit

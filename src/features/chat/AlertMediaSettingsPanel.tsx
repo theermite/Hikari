@@ -17,12 +17,11 @@ import {
   removeSource,
   requestSceneList,
   setSourceVisible,
-  showMediaFor,
 } from "../scenes/api";
 import { FILE_FILTERS, parseTimedMediaSeconds } from "../scenes/sourcePicker";
 import type { EngineMessage } from "../scenes/types";
 import { OVERLAY_SCENE_NAME } from "../scenes/types";
-import { requestScreen } from "../shell/panelActions";
+import { previewAlertMedia } from "./alertMedia";
 import { ALERT_KIND_LABEL, ALERT_KINDS } from "./alerts";
 import type { ChatSettings } from "./chatSettings";
 import { loadChatSettings, patchChatSettings } from "./chatSettings";
@@ -123,13 +122,9 @@ function AlertMediaRow({
             onClick={() => {
               const durationMs =
                 parseTimedMediaSeconds(seconds) ?? rule.durationMs;
-              showMediaFor(OVERLAY_SCENE_NAME, kind, durationMs).catch(
-                (error: unknown) =>
-                  console.error("alertMedia: test failed", error),
-              );
-              // Paramètres n'a pas d'Aperçu — ramener sur le cockpit pour que le résultat
-              // se voie tout de suite (Jay, 2026-09-15 : « je ne vois pas l'aperçu »).
-              requestScreen("cockpit");
+              // Paramètres n'a pas d'Aperçu : on ramène sur le cockpit, puis le média
+              // s'allume (Jay, 2026-09-15 : « je ne vois pas l'aperçu »).
+              previewAlertMedia(kind, durationMs);
             }}
             title="Voir ce média s'afficher maintenant, comme le ferait l'alerte"
             className="rounded-[6px] border border-hikari-accent px-2 py-1 text-[11.5px] text-hikari-accent transition hover:brightness-110"
