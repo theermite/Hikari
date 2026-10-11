@@ -26,6 +26,7 @@ import {
   setSourceLocked,
   setSourceOrder,
   setSourceTransform,
+  setSourceVisible,
   setTextSettings as setTextSettingsOnEngine,
   switchScene,
 } from "./api";
@@ -168,6 +169,9 @@ export function useEngineSessionSync(params: {
           }
           if (step.do === "lock") {
             await setSourceLocked(step.scene, step.name, true);
+          }
+          if (step.do === "hide") {
+            await setSourceVisible(step.scene, step.name, false);
           }
           if (step.do === "setOrder") {
             await setSourceOrder(step.scene, step.name, step.position);

@@ -105,7 +105,19 @@ describe("toSession", () => {
       locked: false,
       order: 0,
       text: undefined,
+      visible: true,
     });
+  });
+
+  it("should_remember_a_hidden_source_as_hidden", () => {
+    // Une source de médiathèque vit CACHÉE entre deux alertes. Ne pas le retenir la
+    // ferait revenir visible en permanence au lancement suivant.
+    const doc = toSession(
+      [scene("DSK", [source({ name: "follow", visible: false })])],
+      "DSK",
+    );
+
+    expect(doc.scenes[0].sources[0].visible).toBe(false);
   });
 
   it("should_remember_the_camera_apart_from_the_other_sources", () => {
@@ -260,6 +272,33 @@ describe("buildReplay", () => {
     ]);
 
     expect(steps.filter((s) => s.do === "transform")).toHaveLength(2);
+  });
+
+  it("should_hide_a_saved_hidden_source_after_it_is_placed", () => {
+    // Sans cette étape, un média de médiathèque revient visible en permanence au
+    // lancement. Elle vient APRÈS le placement : cacher d'abord n'aurait aucun effet sur
+    // une source encore au cadre par défaut.
+    const withHidden = toSession(
+      [scene("DSK", [source({ name: "follow", visible: false })])],
+      "DSK",
+    );
+
+    const steps = buildReplay(withHidden, [scene("DSK")]);
+    const hideAt = steps.findIndex((s) => s.do === "hide");
+    const transformAt = steps.findIndex((s) => s.do === "transform");
+
+    expect(steps[hideAt]).toEqual({ do: "hide", scene: "DSK", name: "follow" });
+    expect(hideAt).toBeGreaterThan(transformAt);
+  });
+
+  it("should_not_hide_anything_for_a_session_saved_before_visibility_existed", () => {
+    // Une session déjà sur le disque ne porte pas le champ : l'absence vaut « visible ».
+    const old = toSession([scene("main", [source()])], "main");
+    for (const s of old.scenes) for (const src of s.sources) delete src.visible;
+
+    expect(
+      buildReplay(old, [scene("main")]).filter((s) => s.do === "hide"),
+    ).toEqual([]);
   });
 
   it("should_switch_to_the_live_scene_LAST", () => {

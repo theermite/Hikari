@@ -45,6 +45,10 @@ export interface SavedSource {
    * sessions écrites avant le 2026-09-12 : l'ordre d'ajout reste alors le seul repère, comme
    * avant ce correctif (Jay, 2026-09-12 : « l'ordre des sources ne se sauvegarde pas »). */
   order?: number;
+  /** Caché entre deux déclenchements (média de médiathèque). Absent des sessions écrites
+   * avant le 2026-10-11 : l'absence vaut « visible », jamais « caché » — sans quoi une
+   * session déjà sur le disque ferait disparaître toutes ses sources au lancement. */
+  visible?: boolean;
 }
 
 export interface SavedScene {
@@ -162,6 +166,7 @@ export function toSession(
           scalePercent: source.scale_percent,
           locked: source.locked,
           order: stackOrder(scene, source.name),
+          visible: source.visible,
         })),
     })),
     audio: audio.map((entry) => ({
@@ -235,6 +240,7 @@ export type ReplayStep =
     }
   | { do: "addAudio"; audio: SavedAudio }
   | { do: "lock"; scene: string; name: string }
+  | { do: "hide"; scene: string; name: string }
   | {
       /** Remet une source ou une caméra à sa position exacte dans la pile — sans elle, le
        * rejeu reconstruit l'ordre d'AJOUT, jamais l'ordre réel que l'utilisateur avait posé
@@ -424,6 +430,17 @@ export function buildReplay(
     toReorder.sort((a, b) => a.position - b.position);
     for (const { name, position } of toReorder) {
       steps.push({ do: "setOrder", scene: scene.name, name, position });
+    }
+  }
+
+  // Cacher vient APRÈS placement et ordre : une source cachée trop tôt serait quand même
+  // replacée au cadre par défaut. Seul `visible === false` cache — l'absence du champ
+  // (session ancienne) laisse la source visible.
+  for (const scene of saved.scenes) {
+    for (const source of scene.sources) {
+      if (source.visible === false) {
+        steps.push({ do: "hide", scene: scene.name, name: source.name });
+      }
     }
   }
 
