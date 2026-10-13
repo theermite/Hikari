@@ -14,7 +14,7 @@
     "format": "biome format --write src",
     "prepare-bundle": "python scripts/prepare_bundle.py",
     "bundle": "python scripts/prepare_bundle.py && tauri build",
-    "dev:engine": "cargo build --manifest-path src-tauri/Cargo.toml -p engine"
+    "dev:engine": "python scripts/sync_engine_sidecar.py --profile debug"
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "5.3.0",

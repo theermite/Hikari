@@ -5,7 +5,9 @@ Two artefacts are missing from a plain `cargo build --release`, and the Tauri bu
 reads both BEFORE it runs — so they have to exist first:
 
 1. `src-tauri/binaries/hikari-engine-<target-triple><ext>` — the engine binary under the
-   name the Tauri `externalBin` mechanism expects. Tauri strips the triple at install
+   name the Tauri `externalBin` mechanism expects. Built ALONE and copied by
+   `sync_engine_sidecar.py` (see its docstring: building the whole workspace first let
+   `tauri-build` overwrite the fresh engine with the stale sidecar — frozen since 2026-09-14). Tauri strips the triple at install
    time, so it lands as `hikari-engine.exe` right next to the app. That is exactly where
    `engine_bridge::engine_path()` looks for it (ADR-013: launched by path, never linked).
 
@@ -25,6 +27,8 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+import sync_engine_sidecar
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_TAURI = REPO_ROOT / "src-tauri"
@@ -80,8 +84,10 @@ def main() -> int:
 
     suffix = ".exe" if sys.platform == "win32" else ""
 
+    # The engine is built ALONE, before anything that builds the app: the app build runs
+    # `tauri-build`, which replaces `target/release/hikari-engine.exe` with the sidecar copy.
     if not args.skip_build:
-        run(["cargo", "build", "--workspace", "--release"], cwd=SRC_TAURI)
+        sync_engine_sidecar.sync("release")
 
     if args.refresh_runtime and RUNTIME_DIR.exists():
         shutil.rmtree(RUNTIME_DIR)
@@ -94,16 +100,21 @@ def main() -> int:
     else:
         print(f"OBS runtime already present: {RUNTIME_DIR}", flush=True)
 
-    engine = SRC_TAURI / "target" / "release" / f"{ENGINE_STEM}{suffix}"
-    if not engine.is_file():
-        raise SystemExit(
-            f"engine binary missing: {engine}\n"
-            "Run without --skip-build, or build the workspace first."
-        )
-
-    BINARIES_DIR.mkdir(parents=True, exist_ok=True)
     destination = BINARIES_DIR / sidecar_name(host_triple(), suffix)
-    shutil.copy2(engine, destination)
+    if not destination.is_file():
+        raise SystemExit(
+            f"engine sidecar missing: {destination}\n"
+            "Run without --skip-build, or build the engine first."
+        )
+    # `--skip-build` reuses the sidecar already in place: never one older than its sources.
+    if sync_engine_sidecar.is_stale(
+        destination.stat().st_mtime,
+        sync_engine_sidecar.newest_source_mtime(SRC_TAURI),
+    ):
+        raise SystemExit(
+            f"engine sidecar {destination} is older than its sources — "
+            "run without --skip-build."
+        )
     print(f"\nengine sidecar ready: {destination}", flush=True)
 
     return 0
