@@ -62,6 +62,13 @@ pub fn delete_scene(context: &mut ObsContext, name: &str) -> Result<()> {
 /// scènes côté app (même nom, en dur, côté TypeScript : `OVERLAY_SCENE_NAME`).
 pub const OVERLAY_SCENE_NAME: &str = "DSK";
 
+/// Le canal de sortie de la scène de recouvrement. Hors de la plage du mixeur audio
+/// (`audio::FIRST_AUDIO_CHANNEL` + `MAX_AUDIO_SOURCES`, soit 1 à 8) : un canal ne porte
+/// qu'UNE source, et le premier micro attaché chassait la scène DSK du canal 1 — plus aucun
+/// média ne s'affichait. libobs en offre 64 et les dessine par ordre croissant : 32 reste
+/// au-dessus de la scène active (canal 0) avec une grande marge de chaque côté.
+pub const OVERLAY_CHANNEL: u32 = 32;
+
 /// Pose `scene` sur le canal de sortie 1, composé PAR-DESSUS le canal 0 (la transition,
 /// donc la scène active) par libobs lui-même, en PERMANENCE. Jamais appelé avant que
 /// `self.obs` existe : la tentative du 2026-09-14 a bloqué `try_init` en touchant un canal
@@ -72,7 +79,7 @@ pub fn set_overlay_channel(context: &mut ObsContext, name: &str) -> Result<()> {
         .context("recherche scène")?
         .context("scène introuvable")?;
     scene
-        .set_to_channel(1)
+        .set_to_channel(OVERLAY_CHANNEL)
         .context("pose de la scène sur le canal de recouvrement")
 }
 
@@ -98,4 +105,29 @@ pub fn switch_scene(
         transitions::start_transition(transition, dest, duration_ms).context("fondu")?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::OVERLAY_CHANNEL;
+    use crate::audio::{FIRST_AUDIO_CHANNEL, MAX_AUDIO_SOURCES};
+
+    #[test]
+    fn should_keep_the_overlay_channel_out_of_the_audio_mixer_range() {
+        // Un canal libobs ne porte qu'UNE source : attacher un micro sur le canal de la
+        // scène de recouvrement la chasse, et plus aucun média ne s'affiche (vécu
+        // 2026-10-13 — le mixeur prenait les canaux 1 à 8, la scène DSK le canal 1).
+        let audio = FIRST_AUDIO_CHANNEL..FIRST_AUDIO_CHANNEL + MAX_AUDIO_SOURCES;
+        assert!(
+            !audio.contains(&OVERLAY_CHANNEL),
+            "canal {OVERLAY_CHANNEL} déjà pris par le mixeur audio {audio:?}"
+        );
+    }
+
+    #[test]
+    fn should_put_the_overlay_above_the_live_scene_channel() {
+        // Le canal 0 porte la transition (la scène active) ; libobs dessine les canaux par
+        // ordre croissant, donc le recouvrement doit être au-dessus.
+        assert!(OVERLAY_CHANNEL > 0);
+    }
 }
