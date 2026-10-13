@@ -6,8 +6,72 @@ use libobs_wrapper::scenes::{ObsSceneItemRef, SceneItemTrait};
 use libobs_wrapper::sources::ObsSourceRef;
 use winit::window::CursorIcon;
 
-use crate::{camera, emit, outline, sources, App, DragState, ItemRect};
+use crate::{camera, emit, outline, scenes, sources, App, DragState, ItemKey, ItemRect};
 use hikari_protocol::EngineMessage;
+
+/// L'empilement que voit l'utilisateur, du plus en avant au plus en arrière : d'abord les
+/// médias de la scène de recouvrement (dessinée au-dessus, `scenes::OVERLAY_CHANNEL`),
+/// puis ceux de la scène active. Chaque liste arrive déjà triée du plus en avant au plus
+/// en arrière.
+fn stack_front_first(overlay: Vec<ItemRect>, scene: Vec<ItemRect>) -> Vec<ItemRect> {
+    overlay.into_iter().chain(scene).collect()
+}
+
+/// Le premier rectangle touché par `(cx, cy)` en descendant la pile, et le coin visé s'il y
+/// en a un : l'utilisateur vise ce qu'il VOIT, jamais ce qui est caché derrière.
+fn first_hit(
+    rects: &[ItemRect],
+    cx: f32,
+    cy: f32,
+) -> Option<(&ItemRect, Option<hikari_protocol::Corner>)> {
+    rects.iter().find_map(|rect| {
+        let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
+        let corner =
+            hikari_protocol::corner_at(cx, cy, x, y, w, h, hikari_protocol::CORNER_GRAB_MARGIN);
+        (corner.is_some() || hikari_protocol::is_inside(cx, cy, x, y, w, h))
+            .then_some((rect, corner))
+    })
+}
+
+/// Mesure chaque source de `scene` et rend ses rectangles, du plus en avant au plus en
+/// arrière selon la pile RÉELLE du moteur, jamais notre ordre d'insertion : ce que
+/// l'utilisateur voit décide quelle source un clic désigne.
+fn measure_items(
+    runtime: &libobs_wrapper::runtime::ObsRuntime,
+    scene: &str,
+    items: Vec<(String, &ObsSceneItemRef<ObsSourceRef>)>,
+) -> Vec<ItemRect> {
+    let mut measured: Vec<(i32, ItemRect)> = items
+        .into_iter()
+        .filter_map(|(name, item)| {
+            let (base_w, base_h) = sources::item_base_size(runtime, item).ok()?;
+            if base_w == 0 || base_h == 0 {
+                // Source pas encore prête : rien à attraper, plutôt qu'un rectangle
+                // inventé sur une taille supposée.
+                return None;
+            }
+            let position = item.get_source_position().ok()?;
+            let scale = item.get_source_scale().ok()?;
+            let order = sources::order_position(runtime, item).ok()?;
+            Some((
+                order,
+                ItemRect {
+                    key: ItemKey {
+                        scene: scene.to_string(),
+                        name,
+                    },
+                    x: *position.x(),
+                    y: *position.y(),
+                    width: base_w as f32 * scale.x(),
+                    height: base_h as f32 * scale.y(),
+                },
+            ))
+        })
+        .collect();
+    // Décroissant, donc le plus en avant vient en premier.
+    measured.sort_by_key(|(order, _)| std::cmp::Reverse(*order));
+    measured.into_iter().map(|(_, rect)| rect).collect()
+}
 
 impl App {
     /// Forgets the cached rectangles. Called by every path that moves, resizes, adds,
@@ -69,37 +133,33 @@ impl App {
             }
         }
 
-        let wanted = items.len();
-        let mut measured: Vec<(i32, ItemRect)> = items
-            .into_iter()
-            .filter_map(|(name, item)| {
-                let (base_w, base_h) = sources::item_base_size(&runtime, item).ok()?;
-                if base_w == 0 || base_h == 0 {
-                    // Source pas encore prête : rien à attraper, plutôt qu'un rectangle
-                    // inventé sur une taille supposée.
-                    return None;
-                }
-                let position = item.get_source_position().ok()?;
-                let scale = item.get_source_scale().ok()?;
-                let order = sources::order_position(&runtime, item).ok()?;
-                Some((
-                    order,
-                    ItemRect {
-                        name,
-                        x: *position.x(),
-                        y: *position.y(),
-                        width: base_w as f32 * scale.x(),
-                        height: base_h as f32 * scale.y(),
-                    },
-                ))
-            })
-            .collect();
-        // Trié par la pile RÉELLE du moteur, jamais par notre ordre d'insertion : c'est ce
-        // que l'utilisateur voit qui décide quelle source un clic désigne. Décroissant, donc
-        // le plus en avant vient en premier.
-        measured.sort_by_key(|(order, _)| std::cmp::Reverse(*order));
+        // Les médias de la scène de recouvrement, quand ils SE VOIENT : un média caché ne se
+        // saisit pas (rien à l'écran à viser), un média verrouillé non plus. Dessinée
+        // au-dessus de la scène active, cette scène passe devant dans la pile.
+        let overlay_items: Vec<(String, &ObsSceneItemRef<ObsSourceRef>)> =
+            if scene == scenes::OVERLAY_SCENE_NAME {
+                Vec::new()
+            } else {
+                let overlay = scenes::OVERLAY_SCENE_NAME.to_string();
+                obs.scene_sources
+                    .get(&overlay)
+                    .map(|list| {
+                        list.iter()
+                            .filter(|source| {
+                                let pair = (overlay.clone(), source.name.clone());
+                                !obs.locked.contains(&pair) && !obs.hidden.contains(&pair)
+                            })
+                            .map(|source| (source.name.clone(), &source.item))
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            };
 
-        let rects: Vec<ItemRect> = measured.into_iter().map(|(_, rect)| rect).collect();
+        let wanted = items.len() + overlay_items.len();
+        let rects = stack_front_first(
+            measure_items(&runtime, scenes::OVERLAY_SCENE_NAME, overlay_items),
+            measure_items(&runtime, &scene, items),
+        );
         // Une source vient d'être posée et n'a pas encore produit d'image : elle mesure
         // 0×0, donc elle est tombée du calcul ci-dessus. Retenir cette carte incomplète la
         // rendrait inattrapable jusqu'à ce qu'un AUTRE geste vide le cache — vécu par Jay
@@ -116,16 +176,16 @@ impl App {
         &obs.pending_item_rects
     }
 
-    /// The scene item behind a name, in the active scene.
-    fn active_item(&self, name: &str) -> Option<&ObsSceneItemRef<ObsSourceRef>> {
+    /// The scene item behind a source, in ITS scene — the active one or the overlay.
+    fn item_of(&self, key: &ItemKey) -> Option<&ObsSceneItemRef<ObsSourceRef>> {
         let obs = self.obs.as_ref()?;
-        if let Some(item) = self.camera_item_by_name(&obs.active_scene, name) {
+        if let Some(item) = self.camera_item_by_name(&key.scene, &key.name) {
             return Some(item);
         }
         obs.scene_sources
-            .get(&obs.active_scene)?
+            .get(&key.scene)?
             .iter()
-            .find(|source| source.name == name)
+            .find(|source| source.name == key.name)
             .map(|source| &source.item)
     }
 
@@ -148,18 +208,18 @@ impl App {
     /// they SEE, so a source hidden behind another must never be the one that answers.
     fn hit_test(
         &mut self,
-    ) -> Option<(String, f32, f32, f32, f32, Option<hikari_protocol::Corner>)> {
+    ) -> Option<(ItemKey, f32, f32, f32, f32, Option<hikari_protocol::Corner>)> {
         let cursor = self.cursor?;
         let (cx, cy) = self.cursor_in_canvas(cursor)?;
-        for rect in self.active_item_rects() {
-            let (x, y, w, h) = (rect.x, rect.y, rect.width, rect.height);
-            let corner =
-                hikari_protocol::corner_at(cx, cy, x, y, w, h, hikari_protocol::CORNER_GRAB_MARGIN);
-            if corner.is_some() || hikari_protocol::is_inside(cx, cy, x, y, w, h) {
-                return Some((rect.name.clone(), x, y, w, h, corner));
-            }
-        }
-        None
+        let (rect, corner) = first_hit(self.active_item_rects(), cx, cy)?;
+        Some((
+            rect.key.clone(),
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height,
+            corner,
+        ))
     }
 
     /// Which pointer shape the current cursor position calls for, and — même geste — le
@@ -219,14 +279,14 @@ impl App {
         let Some((cx, cy)) = self.cursor_in_canvas(cursor) else {
             return;
         };
-        let Some((name, x, y, w, h, corner)) = self.hit_test() else {
+        let Some((key, x, y, w, h, corner)) = self.hit_test() else {
             return;
         };
         self.drag = Some(match corner {
             Some(corner) => {
                 let (anchor_is_left, anchor_is_top) = corner.anchor_side();
                 DragState::Resize {
-                    name,
+                    key,
                     anchor_x: if anchor_is_left { x } else { x + w },
                     anchor_y: if anchor_is_top { y } else { y + h },
                     anchor_is_left,
@@ -234,7 +294,7 @@ impl App {
                 }
             }
             None => DragState::Move {
-                name,
+                key,
                 grab_offset_x: cx - x,
                 grab_offset_y: cy - y,
             },
@@ -251,31 +311,31 @@ impl App {
         // `self` en entier.
         let drag = match &self.drag {
             Some(DragState::Move {
-                name,
+                key,
                 grab_offset_x,
                 grab_offset_y,
-            }) => Some((name.clone(), None, (*grab_offset_x, *grab_offset_y))),
+            }) => Some((key.clone(), None, (*grab_offset_x, *grab_offset_y))),
             Some(DragState::Resize {
-                name,
+                key,
                 anchor_x,
                 anchor_y,
                 anchor_is_left,
                 anchor_is_top,
             }) => Some((
-                name.clone(),
+                key.clone(),
                 Some((*anchor_x, *anchor_y, *anchor_is_left, *anchor_is_top)),
                 (0.0, 0.0),
             )),
             None => None,
         };
-        let Some((name, resize, (grab_x, grab_y))) = drag else {
+        let Some((key, resize, (grab_x, grab_y))) = drag else {
             return;
         };
         match resize {
             Some((anchor_x, anchor_y, anchor_is_left, anchor_is_top)) => {
-                self.apply_resize(&name, cx, anchor_x, anchor_y, anchor_is_left, anchor_is_top)
+                self.apply_resize(&key, cx, anchor_x, anchor_y, anchor_is_left, anchor_is_top)
             }
-            None => self.apply_move(&name, cx - grab_x, cy - grab_y),
+            None => self.apply_move(&key, cx - grab_x, cy - grab_y),
         }
     }
 
@@ -285,22 +345,22 @@ impl App {
     /// source. C'est ce qui rend un cadrage propre atteignable à la souris, sans viser au
     /// pixel — et ça ne coûte rien quand on place volontairement de travers, l'aimantation
     /// ne corrigeant jamais au-delà de sa portée.
-    fn apply_move(&mut self, name: &str, x: f32, y: f32) {
-        let (x, y) = self.snapped(name, x, y);
-        let Some(item) = self.active_item(name) else {
+    fn apply_move(&mut self, key: &ItemKey, x: f32, y: f32) {
+        let (x, y) = self.snapped(key, x, y);
+        let Some(item) = self.item_of(key) else {
             return;
         };
         let result = camera::set_camera_position(item, x as i32, y as i32);
-        self.report_transform(name, result);
+        self.report_transform(key, result);
     }
 
     /// La position aimantée d'une source, ou la position brute si le cadre ou la taille de
     /// la source sont inconnus — jamais une aimantation devinée sur des dimensions supposées.
-    fn snapped(&mut self, name: &str, x: f32, y: f32) -> (f32, f32) {
+    fn snapped(&mut self, key: &ItemKey, x: f32, y: f32) -> (f32, f32) {
         let Some((width, height)) = self
             .active_item_rects()
             .iter()
-            .find(|rect| rect.name == name)
+            .find(|rect| rect.key == *key)
             .map(|rect| (rect.width, rect.height))
         else {
             return (x, y);
@@ -317,7 +377,7 @@ impl App {
     /// aspect ratio is kept — a squashed image is never what the user meant.
     fn apply_resize(
         &mut self,
-        name: &str,
+        key: &ItemKey,
         cursor_x: f32,
         anchor_x: f32,
         anchor_y: f32,
@@ -326,7 +386,7 @@ impl App {
     ) {
         let Some(obs) = &self.obs else { return };
         let runtime = obs.context.runtime().clone();
-        let Some(item) = self.active_item(name) else {
+        let Some(item) = self.item_of(key) else {
             return;
         };
         let Ok((base_w, base_h)) = sources::item_base_size(&runtime, item) else {
@@ -346,11 +406,11 @@ impl App {
             base_w as f32 * scale,
             base_h as f32 * scale,
         );
-        let Some(item) = self.active_item(name) else {
+        let Some(item) = self.item_of(key) else {
             return;
         };
         let result = camera::set_camera_transform(item, new_x as i32, new_y as i32, scale);
-        self.report_transform(name, result);
+        self.report_transform(key, result);
     }
 
     /// Shared tail of both gestures: forget the cached rectangles and report what really
@@ -364,14 +424,10 @@ impl App {
     ///
     /// La question « est-ce une caméra ? » se pose donc AVANT de demander son identifiant,
     /// avec la même fonction qui répond déjà oui/non ailleurs dans ce fichier.
-    fn report_transform(&mut self, name: &str, result: Result<(i32, i32, i32)>) {
-        let scene = self
-            .obs
-            .as_ref()
-            .map(|obs| obs.active_scene.clone())
-            .unwrap_or_default();
-        let device_id = if self.camera_item_by_name(&scene, name).is_some() {
-            self.camera_device_id_by_name(&scene, name)
+    fn report_transform(&mut self, key: &ItemKey, result: Result<(i32, i32, i32)>) {
+        let scene = key.scene.clone();
+        let device_id = if self.camera_item_by_name(&scene, &key.name).is_some() {
+            self.camera_device_id_by_name(&scene, &key.name)
         } else {
             String::new()
         };
@@ -390,5 +446,58 @@ impl App {
                 message: err.to_string(),
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rect(scene: &str, name: &str, x: f32) -> ItemRect {
+        ItemRect {
+            key: ItemKey {
+                scene: scene.into(),
+                name: name.into(),
+            },
+            x,
+            y: 0.0,
+            width: 100.0,
+            height: 100.0,
+        }
+    }
+
+    #[test]
+    fn should_answer_with_the_overlay_media_when_it_covers_a_scene_source() {
+        // DSK est dessinée au-dessus de la scène active : ce que l'utilisateur VOIT devant
+        // est ce qu'un clic désigne, même si une source de la scène est dessous.
+        let stack = stack_front_first(
+            vec![rect("DSK", "follow", 0.0)],
+            vec![rect("main", "Krom Kam", 0.0)],
+        );
+
+        let (hit, _) = first_hit(&stack, 50.0, 50.0).expect("un clic sur les deux touche");
+
+        assert_eq!(hit.key.scene, "DSK");
+    }
+
+    #[test]
+    fn should_keep_two_sources_with_the_same_name_in_different_scenes_apart() {
+        // Un média d'alerte « follow » et une source « follow » de la scène active existent
+        // côte à côte : saisir l'un ne doit jamais déplacer l'autre.
+        let stack = stack_front_first(
+            vec![rect("DSK", "follow", 0.0)],
+            vec![rect("main", "follow", 500.0)],
+        );
+
+        let (hit, _) = first_hit(&stack, 550.0, 50.0).expect("la source de main est touchée");
+
+        assert_eq!(hit.key.scene, "main");
+    }
+
+    #[test]
+    fn should_hit_nothing_off_every_source() {
+        let stack = stack_front_first(vec![], vec![rect("main", "Krom Kam", 0.0)]);
+
+        assert!(first_hit(&stack, 900.0, 900.0).is_none());
     }
 }

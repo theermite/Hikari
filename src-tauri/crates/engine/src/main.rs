@@ -267,9 +267,18 @@ struct ObsInner {
     hidden: std::collections::HashSet<(String, String)>,
 }
 
-/// Where one source of the active scene sits, in canvas pixels.
-struct ItemRect {
+/// Une source désignée sans ambiguïté : sa scène ET son nom. Le nom seul ne suffit plus
+/// depuis que la souris saisit aussi les médias de la scène de recouvrement : un média de
+/// DSK peut porter le nom d'une source de la scène active.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ItemKey {
+    scene: String,
     name: String,
+}
+
+/// Where one grabbable source sits, in canvas pixels.
+struct ItemRect {
+    key: ItemKey,
     x: f32,
     y: f32,
     width: f32,
@@ -346,7 +355,7 @@ enum DragState {
     /// pixels. Keeping that offset is what makes the source follow the cursor instead of
     /// jumping so its corner snaps under the pointer on the first move.
     Move {
-        name: String,
+        key: ItemKey,
         grab_offset_x: f32,
         grab_offset_y: f32,
     },
@@ -355,7 +364,7 @@ enum DragState {
     /// sliding while it resizes. Read once at press time: re-deriving it from the live
     /// rectangle each move would chase its own changes.
     Resize {
-        name: String,
+        key: ItemKey,
         anchor_x: f32,
         anchor_y: f32,
         anchor_is_left: bool,
