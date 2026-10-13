@@ -7,15 +7,17 @@
 //! panel and reports the rect; this module keeps the native window following it as it
 //! moves, resizes, or its tab goes inactive.
 //!
-//! Known gap: if the app process itself is killed (not just the Aperçu panel closed),
-//! the engine child is not guaranteed to die with it (Windows does not do this by
-//! default) — acceptable for this brick, revisit if it causes a real orphaned-process
-//! problem in practice.
+//! Closing: `stop_engine_inner` never waits for the engine forever — it asks politely
+//! (`Stop`), waits a bounded time, then kills (`wait_or_kill`). Closing the main window
+//! ends the app (`exit_when_main_window_closes`), which stops the engine on the way out.
+//! If the app is killed outright, the engine still exits on its own when its input pipe
+//! closes (`stdin_reader.rs`).
 
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use hikari_protocol::{parse_engine_message, to_line, ControllerCommand, EngineMessage};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -25,12 +27,21 @@ use crate::preview_bridge::{graft_preview_window, hide_preview_window, position_
 
 /// The main window's label — the single window Hikari opens today (`tauri.conf.json`
 /// declares no explicit label, so Tauri assigns the default `"main"`).
-const MAIN_WINDOW_LABEL: &str = "main";
+pub(crate) const MAIN_WINDOW_LABEL: &str = "main";
 
 /// Sane placeholder rect (16:9, top-left) used only for the brief window between the
 /// Aperçu panel mounting (which starts the engine) and its first real rect report — the
 /// panel reports its true rect on mount, almost always before `PreviewReady` even arrives.
 const FALLBACK_RECT: (i32, i32, u32, u32) = (0, 0, 320, 180);
+
+/// How long a polite `Stop` is given before the engine is killed. The debug engine needs
+/// about a second to free its sources; four leaves a wide margin without ever holding
+/// the app (or its closing window) hostage.
+const ENGINE_STOP_TIMEOUT: Duration = Duration::from_secs(4);
+
+/// After the main window is gone, the process must end even if the normal exit path
+/// never completes (measured 2026-10-13: the app stayed alive with no window).
+const EXIT_WATCHDOG: Duration = Duration::from_secs(6);
 
 pub(crate) struct EngineHandle {
     pub(crate) child: Child,
@@ -222,11 +233,49 @@ fn stop_engine_inner(state: &EngineState) -> Result<(), String> {
     handle.stopping.store(true, Ordering::Relaxed);
     let line = to_line(&ControllerCommand::Stop).map_err(|err| err.to_string())?;
     writeln!(handle.stdin, "{line}").map_err(|err| format!("envoi Stop au moteur: {err}"))?;
-    handle
-        .child
-        .wait()
-        .map_err(|err| format!("attente arrêt moteur: {err}"))?;
+    if !wait_or_kill(&mut handle.child, ENGINE_STOP_TIMEOUT) {
+        eprintln!(
+            "[engine] arrêt forcé : pas de réponse au signal de fin en {ENGINE_STOP_TIMEOUT:?}"
+        );
+    }
     Ok(())
+}
+
+/// Waits for `child` to exit, at most `timeout`, then kills it. Returns `true` when it
+/// exited on its own. Never blocks forever: a stuck engine must not hold the app.
+pub(crate) fn wait_or_kill(child: &mut Child, timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => return true,
+            Ok(None) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            // Deadline passed, or the state cannot be read: stop it for good.
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return false;
+            }
+        }
+    }
+}
+
+/// The main window is gone: stop the engine, then end the app. A watchdog guarantees the
+/// process ends even if the normal exit path does not (2026-10-13: the app stayed alive
+/// with no window, its engine at 1 GB, until killed by hand).
+pub(crate) fn exit_when_main_window_closes(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(EXIT_WATCHDOG);
+        eprintln!("[app] sortie forcée : l'arrêt normal n'a pas abouti");
+        std::process::exit(0);
+    });
+    let state = app.state::<EngineState>();
+    if let Err(err) = stop_engine_inner(&state) {
+        eprintln!("[app] arrêt du moteur à la fermeture : {err}");
+    }
+    app.exit(0);
 }
 
 /// Starts the real RTMP stream (B2a). The engine resolves its target from its OWN
@@ -439,5 +488,40 @@ mod tests {
         // Etat incoherent (un drapeau reste a vrai apres un arret brutal) : on retombe sur
         // le cas sur, jamais sur un relancement surprise.
         assert_eq!(plan_target_reload(false, true), TargetReload::NothingToDo);
+    }
+
+    #[cfg(windows)]
+    fn spawn_cmd(script: &str) -> std::process::Child {
+        std::process::Command::new("cmd")
+            .args(["/C", script])
+            .stdout(Stdio::null())
+            .spawn()
+            .expect("cmd doit se lancer")
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn should_report_a_clean_exit_without_killing_anything() {
+        let mut child = spawn_cmd("exit 0");
+
+        let exited_alone = wait_or_kill(&mut child, std::time::Duration::from_secs(10));
+
+        assert!(exited_alone);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn should_kill_a_child_that_outlives_the_timeout() {
+        // Un moteur qui ne répond plus au signal de fin ne doit jamais retenir l'application
+        // à la fermeture : constaté le 2026-10-13, l'app restait en vie sans fenêtre, avec
+        // son moteur à 1 Go, jusqu'à ce qu'on les tue à la main.
+        let mut child = spawn_cmd("ping -n 40 127.0.0.1 >NUL");
+        let started = std::time::Instant::now();
+
+        let exited_alone = wait_or_kill(&mut child, std::time::Duration::from_millis(300));
+
+        assert!(!exited_alone);
+        assert!(started.elapsed() < std::time::Duration::from_secs(10));
+        assert!(child.try_wait().expect("lecture de l'état").is_some());
     }
 }

@@ -26,6 +26,16 @@ pub fn run() {
     // rather than composing them, so every command (Twitch B2b, deck B4) is listed here,
     // in one place, instead of split across each module's own `register()`.
     tauri::Builder::default()
+        // Fermer la fenêtre principale termine l'application ET son moteur. Constaté le
+        // 2026-10-13 : sans cela l'app restait en vie sans fenêtre, le moteur avec elle.
+        .on_window_event(|window, event| {
+            use tauri::Manager;
+            if window.label() == engine_lifecycle::MAIN_WINDOW_LABEL
+                && matches!(event, tauri::WindowEvent::Destroyed)
+            {
+                engine_lifecycle::exit_when_main_window_closes(window.app_handle());
+            }
+        })
         .manage(deck_bridge::DeckState::default())
         .manage(engine_lifecycle::EngineState::default())
         .manage(chat::ChatState::default())
