@@ -11,6 +11,18 @@ use hikari_protocol::{EngineMessage, SourceInfo};
 
 use crate::{camera, emit, App, CameraFilters, CameraItem, OpenCamera};
 
+/// Vrai si `device_id` est déjà posée dans `scene`. Une caméra est UNE source partagée, mais
+/// chaque scène ne porte qu'UN élément pour elle : le couple (scène, appareil) est la clé de
+/// `camera_items`. Poser une seconde fois écrasait cette clé sans retirer le premier élément
+/// de la scène — la caméra s'affichait deux fois, et la copie restait absente de la liste.
+fn already_placed<V>(
+    items: &std::collections::HashMap<(String, String), V>,
+    scene: &str,
+    device_id: &str,
+) -> bool {
+    items.contains_key(&(scene.to_string(), device_id.to_string()))
+}
+
 impl App {
     /// Ouvre l'appareil `device_id` : une source libobs et ses deux filtres, une seule fois
     /// par appareil. Ne la pose dans aucune scène — c'est le travail de `handle_add_camera`.
@@ -59,6 +71,18 @@ impl App {
             emit(&EngineMessage::Error {
                 message: "AddCamera avant l'initialisation".into(),
             });
+            return;
+        }
+        // Idempotent : le rejeu de session redemande les caméras, et un second ajout du même
+        // appareil dans la même scène créait une seconde copie (Jay, 2026-10-13 : « ma
+        // caméra s'affiche deux fois »). Ni refus ni bandeau : rien n'est cassé, il n'y a
+        // juste rien à ajouter.
+        if self
+            .obs
+            .as_ref()
+            .is_some_and(|obs| already_placed(&obs.camera_items, &scene, &device_id))
+        {
+            eprintln!("[engine] CAMERA DEJA POSEE scene={scene:?} — ajout ignoré");
             return;
         }
         if !self
@@ -439,5 +463,44 @@ impl App {
                 message: err.to_string(),
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::already_placed;
+
+    fn placed(pairs: &[(&str, &str)]) -> HashMap<(String, String), ()> {
+        pairs
+            .iter()
+            .map(|(scene, device)| ((scene.to_string(), device.to_string()), ()))
+            .collect()
+    }
+
+    #[test]
+    fn should_report_a_camera_already_placed_in_that_very_scene() {
+        // Une seconde demande pour le même couple (scène, appareil) ne doit jamais créer
+        // une seconde copie dans la scène : l'image s'affichait deux fois, et la copie
+        // restait invisible dans la liste des sources (Jay, 2026-10-13).
+        let items = placed(&[("Dofus Touch", "cam:1")]);
+
+        assert!(already_placed(&items, "Dofus Touch", "cam:1"));
+    }
+
+    #[test]
+    fn should_not_report_the_same_camera_placed_in_another_scene() {
+        // Une même caméra peut figurer dans plusieurs scènes, chacune avec son cadrage.
+        let items = placed(&[("main", "cam:1")]);
+
+        assert!(!already_placed(&items, "LoL", "cam:1"));
+    }
+
+    #[test]
+    fn should_not_report_another_device_in_the_same_scene() {
+        let items = placed(&[("main", "cam:1")]);
+
+        assert!(!already_placed(&items, "main", "cam:2"));
     }
 }
