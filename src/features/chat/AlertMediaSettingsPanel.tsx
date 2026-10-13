@@ -21,7 +21,7 @@ import {
 import { FILE_FILTERS, parseTimedMediaSeconds } from "../scenes/sourcePicker";
 import type { EngineMessage } from "../scenes/types";
 import { OVERLAY_SCENE_NAME } from "../scenes/types";
-import { previewAlertMedia } from "./alertMedia";
+import { placeNewAlertMedia, previewAlertMedia } from "./alertMedia";
 import { ALERT_KIND_LABEL, ALERT_KINDS } from "./alerts";
 import type { ChatSettings } from "./chatSettings";
 import { loadChatSettings, patchChatSettings } from "./chatSettings";
@@ -79,6 +79,7 @@ function AlertMediaRow({
         : Promise.resolve();
       clear
         .then(() => addCaptureSource(OVERLAY_SCENE_NAME, fileKind, path, kind))
+        .then(() => placeNewAlertMedia(kind))
         .then(() => setSourceVisible(OVERLAY_SCENE_NAME, kind, false))
         .then(() => {
           const durationMs = parseTimedMediaSeconds(seconds) ?? 3_000;
@@ -210,8 +211,10 @@ export function AlertMediaSettingsPanel(_props: IDockviewPanelProps) {
     <div className="flex flex-col gap-1.5">
       <p className="text-[11px] text-hikari-txt-faint">
         Le média reste posé — une alerte le montre puis le cache, sans jamais le
-        détruire. Vide = rien ne s'affiche pour ce type. Position et taille se
-        règlent dans le panneau Scènes, sur la scène « 🖼️ médiathèque ».
+        détruire. Vide = rien ne s'affiche pour ce type. Pour le placer : sur le
+        cockpit, déplie « 🖼️ médiathèque » dans Scènes et montre le média avec
+        l'œil, déplace-le et agrandis-le à la souris sur l'aperçu, puis
+        cache-le.
       </p>
       {ALERT_KINDS.map((kind) => (
         <AlertMediaRow

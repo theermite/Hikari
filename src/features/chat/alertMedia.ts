@@ -6,7 +6,7 @@
 
 import { listen } from "@tauri-apps/api/event";
 import { useEffect } from "react";
-import { showMediaFor } from "../scenes/api";
+import { setSourceTransform, showMediaFor } from "../scenes/api";
 import { OVERLAY_SCENE_NAME } from "../scenes/types";
 import { requestScreen } from "../shell/panelActions";
 import type { ChatSettings } from "./chatSettings";
@@ -19,6 +19,27 @@ export function ruleForAlert(
   mapping: ChatSettings["alertMedia"],
 ): AlertMediaRule | null {
   return mapping[alert.kind] ?? null;
+}
+
+/** La taille de départ d'un média posé dans la médiathèque, en % de sa taille native. Une
+ * image d'emote fait couramment 1592 px : à 100 % elle recouvre tout l'aperçu (Jay,
+ * 2026-10-13). Ajustable ensuite à la souris sur l'aperçu. */
+export const DEFAULT_MEDIA_SCALE_PERCENT = 20;
+
+/** Où un média neuf se pose, en pixels du canevas — un peu à l'écart du coin, jamais collé
+ * au bord. */
+const DEFAULT_MEDIA_OFFSET_PX = 40;
+
+/** Réduit et dégage un média qui vient d'être posé dans la médiathèque. À appeler UNE fois,
+ * juste après l'ajout : un média déjà placé à la souris ne doit pas être remis à zéro. */
+export function placeNewAlertMedia(kind: ChatAlert["kind"]): Promise<void> {
+  return setSourceTransform(
+    OVERLAY_SCENE_NAME,
+    kind,
+    DEFAULT_MEDIA_OFFSET_PX,
+    DEFAULT_MEDIA_OFFSET_PX,
+    DEFAULT_MEDIA_SCALE_PERCENT,
+  );
 }
 
 /** Le temps laissé à l'aperçu natif pour réapparaître avant d'allumer le média de test. À
