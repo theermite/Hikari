@@ -10,7 +10,8 @@ audio-channel fix) silently never shipped.
 
 The cure is the ORDER: build the engine alone (the app crate is not built, so `tauri-build`
 cannot clobber it), copy cargo's own reported artifact into `binaries/`, then let the app
-build pick that copy up. A guard refuses an engine older than its sources.
+build pick that copy up. The copy is checked byte for byte; the date guard
+(`is_stale`) only protects the one path where no build happens (`prepare_bundle --skip-build`).
 
 Usage: `python scripts/sync_engine_sidecar.py [--profile debug|release]`.
 """
@@ -127,11 +128,14 @@ def build_engine(profile: str) -> Path:
 
 
 def sync(profile: str) -> Path:
+    # No "older than its sources" check here: cargo itself decides whether the engine is
+    # up to date, and it relinks the executable even when the file was overwritten (measured
+    # 2026-10-14: a stale engine put over `target/debug/hikari-engine.exe` was replaced by a
+    # fresh build). A date comparison on top of that only raised false alarms — bumping the
+    # app version in `Cargo.toml` made a perfectly fresh engine look "stale" and blocked the
+    # dev launch. The date guard stays for ONE case, in `prepare_bundle --skip-build`: an
+    # engine reused without any build, where nothing else vouches for it.
     built = build_engine(profile)
-    if is_stale(built.stat().st_mtime, newest_source_mtime(SRC_TAURI)):
-        raise SystemExit(
-            f"engine {built} is older than its sources — refusing to embed a stale engine"
-        )
     suffix = ".exe" if sys.platform == "win32" else ""
     destination = BINARIES_DIR / f"{ENGINE_BIN}-{host_triple()}{suffix}"
     install_sidecar(built, destination)
