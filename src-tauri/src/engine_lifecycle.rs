@@ -138,6 +138,9 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
     let stdout = child.stdout.take().ok_or("stdout du moteur indisponible")?;
     let stopping = Arc::new(AtomicBool::new(false));
     let stopping_reader = Arc::clone(&stopping);
+    // Le journal des directs (images perdues) : un fichier par jour dans le dossier de
+    // données de l'application. Absent si ce dossier est introuvable — sans effet sur le moteur.
+    let stream_log_dir = app.path().app_data_dir().ok().map(|dir| dir.join("logs"));
 
     std::thread::spawn(move || {
         // Le moteur a-t-il fini de s'initialiser ?
@@ -152,9 +155,21 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
         // Après ce signal, un échec est la conséquence de quelque chose : ce que
         // l'utilisateur vient de demander, ou ce que la session rejoue pour lui.
         let mut initialized = false;
+        let mut stream_log = crate::stream_log::StreamLog::new();
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             match parse_engine_message(&line) {
                 Ok(msg) => {
+                    if let Some(dir) = &stream_log_dir {
+                        let now = crate::accounts::vault::now_unix();
+                        let settings = if matches!(msg, EngineMessage::Started) {
+                            crate::stream_log::describe_encoding(&app)
+                        } else {
+                            String::new()
+                        };
+                        if let Some(entry) = stream_log.on_message(&msg, now, &settings) {
+                            crate::stream_log::append_line(dir, now, &entry);
+                        }
+                    }
                     if let EngineMessage::PreviewReady { hwnd } = &msg {
                         graft_into_panel_rect(&app, *hwnd);
                     }

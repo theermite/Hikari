@@ -19,6 +19,7 @@ pub mod preflight_bridge;
 pub mod preview_bridge;
 pub mod protocol;
 pub mod settings_window;
+pub mod stream_log;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
