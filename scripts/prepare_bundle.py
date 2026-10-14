@@ -107,7 +107,10 @@ def main() -> int:
             "Run without --skip-build, or build the engine first."
         )
     # `--skip-build` reuses the sidecar already in place: never one older than its sources.
-    if sync_engine_sidecar.is_stale(
+    # ONLY then: after a normal build the engine was just compiled by cargo, and a date
+    # comparison on top of that raised false alarms (2026-10-14: the version bump in
+    # `Cargo.toml` made a fresh engine look stale and aborted a release).
+    if args.skip_build and sync_engine_sidecar.is_stale(
         destination.stat().st_mtime,
         sync_engine_sidecar.newest_source_mtime(SRC_TAURI),
     ):
