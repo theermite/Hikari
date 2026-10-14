@@ -1,10 +1,10 @@
 ---
 title: Hikari Stream — PET (Plan d'Exécution Technique)
 created: 2026-07-11
-updated: 2026-09-09
+updated: 2026-10-14
 status: active
 type: pet
-version: 1.9.0
+version: 1.9.1
 project: Hikari Stream
 ---
 
@@ -1155,7 +1155,7 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
   modération/alertes (scope non élargi tant qu'aucune brique ne l'utilise). Fichiers :
   `src-tauri/src/chat/{mod,twitch,youtube,moderation,alerts}.rs` ·
   `src/features/chat/*`. Modération auto (spam/liens/mots interdits) hors de cette partie.
-- **Reste** : médias pop-up + bandeaux sur le stream (F-033/F-034, détaillé au CDC §3quinquies)
+- **Reste** : bandeaux d'information (F-034). Les médias pop-up (F-033) sont livrés et prouvés (points 5 à 7 ci-dessous). Détail au CDC §3quinquies.
   — deux chemins décidés (natif : image/GIF/vidéo déjà construit ; web : WebView2 réutilisé,
   jamais un second moteur type CEF), choix laissé à l'utilisateur. Découpage validé avec Jay
   le 2026-09-15, chemin natif en premier :
@@ -1171,12 +1171,21 @@ REND, ce que la clé de rendu vaut). Le vert ne prouve que ce qu'on a pensé à 
      son écran de réglage (Paramètres → « Alertes → médias », `AlertMediaSettingsPanel.tsx`).
   4. ✅ **Prouvé à l'écran le 2026-09-15** — recouvrement permanent : une scène réservée
      (« DSK », `scenes::OVERLAY_SCENE_NAME`) créée automatiquement par le moteur, posée sur
-     le canal de sortie 1, visible sur TOUTE scène active. C'était le vrai besoin derrière
+     le canal de sortie 1 (déplacée sur le canal 32 le 2026-10-13, voir ADR-015), visible sur TOUTE scène active. C'était le vrai besoin derrière
      F-033/F-034 (pas un média posé dans une scène choisie) — le spike du 2026-09-14 avait
      échoué en touchant le canal avant l'initialisation vidéo ; corrigé structurellement
      (la commande n'agit qu'après confirmation complète du moteur). Les alertes et le
      déclenchement manuel posent désormais leur média sur cette scène, sans champ scène à
      choisir. Jay confirme : « la source (l'image) s'affiche bien sur toutes les scènes ».
+  5. ✅ **Prouvé à l'écran les 2026-10-13/14 — médiathèque persistante** : un média posé dans
+     DSK se montre puis se cache (`ShowMediaFor`), reste caché au relancement (champ `visible`
+     de la session, étape de rejeu `hide`), et s'affiche enfin sur l'aperçu depuis le passage de
+     DSK sur le canal 32. Jay (0.6.2) : « le test de média a fonctionné ».
+  6. ✅ **Prouvé (Jay, 2026-10-13)** — un média visible de DSK se déplace et se redimensionne
+     à la souris sur l'aperçu (comme une caméra) ; un média neuf se pose à 20 % de sa taille.
+     Position et taille sauvegardées dans la session (relues dans `scene-layout.json`).
+  7. 🟧 **Reste de F-033** : déclenchement par deck et par automation (la source reste, seule
+     l'étape « montrer pendant N secondes » est à brancher) — pas commencé.
 
   Un spike de superposition permanente
   (scène sur un second canal libobs) a bloqué le moteur le 2026-09-14 sans cause trouvée —
@@ -1399,6 +1408,8 @@ contournement, ou pire, un spike qu'on garde « parce qu'il est testé ».
 - **ADR-011 (2026-07-16)** : **Le moteur expose une interface interne stable ; le deck n'est qu'un client.** Le moteur d'automations offre trois opérations — *lister les automations exposables · en lancer une (avec arguments) · s'abonner aux événements*. Le **deck local** (B4) et le **deck distant** (B5) sont deux clients de cette même interface. **Pourquoi** : (1) zéro logique dupliquée entre local et distant — donc zéro dérive entre les deux ; (2) c'est le modèle prouvé de Streamer.bot, dont le deck officiel et les greffons tiers passent tous par la même interface (analyse concurrence §2, §6) ; (3) ça rend le deck remplaçable sans toucher au moteur. **Corollaire (CDC §13 anti-pattern #4)** : cette interface vit **dans l'application**, jamais derrière le pont VPS — le deck local doit marcher sans réseau. Le pont distant est un client de plus, pas un passage obligé.
 - **ADR-012 (2026-07-16)** : **Le déclencheur est un attribut de l'automation, pas une nature.** Un clic de bouton, une commande de chat, un événement et un minuteur sont le même mécanisme ; l'automation ignore qui l'a déclenchée. **Pourquoi** : sans ça, « les automations » et « les boutons du deck » deviennent deux modèles à maintenir en parallèle, avec deux endroits où corriger un bug. Vérifié par rétro-ingénierie (le fichier de données réel de Streamer.bot stocke `triggers[]` comme un simple attribut de l'action). **Conséquence produit** : une automation à déclencheur « bouton » apparaît **d'office** comme touche assignable ; les autres non, sauf demande explicite.
 - **ADR-013 (2026-07-17)** : **Le moteur vidéo tourne dans un PROCESSUS SÉPARÉ, jamais dans l'application.** L'app lui parle par un tuyau. **Pourquoi** : (1) **c'est prouvé** — `league_record` le fait depuis mars 2022 (Tauri + Rust + moteur d'OBS, application livrée, binaires téléchargés) via ses modules `intprocess-recorder` + `ipc-link` + le binaire `extprocess_recorder` ; (2) ça **contourne** la friction async au lieu de la combattre — un moteur qui ne partage pas notre fil ne peut pas geler notre interface, et le README du pont dit noir sur blanc que « la fonctionnalité async a été retirée à cause de toutes sortes de problèmes » ; (3) **c'est l'ADR-001 rendu réel** — la raison fondatrice de Jay était d'isoler les pannes ; un processus séparé est l'isolation la plus forte qui existe : le moteur peut mourir, l'app survit et le relance. **Conséquence** : le spike B0.0 teste cette forme, il ne la découvre pas. **Coût connu** : un tuyau à maintenir, et la latence qu'il ajoute (à mesurer).
+- **ADR-015 (2026-10-14)** : **Un canal de sortie libobs ne porte qu'UNE source, vidéo ou audio.** Le mixeur audio prend les canaux 1 à 8 ; la scène de recouvrement DSK est sur le canal **32** (libobs en offre 64, dessinés par ordre croissant). Un test échoue si les deux plages se recouvrent. *Constaté : sur le canal 1, le premier micro attaché chassait DSK et aucun média ne s'affichait.*
+- **ADR-016 (2026-10-14)** : **Le moteur embarqué est compilé SEUL, puis copié dans `src-tauri/binaries/`, avant toute compilation de l'application.** `tauri-build` efface le moteur compilé et le remplace par la copie de `binaries/` à chaque build de l'app ; sans cet ordre, le moteur embarqué restait figé (14/09 → 13/10, installeur 0.6.1 compris). Script : `scripts/sync_engine_sidecar.py`, appelé par `dev:engine` et `prepare_bundle`.
 - **ADR-014 (2026-07-17)** : **Le plancher matériel d'Hikari = plancher publié d'OBS + notre surcoût mesuré.** **Pourquoi** (correction de cadrage de Jay) : mesurer « ça marche sur la machine de Jay » ne sert presque à rien — Hikari doit tourner chez n'importe qui, et une machine est **un point**, jamais une courbe. En revanche, **le surcoût par rapport à OBS nu est transférable** : si on coûte X % de plus qu'OBS à travail égal, ce X vaut sur toutes les machines. OBS publie ses exigences et a dix ans de terrain → on **hérite** de son plancher, on mesure seulement ce qu'on **ajoute**. **Conséquences** : (1) toute épreuve de performance exige une **mesure de référence sur OBS nu**, sinon elle ne parle que de la machine de test ; (2) le code **détecte** la capacité matérielle à l'exécution, il ne la **présume** jamais (F-003) ; (3) la vraie matrice matérielle (AMD, Intel, sans encodeur) vient des **premiers utilisateurs**, jamais d'un spike. **Amendement 2026-07-17 (Jay)** : la mesure du surcoût vs OBS se fait sur l'**application finie**, jamais sur un spike nu — le coût d'un spike n'est pas le coût du produit. B0.0 a mesuré le coût *absolu* d'Hikari (faible) et prouvé la faisabilité ; la comparaison vs OBS est reportée à la fin du développement.
 
 ## 13. Déviations vs CDC
@@ -1427,3 +1438,4 @@ contournement, ou pire, un spike qu'on garde « parce qu'il est testé ».
 | 2026-07-17 | Takumi (session dév) | **Passe d'exhaustivité vague 1 (§7bis).** Fiches autonomes B0.3/B1/B2/B3 (7 champs + vérité externe). **B1 scindé** B1a/B1b (aperçu cross-process = mini-spike). Le PET devient exécutable en autonome, brique par brique, sur le chemin critique. Version 1.5.0 → 1.6.0. |
 | 2026-08-04→06 | Takumi (session dév) | 🧱 **9 briques + persistance — 35 commits (`5ad9618`→`605293a`).** Multi-scènes étape 2 **prouvée** (point rouge levé) · étape 3 (panneau dédié) partielle · B7 souris **prouvée** · B6 tranches 1-3 (mixeur, anti-bruit, volumes casque/public + fenêtre de réglages) · **B-sources** brique neuve **prouvée** (jeu/fenêtre/écran/image/vidéo, liseré, aimantation, recherche) · **B-persist** scènes+sources **prouvées**, caméra+audio **non prouvées**. Arbitrage de Jay : *« pas suffisamment avancé pour que je puisse dire que je vais l'utiliser »* → le ducking passe après l'utilisabilité, d'où B-sources. Tests : 134 JS + 190 Rust verts, 0 lint. **Fait marquant : 12 défauts sur 12 trouvés à l'écran, 0 par les tests** — ils tournent hors du navigateur de l'app. Détail + 4 leçons : `docs/Sessions/Session-2026-08-06-001.md`. |
 | 2026-07-17 | Takumi (session dév) | 🧱 **B0.0 EXÉCUTÉ → GO branche A.** Scaffold workspace 2 processus (Rust **stable**, nightly écarté). **(a)** diffusion RTMP NVENC prouvée (reçue par MediaMTX) · **(b)** survie + relance du moteur prouvée des 2 côtés · **(c)** coût Hikari mesuré (CPU 0,8 % / GPU 27 % / RAM 487 Mo). Comparaison vs OBS + (d)/(e) **différées fin de dev** (décision Jay). Commits `78bde90`→`eb08e3e`. Preuves : `spikes/b0.0-libobs/mesures/`. |
+| 2026-10-14 | Takumi (session dév) | 🧱 **Stabilisation — 15 commits (`1c65974`→`9feda1d`), 0.6.2 → 0.6.4 publiées.** Déclenchement média prouvé ; **moteur embarqué figé depuis un mois (installeur 0.6.1 compris) corrigé** ; DSK sur le canal 32 ; médias déplaçables ; fermeture propre app+moteur ; journal des directs ; « Tester » débloqué. Voir `docs/Sessions/Session-2026-10-14-001.md`. |
