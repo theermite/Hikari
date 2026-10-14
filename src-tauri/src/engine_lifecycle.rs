@@ -53,6 +53,21 @@ pub(crate) struct EngineHandle {
     /// memoire que `libobs` classe en erreur. Sans ce drapeau, cet inventaire s'affichait
     /// a l'utilisateur sous « Le moteur a refuse » (Jay, 2026-09-07).
     pub(crate) stopping: Arc<AtomicBool>,
+    /// Un direct est-il RÉELLEMENT en cours ? Posé par le fil qui lit la sortie du moteur,
+    /// jamais par l'envoi d'un ordre : le moteur peut refuser (aucune destination), et une
+    /// note posée trop tôt empêchait ensuite tout relancement du moteur (voir
+    /// `plan_target_reload`). Partagé comme `stopping`, pour la même raison.
+    pub(crate) streaming: Arc<AtomicBool>,
+}
+
+/// Ce que devient le drapeau « direct en cours » à la lecture d'un message du moteur.
+/// Fonction pure : c'est la seule décision du sujet.
+pub(crate) fn streaming_after(current: bool, msg: &EngineMessage) -> bool {
+    match msg {
+        EngineMessage::Started => true,
+        EngineMessage::StreamStopped | EngineMessage::Stopped => false,
+        _ => current,
+    }
 }
 
 /// Runtime state: the engine child (if running), the grafted preview's HWND (if
@@ -61,9 +76,6 @@ pub(crate) struct EngineRuntime {
     pub(crate) handle: Option<EngineHandle>,
     pub(crate) preview_hwnd: Option<i64>,
     pub(crate) panel_rect: (i32, i32, u32, u32),
-    /// Un direct est-il en cours ? Sert a REFUSER de relancer le moteur pendant qu'il
-    /// diffuse (voir `plan_target_reload`) — relancer couperait le direct.
-    pub(crate) streaming: bool,
 }
 
 impl Default for EngineRuntime {
@@ -72,7 +84,6 @@ impl Default for EngineRuntime {
             handle: None,
             preview_hwnd: None,
             panel_rect: FALLBACK_RECT,
-            streaming: false,
         }
     }
 }
@@ -138,6 +149,8 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
     let stdout = child.stdout.take().ok_or("stdout du moteur indisponible")?;
     let stopping = Arc::new(AtomicBool::new(false));
     let stopping_reader = Arc::clone(&stopping);
+    let streaming = Arc::new(AtomicBool::new(false));
+    let streaming_reader = Arc::clone(&streaming);
     // Le journal des directs (images perdues) : un fichier par jour dans le dossier de
     // données de l'application. Absent si ce dossier est introuvable — sans effet sur le moteur.
     let stream_log_dir = app.path().app_data_dir().ok().map(|dir| dir.join("logs"));
@@ -159,6 +172,10 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             match parse_engine_message(&line) {
                 Ok(msg) => {
+                    streaming_reader.store(
+                        streaming_after(streaming_reader.load(Ordering::Relaxed), &msg),
+                        Ordering::Relaxed,
+                    );
                     if let Some(dir) = &stream_log_dir {
                         let now = crate::accounts::vault::now_unix();
                         let settings = if matches!(msg, EngineMessage::Started) {
@@ -221,6 +238,7 @@ async fn start_engine_inner(app: &AppHandle, state: &EngineState) -> Result<(), 
         child,
         stdin,
         stopping,
+        streaming,
     });
     Ok(())
 }
@@ -239,7 +257,6 @@ fn stop_engine_inner(state: &EngineState) -> Result<(), String> {
         .lock()
         .map_err(|_| "verrou moteur corrompu".to_string())?;
     guard.preview_hwnd = None;
-    guard.streaming = false;
     let Some(mut handle) = guard.handle.take() else {
         return Ok(());
     };
@@ -306,11 +323,13 @@ pub(crate) fn exit_when_main_window_closes(app: &AppHandle) {
 /// `hikari_protocol::with_bandwidth_test`.
 #[tauri::command]
 pub(crate) fn start_stream(state: State<EngineState>, test: bool) -> Result<(), String> {
-    send(&state, ControllerCommand::StartStream { test }, "StartStream")?;
-    if let Ok(mut guard) = state.0.lock() {
-        guard.streaming = true;
-    }
-    Ok(())
+    // Le drapeau « direct en cours » n'est PAS posé ici : c'est le message `Started` du
+    // moteur qui le pose (`streaming_after`). Un ordre envoyé n'est pas un direct démarré.
+    send(
+        &state,
+        ControllerCommand::StartStream { test },
+        "StartStream",
+    )
 }
 
 /// Stops the current stream. The engine and its preview stay alive — only the output is
@@ -318,8 +337,10 @@ pub(crate) fn start_stream(state: State<EngineState>, test: bool) -> Result<(), 
 #[tauri::command]
 pub(crate) fn stop_stream(state: State<EngineState>) -> Result<(), String> {
     let result = send(&state, ControllerCommand::StopStream, "StopStream");
-    if let Ok(mut guard) = state.0.lock() {
-        guard.streaming = false;
+    if let Ok(guard) = state.0.lock() {
+        if let Some(handle) = guard.handle.as_ref() {
+            handle.streaming.store(false, Ordering::Relaxed);
+        }
     }
     result
 }
@@ -413,7 +434,7 @@ fn graft_into_panel_rect(app: &AppHandle, engine_hwnd: i64) {
     };
     let (x, y, w, h) = guard.panel_rect;
     if let Err(err) = graft_preview_window(engine_hwnd, host_hwnd.0 as i64, x, y, w, h) {
-        eprintln!("[preview] graft failed: {err}");
+        eprintln!("[preview] graft failed: {err:#}");
         return;
     }
     guard.preview_hwnd = Some(engine_hwnd);
@@ -437,7 +458,13 @@ pub(crate) async fn reload_broadcast_target(
             .0
             .lock()
             .map_err(|_| "verrou moteur corrompu".to_string())?;
-        plan_target_reload(guard.handle.is_some(), guard.streaming)
+        plan_target_reload(
+            guard.handle.is_some(),
+            guard
+                .handle
+                .as_ref()
+                .is_some_and(|handle| handle.streaming.load(Ordering::Relaxed)),
+        )
     };
     if plan == TargetReload::Restart {
         stop_engine_inner(state)?;
@@ -503,6 +530,38 @@ mod tests {
         // Etat incoherent (un drapeau reste a vrai apres un arret brutal) : on retombe sur
         // le cas sur, jamais sur un relancement surprise.
         assert_eq!(plan_target_reload(false, true), TargetReload::NothingToDo);
+    }
+
+    #[test]
+    fn should_note_a_live_only_when_the_engine_says_it_started() {
+        // Constaté le 2026-10-14 : l'application notait « direct en cours » dès l'envoi de
+        // l'ordre, le moteur refusait (aucune destination), et la note restait — plus aucune
+        // reconnexion de compte ne relançait alors le moteur.
+        assert!(streaming_after(false, &EngineMessage::Started));
+        assert!(!streaming_after(
+            false,
+            &EngineMessage::Error {
+                message: "Aucune destination de diffusion".into()
+            }
+        ));
+    }
+
+    #[test]
+    fn should_forget_the_live_when_the_stream_or_the_engine_stops() {
+        assert!(!streaming_after(true, &EngineMessage::StreamStopped));
+        assert!(!streaming_after(true, &EngineMessage::Stopped));
+    }
+
+    #[test]
+    fn should_keep_the_live_noted_through_ordinary_messages() {
+        assert!(streaming_after(
+            true,
+            &EngineMessage::Frames {
+                dropped: 0,
+                total: 10
+            }
+        ));
+        assert!(!streaming_after(false, &EngineMessage::Ready));
     }
 
     #[cfg(windows)]

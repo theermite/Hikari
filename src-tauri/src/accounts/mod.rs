@@ -8,6 +8,7 @@
 //! desktop app; verified against Twitch's own docs and the `twitch_oauth2` crate source).
 
 pub mod oauth;
+pub mod single_flight;
 pub mod twitch;
 pub mod twitch_channel;
 pub mod twitch_stream;

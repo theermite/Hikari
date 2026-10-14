@@ -42,7 +42,7 @@ pub(crate) async fn resolve_broadcast_target() -> Option<(String, Secret)> {
             Some((server, key))
         }
         Err(err) => {
-            eprintln!("[twitch] destination illisible ({err})");
+            eprintln!("[twitch] destination illisible ({err:#})");
             None
         }
     }

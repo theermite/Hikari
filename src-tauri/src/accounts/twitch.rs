@@ -207,32 +207,43 @@ fn token_expires_in_secs(token: &twitch_oauth2::UserToken) -> u64 {
 /// injoignable) — le SEUL cas où prévenir l'utilisateur est justifié, il doit se
 /// reconnecter dans Paramètres.
 pub async fn usable_token(http: &reqwest::Client) -> Result<Option<StoredToken>, String> {
-    let token = match vault::load(Platform::Twitch) {
-        Ok(Some(token)) => token,
-        Ok(None) => return Ok(None),
+    let load = || match vault::load(Platform::Twitch) {
+        Ok(token) => token,
         Err(err) => {
             eprintln!("[twitch] coffre illisible ({err})");
-            return Ok(None);
+            None
         }
     };
-
-    if !vault::is_expired(&token, now_unix()) {
-        return Ok(Some(token));
-    }
-
-    match refresh(&token, TWITCH_CLIENT_ID, http).await {
-        Ok(renewed) => {
-            if let Err(err) = vault::store(Platform::Twitch, &renewed) {
-                // Le renouvellement a marché, l'écriture non : on rend quand même le jeton
-                // neuf à l'appelant, mais la trace dit pourquoi ça recommencera au prochain
-                // lancement (même choix que `resolve_broadcast_target` avant l'extraction).
-                eprintln!("[twitch] jeton renouvelé mais non rangé ({err})");
+    // UN renouvellement à la fois : au démarrage le moteur, le chat et les infos du direct
+    // demandent ce jeton en même temps, et Twitch émet un jeton de renouvellement neuf à
+    // chaque appel — les appels simultanés se concurrençaient, le perdant était refusé
+    // et le moteur démarrait sans destination (2026-10-14). Voir `single_flight`.
+    super::single_flight::renew_once(
+        &RENEWAL_GATE,
+        load,
+        |token| !vault::is_expired(token, now_unix()),
+        |token| async move {
+            match refresh(&token, TWITCH_CLIENT_ID, http).await {
+                Ok(renewed) => {
+                    if let Err(err) = vault::store(Platform::Twitch, &renewed) {
+                        // Le renouvellement a marché, l'écriture non : on rend quand même le
+                        // jeton neuf à l'appelant, mais la trace dit pourquoi ça recommencera
+                        // au prochain lancement.
+                        eprintln!("[twitch] jeton renouvelé mais non rangé ({err})");
+                    }
+                    Ok(renewed)
+                }
+                // `{err:#}` : la CAUSE (réponse de Twitch, réseau), pas seulement « renouvellement
+                // du jeton Twitch » qui ne disait rien.
+                Err(err) => Err(format!("renouvellement refusé ({err:#})")),
             }
-            Ok(Some(renewed))
-        }
-        Err(err) => Err(format!("renouvellement refusé ({err})")),
-    }
+        },
+    )
+    .await
 }
+
+/// La porte commune des renouvellements de jeton Twitch (voir `usable_token`).
+static RENEWAL_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[cfg(test)]
 mod tests {
