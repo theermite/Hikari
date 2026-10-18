@@ -2,7 +2,7 @@
 //
 // POURQUOI ce module existe en plus de `suppression.ts` : nos propres fenêtres surgissantes
 // appellent `suppressPreview()` elles-mêmes, parce qu'on écrit leur code. Le panneau
-// d'adaptation vient du module `@theermite/morphic-adapter`, et sa version 2.0.0-beta.1
+// d'adaptation vient du module `@theermite/morphic-adapter`, et jusqu'à sa version 2.0.0-beta.4
 // n'expose aucun signal d'ouverture — impossible de lui demander de s'annoncer.
 //
 // Alors on regarde s'il EST là, plutôt que d'écouter ce qui l'ouvre. C'est la différence
