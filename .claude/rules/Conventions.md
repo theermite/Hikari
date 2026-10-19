@@ -8,6 +8,11 @@
 content = French ; commit type/scope = English, description EN or FR ; i18n keys EN,
 values FR (source) / EN / ES.
 
+**Chat with Jay is French, held by code** (Jay 2026-10-18): the Stop hook
+`french-reply-check` refuses an English prose paragraph (>= 25 words, outside code) once
+per turn, unless Jay wrote in English or asked for it. A written memory alone did not hold
+(relapse 2026-10-11).
+
 **Literal artefacts stay English, even inside a French doc** (Jay 2026-07-17): a French
 doc has French prose, NOT translated identifiers. Keep in English: markers to emit
 (`[VEILLE]`, `[ROBUSTNESS]`, `[SKB]`) · templates the AI emits verbatim (the

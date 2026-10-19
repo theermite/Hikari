@@ -31,6 +31,14 @@ Five new hooks promoting the highest-impact methodology rules from documentation
 **Recovery** — `git push` (or `git push -u origin <branch>` on a new branch).
 **Tests** — `tests/test_d1_post_commit_push.py` (8 cases).
 
+### `guards/frozen-copy-alert.py` (PostToolUse Bash, WARN — added 2026-10-18)
+
+**Trigger** — any git command in the Kata repo (it carries `scripts/propagate-methodology.py`) after HEAD moved over a file a project keeps a frozen copy of.
+**Action** — compares the Kata file with the SHA-256 the copy recorded (`<project>/…/SHA256SUMS`, next to Kata) and tells the session which copy is behind and where its refresh steps live. Silent elsewhere; never blocks.
+**Why** — Dogu freezes Kata's shell guard and secret masker as the reference its Elixir code must match (`Dogu/test-fixtures/oracle/`). Kata kept evolving and nothing said the copy was behind (Jay, 2026-10-18; measured that day: 8 masker fixes missing from Dogu).
+**Registry and full report** — `lib/frozen_copies.py` (`COPIES`); `python3 .claude/hooks/lib/frozen_copies.py [--strict]`.
+**Tests** — `tests/test_frozen_copies.py` (18 cases, 11 on a real temporary repo). Speaks once per new state of Kata (last HEAD judged kept in `.claude/state/`), on any git command — commit, merge, pull, `git -C` from another project —, reads the committed content, not the disk.
+
 ### D2 — `guards/pre-deploy-vault-check.py` (PreToolUse Bash, BLOCK)
 
 **Trigger** — Bash command matching a deploy verb (`docker compose up`, `systemctl restart`, `deploy.sh`, `vercel --prod`, `fly deploy`, `kubectl apply`, `helm upgrade`, `ssh ... docker|systemctl`, etc.).

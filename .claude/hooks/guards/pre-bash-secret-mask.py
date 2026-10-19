@@ -70,9 +70,37 @@ _SUSPICIOUS_PATTERNS = tuple(
         r"\bssh\s+\S+.*\b(docker|env|printenv)\b",
         r"\bprintenv\b",
         r"\benv\b",
-        r"\bcat\s+\S*\.env\S*",
-        r"\bcat\s+\S*\.(pem|key)\b",
-        r"\bid_rsa\b",
+        # Un FICHIER de secrets, quel que soit le lecteur (cat, grep, head, sed,
+        # awk, less, python, jq...). Incident 2026-10-11 : `cat ~/.npmrc | grep
+        # -v token | head` a affiche l'identifiant du registre prive en clair —
+        # seule la forme `cat .env` etait surveillee. La famille se nomme par le
+        # fichier lu, jamais par la commande qui le lit.
+        r"(?<![\w-])\.env(?:[.\w-]*)?(?![\w/])",
+        r"(?<![\w-])envs/[\w.-]+\.env\b",
+        r"\.(?:npmrc|netrc|pypirc|git-credentials|pgpass)\b",
+        r"\bhtpasswd\b",
+        r"\.docker/config\.json\b",
+        r"\bcredentials\.json\b",
+        r"\bage-key(?:\.txt)?\b",
+        r"\bsops\b(?=.*(?:\s-d\b|--decrypt\b|\bexec-env\b|\bexec-file\b))",
+        r"\S\.(?:pem|key)\b",
+        r"\bid_(?:rsa|ed25519|ecdsa|dsa)\b",
+        # L'environnement d'un PROCESSUS en cours. Incident 2026-10-11
+        # (MNK-Terminal) : `cat /proc/<pid>/environ | ... | sed 's/=.*TOKEN.*/...'`
+        # a affiche la cle de signature d'un service — le filtre maison ne
+        # visait que les noms en TOKEN. Un service systemd porte ses secrets
+        # dans son environnement : /proc et `systemctl show|cat` sont de la
+        # meme famille que `printenv`.
+        # Relecture independante du meme jour (FAIL) : le numero vient souvent
+        # d'une variable ou d'un `$(pgrep ...)`, d'un joker ou d'un fil (task/) ;
+        # `ps e` montre le meme environnement ; une option a valeur
+        # (`-p Environment`) se glisse avant `show` ; le fichier d'unite porte
+        # les memes lignes Environment= que `systemctl cat`.
+        r"/proc/[^|;&\n]*\benviron\b",
+        r"\bps\b[^|;&\n]*\s-?[a-z]*e[a-z]*\b",
+        r"\bsystemctl\b[^|;&\n]*\s(?:show|cat)\b",
+        r"\bsystemd/\S*\.(?:service|conf)\b",
+        r"\bbusctl\b.*\bEnvironment\b",
         r"\bkubectl\s+get\s+secret\b",
         r"\bkubectl\s+exec\b",
         r"\bsecretsmanager\s+get-secret-value\b",

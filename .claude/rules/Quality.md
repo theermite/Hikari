@@ -32,8 +32,8 @@ Real DB for integration (no DB mock). Tests named `should_[action]_when_[conditi
 **Coverage Floors — et QUI les tient (mesuré 2026-09-05)**
 
 Un seuil que rien n'exécute donne une fausse assurance, ce qui coûte plus cher
-qu'une absence de seuil. La colonne de droite dit la vérité mesurée : 68
-garde-fous branchés, 21 peuvent refuser une action, et **aucun ne mesure une
+qu'une absence de seuil. La colonne de droite dit la vérité mesurée : 70
+garde-fous branchés, 22 peuvent refuser une action, et **aucun ne mesure une
 couverture de tests**.
 
 | Scope | Min | Tenu par |

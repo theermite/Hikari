@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -28,7 +30,10 @@ _spec = importlib.util.spec_from_file_location("hook_health_check", SONDE)
 mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(mod)
 
-BASH = r"C:\Program Files\Git\usr\bin\bash.exe"
+# Git Bash on Windows (what the Bash tool runs under there); the system bash on
+# Linux and macOS, where the same launcher runs on the VPS and the laptop.
+BASH = (r"C:\Program Files\Git\usr\bin\bash.exe" if os.name == "nt"
+        else shutil.which("bash") or "/bin/bash")
 
 
 def _lance(args, entree=""):

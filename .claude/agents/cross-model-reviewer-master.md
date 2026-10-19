@@ -37,19 +37,30 @@ déclarait légitime de faire relire de l'Opus par du Sonnet ou du Haiku. C'est 
 configuration que la recherche mesure comme **dégradante** — un relecteur moins capable
 rate ce que le rédacteur a raté, et rend un avis rassurant.
 
+**Fable est interdit (Jay 2026-10-19)** — ni rédacteur, ni relecteur, quel que soit
+l'enjeu : il consomme le quota. Refusé à l'appel par `hooks/guards/model-ban-guard.py`.
+Sans lui, aucun modèle d'Anthropic n'est au-dessus d'Opus. Décision de Jay, même jour :
+**Opus relit Opus dans un contexte neuf**, et DeepSeek (passerelle `llm-gateway`, déjà
+juge du chantier autonome) reste un relecteur admis.
+
 | Rédacteur | Relecteur | Légitime ? |
 |--------|----------|------------|
-| `claude-opus-5` | `claude-fable-5` | OUI — famille distincte, capacité supérieure |
-| `claude-opus-5` | un modèle non-Anthropic de capacité comparable | OUI — meilleur croisement possible |
+| `claude-opus-5` | `claude-opus-5` **en contexte neuf** (voir conditions) | OUI — décision Jay 2026-10-19 |
+| `claude-opus-5` | DeepSeek via `llm-gateway` | OUI — famille distincte (capacité face à Opus non mesurée : le dire dans le rapport) |
 | `claude-sonnet-5` | `claude-opus-5` | OUI — relecteur plus fort |
-| `claude-opus-5` | `claude-opus-5` | **NON — BLOCKING**, auto-validation |
+| `claude-opus-5` | `claude-opus-5` dans la MÊME conversation | **NON — BLOCKING**, auto-validation |
 | `claude-opus-5` | `claude-sonnet-5` | **NON** — relecteur plus faible, dégradant |
 | `claude-opus-5` | `claude-haiku-4-5` | **NON** — même défaut, en pire |
+| tout rédacteur | Fable, toute version | **NON — BLOCKING**, interdit (Jay 2026-10-19) |
 
-**Meilleure pratique** : croiser les familles à capacité égale ou supérieure. Croiser les
-TAILLES vers le bas n'est pas un croisement, c'est une perte de vue. Déclarer en tête de
-rapport : « Rédacteur : X | Relecteur : Y ». Si Y == X, ou si Y est plus faible que X →
-STOP.
+**Conditions d'un contexte neuf** (sans elles, c'est de l'auto-validation) : brief écrit
+de zéro, sans l'historique ni le raisonnement du rédacteur ; consigne explicite de
+réfuter ; rapport en `chemin:ligne`. Le relecteur ouvre le code lui-même, il ne relit pas
+le récit du rédacteur.
+
+**Meilleure pratique** : jamais un relecteur plus faible que le rédacteur. Déclarer en
+tête de rapport : « Rédacteur : X | Relecteur : Y (contexte neuf | autre famille) ». Si Y
+est plus faible que X, ou si Y partage la conversation du rédacteur → STOP.
 
 **Prix à l'esprit** : un relecteur fort coûte plus cher par jeton. Un défaut trouvé après
 mise en ligne coûte une session de correction, une mise à jour et la confiance de

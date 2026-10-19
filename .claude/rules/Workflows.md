@@ -90,6 +90,27 @@ If a PET has unstarted bricks, implementation goes through native plan mode. The
 plan = the reformulation + the authorization. One atomic commit per brick (never a giant
 commit for N bricks). The plan authorizes scope, never quality (TDG/veille/tests/lint/
 security apply).
+A design document (`docs/PET.md`, `docs/CDC.md`, `docs/Briefs/*.md`) shown to Jay and
+answered by an exact approval word is the same authorization for the reformulate gate
+(Jay 2026-10-18, `has_design_approval`). So is Jay's own last instruction that names a
+brick of the project's `docs/PET.md` and is not a question (`names_a_pet_brick`; never a
+sub-agent's brief). Only that gate relaxes.
+
+## Autonomy contract — who types the command (BLOCKING — Jay 2026-10-18)
+
+Jay is not the executor. Three columns, in this order of preference:
+
+| Who | What |
+|---|---|
+| **Takumi alone** | Routine and reversible: tests, logs, server reads, commits, restarting one container |
+| **Takumi, one click from Jay** | What Takumi cannot do with his own rights: run it in Jay's terminal tab (`run_in_terminal`), Jay approves the line instead of typing it |
+| **Jay alone** (closed list) | A secret VALUE, a consent click or dashboard action at a third party, admin rights (UAC), a physical act |
+
+**Why**: measured on 24 local sessions, the real causes of a hand-off are missing rights
+(Windows admin, refused permissions), not unwillingness. **Proof**: `hooks/quality/handoff-nudge.py`
+(Stop) keeps the turn open once when a reply asks Jay to run a command block without a
+closed-list reason; 0 false positives on 1532 past replies. Without hook: say which closed-list
+reason applies in the same sentence that hands the command over.
 
 ## Context Engineering
 

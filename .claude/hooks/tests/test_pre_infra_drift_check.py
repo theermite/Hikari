@@ -17,6 +17,7 @@ fake check-drift script whose exit code we control (0 = clean, 1 = drift,
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -51,12 +52,17 @@ def _make_workspace(tmp_path: Path, *, has_infra: bool, drift_exit: int) -> Path
 
 
 def _run(payload: dict, *, cwd: Path) -> subprocess.CompletedProcess:
+    # The hook also looks in ~/apps/Shinkofa-Infra (VPS layout). Point the home
+    # directory at the fake workspace, or a real VPS with Shinkofa-Infra checked
+    # out leaks into "no infra repo" and the test reads the machine, not the case.
+    env = {**os.environ, "HOME": str(cwd.parent), "USERPROFILE": str(cwd.parent)}
     return subprocess.run(
         [sys.executable, str(HOOK)],
         input=json.dumps(payload).encode("utf-8"),
         capture_output=True,
         timeout=20,
         cwd=str(cwd),
+        env=env,
     )
 
 

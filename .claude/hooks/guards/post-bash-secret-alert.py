@@ -5,10 +5,11 @@ Fallback net for pre-bash-secret-mask.py: that hook only wraps a fixed list
 of suspicious commands (docker exec, docker compose config, ssh+docker, cat
 .env, printenv). Any OTHER command can still print a secret nobody expected.
 
-This hook CANNOT redact what already ran — `updatedToolOutput` is ignored on
-this Claude Code build (verified live, 2026-08-30: a PostToolUse hook that
-returns it has zero effect, the model still receives the real output). All
-it can do is warn loudly so the value gets rotated (brief §6, honest limit).
+This hook only warns. The redaction itself is guards/post-tool-secret-redact.py
+(PostToolUse on every tool, `updatedToolOutput`, verified live 2026-10-18 on a
+Read; the 2026-08-30 "no effect" finding no longer holds on this build). This
+net stays for what the strict profile lets through (a secret with the 32+ chars
+shape and no name or prefix): warn loudly so the value gets rotated.
 
 RECOVERY PRINCIPLE: never blocks — the leak already happened, blocking now
 protects nothing (same principle as pre-bash-secret-mask.py).

@@ -62,6 +62,18 @@ reports, his design documents, the conversation with him.
 them durably. The identity he already publishes may appear. Account keys and
 fraud-risk data: never.
 
+**Exception — context served to the models working for him (Jay, 2026-10-09,
+confirmed 2026-10-16)**: his profile and way of working, his memories and notes
+(Shinzo) and his knowledge base (Eichi) ARE ALLOWED to be served as working
+context to the AI models that work for him: his Claude subscription (Claude
+Code, harness) and the models reached through his own LLM gateway (DeepSeek,
+Azure). His words: « un assistant personnel qui n'a pas accès aux informations
+qui lui sont nécessaires pour travailler, n'est pas un assistant autonome ».
+Bounds, unchanged: secrets never · account keys and fraud-risk data never (Gate
+A) · third-party data never — a note or memory naming an end user is not served
+(Gate C) · only for work done for him, never published · a provider outside his
+subscription or his gateway is not covered.
+
 **Protocol when an identity is required for an outbound action (LITERAL)**:
 (1) STOP, no default, no fallback, no example. (2) Ask, exact template, in
 French: « Quelle [adresse mail | nom | compte | identité] dois-je utiliser pour
@@ -133,6 +145,7 @@ data.
 | `Co-Authored-By: Takumi "IA Dev Partner"` | the Co-Authored-By line of commits ONLY |
 | His public identity (professional name, handle, profiles, domain) | internal contexts and the public contexts of his own projects |
 | His profile and way of working | internal working files, memories, notes, design documents |
+| His profile, memories (Shinzo), knowledge (Eichi) | context served to the models working for him (Gate A exception, bounds above) |
 | Values already visible in the repo's public files | that public context |
 
 **Clarification X1**: never write the personal e-mail into a commit body, code

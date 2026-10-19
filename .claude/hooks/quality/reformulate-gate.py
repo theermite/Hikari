@@ -47,7 +47,6 @@ from __future__ import annotations
 import os
 import re
 import sys
-import unicodedata
 from pathlib import Path
 
 HOOK_DIR = Path(__file__).resolve().parent
@@ -55,6 +54,7 @@ LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
 from common import block, get_file_path, pass_through, read_hook_input  # type: ignore  # noqa: E402
+from reformulate_agreements import has_design_approval, names_a_pet_brick  # type: ignore  # noqa: E402
 from transcript_reader import (  # type: ignore  # noqa: E402
     entry_message,
     iter_entries,
@@ -62,6 +62,7 @@ from transcript_reader import (  # type: ignore  # noqa: E402
     norm_path,
     spoken_blocks,
 )
+from user_turns import _is_continuation_message, _is_real_user_message  # type: ignore  # noqa: E402
 
 # Files exempt from the gate (methodology, docs, configs)
 SKIP_PATH_PARTS = (
@@ -120,77 +121,6 @@ REFORMULATION_PATTERNS = (
 # allow-list so a malformed value can never traverse out of its directory
 # (cross-model review 2026-07-29 reproduced a real write outside .claude/state/).
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
-
-
-def _is_real_user_message(msg: dict) -> bool:
-    """True for a human-typed user turn; False for tool_result deliveries.
-
-    Tool results are delivered as role=user messages carrying tool_result
-    blocks. They must NOT be treated as a turn boundary, otherwise a blocked
-    attempt (which produces an error tool_result) would cut the window short.
-    """
-    if not isinstance(msg, dict) or msg.get("role") != "user":
-        return False
-    content = msg.get("content")
-    if isinstance(content, str):
-        return True
-    if isinstance(content, list):
-        for blk in content:
-            if isinstance(blk, dict) and blk.get("type") == "tool_result":
-                return False
-        return True
-    return False
-
-
-# Continuation / approval nudges — a short message that resumes in-progress work
-# WITHOUT carrying a new instruction ("go", "reprends", "gelé ?"). Such a message
-# must NOT reset the reformulation window: the reformulation made before the
-# nudge still covers the writes that follow it, until Jay gives a genuinely new
-# instruction (Jay 2026-06-16, Notes-Jay "Hooks — Friction"). A false positive
-# here only skips a redundant reformulation prompt; the real gates (veille,
-# tests, lint) still fire on every write — same risk profile as has_approved_plan.
-CONTINUATION_WORDS = frozenset({
-    "",  # bare punctuation ("?", "...") normalizes to empty
-    # FR + EN approval words (mirror Interpretation-Protocol "Approval Words")
-    "ok", "okay", "oui", "go", "go go", "go ahead", "valide", "continue",
-    "vas y", "vasy", "approuve", "d accord", "parfait", "nickel", "top", "super",
-    "c est bon", "lance", "lance toi", "fais", "fais le", "execute", "banco",
-    "feu vert", "yes", "proceed", "confirmed", "approved", "approve", "confirm",
-    "validate", "lgtm", "perfect", "do it", "let s go", "lets go", "looks good",
-    "green light", "ship it",
-    # relances / nudges (no new instruction)
-    "reprends", "reprend", "suite", "la suite", "next", "encore", "et apres",
-    "et ensuite", "alors", "gele", "tu es la", "t es la", "tes la", "toujours la",
-    "tu dors", "bloque", "tu es gele", "tu es bloque",
-})
-
-
-def _strip_accents(text: str) -> str:
-    nfkd = unicodedata.normalize("NFKD", text)
-    return "".join(c for c in nfkd if not unicodedata.combining(c))
-
-
-def _normalize(text: str) -> str:
-    """Lowercase, drop accents, strip terminal punctuation, collapse spaces."""
-    t = _strip_accents(text).lower().strip().strip(".?!…,;:")
-    t = t.replace("-", " ").replace("'", " ")
-    return " ".join(t.split())
-
-
-def _user_text(msg: dict) -> str:
-    content = msg.get("content")
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts = [b.get("text", "") for b in content
-                 if isinstance(b, dict) and b.get("type") == "text"]
-        return " ".join(parts)
-    return ""
-
-
-def _is_continuation_message(msg: dict) -> bool:
-    """A real user message that is purely a relance/approval nudge."""
-    return _normalize(_user_text(msg)) in CONTINUATION_WORDS
 
 
 def _window_entries(transcript_path: str):
@@ -375,6 +305,14 @@ def main() -> None:
     # An approved plan (plan mode) IS the reformulation for the actions it
     # describes — see Interpretation-Protocol 'Approved plan'.
     if has_approved_plan(transcript_path):
+        pass_through()
+
+    # A design document (PET, CDC, brief) Jay approved IS the authorization too.
+    if not data.get("agent_id") and has_design_approval(transcript_path):
+        pass_through()
+
+    # So does Jay's own instruction naming a brick of the project's PET.
+    if not data.get("agent_id") and names_a_pet_brick(transcript_path, file_path):
         pass_through()
 
     block(BLOCK_MSG.format(file_path=file_path))

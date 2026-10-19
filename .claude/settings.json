@@ -2,8 +2,43 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Agent|Task|Workflow|Write|Edit|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/model-ban-guard.py",
+            "description": "Refuse tout usage du modele Fable : agent, workflow, fichier d'agent ou de reglages, appel en ligne de commande (Jay 2026-10-19, quota)"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Grep|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/secret-file-read-guard.py",
+            "description": "Refuse la lecture directe d'un fichier de secrets (.env, cles, enveloppes du coffre) : sa valeur n'arrive jamais dans la conversation (Jay 2026-10-18)"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/end-user-data-guard.py",
+            "description": "Bloque tout identifiant d'utilisateur final (pseudo, nom, adresse) dans un fichier — empreintes salees hors depot (Confidentiality Gate C, 2026-10-10)"
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/end-user-data-guard.py",
+            "description": "Bloque un git commit dont le message ou les lignes ajoutees portent un identifiant d'utilisateur final (2026-10-10)"
+          },
           {
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" memory/memory-recall.py",
@@ -203,6 +238,16 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/post-tool-secret-redact.py",
+            "description": "Replace a recognizable secret in ANY tool output before Claude sees it (updatedToolOutput, strict profile; Security.md 'Command Output Masking')"
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit",
         "hooks": [
           {
@@ -237,6 +282,11 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/frozen-copy-alert.py",
+            "description": "Warn (never block) after a Kata commit that moves a file a project keeps a frozen copy of (Dogu oracle)"
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/post-bash-secret-alert.py",
             "description": "Warn (never block) when a secret survived into a Bash command output the pre-hook did not wrap"
           }
@@ -257,6 +307,11 @@
       {
         "matcher": "",
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/pasted-secret-alert.py",
+            "description": "Si Jay colle une valeur qui ressemble a un secret : lui dit de la renouveler, interdit a Takumi de la repeter (Jay 2026-10-18)"
+          },
           {
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/time-awareness.py",
@@ -370,6 +425,16 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/clock-not-fatigue-check.py",
             "description": "Scan Takumi's last response for clock-is-not-fatigue violations (Identity.md 'The Clock Is Not a Fatigue Signal', WARN + next-turn injection)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/handoff-nudge.py",
+            "description": "Si Takumi demande a Jay de taper une commande sans raison de la liste fermee (secret, consentement, droits admin, geste physique) : garde le tour ouvert une fois, avec le rappel de la bonne route (Jay 2026-10-18)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/french-reply-check.py",
+            "description": "Refuse an English paragraph in a reply to Jay once per turn, reading last_assistant_message (Conventions.md 'Language', Jay 2026-10-18)"
           }
         ]
       }

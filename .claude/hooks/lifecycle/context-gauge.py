@@ -9,6 +9,8 @@ Regle
 -----
 Lire la taille reellement occupee dans le transcript, et ne parler qu'au
 franchissement d'un palier. Jamais bloquer : c'est une jauge, pas une porte.
+Le palier se retient PAR SESSION : deux sessions d'un meme depot ont chacune
+leur propre contexte.
 
 Pourquoi
 --------
@@ -33,6 +35,7 @@ moins chere que fermer puis rouvrir une session.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -147,17 +150,52 @@ def message(tokens: int, palier: str) -> str:
     )
 
 
+def build_decision(data: dict, precedent: str | None = None) -> dict | None:
+    """Ce que la jauge dit ce tour-ci, ou None quand elle se tait.
+
+    Incident 2026-10-11 (MNK-Terminal) : la jauge sortait en code 2 avec son
+    message sur stderr. Sur UserPromptSubmit, 2 BLOQUE le message de Jay : il
+    n'atteint jamais le modele et disparait de l'ecran — deux sessions ont paru
+    « ne plus repondre ». Le chemin non bloquant documente
+    (code.claude.com/docs/en/hooks, verifie 2026-10-11) : sortie 0, JSON sur
+    stdout, `systemMessage` pour Jay et `additionalContext` pour le modele.
+
+    L'etat est rattache a `session_id` : partage par depot, la premiere session
+    a franchir un palier rendait la jauge muette pour toutes les autres.
+    """
+    # Relecture independante 2026-10-11 : une entree d'une autre forme faisait
+    # planter la jauge (traceback) — elle doit se taire, jamais casser le tour.
+    if not isinstance(data, dict):
+        return None
+    chemin = data.get("transcript_path")
+    if not isinstance(chemin, str):
+        return None
+    session = data.get("session_id")
+    tokens = context_size(chemin)
+    palier = level(tokens)
+    if precedent is None:
+        precedent = (read_state(_ETAT, session_id=session) or {}).get("palier", "ok")
+    if palier != "inconnu" and palier != precedent:
+        write_state(_ETAT, {"palier": palier}, session_id=session)
+    if not should_speak(palier, precedent):
+        return None
+    texte = message(tokens, palier)
+    return {
+        "systemMessage": texte,
+        "hookSpecificOutput": {
+            "hookEventName": "UserPromptSubmit",
+            "additionalContext": texte,
+        },
+    }
+
+
 def main() -> None:
     _, data = read_hook_input()
-    tokens = context_size(data.get("transcript_path") or "")
-    palier = level(tokens)
-    precedent = (read_state(_ETAT) or {}).get("palier", "ok")
-    if should_speak(palier, precedent):
-        write_state(_ETAT, {"palier": palier})
-        print(message(tokens, palier), file=sys.stderr)
-        sys.exit(2)  # 2 = le message remonte, sans bloquer le tour
-    if palier != "inconnu" and palier != precedent:
-        write_state(_ETAT, {"palier": palier})
+    decision = build_decision(data)
+    if decision is not None:
+        # ASCII : un terminal non UTF-8 ne peut plus faire echouer l'affichage,
+        # alors que l'etat du palier est deja ecrit (alerte perdue sinon).
+        print(json.dumps(decision, ensure_ascii=True))
     pass_through()
 
 

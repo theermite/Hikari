@@ -204,3 +204,88 @@ def test_should_keep_the_reading_when_a_later_line_is_not_decodable(tmp_path):
         f.write(valide + b"\n")
         f.write(b"\xe9crit-en-cours" + b"\xff")  # octet latin-1 invalide en utf-8, sans \n
     assert jauge.context_size(p) == 650_000
+
+
+# --- 2026-10-11 : une jauge ne doit JAMAIS effacer le message de Jay ----------
+# Incident (MNK-Terminal, sessions « Conception Dojo » et « Systeme de compte ») :
+# au franchissement d'un palier, la jauge sortait en code 2. Sur UserPromptSubmit,
+# 2 BLOQUE le message : il n'atteint jamais le modele et disparait de l'ecran.
+# Jay a vu des sessions « qui ne repondent plus ». Le commentaire affirmait
+# « sans bloquer le tour » — le contraire de ce que fait le harnais
+# (code.claude.com/docs/en/hooks, verifie 2026-10-11).
+# Second defaut : l'etat etait partage par depot, donc la premiere session d'un
+# depot a franchir 600 000 rendait la jauge muette pour toutes les autres.
+
+
+def _usage_transcript(tmp_path: Path, tokens: int) -> Path:
+    p = tmp_path / "t.jsonl"
+    p.write_text(json.dumps({"message": {"usage": {"input_tokens": tokens}}}) + "\n",
+                 encoding="utf-8")
+    return p
+
+
+def test_a_crossed_threshold_speaks_without_blocking_the_prompt(tmp_path, monkeypatch):
+    monkeypatch.setattr(jauge, "write_state", lambda *a, **k: None)
+    data = {"transcript_path": str(_usage_transcript(tmp_path, 650_000)), "session_id": "a1"}
+    decision = jauge.build_decision(data, precedent="ok")
+    # Le message passe par JSON sur stdout (sortie 0), jamais par stderr + code 2.
+    assert decision["systemMessage"].startswith("[CONTEXTE]")
+    ctx = decision["hookSpecificOutput"]
+    assert ctx["hookEventName"] == "UserPromptSubmit"
+    assert "650 000" in ctx["additionalContext"]
+    assert "decision" not in decision  # "block" effacerait le message
+
+
+def test_main_never_exits_with_the_blocking_code(tmp_path, monkeypatch, capsys):
+    import io
+    import pytest as _pytest
+    data = {"transcript_path": str(_usage_transcript(tmp_path, 720_000)),
+            "session_id": "main-test", "cwd": str(tmp_path)}
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(data)))
+    monkeypatch.setattr(jauge, "read_state", lambda *a, **k: {})
+    monkeypatch.setattr(jauge, "write_state", lambda *a, **k: None)
+    with _pytest.raises(SystemExit) as fin:
+        jauge.main()
+    assert fin.value.code in (0, None)
+    sortie = json.loads(capsys.readouterr().out)
+    assert "Reprise a chaud" in sortie["systemMessage"]
+
+
+def test_the_level_is_remembered_per_session(tmp_path, monkeypatch):
+    # Deux sessions du meme depot : chacune garde son propre palier.
+    vus = {}
+    monkeypatch.setattr(jauge, "write_state",
+                        lambda name, d, session_id=None, **k: vus.__setitem__(session_id, d))
+    monkeypatch.setattr(jauge, "read_state",
+                        lambda name, session_id=None, **k: vus.get(session_id, {}))
+    t = str(_usage_transcript(tmp_path, 650_000))
+    assert jauge.build_decision({"transcript_path": t, "session_id": "s1"}) is not None
+    # La deuxieme session parle aussi : l'alerte de s1 ne la rend pas muette.
+    assert jauge.build_decision({"transcript_path": t, "session_id": "s2"}) is not None
+    # Et s1 ne se repete pas.
+    assert jauge.build_decision({"transcript_path": t, "session_id": "s1"}) is None
+
+
+# Relecture independante 2026-10-11 : une entree inattendue ou une sortie non
+# UTF-8 faisait planter la jauge (code 1, traceback) au lieu de se taire.
+
+def test_a_non_object_input_stays_quiet():
+    assert jauge.build_decision([1, 2]) is None
+
+
+def test_a_non_text_transcript_path_stays_quiet():
+    assert jauge.build_decision({"transcript_path": ["a"]}) is None
+
+
+def test_the_output_survives_a_non_utf8_terminal(tmp_path, monkeypatch):
+    import io
+    import pytest as _pytest
+    data = {"transcript_path": str(_usage_transcript(tmp_path, 650_000)), "session_id": "enc"}
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(data)))
+    monkeypatch.setattr(jauge, "read_state", lambda *a, **k: {})
+    monkeypatch.setattr(jauge, "write_state", lambda *a, **k: None)
+    sortie = io.TextIOWrapper(io.BytesIO(), encoding="latin-1")
+    monkeypatch.setattr("sys.stdout", sortie)
+    with _pytest.raises(SystemExit) as fin:
+        jauge.main()
+    assert fin.value.code in (0, None)

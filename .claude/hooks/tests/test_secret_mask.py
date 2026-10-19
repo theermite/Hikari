@@ -352,3 +352,70 @@ def test_mask_text_stays_fast_on_many_isolated_tokens():
     sm.mask_text(text)
     elapsed = time.time() - start
     assert elapsed < 2.0, f"mask_text took {elapsed:.2f}s on 8000 tokens (quadratic regression?)"
+
+
+# --- strict profile (all-tools redaction, 2026-10-18) -----------------------
+
+
+def test_strict_profile_leaves_long_identifiers_alone():
+    import secret_mask as sm
+    text = "test_literal_dollars_and_quoted_heredocs_stay_accepted " + "a" * 40
+    assert sm.mask_text(text, strict=True) == text
+    assert sm.mask_text(text) != text  # the default profile still masks them
+
+
+def test_strict_profile_masks_known_prefixes():
+    import secret_mask as sm
+    tok = "github_pat_" + "A1b2C3d4E5" * 3
+    assert tok not in sm.mask_text(f"x {tok} y", strict=True)
+
+
+# --- relecture independante 2026-10-18 : le profil strict n'abime pas le code ----
+
+import pytest  # noqa: E402
+
+CODE_LINES = [
+    "token = self.get_token()",
+    "def f(password: str, api_key: str):",
+    "  password: string;",
+    "secret_key_base: System.get_env(\"X\")",
+    "POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}",
+    "client = Client(api_key=api_key)",
+    "auth = os.environ.get",
+    "x = aaaaaaaaaa.bbbbbbbbbb.cccccccccc.dddddddddd",
+    "_BARE_KEYWORDS = (\"PASSWORD\", \"TOKEN\")",
+]
+
+
+@pytest.mark.parametrize("line", CODE_LINES)
+def test_strict_profile_leaves_ordinary_code_alone(line):
+    assert sm.mask_text(line, strict=True) == line
+
+
+@pytest.mark.parametrize("line", [
+    "DB_PASSWORD=supersecret99",
+    '"password": "hunter2hunter2"',
+    "API_KEY: Zq8xxxxxxxxxxxxxxxxxR2m",
+])
+def test_strict_profile_still_masks_real_assignments(line):
+    assert sm.mask_text(line, strict=True) != line
+
+
+def test_strict_profile_jwt_needs_the_eyj_header():
+    jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnop"
+    assert jwt not in sm.mask_text(f"x {jwt} y", strict=True)
+
+
+@pytest.mark.parametrize("tok", [
+    "sk_live_" + "A1b2C3d4E5" * 3, "rk_live_" + "A1b2C3d4E5" * 3,
+    "AIza" + "A1b2C3d4E5" * 4, "hf_" + "A1b2C3d4E5" * 3, "npm_" + "A1b2C3d4E5" * 3,
+])
+def test_strict_profile_masks_more_vendor_prefixes(tok):
+    assert tok not in sm.mask_text(f"x {tok} y", strict=True)
+
+
+def test_strict_profile_is_linear_on_one_giant_word():
+    import time
+    t0 = time.time()
+    sm.mask_text("a" * 100_000, strict=True)
+    assert time.time() - t0 < 2.0

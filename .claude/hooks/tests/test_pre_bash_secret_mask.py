@@ -66,10 +66,21 @@ def test_wrap_command_does_not_depend_on_git(tmp_path):
     assert "secret_mask.py" in wrapped
 
 
+def _real_bash() -> str:
+    """Git Bash on Windows (never the WSL bash that WindowsApps puts first on
+    PATH, which loses exit codes); the system bash on Linux and macOS."""
+    import os
+    import shutil
+
+    if os.name == "nt":
+        return (shutil.which("bash", path=r"C:\Program Files\Git\usr\bin")
+                or r"C:\Program Files\Git\usr\bin\bash.exe")
+    return shutil.which("bash") or "/bin/bash"
+
 def test_wrap_command_runs_correctly_outside_a_git_repo(tmp_path):
     import subprocess
 
-    git_bash = r"C:\Program Files\Git\usr\bin\bash.exe"
+    git_bash = _real_bash()
     wrapped = mod.wrap_command("echo PASSWORD=abcdefghijklmnopqrst1234")
     proc = subprocess.run([git_bash, "-c", wrapped], capture_output=True, text=True, cwd=str(tmp_path))
     assert "abcdefghijklmnopqrst1234" not in proc.stdout
@@ -186,12 +197,11 @@ def test_pipestatus_preserves_real_exit_code_through_real_bash():
     # WindowsApps) that resolve differently depending on invocation context
     # — `subprocess.run(["bash", ...])` picked the WSL one in this sandbox
     # and silently lost the exit code (reviewer's MINOR finding, reproduced
-    # for real). Pin to Git Bash explicitly: it is what the actual Bash tool
-    # this hook runs under uses (confirmed live, same session).
-    import shutil
+    # for real). `_real_bash()` pins Git Bash there — what the actual Bash tool
+    # this hook runs under uses — and takes the system bash on Linux/macOS.
     import subprocess
 
-    git_bash = shutil.which("bash", path=r"C:\Program Files\Git\usr\bin") or r"C:\Program Files\Git\usr\bin\bash.exe"
+    git_bash = _real_bash()
     wrapped = mod.wrap_command("bash -c 'echo leaking; exit 42'")
     proc = subprocess.run([git_bash, "-c", wrapped], capture_output=True, text=True)
     assert proc.returncode == 42
@@ -248,3 +258,107 @@ def test_build_decision_returns_updated_input_for_suspicious_command():
 def test_build_decision_returns_none_for_ordinary_command():
     decision = mod.build_decision({"tool_input": {"command": "ls -la"}})
     assert decision is None
+
+
+# --- 2026-10-11 : un fichier de secrets lu par N'IMPORTE QUEL lecteur --------
+# Incident : `cat ~/.npmrc 2>/dev/null | grep -v -i token | head -5` a affiche en
+# clair l'identifiant du registre prive (`_auth=...`). La liste ne surveillait que
+# `cat` sur `.env` : un fichier de secrets se lit aussi par grep, head, sed, awk,
+# python, less... La famille se nomme par le FICHIER, pas par le lecteur.
+
+import pytest  # noqa: E402
+
+SECRET_FILE_COMMANDS = [
+    "cat ~/.npmrc 2>/dev/null | grep -v -i token | head -5",
+    "grep registry ~/.npmrc",
+    "head -3 /home/ubuntu/.npmrc",
+    "sed -n 1,5p .npmrc",
+    "awk '{print}' ~/.netrc",
+    "less ~/.pypirc",
+    "cat ~/.git-credentials",
+    "grep -n admin tools-config/verdaccio/htpasswd",
+    "head -2 .env.prod",
+    "grep DATABASE ~/apps/Shinkofa-Infra/.env.secrets",
+    "tail -1 ~/Shinkofa-Vault/envs/shinkofa-infra.env",
+    "python3 -c 'print(open(\".env\").read())'",
+    "cat ~/.docker/config.json",
+    "cat ~/Shinkofa-Vault/age-key.txt",
+    "sops -d secrets/api-keys.sops.yaml",
+    "~/.local/bin/sops --decrypt secrets/x.sops.yaml",
+    "grep -c BEGIN ~/.ssh/id_ed25519",
+    "cat server.key",
+    "jq . credentials.json",
+]
+
+
+@pytest.mark.parametrize("command", SECRET_FILE_COMMANDS)
+def test_any_reader_of_a_secret_file_is_suspicious(command):
+    assert mod.is_suspicious(command), command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "ls -la ~/apps",
+        "git log --oneline -3",
+        "npm view @shinkofa/ui version",
+        "grep -rn environment docs/",
+        "cat README.md",
+        "python3 -m pytest -q tests",
+    ],
+)
+def test_ordinary_commands_stay_unwrapped(command):
+    assert not mod.is_suspicious(command), command
+
+
+# --- 2026-10-11 (MNK-Terminal) : l'environnement d'un PROCESSUS en cours -----
+# Incident : `cat /proc/<pid>/environ | tr '\0' '\n' | grep -E "^(COMPANION...)" |
+# sed 's/=.*TOKEN.*/=<hidden>/'` a affiche en clair la cle de signature des
+# connexions. Le filtre maison ne visait que les noms en TOKEN ; la cle finissait
+# en SECRET. Un service systemd porte ses secrets dans son environnement : le
+# lire par /proc ou par `systemctl show|cat` est la meme famille que `printenv`.
+
+PROCESS_ENV_COMMANDS = [
+    "cat /proc/3514812/environ | tr '\\0' '\\n' | grep -E '^(PORT|COMPANION)'",
+    "sudo tr '\\0' '\\n' </proc/42/environ | grep -c SECRET",
+    "strings /proc/self/environ",
+    "systemctl show mnk-terminal.service -p Environment",
+    "sudo systemctl cat mnk-terminal.service",
+    "systemctl --user show companion",
+    # Relecture independante 2026-10-11 (FAIL) : variantes de la meme famille.
+    "cat /proc/$PID/environ",
+    "cat /proc/${PID}/environ",
+    "cat /proc/$(pgrep node)/environ",
+    "tr '\\0' '\\n' < /proc/\"$p\"/environ",
+    "cat /proc/*/environ",
+    "cat /proc/self/task/123/environ",
+    "ps eww 1",
+    "ps auxe",
+    "ps -E 1",
+    "systemctl -p Environment show x",
+    "systemctl --property=Environment show x",
+    "systemctl -H host show x",
+    "cat /etc/systemd/system/mnk-terminal.service",
+    "sudo cat /etc/systemd/system/x.service.d/override.conf",
+    "busctl get-property org.freedesktop.systemd1 /x org.freedesktop.systemd1.Service Environment",
+]
+
+
+@pytest.mark.parametrize("command", PROCESS_ENV_COMMANDS)
+def test_reading_a_running_process_environment_is_suspicious(command):
+    assert mod.is_suspicious(command), command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "systemctl status mnk-terminal.service",
+        "systemctl is-active mnk-terminal.service",
+        "systemctl restart mnk-terminal.service",
+        "ps aux | grep bun",
+        "ls -l /proc/3514812/cwd",
+        "cat /proc/meminfo",
+    ],
+)
+def test_process_inspection_without_environment_stays_unwrapped(command):
+    assert not mod.is_suspicious(command), command

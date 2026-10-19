@@ -85,6 +85,14 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at the fina
    | 4 | **Adaptatif au rôle** | Sections liées à un rôle **cachées** sans le rôle (jamais de mur « pas membre »). |
    | 5 | **Briques réelles, jamais redessinées** | Tout réglage de confort (thème, mouvement, densité, police, daltonisme) est dessiné par `MorphicButton` de `@theermite/morphic-adapter` — chargé par CDN dans une maquette statique. Les autres éléments citent la brique `@shinkofa/ui` correspondante. Un panneau refait à la main est **bloqué à l'écriture** par `hooks/lego/morphic-decoy-check.py`. Audit 2026-08-30 : 4 dépôts avaient dessiné un faux panneau, dont un bouton « Contraste » décoratif signalé comme un bug du vrai module. |
 
+   **4 règles de plus, format standard depuis le dojo** (Jay 2026-10-12 : « on garde ce fonctionnement pour les maquettes ») — référence : `Michi-Shinkofa/docs/Maquettes/Dojo/` :
+   | # | Règle | Pourquoi |
+   |---|-------|----------|
+   | 6 | **Bandeau de démonstration** (hors produit, en pointillé) : qui regarde (chaque rôle), profil simulé (chaque profil d'adaptation, jamais affiché au produit), états simulés (nouvel utilisateur, rien à faire, hors ligne, accès expiré, paiement refusé) | Jay voit en un clic la même plateforme vécue par chacun, et les chemins d'échec, pas seulement le chemin heureux |
+   | 7 | **Libre arbitre et sobriété de navigation** : surfaces riches en grille composable (déplacer, agrandir, masquer, ajouter, « revenir à la proposition ») ; 5 choix de menu au plus par rôle, sous-menus au-delà | Mémoires `interface-composable-libre-arbitre` et `menus-cinq-choix-max-sous-menus` |
+   | 8 | **Vues séparées, servies** : coquille + `vues/*.html` chargées par script (chaque fichier < 500 lignes), servie sur le serveur de maquettes (`:8446`), fichiers versionnés (`?v=`) | Une maquette d'un seul bloc dépasse vite la taille autorisée ; le serveur n'envoie aucune consigne de cache |
+   | 9 | **Vérification navigateur scriptée avant de présenter** : tous les écrans × tous les rôles × ordinateur et téléphone — zéro erreur de console, zéro débordement, zéro écran vide, menus comptés, chaque lien mène à un écran et chaque écran est atteignable | Une maquette affirmée « testée » sans mesure se découvre cassée devant Jay |
+
    **Itérer avec Jay** jusqu'à validation du visuel et de l'ergonomie. Commit seulement à l'approbation.
 
 6ter. **INTÉGRATION** (BLOCKING — **nouvelle étape 2026-08-30**): Before writing the PET, step back and fill PET §0 — how this lands in what already exists. Present each block to Jay, plain language first (step 0bis applies), then STOP.
@@ -153,6 +161,14 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at the fina
    | 5 | **Visuel, intuitif** | Hero, cartes, étapes numérotées, compteur de diapos, barre de progression. Le lecteur scanne. |
    | 6 | **Le tech interne reste dans CDC/PET** | Risk Classification, FMEA, stack, Quality Gates → JAMAIS dans la présentation. Ils vivent dans le CDC/PET. |
 
+   **4 règles de plus, format standard depuis le dojo** (Jay 2026-10-12 : « faire des présentations en intégrant les écrans de la maquette, avec une redirection finale vers la maquette, est excellent ») — référence : `Michi-Shinkofa/docs/Dojo/Presentation-Dojo.html` :
+   | # | Règle | Pourquoi |
+   |---|-------|----------|
+   | 7 | **Les vrais écrans de la maquette** : captures prises par script (bandeau de démonstration masqué), recadrées sur la partie utile, dans un cadre de navigateur ou de téléphone ; un bénéfice = une diapo = ses écrans ; clic pour agrandir en plein écran | Le lecteur se projette dans la plateforme réelle au lieu d'imaginer |
+   | 8 | **Montrer l'adaptation par comparaison** : le même écran sous deux profils, côte à côte, en pleine largeur sous le texte ; des vues téléphone | La différence se voit d'un coup d'œil, sans explication |
+   | 9 | **De la vie** : une icône par diapo et par point de liste, un emoji discret en filigrane, apparition douce du contenu (coupée si l'appareil demande moins d'animations) | Jay 2026-10-12 : « il manque un peu de vie » sur la première version |
+   | 10 | **Finir sur la maquette** : bouton « 👉 Explorer la maquette » sur la dernière diapo, plus la mention d'origine (`Content-Provenance.md`) | La présentation donne envie, la maquette fait toucher |
+
    **Diapos du pitch** (une slide chacune, mapping depuis les docs) :
    - Hero : nom + promesse en une ligne (depuis CDC §1 POUR QUOI, traduit non-tech)
    - Pourquoi / le besoin : le problème vécu par la personne (depuis CDC §2 Utilisateurs)
@@ -160,6 +176,7 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at the fina
    - Comment ça marche : 3 étapes intuitives
    - La vision : la phrase L3 motivante (depuis CDC §1)
    - La suite : roadmap en GRANDES étapes non-tech (depuis PET §6, traduit — pas de "bricks")
+   - Entre « Ce que ça change » et « La vision » : une diapo illustrée par écran clé de la maquette (découvrir, adaptation par comparaison, composer son écran, usage mobile, pratique, fin de parcours, chaque rôle) — 12 à 16 diapos au total
 
    **Test avant de présenter** : « Si je partage ce fichier à quelqu'un qui ne connaît rien au projet ni à la tech, est-ce qu'il comprend et a envie ? » Si non → reformuler en plus simple, plus visuel.
 
