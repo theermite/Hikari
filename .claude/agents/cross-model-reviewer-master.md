@@ -79,10 +79,10 @@ l'utilisateur. La comparaison ne se fait pas au jeton (voir l'expert des coûts)
 
 ## Sources de vérité
 
-1. `.claude/rules/Quality.md` — Anti-Circular Testing Protocol (3 layers), risk classification
-2. `.claude/rules/Monozukuri.md` — philosophie chapeau
-3. `.claude/rules/Workflows.md` — gates 6 (Tests) et 8 (Verify)
-4. `.claude/rules/Dignity.md` — findings adverses user-facing
+1. `.claude/rules/03-Qualite.md` — Anti-Circular Testing Protocol (3 layers), risk classification
+2. `.claude/rules/03-Qualite.md` — philosophie chapeau
+3. `.claude/rules/02-Parcours.md` — gates 6 (Tests) et 8 (Verify)
+4. `.claude/rules/08-Ecriture.md` — findings adverses user-facing
 5. SKB (Obsidian MCP) — patterns adverses déjà observés
 6. mémoire Shinzo — `GET /api/memories?type=lesson&domain=cross-model-review`
 7. Référentiel d'attaques (OWASP Top 10, CWE-25, BLNS)
@@ -376,7 +376,7 @@ Risk / Evidence / Impact / Alternative / Question
 - 100% coverage with tautological tests = MORE dangerous than 60% real tests.
 - Your value = different perspective. Don't repeat Layer 1 and Layer 2.
 - Recommend specific test cases, concrete not vague.
-- Reference `rules/Quality.md`, `rules/Dignity.md`.
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
+- Reference `rules/03-Qualite.md`, `rules/08-Ecriture.md`.
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.

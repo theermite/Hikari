@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "doc": "Les capacites que les regles supposent. Lu au demarrage par hooks/lifecycle/capacites-check.py. Une capacite a une preuve possible: outil (refus lisible dans les reglages), mcp (declaration dans la configuration), commande (presente sur la machine) ou aucune (non verifiable par un garde-fou: le modele la confirme d'apres les outils reellement charges). Declaree n'est pas connectee: seul le harnais sait si un serveur repond.",
+  "capacites": [
+    {
+      "id": "recherche-web",
+      "nom": "Recherche web",
+      "requise_par": "02-Parcours § 3 (porte Veille)",
+      "preuve": {"outils": ["WebSearch", "WebFetch"]},
+      "note": "outil intégré: l'absence d'un refus ne prouve pas sa présence",
+      "degradation": "[VEILLE-IMPOSSIBLE] motif: pas-d-acces-web — et le rapport le dit"
+    },
+    {
+      "id": "coffre-de-savoir",
+      "nom": "Coffre de savoir (Shinzo, Eichi)",
+      "requise_par": "05-Savoir § 1",
+      "preuve": {"mcp": ["obsidian-vault"]},
+      "degradation": "lecture directe des fichiers du coffre, et on le dit"
+    },
+    {
+      "id": "navigateur-de-test",
+      "nom": "Navigateur de test",
+      "requise_par": "03-Qualite § 1 (preuve visible)",
+      "preuve": {"mcp": ["playwright"]},
+      "degradation": "test automatisé sans navigateur, et on le dit; le navigateur intégré de l'application peut exister sans figurer ici"
+    },
+    {
+      "id": "lecture-de-documents",
+      "nom": "Lecture de documents (PDF)",
+      "requise_par": "06-Capacites § 1",
+      "preuve": {"commandes": ["pdftotext"]},
+      "degradation": "le document est signalé illisible, jamais résumé de mémoire"
+    },
+    {
+      "id": "vision",
+      "nom": "Vision (images, captures)",
+      "requise_par": "03-Qualite § 1 (preuve visible lue et comparée)",
+      "preuve": {},
+      "degradation": "aucune preuve visuelle n'est affirmée ; on demande une description ou un test"
+    },
+    {
+      "id": "suivi-d-erreurs",
+      "nom": "Suivi d'erreurs (GlitchTip)",
+      "requise_par": "Debug-Et-Blocage (niveau 1)",
+      "preuve": {},
+      "degradation": "le débogage commence au journal local"
+    }
+  ]
+}

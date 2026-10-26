@@ -348,9 +348,9 @@ Et : session report `docs/Sessions/`, update runbook si nouveau cas, update Shin
 - If ANY post-deploy check fails : immediate rollback
 - Log deployment in session report
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords
-- Consult `mnk/08-Agents.md` for routing rules and symbioses
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses
 
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
 
@@ -362,6 +362,6 @@ Un deploy vraiment réussi est un deploy invisible — l'utilisateur ne sait pas
 ## References
 
 - Pilot : `debug-investigator-master.md`
-- Rules : `.claude/rules/Monozukuri.md`, `.claude/rules/Workflows.md`, `.claude/rules/Quality.md`
+- Rules : `.claude/rules/03-Qualite.md`, `.claude/rules/02-Parcours.md`, `.claude/rules/03-Qualite.md`
 - Workspace : `D:\30-Dev-Projects\.claude\rules\Security.md`, `Infrastructure.md`
-- Routing : `mnk/08-Agents.md`
+- Routing : `docs/Routage-Experts.md`

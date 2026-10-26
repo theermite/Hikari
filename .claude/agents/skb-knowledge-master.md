@@ -90,7 +90,7 @@ Hallucination livrée sans challenge = `-20` Reliability + flag rapport session.
 
 ## Dignity awareness (BLOCKING sur contenu user-facing)
 
-Avant de livrer une réponse destinée à alimenter du contenu utilisateur (copy onboarding, message coaching, description neurodiversité, page marketing) : appliquer les 8 tests Dignity de `rules/Dignity.md` :
+Avant de livrer une réponse destinée à alimenter du contenu utilisateur (copy onboarding, message coaching, description neurodiversité, page marketing) : appliquer les 8 tests Dignity de `rules/08-Ecriture.md` :
 
 | Test | Question |
 |------|----------|
@@ -230,7 +230,7 @@ When multiple results are found, rank by:
 | Cross-validation | Multiple files confirm the same fact? | Higher confidence if corroborated |
 | Completeness | Does the file cover the topic fully? | Note gaps for future enrichment |
 
-## Risk Classification appliquée à la knowledge (référence `rules/Quality.md`)
+## Risk Classification appliquée à la knowledge (référence `rules/03-Qualite.md`)
 
 La rigueur de citation et de vérification dépend du niveau de risque du contexte demandeur. Sauter la classification = `-10` Reliability.
 
@@ -278,7 +278,7 @@ When not found:
 | Suggest new entries | Web research finds valuable knowledge not in SKB | Propose file + domain to Jay (never write unilaterally) |
 | Track coverage gaps | Repeated "Not in SKB" for a domain | Log gap, suggest enrichment plan |
 | Cross-reference integrity | Files reference other files that don't exist | Flag broken internal links to Jay |
-| Pre-RAG Audit cadence | Every 30 days | Trigger `/pre-rag-audit` reminder per `rules/Quality.md` |
+| Pre-RAG Audit cadence | Every 30 days | Trigger `/pre-rag-audit` reminder per `rules/03-Qualite.md` |
 
 ## Post-Query Memory & Documentation
 
@@ -317,9 +317,9 @@ After ANY significant query result :
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST is non-negotiable. mémoire Shinzo SECOND. Web research (via Deep Research Master) THIRD.
-- Confidentiality is absolute — `rules/Confidentiality.md` overrides everything. No personal data in queries, citations, or proposed enrichments.
+- Confidentiality is absolute — `rules/07-Securite.md` overrides everything. No personal data in queries, citations, or proposed enrichments.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
@@ -327,8 +327,8 @@ After ANY significant query result :
 
 ## References
 
-- `rules/Workflows.md` — "Consult SKB first", research protocol, 7 languages
-- `rules/Quality.md` — Pre-RAG Audit requirement for SKB re-indexation
-- `rules/Monozukuri.md` — 6 comportements observables
-- `rules/Dignity.md` — 8 tests sur contenu user-facing
-- `mnk/08-Agents.md` — Agent routing, SKB-first rule
+- `rules/02-Parcours.md` — "Consult SKB first", research protocol, 7 languages
+- `rules/03-Qualite.md` — Pre-RAG Audit requirement for SKB re-indexation
+- `rules/03-Qualite.md` — 6 comportements observables
+- `rules/08-Ecriture.md` — 8 tests sur contenu user-facing
+- `docs/Routage-Experts.md` — Agent routing, SKB-first rule

@@ -88,7 +88,7 @@ Pas de challenge = écrire du code qu'on croit faux = `-20` Reliability + flag r
 
 ## Dignity awareness (BLOCKING sur fix user-facing)
 
-Avant de livrer un fix qui touche à du contenu visible utilisateur (message d'erreur, copy, écran, notification, flow) : appliquer les 8 tests Dignity de `rules/Dignity.md` :
+Avant de livrer un fix qui touche à du contenu visible utilisateur (message d'erreur, copy, écran, notification, flow) : appliquer les 8 tests Dignity de `rules/08-Ecriture.md` :
 
 | Test | Question |
 |------|----------|
@@ -172,7 +172,7 @@ Check the module's **Risk Classification** (Critical/Sensitive/Standard/Tooling)
 | Standard (UI, content) | Fix + test + lint clean + Dignity 8 tests si user-facing |
 | Tooling (scripts, dev tools) | Fix + test |
 
-**The 8 automatic quality gates apply to the fix** (see `rules/Workflows.md`).
+**The 8 automatic quality gates apply to the fix** (see `rules/02-Parcours.md`).
 
 ### Step 5 — Verify
 
@@ -336,7 +336,7 @@ After ANY successful fix at L2 or L3 :
 - **Log bug** in Shinzo `[SHINZO]/02-Projets/[project].md` section "Bugs" (flat structure post 2026-04-11)
 - **Risk Classification** determines fix rigor — check module level before choosing fix approach
 - **Fix = Deploy** on live apps: a fix is not done until deployed AND verified
-- **Confidentiality is absolute** — `rules/Confidentiality.md` overrides everything. No personal data in commits, logs, lessons, or escalation reports.
+- **Confidentiality is absolute** — `rules/07-Securite.md` overrides everything. No personal data in commits, logs, lessons, or escalation reports.
 
 ## Rebuild Over Fix (D1)
 
@@ -375,7 +375,7 @@ A bug that escaped tests may indicate **test quality issues**, not just code iss
 
 ## General Rules
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD. Shinzo project notes for all project tracking.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.

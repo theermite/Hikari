@@ -28,6 +28,16 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/end-user-data-guard.py",
             "description": "Bloque tout identifiant d'utilisateur final (pseudo, nom, adresse) dans un fichier — empreintes salees hors depot (Confidentiality Gate C, 2026-10-10)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/annexes-gate.py",
+            "description": "Block work until the annex it requires has been read (registry: .claude/rules-ondemand/annexes.json)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/writer-lock.py",
+            "description": "One writer per repository: warn when another session wrote recently, block shared-state gestures"
           }
         ]
       },
@@ -53,6 +63,11 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/session-start-mandatory-read.py",
             "description": "Block first state-mutating tool until MANDATORY FIRST READ files are read"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/annexes-gate.py",
+            "description": "Block work until the annex it requires has been read (registry: .claude/rules-ondemand/annexes.json)"
           },
           {
             "type": "command",
@@ -148,6 +163,21 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/pre-bash-secret-mask.py",
             "description": "Rewrite suspicious commands (docker exec/compose config, ssh+docker/env, cat .env, printenv) to mask secrets in OUTPUT before it reaches the conversation"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/writer-lock.py",
+            "description": "One writer per repository: warn when another session wrote recently, block shared-state gestures"
+          }
+        ]
+      },
+      {
+        "matcher": "MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/challenge-trace-check.py",
+            "description": "Session report: judged on the whole report after every edit of a MultiEdit"
           }
         ]
       },
@@ -168,6 +198,11 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/session-start-mandatory-read.py",
             "description": "Block first state-mutating tool until MANDATORY FIRST READ files are read"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/annexes-gate.py",
+            "description": "Block work until the annex it requires has been read (registry: .claude/rules-ondemand/annexes.json)"
           },
           {
             "type": "command",
@@ -232,6 +267,11 @@
           {
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/challenge-trace-check.py"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/writer-lock.py",
+            "description": "One writer per repository: warn when another session wrote recently, block shared-state gestures"
           }
         ]
       }
@@ -347,6 +387,16 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/hook-health-check.py",
             "description": "Sonde de sante des garde-fous — annonce, ne bloque jamais"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/capacites-check.py",
+            "description": "Capacites que les regles supposent: declarees, refusees, non verifiables — annonce, ne bloque jamais"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/entretien-frais-check.py",
+            "description": "Boucle d'entretien : avertit si le dernier compte a plus de 8 jours, se tait sinon, ne bloque jamais"
           },
           {
             "type": "command",

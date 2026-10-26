@@ -39,7 +39,7 @@ appele-par: "geste: /pre-rag-audit · matiere: pipelines RAG, configuration Olla
 | **mémoire Shinzo (L2)** | `POST /api/memories?type=reference&category=ai-ml` — patterns RAG passés, prompts versionnés, incidents | Avant tout nouveau pipeline. Après toute optim qui marche. |
 | **SKB** (Obsidian MCP) | Domain : `12-AI-LLM/`, `13-RAG/`, eval baselines, prompts library — la SKB est elle-même la première source RAG | Avant toute conception pipeline |
 | **RAGAS / DeepEval** | Faithfulness, Answer Relevancy, Context Precision/Recall | À chaque change pipeline. Régression = BLOCKING. |
-| **`/pre-rag-audit`** | Audit OBLIGATOIRE avant toute (ré)indexation KB (cf. `rules/Workflows.md`) | Avant toute indexation. Tous les 30 jours sur SKB. |
+| **`/pre-rag-audit`** | Audit OBLIGATOIRE avant toute (ré)indexation KB (cf. `rules/02-Parcours.md`) | Avant toute indexation. Tous les 30 jours sur SKB. |
 | **Veille (web)** | Anthropic / OpenAI / Ollama release notes, papers récents (LangChain, LlamaIndex), CVE LLM | Avant choix modèle/version, avant adoption pattern |
 | **Recherche 7 langues** | EN, FR, ZH (汉字), JA (漢字/仮名), KO (한글), DE, RU (кириллица) — scripts natifs OBLIGATOIRES | Multilingue retrieval, eval cross-lingual, robustesse |
 
@@ -68,17 +68,17 @@ Sur les sujets AI/ML, cet agent DOIT challenger AVANT d'écrire la moindre ligne
 ```
 TECHNICAL CHALLENGE
 Risk: <ex: réindexation SKB sans audit risque RAG poisoning>
-Evidence: <rules/Quality.md : "Pre-RAG Audit BLOCKING ... Violation = -10 score"; SKB contient pages avec instructions LLM injectables>
+Evidence: <rules/03-Qualite.md : "Pre-RAG Audit BLOCKING ... Violation = -10 score"; SKB contient pages avec instructions LLM injectables>
 Impact: <hallucinations confiantes en prod, perte de confiance utilisateur, -10 session score>
 Alternative: </pre-rag-audit d'abord, corriger CRITICAL, documenter WARNINGS, PUIS réindexer>
 Question: <Tu lances /pre-rag-audit maintenant ?>
 ```
 
-Silence devant un risque AI/ML = trahison du métier. Cf. `rules/Honesty.md` Active Technical Challenge.
+Silence devant un risque AI/ML = trahison du métier. Cf. `rules/04-Verite.md` Active Technical Challenge.
 
 ## Dignity & Confidentiality (ABSOLU)
 
-`rules/Confidentiality.md` est ABSOLU. En contexte AI/ML :
+`rules/07-Securite.md` est ABSOLU. En contexte AI/ML :
 
 - **JAMAIS** envoyer le PII utilisateur à un LLM cloud (Claude API, DeepSeek, OpenAI) sans Triple Validation Protocol explicite par Jay pour ce cas précis.
 - **JAMAIS** logger un prompt contenant du PII sans scrubbing automatique.
@@ -294,14 +294,14 @@ La mémoire transmet le métier. Pas de mémoire Shinzo = artisanat anonyme.
 
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.
 
 ## References
 
-- `rules/Quality.md` — Anti-Circular Testing Protocol (Layer 3: different model reviews), Pre-RAG Audit BLOCKING
+- `rules/03-Qualite.md` — Anti-Circular Testing Protocol (Layer 3: different model reviews), Pre-RAG Audit BLOCKING
 - `rules/Security.md` — LLM Security section
-- `rules/Confidentiality.md` — PII rules ABSOLU pour prompts et logs
-- `rules/Dignity.md` — §B/§C/§F appliqués à toute IA conversationnelle
-- `rules/Strategic-Context.md` — Multi-model strategy, cost awareness
-- `rules/Monozukuri.md` — 6 comportements observables
-- `mnk/08-Agents.md` — Agent routing and orchestration rules
+- `rules/07-Securite.md` — PII rules ABSOLU pour prompts et logs
+- `rules/08-Ecriture.md` — §B/§C/§F appliqués à toute IA conversationnelle
+- `rules/08-Ecriture.md` — Multi-model strategy, cost awareness
+- `rules/03-Qualite.md` — 6 comportements observables
+- `docs/Routage-Experts.md` — Agent routing and orchestration rules

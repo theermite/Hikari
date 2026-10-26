@@ -20,6 +20,11 @@ from test_reformulate_gate import (
     _write_transcript,
 )
 
+def fired(r) -> bool:
+    """Le garde-fou s'est déclenché: il AVERTIT (annonce attendue) depuis le mandat du 2026-10-24."""
+    return r.returncode == 0 and b"ANNONCE ATTENDUE" in r.stderr
+
+
 
 # --- Un accord de conception vaut autorisation (Jay, 2026-10-18) -------------
 # Un document de conception (docs/PET.md, docs/CDC.md, docs/Briefs/*.md) lu,
@@ -54,21 +59,21 @@ def test_design_doc_then_approval_word_lifts_the_gate(tmp_path):
     entries = [_user("on conçoit"), *_design_read(), _assistant_text("Voici le PET."),
                _user("valide"), *_prior_write()]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 0, f"design agreement should pass: {r.stderr!r}"
+    assert not fired(r), f"design agreement should pass: {r.stderr!r}"
 
 
 def test_design_doc_only_cited_in_his_text_does_not_count(tmp_path):
     entries = [_user("on conçoit"), _assistant_text("Le CDC est dans docs/CDC.md, tout y est."),
                _user("go"), *_prior_write()]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 2, "only an opened/written document counts, never a mention"
+    assert fired(r), "only an opened/written document counts, never a mention"
 
 
 def test_brief_under_docs_briefs_counts(tmp_path):
     entries = [_user("on conçoit"), *_design_read("/repo/docs/Briefs/Mon-Brief.md"),
                _user("ok"), *_prior_write()]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 0, f"brief + ok should pass: {r.stderr!r}"
+    assert not fired(r), f"brief + ok should pass: {r.stderr!r}"
 
 
 def test_design_doc_then_a_new_instruction_does_not_count(tmp_path):
@@ -76,34 +81,34 @@ def test_design_doc_then_a_new_instruction_does_not_count(tmp_path):
                _user("ajoute aussi une page de connexion"),
                *_new_instruction_and_prior_write()]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 2, "a new instruction is not an approval"
+    assert fired(r), "a new instruction is not an approval"
 
 
 def test_go_without_any_design_doc_does_not_count(tmp_path):
     entries = [_user("on discute"), _assistant_text("Je propose ceci."),
                _user("go"), *_new_instruction_and_prior_write()]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 2, "an approval of nothing documented is not a design agreement"
+    assert fired(r), "an approval of nothing documented is not a design agreement"
 
 
 def test_a_relance_nudge_is_not_an_approval(tmp_path):
     entries = [_user("on conçoit"), *_design_read(), _user("reprends"),
                *_new_instruction_and_prior_write()]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 2, "'reprends' keeps the window open but never approves a design"
+    assert fired(r), "'reprends' keeps the window open but never approves a design"
 
 
 def test_approval_before_the_doc_is_cited_does_not_count(tmp_path):
     entries = [_user("ok"), *_design_read(), *_new_instruction_and_prior_write()]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 2, "the approval must come AFTER the document is shown"
+    assert fired(r), "the approval must come AFTER the document is shown"
 
 
 def test_failed_read_of_the_doc_does_not_count(tmp_path):
     entries = [_user("on conçoit"), *_design_read(is_error=True), _user("go"),
                *_new_instruction_and_prior_write()]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 2, "a Read that failed shows nothing to approve"
+    assert fired(r), "a Read that failed shows nothing to approve"
 
 
 def test_doc_path_only_inside_written_code_does_not_count(tmp_path):
@@ -114,14 +119,14 @@ def test_doc_path_only_inside_written_code_does_not_count(tmp_path):
                                                "content": "# voir docs/PET.md"}),
                _tool_result("w0"), _user("go"), *_new_instruction_and_prior_write()]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 2, "a path inside file content is not a document shown to Jay"
+    assert fired(r), "a path inside file content is not a document shown to Jay"
 
 
 def test_a_file_named_pet_outside_docs_does_not_count(tmp_path):
     entries = [_user("on conçoit"), *_design_read("/repo/notes/PET.md"), _user("go"),
                *_new_instruction_and_prior_write()]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 2, "only docs/PET.md, docs/CDC.md and docs/Briefs/*.md are design documents"
+    assert fired(r), "only docs/PET.md, docs/CDC.md and docs/Briefs/*.md are design documents"
 
 
 # --- Une consigne qui nomme une brique du PET vaut accord (Jay, 2026-10-18) --
@@ -151,7 +156,7 @@ def test_instruction_naming_a_pet_brick_lifts_the_gate(tmp_path):
     target = _project_with_pet(tmp_path)
     entries = _instruction_then_write("go, lance-toi sur la brique 8")
     r = _run(_write_transcript(tmp_path / "t", *entries), file_path=target)
-    assert r.returncode == 0, f"named PET brick should pass: {r.stderr!r}"
+    assert not fired(r), f"named PET brick should pass: {r.stderr!r}"
 
 
 def test_bare_b_form_and_lettered_id_count(tmp_path):
@@ -159,32 +164,32 @@ def test_bare_b_form_and_lettered_id_count(tmp_path):
     for text in ("fais la B8", "go sur B-PREP", "attaque la brique 8."):
         entries = _instruction_then_write(text)
         r = _run(_write_transcript(tmp_path / "t", *entries), file_path=target)
-        assert r.returncode == 0, f"{text!r} should pass: {r.stderr!r}"
+        assert not fired(r), f"{text!r} should pass: {r.stderr!r}"
 
 
 def test_brick_absent_from_the_pet_does_not_count(tmp_path):
     target = _project_with_pet(tmp_path)
     r = _run(_write_transcript(tmp_path / "t", *_instruction_then_write("fais la brique 12")), file_path=target)
-    assert r.returncode == 2, "a brick the PET does not list is not a PET brick"
+    assert fired(r), "a brick the PET does not list is not a PET brick"
 
 
 def test_a_question_naming_a_brick_does_not_count(tmp_path):
     target = _project_with_pet(tmp_path)
     r = _run(_write_transcript(tmp_path / "t", *_instruction_then_write("pourquoi la brique 8 échoue ?")), file_path=target)
-    assert r.returncode == 2, "a question authorizes nothing"
+    assert fired(r), "a question authorizes nothing"
 
 
 def test_instruction_without_a_brick_does_not_count(tmp_path):
     target = _project_with_pet(tmp_path)
     r = _run(_write_transcript(tmp_path / "t", *_instruction_then_write("ajoute une page de connexion")), file_path=target)
-    assert r.returncode == 2
+    assert fired(r)
 
 
 def test_no_pet_found_does_not_count(tmp_path):
     (tmp_path / "bare").mkdir()
     target = str(tmp_path / "bare" / "foo.py")
     r = _run(_write_transcript(tmp_path / "t", *_instruction_then_write("go, lance-toi sur la brique 8")), file_path=target)
-    assert r.returncode == 2, "no docs/PET.md above the target -> nothing to name"
+    assert fired(r), "no docs/PET.md above the target -> nothing to name"
 
 
 def test_old_instruction_naming_a_brick_is_replaced_by_the_new_one(tmp_path):
@@ -192,14 +197,14 @@ def test_old_instruction_naming_a_brick_is_replaced_by_the_new_one(tmp_path):
     entries = [_user("go, lance-toi sur la brique 8"), _user("ajoute une page de connexion"),
                *_instruction_then_write("ajoute une page de connexion")[1:]]
     r = _run(_write_transcript(tmp_path / "t", *entries), file_path=target)
-    assert r.returncode == 2, "the LAST instruction decides"
+    assert fired(r), "the LAST instruction decides"
 
 
 def test_a_relance_nudge_keeps_the_named_brick_instruction(tmp_path):
     target = _project_with_pet(tmp_path)
     entries = [*_instruction_then_write("lance-toi sur la brique 8"), _user("go")]
     r = _run(_write_transcript(tmp_path / "t", *entries), file_path=target)
-    assert r.returncode == 0, f"'go' must not replace the instruction: {r.stderr!r}"
+    assert not fired(r), f"'go' must not replace the instruction: {r.stderr!r}"
 
 
 def test_a_subagent_never_inherits_the_brick_instruction(tmp_path):
@@ -207,7 +212,7 @@ def test_a_subagent_never_inherits_the_brick_instruction(tmp_path):
     parent = _write_transcript(tmp_path / "t", _user("go, lance-toi sur la brique 8"))
     _write_subagent_transcript(parent, "ag1", *_instruction_then_write("Implémente la brique 8"))
     r = _run(parent, file_path=target, agent_id="ag1")
-    assert r.returncode == 2, "a sub-agent brief is written by Takumi, never by Jay"
+    assert fired(r), "a sub-agent brief is written by Takumi, never by Jay"
 
 
 def test_harness_injected_message_is_not_jays_instruction(tmp_path):
@@ -215,14 +220,14 @@ def test_harness_injected_message_is_not_jays_instruction(tmp_path):
     target = _project_with_pet(tmp_path, "| B3 | x |\n")
     text = "<task-notification><task-id>b3</task-id> brique 3 terminee</task-notification>"
     r = _run(_write_transcript(tmp_path / "t", *_instruction_then_write(text)), file_path=target)
-    assert r.returncode == 2, "only Jay's own words authorize"
+    assert fired(r), "only Jay's own words authorize"
 
 
 def test_a_random_identifier_is_not_a_brick(tmp_path):
     # The PET carries the same junk id, so only a strict id shape can refuse it.
     target = _project_with_pet(tmp_path, "| B3 | x |\nref b3wf2e265\n")
     r = _run(_write_transcript(tmp_path / "t", *_instruction_then_write("regarde la tache b3wf2e265")), file_path=target)
-    assert r.returncode == 2, "'b3wf2e265' is a task id, not B3"
+    assert fired(r), "'b3wf2e265' is a task id, not B3"
 
 
 # --- relecture independante 2026-10-18 ---------------------------------------
@@ -232,7 +237,7 @@ def test_a_mere_mention_of_the_pet_in_his_text_is_not_a_shown_document(tmp_path)
     entries = [_user("on démarre"), _assistant_text("Je ne touche pas docs/PET.md."),
                _user("ok"), *_new_instruction_and_prior_write()]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 2
+    assert fired(r)
 
 
 def test_design_agreement_ends_at_the_next_real_instruction(tmp_path):
@@ -240,7 +245,7 @@ def test_design_agreement_ends_at_the_next_real_instruction(tmp_path):
                _user("refais entièrement le module de paiement"),
                *_new_instruction_and_prior_write()[1:]]
     r = _run(_write_transcript(tmp_path, *entries))
-    assert r.returncode == 2, "an approval covers the instruction that follows it, not the whole session"
+    assert fired(r), "an approval covers the instruction that follows it, not the whole session"
 
 
 def test_design_agreement_is_never_inherited_by_a_subagent(tmp_path):
@@ -249,10 +254,10 @@ def test_design_agreement_is_never_inherited_by_a_subagent(tmp_path):
     parent = _write_transcript(tmp_path / "t", _user("on conçoit"))
     _write_subagent_transcript(parent, "ag1", _user("brief"), *_design_read(), _user("ok"), *_prior_write())
     r = _run(parent, agent_id="ag1")
-    assert r.returncode == 2
+    assert fired(r)
 
 
 def test_lowercase_named_brick_matches(tmp_path):
     target = _project_with_pet(tmp_path, "| B-CHAT | x |\n")
     r = _run(_write_transcript(tmp_path / "t", *_instruction_then_write("fais la b-chat")), file_path=target)
-    assert r.returncode == 0
+    assert not fired(r)

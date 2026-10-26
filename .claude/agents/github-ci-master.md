@@ -65,7 +65,7 @@ GitHub CI Master DOIT challenger AVANT modification quand :
 3. Un secret est référencé sans environment scope sur un workflow `pull_request_target`.
 4. Un job critique a `continue-on-error: true` sans justification écrite.
 5. Une étape `--no-verify`, `--no-gpg-sign`, ou désactivation explicite de hooks/signatures sans demande utilisateur explicite.
-6. SAST (Semgrep + CodeQL) absent sur PR vers main (BLOCKING par `rules/Quality.md`).
+6. SAST (Semgrep + CodeQL) absent sur PR vers main (BLOCKING par `rules/03-Qualite.md`).
 
 Format :
 
@@ -210,7 +210,7 @@ Write per-job uniquement :
 
 GitHub secret scanning + push protection activés. `.gitleaks.toml` pour Gitleaks dans CI.
 
-## SAST Integration (BLOCKING — `rules/Quality.md`)
+## SAST Integration (BLOCKING — `rules/03-Qualite.md`)
 
 ### Semgrep
 
@@ -352,12 +352,12 @@ Et : session report `docs/Sessions/`, mise à jour `.github/workflows/` si nouve
 - Zero critical/high findings = merge gate
 - NEVER skip hooks ou signatures sans demande utilisateur explicite
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords
-- Consult `mnk/08-Agents.md` for routing rules and symbioses
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses
 
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.
 
 ## Cardinal Reaffirmation
 
@@ -367,6 +367,6 @@ Un CI invisible est un CI qui fait son travail : il bloque ce qui doit l'être, 
 ## References
 
 - Pilot : `debug-investigator-master.md`
-- Rules : `.claude/rules/Monozukuri.md`, `.claude/rules/Quality.md`, `.claude/rules/Workflows.md`
+- Rules : `.claude/rules/03-Qualite.md`, `.claude/rules/03-Qualite.md`, `.claude/rules/02-Parcours.md`
 - Workspace : `D:\30-Dev-Projects\.claude\rules\Security.md`
-- Routing : `mnk/08-Agents.md`
+- Routing : `docs/Routage-Experts.md`

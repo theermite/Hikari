@@ -5,9 +5,9 @@
 <!-- MNK-MANDATORY-FIRST-READ -->
 ## MANDATORY FIRST READ (BLOCKING — load order critical)
 
-1. `.claude/rules/Interpretation-Protocol.md` — how to read every other rule (literal interpretation layer, required from Opus 4.7 onward)
-2. `.claude/rules/Confidentiality.md` — absolute blocking rule on user personal data (overrides every other rule)
-3. `.claude/rules/Monozukuri.md` — philosophie chapeau : qualite intrinseque, 6 comportements operationnels, source de la rigueur
+1. `.claude/rules/01-Lecture.md` — how to read every other rule, and when to talk to Jay (the five stops)
+2. `.claude/rules/07-Securite.md` — absolute blocking rule on personal data and what leaves the perimeter (overrides every other rule)
+3. `.claude/rules/03-Qualite.md` — quality is intrinsic: gates, proof, risk classes, independent review
 
 No exception. No shortcut.
 <!-- /MNK-MANDATORY-FIRST-READ -->

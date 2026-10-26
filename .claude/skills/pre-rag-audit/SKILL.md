@@ -8,7 +8,7 @@ model: sonnet
 
 > Audit a documentation corpus for coherence, duplicates, stale data, and exclusions BEFORE feeding it to a RAG pipeline. Garbage in = garbage out.
 
-> 🧭 **Expert convoque** : intelligence artificielle et RAG + savoir (SKB) — poubelle en entree, poubelle en sortie
+> 🧭 **Agents convoqués** : **AI ML Master** · **SKB Knowledge Master** — poubelle en entree, poubelle en sortie
 
 ## Steps
 
@@ -116,7 +116,7 @@ model: sonnet
 ## Rules
 
 - **Pre-RAG audit is BLOCKING** — any (re)indexation of a knowledge base MUST be preceded by `/pre-rag-audit`. CRITICAL findings must be resolved. WARNINGS must be documented. Violation = RAG poisoning = `-10` session score.
-- **QE V2 terminology coherence**: Verify Quality Pyramid levels, Human Quality Gates, Risk Classification levels are consistent across KB files and match `mnk/06-Quality.md` and `mnk/15-Human-Quality.md`.
+- **QE V2 terminology coherence**: Verify Quality Pyramid levels, Human Quality Gates, Risk Classification levels are consistent across KB files and match `.claude/rules/03-Qualite.md` and `.claude/rules/08-Ecriture.md`.
 - Run at minimum every 30 days on SKB
 - Report is committed to git for traceability
 - `.ragignore` is respected by SKB Knowledge Master agent during searches

@@ -33,8 +33,8 @@ appele-par: "matiere: integration Stripe, routes de paiement, webhooks de paieme
 
 **Monozukuri pour les paiements** : la qualité d'un système de paiement Shinkofa tient à **deux** propriétés non-négociables :
 
-1. **Correction technique absolue** — webhook signé, idempotent, SCA-compliant, montants en cents, test clocks, 95% coverage critical path (cf. `rules/Quality.md`)
-2. **Dignité absolue** — zero dark pattern, zero fausse urgence, zero feature volontairement dégradée pour forcer l'upsell (cf. `rules/Dignity.md` §LIMITE / §VENTE / §DÉPART)
+1. **Correction technique absolue** — webhook signé, idempotent, SCA-compliant, montants en cents, test clocks, 95% coverage critical path (cf. `rules/03-Qualite.md`)
+2. **Dignité absolue** — zero dark pattern, zero fausse urgence, zero feature volontairement dégradée pour forcer l'upsell (cf. `rules/08-Ecriture.md` §LIMITE / §VENTE / §DÉPART)
 
 Les deux. Toujours. Sans exception.
 
@@ -42,7 +42,7 @@ Les deux. Toujours. Sans exception.
 
 ## Risk Classification : CRITICAL
 
-Payment code = **critical path** absolu per `rules/Quality.md`. Toutes les exigences s'appliquent :
+Payment code = **critical path** absolu per `rules/03-Qualite.md`. Toutes les exigences s'appliquent :
 
 - 95% test coverage (BLOCKING)
 - MC/DC pour conditions 4+ branches
@@ -70,9 +70,9 @@ Payment code = **critical path** absolu per `rules/Quality.md`. Toutes les exige
 
 | Source | Usage | Accès |
 |--------|-------|-------|
-| `rules/Dignity.md` §LIMITE §VENTE §DÉPART | **Lecture obligatoire** avant tout flow paiement | Read |
-| `rules/Quality.md` (critical paths, 95% cov) | Standards de test | Read |
-| `rules/Confidentiality.md` | PII : ne jamais loguer email, nom, carte | Read |
+| `rules/08-Ecriture.md` §LIMITE §VENTE §DÉPART | **Lecture obligatoire** avant tout flow paiement | Read |
+| `rules/03-Qualite.md` (critical paths, 95% cov) | Standards de test | Read |
+| `rules/07-Securite.md` | PII : ne jamais loguer email, nom, carte | Read |
 | `rules/Security.md` (workspace) | PCI DSS, secrets management | Read |
 | Stripe API docs (versionnée) | Source primaire — vérifier version API en cours | WebSearch + dashboard |
 | SKB Refonte `Veille-A4-Pricing-Founder-2026.md` (Obsidian) | Stratégie pricing Shinkofa (en cours d'établissement) | SKB / Obsidian MCP |
@@ -120,13 +120,13 @@ Une décision pricing non écrite dans Shinzo = décision perdue dans 3 mois (Co
 |-------|----------------|
 | **L3 Vision** | Le moment du paiement respecte l'utilisateur. Le checkout est limpide, le tier gratuit utile, le départ digne. L'humain n'est jamais le produit (Dignity axiome A). |
 | **L2 Visibilité** | Un checkout digne est un actif marketing : NPS, bouche-à-oreille, recommandation. Les dark patterns détruisent la confiance et donc la visibilité. |
-| **L1 Action** | Survival floor Jay : 1800-2000 EUR/mois (`rules/Strategic-Context.md`). Mais Dignity > Revenue Pressure (`financial-planning-master.md`). Jamais de tarif manipulateur, même sous pression. |
+| **L1 Action** | Survival floor Jay : 1800-2000 EUR/mois (`rules/08-Ecriture.md`). Mais Dignity > Revenue Pressure (`financial-planning-master.md`). Jamais de tarif manipulateur, même sous pression. |
 
 ---
 
 ## Dignity Rules — paiement (BLOCKING ABSOLU)
 
-> Dérivé de `rules/Dignity.md` §LIMITE / §VENTE / §DÉPART. Chaque règle est un test BLOCKING en revue : si violée, le code ne ship pas.
+> Dérivé de `rules/08-Ecriture.md` §LIMITE / §VENTE / §DÉPART. Chaque règle est un test BLOCKING en revue : si violée, le code ne ship pas.
 
 ### §LIMITE — Quand l'utilisateur atteint sa limite
 
@@ -322,7 +322,7 @@ Trace dans mémoire Shinzo L2 (`type: lesson` si divergence détectée).
 | Net Revenue Retention | (Starting MRR + Expansion - Contraction - Churn) / Starting MRR | > 100% |
 | LTV | ARPU / Monthly Churn Rate | > 10× CAC |
 
-**Note Dignity** : ces métriques mesurent, elles ne dictent jamais le design. Un churn élevé n'est pas un signal pour ajouter des dark patterns de rétention — c'est un signal pour améliorer la valeur réelle (cf. Kill Fast = REJECTED, `rules/Strategic-Context.md`).
+**Note Dignity** : ces métriques mesurent, elles ne dictent jamais le design. Un churn élevé n'est pas un signal pour ajouter des dark patterns de rétention — c'est un signal pour améliorer la valeur réelle (cf. Kill Fast = REJECTED, `rules/08-Ecriture.md`).
 
 ---
 
@@ -435,7 +435,7 @@ Le silence sur une violation Dignity = violation Monozukuri (-20 score session R
 ## General Rules
 
 - Suivre toutes les règles `.claude/rules/` et les 4 Accords Takumi
-- Consulter `mnk/08-Agents.md` pour routing et symbioses
+- Consulter `docs/Routage-Experts.md` pour routing et symbioses
 - Survival floor Jay : 1800-2000 EUR/mois (`Strategic-Context.md`) — mais **Dignity > Revenue Pressure** toujours
 - Logger toute décision pricing dans mémoire Shinzo L2 (`audience: project`, `type: plan`, `tag: pricing`)
 - Logger tout incident paiement dans mémoire Shinzo L2 (`audience: universal`, `type: lesson`, `tag: payment-incident`)

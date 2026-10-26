@@ -1,26 +1,26 @@
-# Content-Provenance — Every published piece says who made it
+---
+title: "Annexe — Provenance : dire qui a fait le contenu"
+created: 2026-10-26
+updated: 2026-10-26
+status: v2
+type: annexe
+project: Kata
+---
 
-**Proof state**: 🟢 robust — EU AI Act art. 50 in force + C2PA / IPTC standards.
+# Annexe — Provenance : dire qui a fait le contenu
 
-> Full source: github.com/theermite/Shinzo · `07-Methode/Regles/Content-Provenance.md`
-> Origin: Jay's decision 2026-09-03 — « c'est une forme de transparence », and the point is
-> as much that people know when it is **really him** as when it is not.
+> **Quand la lire** : avant de publier un contenu (article, image, vidéo, audio, newsletter, page).
+> **Pourquoi** : Obligation en vigueur depuis le 2 août 2026 : la légende fermée, la valeur lisible par machine et la mention visible.
+> Le texte ci-dessous est repris **tel quel** des anciennes règles (aucune retraduction : un marqueur
+> traduit cesse de correspondre à son garde-fou). Les noms de règles qu'il cite sont les anciens ;
+> la correspondance est dans `docs/regles/Couverture.md`.
 
-**Level**: BLOCKING.
-
-**Rule**: Every published piece of content carries its origin **twice** — a
-machine-readable field in the file, and a visible mention for humans. Both come from the
-closed legend below.
-
-**Why**: two reasons, and the second matters more to us. Legally, marking AI-generated
-published content is in force since 2026-08-02 (EU AI Act art. 50). Editorially, a mark
-that says « AI » only is a warning label ; a mark that also says « human » is a signature.
-Jay's hand-made montage and edition must be attributable to him, for real.
-
+<!-- source: Content-Provenance.md#5 -->
 **Trigger**: publishing content on any public channel — article, post, image, video,
 audio, thumbnail, newsletter, page copy. Also: any interface where a user talks to an AI
 (the user is told, in the interface).
 
+<!-- source: Content-Provenance.md#6 -->
 ## The legend (closed list)
 
 | Case | Machine-readable value | Visible mention (FR source) |
@@ -37,6 +37,7 @@ English, never translated (`Conventions.md`). Visible mentions are translated FR
 via `@shinkofa/i18n`. **A case that fits none of these five stops the publication** until
 the legend is extended — never improvise a sixth label.
 
+<!-- source: Content-Provenance.md#7 -->
 ## How it is written
 
 - **Machine-readable**: a signed C2PA manifest (Content Credentials) carrying
@@ -47,21 +48,22 @@ the legend is extended — never improvise a sixth label.
 - **Automatic, never manual**: the publishing pipeline stamps it. A mark that depends on
   remembering is a mark that will be missing.
 
+<!-- source: Content-Provenance.md#8 -->
 **Proof**: the published file answers with its value —
 `exiftool -Iptc4xmpExt:DigitalSourceType <file>` returns one of the five, and the visible
 mention exists in the published caption. A publication run that cannot show both for every
 asset is not done.
 
+<!-- source: Content-Provenance.md#9 -->
 **Without hook**: before publishing, state the case, the value, and the visible mention for
 each asset. Emit `[PROVENANCE] <asset> · <value> · <mention>` in the report.
 
+<!-- source: Content-Provenance.md#10 -->
 **Calendar**: obligation in force since **2026-08-02**. Systems already live before that
 date have until **2026-12-02**. Sanctions announced up to 15 M€ or 3 % of worldwide
 turnover. Verified 2026-09-03.
 
+<!-- source: Content-Provenance.md#11 -->
 **Out of scope here**: this rule states what must be stamped. The stamping itself belongs
 to the publishing pipeline repositories, not to Kata — Kata carries the rule, `/deploy`
 and the content pipeline carry the gesture.
-
-**BLOCKING recap**: five cases, no sixth · machine-readable value AND visible mention ·
-stamped by the pipeline, never by memory · a user talking to an AI is told so.

@@ -24,6 +24,11 @@ from pathlib import Path
 
 HOOK = Path(__file__).resolve().parents[1] / "quality" / "reformulate-gate.py"
 
+def fired(r) -> bool:
+    """Le garde-fou s'est déclenché: il AVERTIT (annonce attendue) depuis le mandat du 2026-10-24."""
+    return r.returncode == 0 and b"ANNONCE ATTENDUE" in r.stderr
+
+
 
 # --- Transcript builders -----------------------------------------------------
 
@@ -108,7 +113,7 @@ def _one_prior_write() -> list[dict]:
 def test_first_write_passes(tmp_path):
     transcript = _write_transcript(tmp_path, _user("go"))
     r = _run(transcript)
-    assert r.returncode == 0
+    assert not fired(r)
     assert r.stderr == b""
 
 
@@ -116,7 +121,7 @@ def test_skip_path_passes(tmp_path):
     # A file under .next/ is exempt regardless of count.
     transcript = _write_transcript(tmp_path, *_one_prior_write())
     r = _run(transcript, file_path="/repo/.next/server/x.js")
-    assert r.returncode == 0
+    assert not fired(r)
 
 
 # --- 2nd write blocks without reformulation or plan --------------------------
@@ -125,9 +130,9 @@ def test_skip_path_passes(tmp_path):
 def test_second_write_blocks_without_marker_or_plan(tmp_path):
     transcript = _write_transcript(tmp_path, *_one_prior_write())
     r = _run(transcript)
-    assert r.returncode == 2
-    assert b"BLOCKED" in r.stderr
-    assert b"reformulation" in r.stderr.lower()
+    assert fired(r)
+    pass  # l'avertissement est verifie par fired(r)
+    assert b"annonce" in r.stderr.lower()
 
 
 # --- 2nd write passes with a reformulation marker (regression) ---------------
@@ -139,7 +144,7 @@ def test_second_write_passes_with_reformulation_text(tmp_path):
     ]
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 0, f"reformulation text should pass: {r.stderr!r}"
+    assert not fired(r), f"reformulation text should pass: {r.stderr!r}"
 
 
 # --- 2nd write passes with an APPROVED plan (Chantier C) ---------------------
@@ -152,7 +157,7 @@ def test_second_write_passes_with_approved_plan(tmp_path):
     ]
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 0, f"approved plan should pass: {r.stderr!r}"
+    assert not fired(r), f"approved plan should pass: {r.stderr!r}"
     assert r.stderr == b""
 
 
@@ -166,7 +171,7 @@ def test_rejected_plan_does_not_count(tmp_path):
     ]
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 2, "rejected plan must not satisfy the gate"
+    assert fired(r), "rejected plan must not satisfy the gate"
 
 
 # --- An in-flight plan (no result yet) does NOT count ------------------------
@@ -179,7 +184,7 @@ def test_inflight_plan_does_not_count(tmp_path):
     ]
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 2, "in-flight plan must not satisfy the gate"
+    assert fired(r), "in-flight plan must not satisfy the gate"
 
 
 # --- Continuation nudges must NOT re-arm the window (Jay 2026-06-16) ----------
@@ -202,7 +207,7 @@ def test_continuation_nudge_does_not_rearm_window(tmp_path):
     ]
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 0, f"a nudge must not re-arm the gate: {r.stderr!r}"
+    assert not fired(r), f"a nudge must not re-arm the gate: {r.stderr!r}"
 
 
 def test_jay_relances_are_continuations(tmp_path):
@@ -216,7 +221,7 @@ def test_jay_relances_are_continuations(tmp_path):
         ]
         transcript = _write_transcript(tmp_path, *entries)
         r = _run(transcript)
-        assert r.returncode == 0, f"{nudge!r} must be a continuation: {r.stderr!r}"
+        assert not fired(r), f"{nudge!r} must be a continuation: {r.stderr!r}"
 
 
 def test_new_instruction_still_resets_window(tmp_path):
@@ -233,7 +238,7 @@ def test_new_instruction_still_resets_window(tmp_path):
     ]
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 2, "a new instruction must re-arm the gate"
+    assert fired(r), "a new instruction must re-arm the gate"
 
 
 # --- Sub-agents (bug fixed 2026-07-16) ---------------------------------------
@@ -256,7 +261,7 @@ def test_subagent_with_own_reformulation_passes(tmp_path):
         _tool_result("s1", is_error=False),
     )
     r = _run(parent, agent_id="a57c9581dd38b0f5b")
-    assert r.returncode == 0, f"sub-agent reformulation must be honored: {r.stderr!r}"
+    assert not fired(r), f"sub-agent reformulation must be honored: {r.stderr!r}"
 
 
 def test_subagent_does_not_inherit_parent_write_count(tmp_path):
@@ -269,7 +274,7 @@ def test_subagent_does_not_inherit_parent_write_count(tmp_path):
         _user("do the thing"),
     )
     r = _run(parent, agent_id="agent42")
-    assert r.returncode == 0, f"parent's counter must not leak: {r.stderr!r}"
+    assert not fired(r), f"parent's counter must not leak: {r.stderr!r}"
 
 
 def test_subagent_gate_still_fires_in_its_own_context(tmp_path):
@@ -285,7 +290,7 @@ def test_subagent_gate_still_fires_in_its_own_context(tmp_path):
         _tool_result("s1", is_error=False),
     )
     r = _run(parent, agent_id="agent42")
-    assert r.returncode == 2, "the gate must still fire inside the sub-agent's own thread"
+    assert fired(r), "the gate must still fire inside the sub-agent's own thread"
 
 
 def test_subagent_without_readable_journal_passes(tmp_path):
@@ -294,7 +299,7 @@ def test_subagent_without_readable_journal_passes(tmp_path):
     parent = _write_transcript(tmp_path, *_one_prior_write())
     # no sub-agent journal written at all
     r = _run(parent, agent_id="ghost")
-    assert r.returncode == 0, f"unreadable sub-agent context must pass: {r.stderr!r}"
+    assert not fired(r), f"unreadable sub-agent context must pass: {r.stderr!r}"
     assert r.stderr == b""
 
 
@@ -309,7 +314,7 @@ def test_parent_write_unaffected_by_the_fix(tmp_path):
         _assistant_text("REFORMULATION: compris, fichiers touches: e.ts"),
     )
     r = _run(parent)  # no agent_id -> parent
-    assert r.returncode == 2, "a sub-agent's reformulation must not unlock the parent"
+    assert fired(r), "a sub-agent's reformulation must not unlock the parent"
 
 
 # --- Robustness: empty / malformed input -------------------------------------
@@ -322,7 +327,7 @@ def test_empty_stdin_passes():
         capture_output=True,
         timeout=10,
     )
-    assert r.returncode == 0
+    assert not fired(r)
 
 
 # --- Cross-model review 2026-07-29: hardening ---------------------------------
@@ -350,7 +355,7 @@ def test_table_formatted_reformulation_unlocks_the_gate(tmp_path):
         ),
     )
     r = _run(transcript)
-    assert r.returncode == 0, f"table reformulation must pass: {r.stderr!r}"
+    assert not fired(r), f"table reformulation must pass: {r.stderr!r}"
 
 
 def test_agent_id_with_path_traversal_is_rejected(tmp_path):
@@ -363,7 +368,7 @@ def test_agent_id_with_path_traversal_is_rejected(tmp_path):
     """
     parent = _write_transcript(tmp_path, *_one_prior_write())
     r = _run(parent, agent_id="../../../../etc/passwd")
-    assert r.returncode == 2, (
+    assert fired(r), (
         "a traversing agent_id must fall back to the parent journal (which has "
         f"no reformulation) instead of reading elsewhere: {r.stderr!r}"
     )
@@ -379,7 +384,7 @@ def test_wellformed_agent_id_still_reads_its_own_journal(tmp_path):
         _assistant_text("REFORMULATION: compris, fichiers touches: e.ts"),
     )
     r = _run(parent, agent_id="a57c9581dd38b0f5b")
-    assert r.returncode == 0, f"well-formed agent_id must still resolve: {r.stderr!r}"
+    assert not fired(r), f"well-formed agent_id must still resolve: {r.stderr!r}"
 
 
 def test_malformed_types_in_payload_pass_through():
@@ -396,7 +401,7 @@ def test_malformed_types_in_payload_pass_through():
         capture_output=True,
         timeout=10,
     )
-    assert r.returncode == 0, f"malformed payload must fail open: {r.stderr!r}"
+    assert not fired(r), f"malformed payload must fail open: {r.stderr!r}"
     assert b"Traceback" not in r.stderr
 
 
@@ -411,5 +416,5 @@ def test_a_non_object_transcript_line_does_not_crash_plan_detection(tmp_path):
     ]
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 0, f"approved plan should still pass: {r.stderr!r}"
+    assert not fired(r), f"approved plan should still pass: {r.stderr!r}"
     assert b"Traceback" not in r.stderr

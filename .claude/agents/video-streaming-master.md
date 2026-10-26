@@ -90,7 +90,7 @@ Pas de challenge = `-20` Reliability.
 
 ## Dignity awareness (BLOCKING sur tout élément user-facing)
 
-Avant de livrer un overlay, une alerte, un flow viewer : appliquer les 8 tests Dignity de `rules/Dignity.md` :
+Avant de livrer un overlay, une alerte, un flow viewer : appliquer les 8 tests Dignity de `rules/08-Ecriture.md` :
 
 | Test | Application streaming |
 |------|----------------------|
@@ -481,12 +481,12 @@ When configuring a stream setup, deliver:
 - Encoding: balance quality vs bandwidth (test upload speed first)
 - ND-friendly overlays: no flashing, reduced motion support, normalized volume (BLOCKING)
 - Consult SKB domain 07 (Esport & Gaming) + 11 (Communication & Marketing) FIRST
-- Reference: `rules/Quality.md` (accessibility), `rules/Strategic-Context.md` (L2 visibility), `rules/Dignity.md` (8 tests)
+- Reference: `rules/03-Qualite.md` (accessibility), `rules/08-Ecriture.md` (L2 visibility), `rules/08-Ecriture.md` (8 tests)
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords
-- Consult `mnk/08-Agents.md` for routing rules and symbioses
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD. Shinzo project notes for all project tracking.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.

@@ -6,6 +6,8 @@ model: sonnet
 
 # /session-end — Close Dev Session
 
+> **Annexes à lire** (`.claude/rules-ondemand/`, un garde-fou bloque l'écriture sinon) : `Notation`, `Reprise-Et-Contexte` et `Verite-Detail` (avant d'écrire le rapport — le garde-fou les exige).
+
 Execute these steps IN ORDER. Gate 8 must pass.
 
 ## Steps
@@ -22,11 +24,11 @@ Execute these steps IN ORDER. Gate 8 must pass.
      and what came of it>` OR `[NO-CHALLENGE] motif: <aucune-decision-structurante |
      chemin-unique-impose | contradiction-portee-par-jay | session-de-correction-dirigee>`.
      The report cannot be written without one of the two. The reason is a signal to count,
-     never an escape hatch. See `rules/Honesty.md` — Active Technical Challenge.
+     never an escape hatch. See `.claude/rules/04-Verite.md` — Active Technical Challenge.
    - **Reproches de livraison** — every complaint Jay made about the OUTPUT itself
      (unreadable, too dense, too technical, too much), his words verbatim + the cause found
      + what changed. −10 Value each. None this session → write « aucun ». See
-     `rules/Workflows.md` — Scoring V2.
+     `.claude/rules/02-Parcours.md` — Scoring V2.
    - **Leçon(s)** — the transferable lesson(s) from this session (复盘 grammar: Objectif → Processus → Résultat → Analyse 5-pourquoi → Leçon)
    - Pending items for next session
    - Context Awareness status: was the 60% threshold reached? Was a handoff brief written? Note any context degradation detected.
@@ -38,12 +40,12 @@ Execute these steps IN ORDER. Gate 8 must pass.
    - **`[SHINZO]`** = `D:/30-Dev-Projects/Shinzo` (local) · `~/Shinzo` (VPS).
    - **DO NOT read or write all project files.** Only touch files where you have changes to write.
    - **After writing**: stage **only the files this session wrote**, by explicit path (`git add -- <path> <path>`) — never `git add -A`, `git add .`, or a whole directory. Another session may be writing Shinzo at the same time; a broad stage carries its work away under your commit message (observed 2026-08-10). Then commit + push. **Proof**: `git show --name-only HEAD` lists only paths this session wrote. (Memory files under `05-Memoire/` need nothing — the memory hook commits each one on its own, scoped to its path.)
-4. **TRIM CHECK**: Verify each updated `[SHINZO]/02-Projets/[project].md` stays under **~5 KB / ~150 lines**. If over, apply the 4 trimming rules (see `mnk/05-Workflows-Session.md` "Obsidian Project File Hygiene") before saving:
+4. **TRIM CHECK**: Verify each updated `[SHINZO]/02-Projets/[project].md` stays under **~5 KB / ~150 lines**. If over, apply the 4 trimming rules (see `.claude/rules/02-Parcours.md` "Obsidian Project File Hygiene") before saving:
    1. Session reports → max 1-liner in project file (`| date | scope | score |`). Full detail stays in `docs/Sessions/`.
    2. Superseded decisions → remove from file. Git history preserves them. Keep only ACTIVE decisions.
    3. Resolved bugs → remove or keep as 1-liner max (`- ~~Bug X~~ done date`).
    4. Out-of-scope sections → move to the correct project file.
-5. **DOCS UPDATE**: Ensure CDC and PET reflect current state. Update if changed. (Blueprint is archived to `mnk/10-Blueprints.md` since v5.0.0 — no per-project Blueprint document.)
+5. **DOCS UPDATE**: Ensure CDC and PET reflect current state. Update if changed. (Blueprint is archived to `.claude/rules/02-Parcours.md` since v5.0.0 — no per-project Blueprint document.)
 6. **PENDING**: List remaining items explicitly.
 7. **SCORING V2**: Score three dimensions independently, then compute weighted total:
    - **Value (40%)**: Did the session produce something deployable, publishable, or usable?
@@ -62,6 +64,6 @@ Execute these steps IN ORDER. Gate 8 must pass.
 - Session report serves as comparison point for next session.
 - Next `/session-start` reads these reports.
 - Never end a session with uncommitted work (atomic commit check).
-- If a hook, tool, or system rule blocks any of these steps: apply the Post-Block Recovery Protocol (`mnk/11-Post-Block-Recovery.md`). Never stay passive.
+- If a hook, tool, or system rule blocks any of these steps: apply the Post-Block Recovery Protocol (`.claude/rules/01-Lecture.md`). Never stay passive.
 
-See `mnk/05-Workflows-Session.md` WF-10 for full details.
+See `.claude/rules/02-Parcours.md` WF-10 for full details.

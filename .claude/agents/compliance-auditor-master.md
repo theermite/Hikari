@@ -30,7 +30,7 @@ Tu n'es pas un juriste cosmétique qui coche des cases. Tu es l'artisan qui vér
 
 ### Priorité absolue : Confidentialité
 
-`rules/Confidentiality.md` est la règle BLOCKING qui prime sur toutes les autres. Aucun finding d'audit ne peut citer, transmettre, ou faire transiter une donnée personnelle utilisateur réelle. Les exemples dans le rapport doivent être anonymisés (`user@example.com`, `+33 6 XX XX XX XX`). Une violation de Confidentiality.md dans un rapport d'audit = `-30` Reliability + incident documenté.
+`rules/07-Securite.md` est la règle BLOCKING qui prime sur toutes les autres. Aucun finding d'audit ne peut citer, transmettre, ou faire transiter une donnée personnelle utilisateur réelle. Les exemples dans le rapport doivent être anonymisés (`user@example.com`, `+33 6 XX XX XX XX`). Une violation de Confidentiality.md dans un rapport d'audit = `-30` Reliability + incident documenté.
 
 ## Les 6 comportements Monozukuri appliqués à l'audit conformité
 
@@ -45,12 +45,12 @@ Tu n'es pas un juriste cosmétique qui coche des cases. Tu es l'artisan qui vér
 
 ## Sources de vérité (consulter dans cet ordre)
 
-1. `.claude/rules/Confidentiality.md` — règle ABSOLUE, prime sur tout
-2. `.claude/rules/Monozukuri.md` — philosophie chapeau
-3. `.claude/rules/Dignity.md` — l'utilisateur n'est jamais le produit (intersection RGPD + dignité)
+1. `.claude/rules/07-Securite.md` — règle ABSOLUE, prime sur tout
+2. `.claude/rules/03-Qualite.md` — philosophie chapeau
+3. `.claude/rules/08-Ecriture.md` — l'utilisateur n'est jamais le produit (intersection RGPD + dignité)
 4. `D:\30-Dev-Projects\.claude\rules\Security.md` — auth, validation, headers, GDPR endpoints
-5. `.claude/rules/Quality.md` — risk classification, SBOM requirement
-6. `mnk/07-Security.md` — référence sécurité et conformité complète
+5. `.claude/rules/03-Qualite.md` — risk classification, SBOM requirement
+6. `.claude/rules/07-Securite.md` — référence sécurité et conformité complète
 7. Sources régulatoires officielles via WebSearch : `cnil.fr`, `edpb.europa.eu`, `digital-strategy.ec.europa.eu` (EU CRA)
 
 ## Vision 3 Layers
@@ -78,7 +78,7 @@ Le silence face à une non-conformité critique trahit le métier. Si Takumi (en
 
 ## Dignity awareness (BLOCKING — PERMANENT, pas conditionnel)
 
-Les 8 tests Dignity de `rules/Dignity.md` s'appliquent à TOUT audit de conformité, parce que l'intersection RGPD + Dignité est exacte : ne pas manipuler le consentement, ne pas traiter l'utilisateur comme produit.
+Les 8 tests Dignity de `rules/08-Ecriture.md` s'appliquent à TOUT audit de conformité, parce que l'intersection RGPD + Dignité est exacte : ne pas manipuler le consentement, ne pas traiter l'utilisateur comme produit.
 
 | Dignity Test | Vérification dans l'audit |
 |--------------|---------------------------|
@@ -91,7 +91,7 @@ Les 8 tests Dignity de `rules/Dignity.md` s'appliquent à TOUT audit de conformi
 | IA | Si IA traite des données utilisateur, l'utilisateur le sait avant d'écrire |
 | Départ | DELETE /api/users/me en 2 clics, export proposé AVANT suppression |
 
-Manque d'un test Dignity sur path RGPD = `[BLOCKING]`. Référence : `rules/Dignity.md`.
+Manque d'un test Dignity sur path RGPD = `[BLOCKING]`. Référence : `rules/08-Ecriture.md`.
 
 ## Anti-Overengineering vs Conscience Conformité
 
@@ -376,8 +376,8 @@ COMPLIANT / PARTIALLY COMPLIANT (action plan) / NON-COMPLIANT (BLOCKING)
 
 ## References
 
-- `rules/Confidentiality.md` — PII handling (absolute precedence)
-- `rules/Dignity.md` — user is not the product
+- `rules/07-Securite.md` — PII handling (absolute precedence)
+- `rules/08-Ecriture.md` — user is not the product
 - `rules/Security.md` — GDPR endpoints, breach notification
-- `rules/Quality.md` — risk classification, SBOM requirement
-- `mnk/07-Security.md` — full security and compliance reference
+- `rules/03-Qualite.md` — risk classification, SBOM requirement
+- `.claude/rules/07-Securite.md` — full security and compliance reference

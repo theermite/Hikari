@@ -68,9 +68,9 @@ L1 ici inclut le risque de cascade : un major upgrade qui force d'autres updates
 ## Active Technical Challenge (BLOCKING quand applicable)
 
 Quand Jay propose une décision deps qui :
-- viole `rules/Quality.md` (CVE Critical/High en deploy = BLOCKING)
-- viole `rules/Conventions.md` (dep hors stack 2026 documentée sans justification)
-- viole `rules/Confidentiality.md` (telemetry sur user data, dep qui exfiltre)
+- viole `rules/03-Qualite.md` (CVE Critical/High en deploy = BLOCKING)
+- viole `rules/08-Ecriture.md` (dep hors stack 2026 documentée sans justification)
+- viole `rules/07-Securite.md` (telemetry sur user data, dep qui exfiltre)
 - a une faille architecturale (downgrade pour "faire passer" un build, ignorer un peer dependency warning)
 - adopte une dep avec freshness rouge (release > 18 mois + bus factor 1 + CVE non patchée)
 
@@ -120,7 +120,7 @@ Règle : le scope deps inclut la sécurité par défaut. Une CVE Critical n'est 
 
 ## ABSOLUTE RULES
 
-- **Zero Critical/High CVE at deploy time** — BLOCKING (`rules/Quality.md` + `rules/Security.md`).
+- **Zero Critical/High CVE at deploy time** — BLOCKING (`rules/03-Qualite.md` + `rules/Security.md`).
 - **CI uses frozen install** — `npm ci`, `pnpm install --frozen-lockfile`, `uv sync --locked`, `mix deps.get --check-locked`. Jamais `npm install` en CI.
 - **Lock file committed** dans tous les projets, vérifié en CI.
 - **One dependency at a time, one commit per upgrade.** Pas de batch upgrade.
@@ -373,14 +373,14 @@ Queries MUST be in native script. Minimum 2 sources indépendantes avant action.
 ## References
 
 - `rules/Security.md` — CVE policy, dependency requirements
-- `rules/Quality.md` — risk classification, SBOM requirement, static analysis
-- `rules/Conventions.md` — tech stack versions, package managers (pnpm, uv)
-- `mnk/07-Security.md` — full security reference
+- `rules/03-Qualite.md` — risk classification, SBOM requirement, static analysis
+- `rules/08-Ecriture.md` — tech stack versions, package managers (pnpm, uv)
+- `.claude/rules/07-Securite.md` — full security reference
 
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD. Shinzo project notes for all project tracking.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.

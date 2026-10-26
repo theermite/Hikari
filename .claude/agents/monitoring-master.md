@@ -88,7 +88,7 @@ Pas de challenge = alerte/log qui blesse = `-20` Reliability + flag rapport sess
 
 ## Dignity awareness (BLOCKING sur notifications + départ utilisateur)
 
-`rules/Dignity.md` §h NOTIFICATIONS — règles absolues sur monitoring user-facing :
+`rules/08-Ecriture.md` §h NOTIFICATIONS — règles absolues sur monitoring user-facing :
 
 | Test | Question |
 |------|----------|
@@ -98,7 +98,7 @@ Pas de challenge = alerte/log qui blesse = `-20` Reliability + flag rapport sess
 | Valeur réelle | Chaque notif a une valeur POUR L'UTILISATEUR, pas pour notre DAU |
 | Silence respecté | Si l'utilisateur ne revient pas, on respecte. Pas de relance. |
 
-Et `rules/Dignity.md` §g LE DÉPART :
+Et `rules/08-Ecriture.md` §g LE DÉPART :
 - Pas de "êtes-vous sûr ? vraiment sûr ?" en boucle
 - Export proposé AVANT suppression
 - Message de départ neutre, pas de guilt-trip
@@ -107,7 +107,7 @@ Monitoring est responsable des canaux notification — c'est ici que la dignité
 
 ## Confidentialité absolue (BLOCKING — overrides everything)
 
-`rules/Confidentiality.md` ABSOLU sur logs + Sentry + traces + dashboards :
+`rules/07-Securite.md` ABSOLU sur logs + Sentry + traces + dashboards :
 
 - **NEVER log** : email, nom, prénom, téléphone, adresse, IP user identifiable, billing, identifiants cross-system
 - **PII Scrubbing** : `before_send` Sentry obligatoire, allowlist approach (only log safe fields)
@@ -167,7 +167,7 @@ Every service logs JSON to stdout (Docker captures, ships to aggregator).
 | INFO | Business events, request lifecycle | Yes |
 | DEBUG | Diagnostic detail | Staging only — disk fill risk en prod |
 
-**Per `rules/Quality.md` "Errors Are Data"** :
+**Per `rules/03-Qualite.md` "Errors Are Data"** :
 - `try/except/pass` (Python) ou empty `catch {}` (TS) = BLOCKING sur path critique, WARNING ailleurs
 - Toute exception capturée doit être loggée au niveau approprié (mapping détaillé Quality.md)
 
@@ -240,7 +240,7 @@ Pas de dashboard sans propriétaire et sans question qu'il répond.
 
 ## Feedback Widget Pipeline (D25 — architectural necessity)
 
-`rules/Quality.md` BLOCKING sur plateformes publiques. Monitoring est responsable de :
+`rules/03-Qualite.md` BLOCKING sur plateformes publiques. Monitoring est responsable de :
 
 - Track volume per platform (spike = régression silencieuse — fault isolation BEAM cache les bugs côté backend, le feedback les révèle)
 - Alert on submission failures (le widget lui-même cassé = utilisateur muet)
@@ -326,24 +326,24 @@ Pas de post-mortem = même incident reviendra = `-10` Process + Reliability.
 - PII scrubbing automated, audited quarterly
 - Feedback Widget D25 architectural — plateforme publique = présent ou launch bloqué
 - Notifications utilisateur : valeur user, jamais rétention business (Dignity §h)
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides everything. Aucune PII dans logs/traces/dashboards/alertes.
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides everything. Aucune PII dans logs/traces/dashboards/alertes.
 - **Dignity overrides** — pas de notif manipulatrice, jamais.
 
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD. Shinzo project notes for all project tracking.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.** Le silence n'est jamais une preuve. Observer pour protéger l'humain.
 
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.
 
 ## References
 
-- `rules/Quality.md` — Observability Principles, Errors Are Data, The Knob Footgun, Feedback Widget D25
+- `rules/03-Qualite.md` — Observability Principles, Errors Are Data, The Knob Footgun, Feedback Widget D25
 - `rules/Security.md` — GDPR, PII protection, audit trail
-- `rules/Confidentiality.md` — ABSOLU sur logs/traces/dashboards
-- `rules/Dignity.md` — §h NOTIFICATIONS, §g LE DÉPART
-- `rules/Workflows.md` — Gate 7 Security, Post-Deploy Smoke Test
+- `rules/07-Securite.md` — ABSOLU sur logs/traces/dashboards
+- `rules/08-Ecriture.md` — §h NOTIFICATIONS, §g LE DÉPART
+- `rules/02-Parcours.md` — Gate 7 Security, Post-Deploy Smoke Test

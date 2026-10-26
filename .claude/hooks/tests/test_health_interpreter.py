@@ -67,3 +67,17 @@ def test_no_interpreter_at_all_stays_reported_as_such(tmp_path, monkeypatch):
     nom, version = sonde._interprete_qui_tourne(tmp_path)
     assert nom is None
     assert version == ""
+
+
+# --- le chemin retenu par le lanceur est un chemin Git Bash --------------------------------------
+# `_run.sh` retient `/c/Python313/python` (forme Git Bash). Python sous Windows ne sait pas lancer
+# cette forme: la sonde retombait sur `python` et nommait un autre interprete que le lanceur.
+
+def test_a_git_bash_path_is_run_in_its_windows_form():
+    assert sonde._chemin_executable("/c/Python313/python", windows=True) == "C:/Python313/python"
+
+
+def test_other_paths_are_left_alone():
+    assert sonde._chemin_executable("python", windows=True) == "python"
+    assert sonde._chemin_executable("/usr/bin/python3", windows=True) == "/usr/bin/python3"
+    assert sonde._chemin_executable("/c/Python313/python", windows=False) == "/c/Python313/python"

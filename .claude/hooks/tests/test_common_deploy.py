@@ -81,3 +81,40 @@ def test_innocent_commands_not_flagged():
 
 def test_empty_command_not_flagged():
     assert looks_like_deploy("") is False
+
+
+# --- chaque blocage renvoie à l'annexe de reprise ------------------------------------------------
+# Rien dans un appel d'outil ne signale « un blocage vient d'avoir lieu » : le message du garde-fou
+# lui-même est le seul porteur de l'annexe Debug-Et-Blocage (registre des annexes).
+
+def test_every_block_message_points_to_the_recovery_annex():
+    from common import format_block
+    message = format_block("raison", "remède", reference="rules/X.md")
+    assert ".claude/rules-ondemand/Debug-Et-Blocage.md" in message
+    assert message.startswith("BLOCKED: raison. RECOVERY: remède")
+
+
+# --- relecture indépendante du 2026-10-26 (P7): seize anciennes règles citées par des messages ------
+# Les messages de blocage renvoient vers `rules/Quality.md` & co. La table ancienne règle -> nouvelle place
+# est appliquée à l'entonnoir (`format_block`, `format_warn`): un seul endroit à tenir, pas 34 fichiers.
+
+def test_a_reference_to_an_archived_rule_points_to_its_new_home():
+    from common import format_block, format_warn
+    msg = format_block("raison", "remède", reference="rules/Quality.md > Lego Library")
+    assert "rules/Quality.md" not in msg and "03-Qualite.md" in msg and "Lego Library" in msg
+    assert "04-Verite.md" in format_warn("r", "a", reference=".claude/rules/Honesty.md")
+
+
+def test_a_reference_to_a_current_rule_is_left_alone():
+    from common import format_block
+    assert ".claude/rules/02-Parcours.md § 7" in format_block("r", "x", reference=".claude/rules/02-Parcours.md § 7")
+
+
+def test_every_archived_rule_has_a_new_home_that_exists():
+    from pathlib import Path
+    from common import ANCIENNES_REGLES
+    racine = Path(__file__).resolve().parents[3]
+    for ancienne in (racine / "rules-archives").glob("*.md"):
+        assert ancienne.name in ANCIENNES_REGLES, ancienne.name
+    for nouvelle in ANCIENNES_REGLES.values():
+        assert (racine / nouvelle.split(" ")[0]).exists(), nouvelle

@@ -82,4 +82,4 @@ details (ports, domains, Docker).
 - Conflict or refusal from the script: read its `recovery` line, apply it,
   retry once, then escalate. Never a silent workaround.
 
-See `mnk/09-Skills.md` for context.
+See ``.claude/skills/`` for context.

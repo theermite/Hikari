@@ -6,14 +6,16 @@ model: sonnet
 
 # /rebuild-decision — Rebuild vs Fix Evaluation
 
+> **Annexes à lire** (`.claude/rules-ondemand/`, un garde-fou bloque l'écriture sinon) : `Tests-Et-Mesures` (mesures de fiabilité, principes QE V2).
+
 Formalized decision framework for when a module has accumulated too many correction sessions without lasting resolution.
 
-> 🧭 **Expert convoque** : arbitre de refonte — ROI chiffre, jamais une intuition
+> 🧭 **Agents convoqués** : **Rebuild Arbiter Master** — ROI chiffre, jamais une intuition
 
 ## Step 1: Collect Metrics
 
 1. Current audit score (run `/audit` if not recent)
-2. **Risk Classification** of the module (Critical/Sensitive/Standard/Tooling per `rules/Quality.md`) — this determines coverage thresholds and fix rigor
+2. **Risk Classification** of the module (Critical/Sensitive/Standard/Tooling per `.claude/rules/03-Qualite.md`) — this determines coverage thresholds and fix rigor
 3. Number of correction sessions on this module (check `docs/Sessions/`)
 4. Age of codebase and last major refactor
 5. Current test coverage (overall + critical paths, against Risk Classification thresholds)
@@ -82,4 +84,4 @@ If the rebuild changes the project's **intention** itself (scope, stack, public,
 - This skill proposes — Jay decides. Never auto-execute a rebuild.
 - The goal is to build correctly NOW so rebuild is never needed again.
 - Kill fast = REJECTED. Never kill the WHY. Adapt the HOW.
-- See `rules/Quality.md` "Rebuild Over Fix" for full criteria.
+- See `.claude/rules/03-Qualite.md` "Rebuild Over Fix" for full criteria.

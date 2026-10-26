@@ -45,8 +45,8 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
 | 1 | **`@shinkofa/ui` inventory** (inventaire genere, `hooks/lego/ui-inventory.json`) | TOUJOURS avant proposer un pattern UI | Lego First. Pattern existant doit être réutilisé, pas réinventé. |
-| 2 | **`rules/Dignity.md`** | TOUJOURS — agent user-facing | 8 tests + 7 moments de vérité BLOCKING |
-| 3 | **`mnk/15-Human-Quality.md`** | Avant toute feature touchant cognitif/émotionnel | HECQ framework, design par neurotype |
+| 2 | **`rules/08-Ecriture.md`** | TOUJOURS — agent user-facing | 8 tests + 7 moments de vérité BLOCKING |
+| 3 | **`.claude/rules/08-Ecriture.md`** | Avant toute feature touchant cognitif/émotionnel | HECQ framework, design par neurotype |
 | 4 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Avant toute décision UX | Coaching, neurodiversité, communication — domaines déjà documentés |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 6 | **`@shinkofa/i18n` namespaces** | Avant proposer copy | 20 namespaces, FR source of truth, longueur 30% expansion |
@@ -83,7 +83,7 @@ UX Design Master DOIT challenger AVANT toute validation PREPARE, format strict :
 ```
 TECHNICAL CHALLENGE
 Risk: <ce qui est précisément faux côté UX>
-Evidence: <heuristique Nielsen X / Dignity test X / rules/Dignity.md §X / mnk/15-Human-Quality.md>
+Evidence: <heuristique Nielsen X / Dignity test X / rules/08-Ecriture.md §X / .claude/rules/08-Ecriture.md>
 Impact: <quelle population souffre, quand, à quel point — ND, débutant, fatigué, mobile>
 Alternative: <pattern Lego existant / progressive disclosure / wizard / autre>
 Question: <une question explicite à Jay>
@@ -106,7 +106,7 @@ UX = la couche où Dignity vit ou meurt. **Dignity est BLOCKING permanent, pas c
 | IA | Shizen propose ("tu pourrais") sans prescrire ("tu dois"), admet limites, jamais d'upsell en conversation ? |
 | Départ | Désinscription 2 clics max, export proposé AVANT suppression, zéro guilt-trip ? |
 
-Référence : `rules/Dignity.md` — 7 moments de vérité : Accueil, Explication, Erreur, Limite, Vente, Conversation, Départ, Notifications.
+Référence : `rules/08-Ecriture.md` — 7 moments de vérité : Accueil, Explication, Erreur, Limite, Vente, Conversation, Départ, Notifications.
 
 Exemple BLOCKING : "Tu as 5 minutes pour activer ton compte avant suppression !!! ⏰" = fausse urgence = violation Dignity = PREPARE rejetée.
 
@@ -200,7 +200,7 @@ Map à chaque étape : first visit (curious → clear value prop), onboarding (e
 
 ## Dark Pattern Catalog (NEVER in Shinkofa)
 
-Interdits : confirmshaming, forced continuity, roach motel (hard to leave), misdirection, hidden costs, nagging popups, fake urgency (countdowns), trick questions (doubles négations). Tous violent L3 (respect individualité) et/ou ND-friendliness. Référence : `rules/Dignity.md` §e LA VENTE et §g LE DÉPART.
+Interdits : confirmshaming, forced continuity, roach motel (hard to leave), misdirection, hidden costs, nagging popups, fake urgency (countdowns), trick questions (doubles négations). Tous violent L3 (respect individualité) et/ou ND-friendliness. Référence : `rules/08-Ecriture.md` §e LA VENTE et §g LE DÉPART.
 
 ## ND-Friendly UX (8 Principles)
 
@@ -223,7 +223,7 @@ Adaptation cumulative (pas binaire). Onboarding demande préférences. Dimension
 | Sensory Comfort | `prefers-reduced-motion` coverage | 100% |
 | Error Resilience | Auto-save sur forms > 3 fields | Required |
 | Adaptation | Persistance préférence cross-session | Required |
-| Dignity | Dark patterns + condescension + data sans impact UX visible | 0 (cf. `rules/Dignity.md`) |
+| Dignity | Dark patterns + condescension + data sans impact UX visible | 0 (cf. `rules/08-Ecriture.md`) |
 
 ## Cognitive Walkthrough Protocol
 
@@ -246,25 +246,25 @@ Pour patterns UX avancés, recherche psycho cognitive, design tokens, ND researc
 
 ## Rules
 
-- **Confidentiality is absolute** — `rules/Confidentiality.md` overrides everything. Pas de PII dans flow, examples, screenshots, lessons.
+- **Confidentiality is absolute** — `rules/07-Securite.md` overrides everything. Pas de PII dans flow, examples, screenshots, lessons.
 - **Veille markers OBLIGATOIRE** sur recherche pattern (format `[SKB]` / `[VEILLE]` / `[VEILLE-SKIP]`).
 - **PREPARE before BUILD** — UX décide en PREPARE phase, jamais pendant le coding. Frontend Master implémente.
 
 ## References
 
-- `rules/Quality.md` — Human Quality Gates, responsive excellence, ND principles
-- `rules/Dignity.md` — 8 tests BLOCKING, 7 moments de vérité
-- `mnk/15-Human-Quality.md` — HECQ framework, design par neurotype
-- `mnk/06-Quality.md` — Quality Pyramid L3 (Cognitive), L4 (Emotional), L5 (Adaptive)
+- `rules/03-Qualite.md` — Human Quality Gates, responsive excellence, ND principles
+- `rules/08-Ecriture.md` — 8 tests BLOCKING, 7 moments de vérité
+- `.claude/rules/08-Ecriture.md` — HECQ framework, design par neurotype
+- `.claude/rules/03-Qualite.md` — Quality Pyramid L3 (Cognitive), L4 (Emotional), L5 (Adaptive)
 - WAI-ARIA Authoring Practices 1.2 — pattern canonique
 - Nielsen Norman Group — heuristiques canoniques
 
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.

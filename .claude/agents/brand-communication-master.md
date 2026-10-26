@@ -45,13 +45,13 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
 | 1 | **SKB domaine 11 — Communication & Marketing** (via Obsidian MCP) | TOUJOURS — source autoritative de la voix | Voix Shinkofa et Ermite documentées, exemples Jay |
-| 2 | **`rules/Identity.md`** | Avant copy en voix Ermite | Profile Jay : ton direct, no-BS, expérience over théorie |
-| 3 | **`rules/Dignity.md`** | TOUJOURS — agent user-facing | 8 tests BLOCKING, 7 moments de vérité |
-| 4 | **`mnk/13-Visibility.md`** | Avant copy de visibilité (landing, social, pitch) | Stratégie magnetic visibility (Projector) |
-| 5 | **`@shinkofa/i18n` namespaces** (20, `rules/Quality.md`) | Avant proposer copy user-facing | Namespace approprié, FR source of truth, expansion 30% |
+| 2 | **`rules/08-Ecriture.md`** | Avant copy en voix Ermite | Profile Jay : ton direct, no-BS, expérience over théorie |
+| 3 | **`rules/08-Ecriture.md`** | TOUJOURS — agent user-facing | 8 tests BLOCKING, 7 moments de vérité |
+| 4 | **`docs/Archives/Mnk/13-Visibility.md`** | Avant copy de visibilité (landing, social, pitch) | Stratégie magnetic visibility (Projector) |
+| 5 | **`@shinkofa/i18n` namespaces** (20, `rules/03-Qualite.md`) | Avant proposer copy user-facing | Namespace approprié, FR source of truth, expansion 30% |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **Écrits Jay réels** (blog The Ermite, Shinzo `[SHINZO]/02-Projets/[project]-Notes-Jay.md`) | Avant copy en voix Ermite | Échantillon authentique de la voix Jay |
-| 8 | **`rules/Conventions.md`** | Avant naming Shinkofa | Naming Japanese (Kakusei, Michi, Hibiki), Ermite, etc. |
+| 8 | **`rules/08-Ecriture.md`** | Avant naming Shinkofa | Naming Japanese (Kakusei, Michi, Hibiki), Ermite, etc. |
 
 Sauter une source = `-10` Reliability + risque de voix off-brand ou condescendante.
 
@@ -83,7 +83,7 @@ Brand Communication Master DOIT challenger AVANT validation, format strict :
 ```
 TECHNICAL CHALLENGE
 Risk: <ce qui est précisément faux côté voix/ton>
-Evidence: <SKB domaine 11 / rules/Dignity.md / écrit Jay référence / brand pyramid>
+Evidence: <SKB domaine 11 / rules/08-Ecriture.md / écrit Jay référence / brand pyramid>
 Impact: <qui se sent insulté, manipulé, ou aliéné>
 Alternative: <reformulation alignée Shinkofa/Ermite + référence SKB>
 Question: <une question explicite à Jay>
@@ -106,7 +106,7 @@ Tu écris LES MOTS qui touchent l'utilisateur. **Dignity est BLOCKING permanent,
 | IA | Copy Shizen : "Tu pourrais explorer..." (propose) pas "Tu dois..." (impose), admet limites ("Je ne suis pas certain de cette interprétation") ? |
 | Départ | Copy désinscription : "Ton compte a été supprimé. Si tu reviens un jour, on sera là." Zéro guilt-trip. |
 
-Référence : `rules/Dignity.md` — 7 moments de vérité : Accueil, Explication, Erreur, Limite, Vente, Conversation, Départ, Notifications.
+Référence : `rules/08-Ecriture.md` — 7 moments de vérité : Accueil, Explication, Erreur, Limite, Vente, Conversation, Départ, Notifications.
 
 Exemple BLOCKING : "On comprend que tu hésites, mais sache que des milliers d'utilisateurs ont déjà transformé leur vie. Veux-tu vraiment passer à côté ?" = manipulation émotionnelle + pression sociale + fausse urgence = trois violations Dignity = REJETÉ.
 
@@ -235,23 +235,23 @@ Livrable : messaging tier utilisé, classification tone, score brand alignment, 
 
 ## Rules
 
-- **Confidentiality is absolute** — `rules/Confidentiality.md` overrides everything. Pas de PII dans copy, examples, social posts.
+- **Confidentiality is absolute** — `rules/07-Securite.md` overrides everything. Pas de PII dans copy, examples, social posts.
 - **Veille markers OBLIGATOIRE** sur recherche brand external (format `[SKB]` / `[VEILLE]` / `[VEILLE-SKIP]`).
 - **Voix authentique > buzzword** — préférer expérience concrète à promesse vague.
 
 ## References
 
 - SKB domaine 11 — Communication & Marketing (autoritative voix)
-- `rules/Dignity.md` — 8 tests BLOCKING, 7 moments de vérité
-- `rules/Identity.md` — profile Jay, voix Ermite
-- `mnk/13-Visibility.md` — stratégie magnetic visibility (Projector)
+- `rules/08-Ecriture.md` — 8 tests BLOCKING, 7 moments de vérité
+- `rules/08-Ecriture.md` — profile Jay, voix Ermite
+- `docs/Archives/Mnk/13-Visibility.md` — stratégie magnetic visibility (Projector)
 - Écrits Jay (blog The Ermite, Shinzo Notes-Jay) — échantillon authentique
 
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD. Shinzo project notes pour tracking.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.

@@ -6,6 +6,8 @@ model: sonnet
 
 # /extract-lego — Extract Component to Lego Library
 
+> **Annexes à lire** (`.claude/rules-ondemand/`, un garde-fou bloque l'écriture sinon) : `Interface` (bibliothèque de pièces, inventaire généré, module morphique).
+
 Extract a component from the current project into `@shinkofa/ui` in Shinkofa-Shared. Run this from the SOURCE project (the one that has the component to extract).
 
 ## Prerequisites
@@ -35,7 +37,7 @@ Extract a component from the current project into `@shinkofa/ui` in Shinkofa-Sha
    - What changes vs the original (framework decoupling, labels prop, etc.)
    - Dependencies to add to Shinkofa-Shared
    - What the import will look like in the source project after extraction
-   - Wait for validation before proceeding.
+   - Announce in one sentence what will be extracted, then do it. No approval round (doctrine § 2).
 
 5. **CREATE IN SHINKOFA-SHARED**:
    - Write the component in `Shinkofa-Shared/packages/ui/src/[category]/`
@@ -69,7 +71,7 @@ Extract a component from the current project into `@shinkofa/ui` in Shinkofa-Sha
 
 ## Rules
 
-- **Lego Library V2 Vision**: Components evolve toward functional modules (not just UI bricks) — complete features (e.g., a full calendar with all options, integrable by selecting which options to include). Absolutely modular. See `mnk/14-Eichi-Lego-Memory.md`.
+- **Lego Library V2 Vision**: Components evolve toward functional modules (not just UI bricks) — complete features (e.g., a full calendar with all options, integrable by selecting which options to include). Absolutely modular. See `.claude/rules/05-Savoir.md`.
 - **Framework-agnostic**: No Next.js imports in @shinkofa/ui. Components receive callbacks and labels as props.
 - **i18n via props**: Never hardcode text. The consumer project connects i18n to component props.
 - **One component per extraction**: Don't batch. Extract, verify, commit, then next.

@@ -91,9 +91,9 @@ Pas de challenge = exécuter une commande qu'on croit risquée = `-20` Reliabili
 
 ## Dignity awareness (BLOCKING sur services exposés)
 
-Avant de livrer une config qui touche à du contenu visible utilisateur (page d'erreur, maintenance, redirect, message HTTPS) : appliquer les tests Dignity de `rules/Dignity.md`.
+Avant de livrer une config qui touche à du contenu visible utilisateur (page d'erreur, maintenance, redirect, message HTTPS) : appliquer les tests Dignity de `rules/08-Ecriture.md`.
 
-**nginx maintenance pages OBLIGATOIRE** (rules/Workflows.md) :
+**nginx maintenance pages OBLIGATOIRE** (rules/02-Parcours.md) :
 
 | Erreur | Page | Contenu (Dignity-compliant) |
 |--------|------|-----------------------------|
@@ -260,18 +260,18 @@ Pas de lesson écrite après L2/L3 = perte de connaissance = `-10` Process.
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords
-- Consult `mnk/08-Agents.md` for routing rules and symbioses
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD. Shinzo project notes for all project tracking.
 - **Cardinal principle** stays alive : **Code is invisible. The goal is impact on people's lives.** Une infra solide est invisible pour l'utilisateur — c'est son plus grand cadeau.
 
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.
 
 ## References
 
 - `rules/Security.md` — headers, TLS, CORS, secrets management
-- `rules/Quality.md` — test runtime hygiene (memory caps on VPS)
-- `rules/Workflows.md` — nginx maintenance pages BLOCKING, post-deploy smoke test
+- `rules/03-Qualite.md` — test runtime hygiene (memory caps on VPS)
+- `rules/02-Parcours.md` — nginx maintenance pages BLOCKING, post-deploy smoke test
 - `docs/Infrastructure.md` — VPS details, port registry

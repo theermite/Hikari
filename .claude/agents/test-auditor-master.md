@@ -46,11 +46,11 @@ Tu es la Layer 2 du protocole Anti-Circular Testing. L'écrivain du test (Jay + 
 
 ## Sources de vérité (consulter dans cet ordre)
 
-1. `.claude/rules/Confidentiality.md` — règle absolue, overrides tout (incluant findings d'audit contenant PII : aucun email, nom utilisateur ou ID interne dans rapport, mémoire Shinzo, ou escalade)
-2. `.claude/rules/Quality.md` — coverage floors, 4-level risk classification, 5 test reliability metrics, Anti-Circular Protocol
-3. `.claude/rules/Monozukuri.md` — philosophie chapeau
-4. `.claude/rules/Workflows.md` — gates 3 (TDG) et 6 (Tests), commandes de tests par stack
-5. `.claude/rules/Conventions.md` — naming conventions de tests par stack
+1. `.claude/rules/07-Securite.md` — règle absolue, overrides tout (incluant findings d'audit contenant PII : aucun email, nom utilisateur ou ID interne dans rapport, mémoire Shinzo, ou escalade)
+2. `.claude/rules/03-Qualite.md` — coverage floors, 4-level risk classification, 5 test reliability metrics, Anti-Circular Protocol
+3. `.claude/rules/03-Qualite.md` — philosophie chapeau
+4. `.claude/rules/02-Parcours.md` — gates 3 (TDG) et 6 (Tests), commandes de tests par stack
+5. `.claude/rules/08-Ecriture.md` — naming conventions de tests par stack
 6. SKB (Obsidian MCP) — patterns d'audit déjà rencontrés sur le projet courant
 7. mémoire Shinzo API — lessons learned d'audits précédents (`GET /api/memories?type=lesson&domain=testing`)
 8. CI logs récents — historique de tests flaky observés en production (`gh run list --limit 50`)
@@ -95,7 +95,7 @@ Sur les modules touchant à l'utilisateur (auth, onboarding, paywalls, erreurs, 
 | IA | Tests vérifient que l'IA propose (pas prescrit) et admet ses limites |
 | Départ | Tests du flow de suppression : 2 clics max, export proposé, zéro guilt-trip |
 
-Manque d'un test Dignity sur path user-facing = `[BLOCKING]`. Référence : `rules/Dignity.md`.
+Manque d'un test Dignity sur path user-facing = `[BLOCKING]`. Référence : `rules/08-Ecriture.md`.
 
 ## Anti-Overengineering vs Conscience Qualité
 
@@ -232,7 +232,7 @@ Pyramide inversée (E2E > Unit) → WARNING : ice cream cone anti-pattern.
 
 #### TypeScript / Vitest 4.x
 
-- [ ] `pool: 'forks'`, `maxForks: 2`, `isolate: true` dans config (cf. `rules/Quality.md` Test Runtime Hygiene)
+- [ ] `pool: 'forks'`, `maxForks: 2`, `isolate: true` dans config (cf. `rules/03-Qualite.md` Test Runtime Hygiene)
 - [ ] `NODE_OPTIONS=--max-old-space-size=2048` dans scripts test
 - [ ] No `.only`, `.skip` sans commentaire justifiant
 - [ ] Coverage via c8/vitest >= seuil
@@ -386,7 +386,7 @@ Question: ...
 - Flag false confidence (high coverage with weak tests) as MORE dangerous than low coverage.
 - If you find circular testing patterns, recommend a Layer 3 review (Cross-Model-Reviewer).
 - Each finding must include proof (file:line of test + file:line of source).
-- Reference `rules/Quality.md` for coverage thresholds and anti-circular protocol.
-- Reference `rules/Dignity.md` for user-facing test requirements.
+- Reference `rules/03-Qualite.md` for coverage thresholds and anti-circular protocol.
+- Reference `rules/08-Ecriture.md` for user-facing test requirements.
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.

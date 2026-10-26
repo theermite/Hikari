@@ -1,0 +1,341 @@
+{
+  "version": 1,
+  "doc": "Registre des annexes: quand chacune doit etre lue. Lu par hooks/guards/annexes-gate.py (blocage de l'ecriture tant que l'annexe du moment n'est pas lue) et par scripts/check-couverture-regles.py. Un declencheur: outils + chemins | nouveaux_fichiers | commandes | travail. Une annexe sans declencheur nomme son porteur et sa limite. Une ecriture par Bash n'est jugee que par les declencheurs dont 'outils' nomme Bash (hooks/lib/actes.py lit la commande: redirections, cp, tee, sed -i, python -c...).",
+  "exemptions": [
+    ".claude/rules-ondemand/",
+    ".claude/rules/",
+    ".claude/state/",
+    ".claude/hooks/tests/_fixtures/",
+    "/Temp/claude/"
+  ],
+  "annexes": [
+    {
+      "id": "conduite",
+      "fichier": ".claude/rules-ondemand/Conduite.md",
+      "declencheurs": [
+        {
+          "travail": true
+        }
+      ]
+    },
+    {
+      "id": "identite-et-strategie",
+      "fichier": ".claude/rules-ondemand/Identite-Et-Strategie.md",
+      "declencheurs": [
+        {
+          "travail": true
+        }
+      ]
+    },
+    {
+      "id": "socle-minimal",
+      "fichier": ".claude/rules-ondemand/Socle-Minimal.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Write",
+            "Edit",
+            "MultiEdit",
+            "Bash"
+          ],
+          "chemins": [
+            "**/docs/CDC.md",
+            "**/docs/PET.md",
+            "**/docs/Mockups-*.html",
+            "**/docs/Presentation-*.html"
+          ]
+        },
+        {
+          "outils": [
+            "Write",
+            "Bash"
+          ],
+          "nouveaux_fichiers": [
+            "**/package.json",
+            "**/mix.exs",
+            "**/pyproject.toml",
+            "**/Cargo.toml",
+            "**/go.mod",
+            "**/pubspec.yaml"
+          ]
+        },
+        {
+          "outils": [
+            "Bash"
+          ],
+          "commandes": [
+            "\\bmix\\s+(phx\\.)?new\\b",
+            "\\bcreate-(next|vite|react)-app\\b",
+            "\\b(npm|pnpm|yarn)\\s+(create|init)\\b",
+            "\\bcargo\\s+(new|init)\\b",
+            "\\buv\\s+init\\b",
+            "\\bnpx\\s+create-",
+            "\\b(?:dlx|bunx|pnpx)\\s+create-",
+            "\\b(?:django-admin\\s+startproject|rails\\s+new|dotnet\\s+new|flutter\\s+create|poetry\\s+new|go\\s+mod\\s+init)\\b",
+            "\\bnpx\\s+degit\\b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "interface",
+      "fichier": ".claude/rules-ondemand/Interface.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Write",
+            "Edit",
+            "MultiEdit",
+            "Bash"
+          ],
+          "chemins": [
+            "**/*.tsx",
+            "**/*.jsx",
+            "**/*.vue",
+            "**/*.html",
+            "**/*.css",
+            "**/*.scss",
+            "**/i18n/**/*.json",
+            "**/locales/**/*.json",
+            "**/*.heex",
+            "**/*.eex",
+            "**/*.svelte",
+            "**/*.astro",
+            "**/*.po",
+            "**/*.pot",
+            "**/messages/*.json",
+            "**/*_live.ex",
+            "**/*_html.ex",
+            "**/components/**/*.ex"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "veille-et-savoir",
+      "fichier": ".claude/rules-ondemand/Veille-Et-Savoir.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Write",
+            "Edit",
+            "MultiEdit"
+          ],
+          "chemins": [
+            "**/*.ts",
+            "**/*.tsx",
+            "**/*.js",
+            "**/*.jsx",
+            "**/*.py",
+            "**/*.ex",
+            "**/*.exs",
+            "**/*.rs",
+            "**/*.go",
+            "**/package.json",
+            "**/mix.exs",
+            "**/pyproject.toml",
+            "**/Cargo.toml"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "conventions-et-pile",
+      "fichier": ".claude/rules-ondemand/Conventions-Et-Pile.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Write"
+          ],
+          "nouveaux_fichiers": [
+            "**/*.ts",
+            "**/*.tsx",
+            "**/*.js",
+            "**/*.jsx",
+            "**/*.py",
+            "**/*.ex",
+            "**/*.exs",
+            "**/*.rs",
+            "**/*.go",
+            "**/*.sh"
+          ]
+        },
+        {
+          "outils": [
+            "Bash"
+          ],
+          "commandes": [
+            "\\bgit\\s+commit\\b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tests-et-mesures",
+      "fichier": ".claude/rules-ondemand/Tests-Et-Mesures.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Write",
+            "Edit",
+            "MultiEdit",
+            "Bash"
+          ],
+          "chemins": [
+            "**/tests/**",
+            "**/__tests__/**",
+            "**/*.test.*",
+            "**/*.spec.*",
+            "**/test_*.py",
+            "**/*_test.py",
+            "**/*_test.exs",
+            "**/vitest.config.*",
+            "**/pytest.ini",
+            "**/biome.json",
+            "**/ruff.toml",
+            "**/.github/workflows/*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mise-en-service",
+      "fichier": ".claude/rules-ondemand/Mise-En-Service.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Bash"
+          ],
+          "commandes": [
+            "\\bdocker[\\s-]compose\\s+(up|build|pull|restart)\\b",
+            "\\bdocker\\s+(build|push)\\b",
+            "\\bssh\\s+vps\\b.*(docker|nginx|systemctl|deploy)",
+            "\\bscripts/deploy\\b",
+            "\\bdeploy\\.sh\\b",
+            "\\bnginx\\s+-s\\s+reload\\b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "confidentialite-detail",
+      "fichier": ".claude/rules-ondemand/Confidentialite-Detail.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Bash"
+          ],
+          "commandes": [
+            "\\bgh\\s+(issue|pr|gist|release)\\s+(create|comment|edit)\\b",
+            "\\bcurl\\b.*(-X\\s*(POST|PUT|PATCH|DELETE)|--request\\s*(POST|PUT|PATCH|DELETE)|\\s-d\\s|\\s-d@|--data|--json|--form|\\s-F\\s|\\s-T\\s|--upload-file)",
+            "\\b(sendmail|msmtp)\\b"
+          ]
+        }
+      ],
+      "limite": "Les outils MCP d'envoi (courriel, Telegram, Twitch, GitHub) ne passent pas par ce garde-fou: la regle 07 et la conduite les couvrent par discipline."
+    },
+    {
+      "id": "provenance-du-contenu",
+      "fichier": ".claude/rules-ondemand/Provenance-Du-Contenu.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Write",
+            "Edit",
+            "MultiEdit",
+            "Bash"
+          ],
+          "chemins": [
+            "**/content/**/*.md",
+            "**/articles/**/*.md",
+            "**/newsletters/**",
+            "**/posts/**/*.md"
+          ]
+        }
+      ],
+      "limite": "Le pipeline de publication appose la marque; ce garde-fou ne voit que l'ecriture des textes dans ces dossiers."
+    },
+    {
+      "id": "memoire-format",
+      "fichier": ".claude/rules-ondemand/Memoire-Format.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Write",
+            "Edit",
+            "MultiEdit",
+            "Bash"
+          ],
+          "chemins": [
+            "**/05-Memoire/**"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notation",
+      "fichier": ".claude/rules-ondemand/Notation.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Write",
+            "Edit",
+            "MultiEdit",
+            "Bash"
+          ],
+          "chemins": [
+            "**/docs/Sessions/**"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reprise-et-contexte",
+      "fichier": ".claude/rules-ondemand/Reprise-Et-Contexte.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Write",
+            "Edit",
+            "MultiEdit",
+            "Bash"
+          ],
+          "chemins": [
+            "**/docs/Sessions/**"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verite-detail",
+      "fichier": ".claude/rules-ondemand/Verite-Detail.md",
+      "declencheurs": [
+        {
+          "outils": [
+            "Write",
+            "Edit",
+            "MultiEdit",
+            "Bash"
+          ],
+          "chemins": [
+            "**/docs/Sessions/**"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "debug-et-blocage",
+      "fichier": ".claude/rules-ondemand/Debug-Et-Blocage.md",
+      "declencheurs": [],
+      "porteur": "Chaque message de blocage d'un garde-fou le cite (format_block), et la competence /debug l'ordonne.",
+      "limite": "Aucun evenement d'outil ne signale 'un blocage vient d'avoir lieu' autrement que par le message du garde-fou lui-meme."
+    },
+    {
+      "id": "session-autonome",
+      "fichier": ".claude/rules-ondemand/Session-Autonome.md",
+      "declencheurs": [],
+      "porteur": "La regle 01 (section Annexes) et la competence /session-start l'ordonnent avant tout lot de briques sans validation.",
+      "limite": "Rien dans un appel d'outil ne distingue une session autonome d'une session ordinaire: la porte est la discipline et le journal de run."
+    }
+  ]
+}

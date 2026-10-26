@@ -101,8 +101,7 @@ def test_the_gate_lets_a_traced_report_through():
     verdict = gate.verdict(
         "docs/Sessions/Session-2026-09-06-001.md",
         "Bilan.\n[NO-CHALLENGE] motif: chemin-unique-impose\n"
-        "## Reproches de livraison\naucun\n",
-    )
+        "## Reproches de livraison\naucun\n## Règles posées\naucune\n")
     assert verdict is None
 
 
@@ -171,6 +170,131 @@ def test_the_gate_lets_a_complete_report_through():
     verdict = gate.verdict(
         "docs/Sessions/Session-2026-09-06-001.md",
         "[NO-CHALLENGE] motif: chemin-unique-impose\n\n"
-        "## Reproches de livraison\n\naucun\n",
-    )
+        "## Reproches de livraison\n\naucun\n\n## Règles posées\n\naucune\n")
     assert verdict is None
+
+
+# --- « Toute règle créée est annoncée » (Jay, 2026-10-13) ----------------------------------------
+# « Ce n'est pas la première fois que tu crées des règles sans réellement me consulter, sans
+# réellement me notifier. » Un souvenir existait; rien ne le tenait. Le rapport nomme maintenant
+# chaque règle, annexe, garde-fou ou compétence posé dans la séance — et « aucune » est refusé quand
+# le dépôt montre le contraire.
+
+BASE = "[NO-CHALLENGE] motif: chemin-unique-impose\n\n## Reproches de livraison\n\naucun\n\n"
+RAPPORT = "docs/Sessions/Session-2026-10-26-001.md"
+
+
+def test_a_report_without_the_posed_rules_section_fails():
+    assert gate.rules_section(BASE) is False
+
+
+def test_the_title_alone_is_not_an_answer():
+    assert gate.rules_section(BASE + "## Règles posées\n\n## Autre\ntexte") is False
+
+
+def test_declaring_no_rule_is_a_valid_answer_when_nothing_changed():
+    assert gate.verdict(RAPPORT, BASE + "## Règles posées\n\naucune\n") is None
+
+
+def test_a_listed_rule_is_a_valid_answer():
+    texte = BASE + "## Règles posées\n\n- annexe `Socle-Minimal` : lue avant tout cahier des charges\n"
+    assert gate.verdict(RAPPORT, texte) is None
+
+
+def test_saying_none_while_rules_changed_is_warned_not_refused_and_names_the_files():
+    # relecture du 2026-10-26 (constat 6): `git diff` voit aussi le travail d'une AUTRE séance en parallèle;
+    # le dépôt ne prouve pas que CETTE séance a posé ces règles — avertir, jamais bloquer
+    texte = BASE + "## Règles posées\n\naucune\n"
+    touchees = [".claude/rules/02-Parcours.md", ".claude/hooks/guards/writer-lock.py"]
+    assert gate.verdict(RAPPORT, texte) is None
+    avis = gate.avertissement(RAPPORT, texte, touchees=touchees)
+    assert avis is not None and "02-Parcours.md" in avis and "writer-lock.py" in avis
+    assert "autre séance" in avis
+
+
+def test_no_warning_when_the_report_lists_its_rules_or_nothing_changed():
+    liste = BASE + "## Règles posées\n\n- garde-fou `writer-lock` : un seul écrivain\n"
+    assert gate.avertissement(RAPPORT, liste, touchees=[".claude/hooks/guards/writer-lock.py"]) is None
+    assert gate.avertissement(RAPPORT, BASE + "## Règles posées\n\naucune\n", touchees=[]) is None
+
+
+def test_the_section_survives_accents_and_formatting():
+    for titre in ("## Règles posées", "## Regles posees", "### **Règles posées**", "## Règle posée"):
+        assert gate.rules_section(BASE + f"{titre}\n\naucune\n") is True, titre
+
+
+def test_changed_rules_are_read_from_git_since_the_last_report(tmp_path):
+    import subprocess
+
+    def git(*a):
+        subprocess.run(["git", "-C", str(tmp_path), *a], check=True, capture_output=True)
+
+    git("init", "-q")
+    git("config", "user.email", "t@t")
+    git("config", "user.name", "t")
+    (tmp_path / ".claude/rules").mkdir(parents=True)
+    (tmp_path / "docs/Sessions").mkdir(parents=True)
+    (tmp_path / ".claude/rules/old.md").write_text("a")
+    git("add", ".")
+    git("commit", "-qm", "avant")
+    (tmp_path / "docs/Sessions/Session-2026-10-25-001.md").write_text("rapport")
+    git("add", ".")
+    git("commit", "-qm", "rapport precedent")
+    (tmp_path / ".claude/rules/new.md").write_text("b")
+    (tmp_path / "src.py").write_text("ignore")
+    git("add", ".")
+    git("commit", "-qm", "regle posee apres le dernier rapport")
+    (tmp_path / ".claude/rules/old.md").write_text("modifie, non commite")
+    touchees = gate.regles_touchees(tmp_path)
+    assert ".claude/rules/new.md" in touchees and ".claude/rules/old.md" in touchees
+    assert "src.py" not in touchees
+
+
+# --- constat 6 (2026-10-26): un Edit partiel est jugé sur le rapport COMPLET, pas sur son new_string -------
+
+COMPLET = BASE + "## Règles posées\n\naucune\n"
+
+
+def _charge(outil: str, entree: dict) -> dict:
+    return {"tool_name": outil, "tool_input": entree}
+
+
+def _rapport(tmp_path, texte: str):
+    dossier = tmp_path / "docs" / "Sessions"
+    dossier.mkdir(parents=True)
+    fichier = dossier / "Session-2026-10-26-009.md"
+    fichier.write_text(texte, encoding="utf-8")
+    return fichier
+
+
+def test_an_edit_is_judged_on_the_whole_report_after_the_edit(tmp_path):
+    f = _rapport(tmp_path, COMPLET + "Une fote de frappe.\n")
+    data = _charge("Edit", {"file_path": str(f), "old_string": "fote", "new_string": "faute"})
+    assert "faute de frappe" in gate.contenu_complet(data)
+    assert gate.verdict(str(f), gate.contenu_complet(data)) is None
+
+
+def test_an_edit_that_removes_the_trace_is_still_refused(tmp_path):
+    f = _rapport(tmp_path, COMPLET)
+    data = _charge("Edit", {"file_path": str(f), "old_string": "[NO-CHALLENGE] motif: chemin-unique-impose",
+                            "new_string": "rien"})
+    assert gate.verdict(str(f), gate.contenu_complet(data)) is not None
+
+
+def test_a_multiedit_is_applied_in_order(tmp_path):
+    f = _rapport(tmp_path, COMPLET + "alpha\n")
+    edits = [{"old_string": "alpha", "new_string": "beta"}, {"old_string": "beta", "new_string": "gamma"}]
+    data = _charge("MultiEdit", {"file_path": str(f), "edits": edits})
+    assert gate.contenu_complet(data).endswith("gamma\n")
+
+
+def test_an_edit_that_cannot_be_applied_is_not_judged(tmp_path):
+    f = _rapport(tmp_path, COMPLET)
+    data = _charge("Edit", {"file_path": str(f), "old_string": "introuvable", "new_string": "x"})
+    assert gate.contenu_complet(data) is None
+    absent = _charge("Edit", {"file_path": str(tmp_path / "absent.md"), "old_string": "a", "new_string": "b"})
+    assert gate.contenu_complet(absent) is None
+
+
+def test_a_write_is_judged_on_its_content():
+    assert gate.contenu_complet(_charge("Write", {"file_path": "x.md", "content": "tout"})) == "tout"

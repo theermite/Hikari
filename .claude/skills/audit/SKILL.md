@@ -6,6 +6,8 @@ model: sonnet
 
 # /audit — Audit a Project
 
+> **Annexes à lire** (`.claude/rules-ondemand/`, un garde-fou bloque l'écriture sinon) : `Socle-Minimal` (l'écart du projet au socle) · `Tests-Et-Mesures` · `Interface` (accessibilité, performance, dignité) · `Conduite` (rattrapage QE V2 d'un projet existant).
+
 Modes: `--audit` (diagnostic only), default (audit + plan), `--fix` (audit + auto-apply simple fixes), `--visibility` (magnetic visibility audit).
 
 **Read `.claude/rules-ondemand/5S.md` in full before scoring.** It is a reading grid (Seiri/
@@ -17,23 +19,23 @@ what the other steps already find, never to add a new blocking check.
 1. **BLUEPRINT SCORE**: Check items / applicable items from matching Blueprints. Minimum 95%.
 2. **3-LAYER ALIGNMENT**: Does this project serve L3 (Shinkofa vision — individuality, adaptation, invisible quality)? Is L2 (presentation/visibility) addressed? Is L1 (next action) clear? Consult SKB MasterPlan for alignment.
 3. **VEILLE**: State-of-art freshness (< 14 days). Verify dependency versions via npm/pypi/web. **CRITICAL**: Also verify that quality standards (WCAG, OWASP, CWV criteria), best practices, and architecture patterns referenced in this audit are current — training data is months stale.
-4. **QUALITY**: All BLOCKING gates from `rules/Quality.md` verified. Verify current testing framework recommendations via web. Audit Quality Pyramid V2 compliance: are L0-L2 (technical) gates met? For public platforms: are L3-L5 (human) gates addressed? Verify Anti-Circular Testing: on critical paths, is PBT used? Is mutation testing configured? Are there `__holdout__/` tests? Check Risk Classification: are modules classified (Critical/Sensitive/Standard/Tooling)? Is coverage aligned with classification? Check 5 Test Reliability Metrics: empty tests (0), trivial tests (<10%), mock:assert ratio (<3:1), type coverage (100% new code). **Enriched gates check**: verify FMEA exists for Critical modules (Gate 1), bidirectional traceability present (Gate 3), defensive assertions >= 2 per critical function (Gate 4). See `mnk/06-Quality.md`.
+4. **QUALITY**: All BLOCKING gates from `.claude/rules/03-Qualite.md` verified. Verify current testing framework recommendations via web. Audit Quality Pyramid V2 compliance: are L0-L2 (technical) gates met? For public platforms: are L3-L5 (human) gates addressed? Verify Anti-Circular Testing: on critical paths, is PBT used? Is mutation testing configured? Are there `__holdout__/` tests? Check Risk Classification: are modules classified (Critical/Sensitive/Standard/Tooling)? Is coverage aligned with classification? Check 5 Test Reliability Metrics: empty tests (0), trivial tests (<10%), mock:assert ratio (<3:1), type coverage (100% new code). **Enriched gates check**: verify FMEA exists for Critical modules (Gate 1), bidirectional traceability present (Gate 3), defensive assertions >= 2 per critical function (Gate 4). See `.claude/rules/03-Qualite.md`.
 
-   > 🧭 **Expert convoque** : audit des tests — il cherche les trous, pas la couverture affichee
+   > 🧭 **Agents convoqués** : **Test Auditor Master** — il cherche les trous, pas la couverture affichee
 5. **SECURITY**: OWASP scan, dependencies, secrets, headers. CSP tested against features. Verify current OWASP Top 10 list via web (it changes). Security IS quality (D6) — verify security is treated as integral to quality, not a separate process. **PII detection** (Gate 7 enrichment): verify automated PII scanning is configured on API responses, logs, and error messages.
 
-   > 🧭 **Expert convoque** : securite — OWASP, secrets, en-tetes, chaine d approvisionnement
+   > 🧭 **Agents convoqués** : **Security Master** — OWASP, secrets, en-tetes, chaine d approvisionnement
 6. **PERFORMANCE**: Core Web Vitals targets. Verify current Google thresholds via web (they evolve).
 
-   > 🧭 **Expert convoque** : performance — les seuils sont declares bloquants, quelqu un doit les tenir
+   > 🧭 **Agents convoqués** : **Performance Master** — les seuils sont declares bloquants, quelqu un doit les tenir
 7. **ACCESSIBILITY**: axe-core, WCAG compliance. Verify current WCAG version and criteria via web.
 
-   > 🧭 **Expert convoque** : accessibilite — WCAG est le plancher, pas le plafond
-8. **HUMAN QUALITY** (public platforms only): Verify 5 Human Quality Gates: Cognitive Load (≤ 5 decision points per common task), Sensory Comfort (`prefers-reduced-motion` 100%), Error Resilience (auto-save on forms > 3 fields), Adaptation (preference persistence), Dignity (0 dark patterns / condescension / data without visible UX impact — see `rules/Dignity.md`). Verify **Feedback Widget** is present, functional, 2 clicks max (D25 — BLOCKING on public platforms). Reference: `mnk/15-Human-Quality.md`.
+   > 🧭 **Agents convoqués** : **Accessibility Master** — WCAG est le plancher, pas le plafond
+8. **HUMAN QUALITY** (public platforms only): Verify 5 Human Quality Gates: Cognitive Load (≤ 5 decision points per common task), Sensory Comfort (`prefers-reduced-motion` 100%), Error Resilience (auto-save on forms > 3 fields), Adaptation (preference persistence), Dignity (0 dark patterns / condescension / data without visible UX impact — see `.claude/rules/08-Ecriture.md`). Verify **Feedback Widget** is present, functional, 2 clicks max (D25 — BLOCKING on public platforms). Reference: `.claude/rules/08-Ecriture.md`.
 9. **VISIBILITY**: SEO meta, structured data, GEO signals (if public-facing).
-10. **DOCS CHECK**: Blueprint, CDC, PET match current reality. Verify **deviations** from Universal Project Checklist are documented with justification. **QE V2 retroactive** (per `rules/QE-V2-Retroactive.md`): cross-check artefacts against QE V2 standards — signal gaps for pre-4.0.0 projects.
+10. **DOCS CHECK**: Blueprint, CDC, PET match current reality. Verify **deviations** from Universal Project Checklist are documented with justification. **QE V2 retroactive** (per `.claude/rules/03-Qualite.md`): cross-check artefacts against QE V2 standards — signal gaps for pre-4.0.0 projects.
 
-   > 🧭 **Expert convoque** : conformite — RGPD, echeances UE, inventaire des composants
+   > 🧭 **Agents convoqués** : **Compliance Auditor Master** — RGPD, echeances UE, inventaire des composants
 11. **FRICTION DES GARDE-FOUS**: run `python .claude/hooks/lifecycle/hook-blocks-report.py` and quote its output. It reads the per-session journal and names which guard fires most, and which re-fires inside one session — the strongest journal-only signal of a false positive. **Why this step exists**: the journal was written for months and read by nobody; a meter no one opens measures nothing (mesuré 2026-09-07). A guard that fires constantly gets bypassed before it gets fixed. Honest limit, written in the tool itself: repetition is a proxy for friction, never proof.
 12. **PLAN**: Generate structured execution plan for fixes with priorities.
 
@@ -52,7 +54,7 @@ When invoked with `--visibility`, run an extended visibility-specific audit:
 | **Content Freshness** | Last update date? Content < 3 months old? Active blog/articles? |
 | **Cross-Platform** | Links to all active platforms? Solo.to linked? Social proof visible? |
 | **Auto-Pipeline** | Is content auto-distributed to LinkedIn/Discord/Telegram/Dev.to/etc.? Video pipeline active? |
-| **Mobile** | Mobile-first? Touch-friendly? Fast on 3G? |
+| **Mobile** | **Mobile Master** |
 
 Output: scored checklist + prioritized action plan for magnetic visibility improvements.
 
@@ -103,4 +105,18 @@ Findings are prioritized by **logical dependency + user impact**, not audit weig
 - Every finding MUST have a Finding ID. No untracked findings.
 - Remediation plan MUST follow the dependency order above. Justify any deviation.
 
-See `mnk/05-Workflows.md` WF-09 for full details.
+See `.claude/rules/02-Parcours.md` WF-09 for full details.
+
+## End of the brick — the three proofs (recette)
+
+Never declare work finished on "tests pass". The three proofs are **written before coding** and
+checked at the end:
+
+| Proof | The question | Who judges |
+|---|---|---|
+| **Visible** | does it look like the mockup, on screen? | Jay |
+| **Proven** | which command, and which output, prove it works? | the independent review |
+| **Experienced** | does it hold live, end to end? | Jay |
+
+A brick without these three has a stop, not an end.
+Source: `docs/Doctrine-2026-10-25.md` § 3.

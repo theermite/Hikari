@@ -168,7 +168,8 @@ def test_should_keep_helpers_out_of_the_snapshot(helper: str):
 # the template mirrors it; a divergence turns the suite red.
 
 REPO = Path(__file__).resolve().parents[3]
-QUALITY_RULE = REPO / ".claude" / "rules" / "Quality.md"
+# Depuis la bascule des règles v2, la liste du socle minimal vit dans l'annexe Socle-Minimal.
+QUALITY_RULE = REPO / ".claude" / "rules-ondemand" / "Socle-Minimal.md"
 CDC_TEMPLATE = REPO / "templates" / "docs-structure" / "CDC.md"
 
 # `templates/` is Kata-only scaffolding — propagate-methodology.py rsyncs
@@ -183,7 +184,7 @@ _TEMPLATE_MISSING_REASON = "templates/docs-structure/CDC.md is Kata-only, never 
 
 
 def _rule_checklist() -> list[str]:
-    """The items of Quality.md > Universal Project Checklist, in order."""
+    """The items of the Socle-Minimal annex > Universal Project Checklist, in order."""
     text = QUALITY_RULE.read_text(encoding="utf-8")
     start = text.index("## Universal Project Checklist")
     body = text[start:].split("\n\n", 2)[1]

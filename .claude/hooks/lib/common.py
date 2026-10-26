@@ -89,6 +89,37 @@ def pass_through() -> None:
 # --- Message formatters -------------------------------------------------------
 
 
+RECOVERY_ANNEX = ".claude/rules-ondemand/Debug-Et-Blocage.md"
+
+# Les seize anciennes règles (rules-archives/) et où est passé chacun de leurs sujets. Les messages de
+# blocage de plus de trente garde-fous citent encore `rules/Quality.md` & co.: au lieu de réécrire chaque
+# message, la table est appliquée ici, à l'entonnoir. Un seul endroit à tenir.
+ANCIENNES_REGLES = {
+    "Interpretation-Protocol.md": ".claude/rules/01-Lecture.md",
+    "Mandate.md": ".claude/rules/01-Lecture.md",
+    "Workflows.md": ".claude/rules/02-Parcours.md (+ annexe Conduite)",
+    "Quality.md": ".claude/rules/03-Qualite.md (+ annexes Tests-Et-Mesures, Interface, Socle-Minimal)",
+    "Monozukuri.md": ".claude/rules/03-Qualite.md",
+    "Autonomous-Session.md": ".claude/rules-ondemand/Session-Autonome.md",
+    "QE-V2-Retroactive.md": ".claude/rules-ondemand/Conduite.md",
+    "Honesty.md": ".claude/rules/04-Verite.md",
+    "Non-Technical-Advice.md": ".claude/rules/04-Verite.md",
+    "Memory.md": ".claude/rules/05-Savoir.md (+ annexe Memoire-Format)",
+    "Content-Provenance.md": ".claude/rules-ondemand/Provenance-Du-Contenu.md",
+    "Confidentiality.md": ".claude/rules/07-Securite.md (+ annexe Confidentialite-Detail)",
+    "Identity.md": ".claude/rules-ondemand/Identite-Et-Strategie.md",
+    "Strategic-Context.md": ".claude/rules-ondemand/Identite-Et-Strategie.md",
+    "Conventions.md": ".claude/rules-ondemand/Conventions-Et-Pile.md",
+    "Dignity.md": ".claude/rules-ondemand/Interface.md",
+}
+_REF_ANCIENNE = re.compile(r"(?:\.claude/)?rules/(" + "|".join(re.escape(n) for n in ANCIENNES_REGLES) + ")")
+
+
+def reference_actuelle(reference: str) -> str:
+    """`rules/Quality.md > Lego Library` -> `.claude/rules/03-Qualite.md (+ annexes …) > Lego Library`."""
+    return _REF_ANCIENNE.sub(lambda m: ANCIENNES_REGLES[m.group(1)], reference)
+
+
 def format_block(reason: str, recovery: str, reference: str | None = None) -> str:
     """Format a BLOCKED message with required RECOVERY section.
 
@@ -100,15 +131,16 @@ def format_block(reason: str, recovery: str, reference: str | None = None) -> st
     """
     msg = f"BLOCKED: {reason}. RECOVERY: {recovery}"
     if reference:
-        msg += f" See {reference}."
-    return msg
+        msg += f" See {reference_actuelle(reference)}."
+    # Seul porteur de l'annexe de reprise: aucun événement d'outil ne dit « un blocage vient d'avoir lieu ».
+    return msg + f" After any block: {RECOVERY_ANNEX}."
 
 
 def format_warn(reason: str, action: str, reference: str | None = None) -> str:
     """Format a WARNING message with required ACTION section."""
     msg = f"WARNING: {reason}. ACTION: {action}"
     if reference:
-        msg += f" See {reference}."
+        msg += f" See {reference_actuelle(reference)}."
     return msg
 
 

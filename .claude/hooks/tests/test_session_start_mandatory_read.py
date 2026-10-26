@@ -58,3 +58,48 @@ def test_all_three_mandatory_files_pass_when_all_are_in_the_attachment(tmp_path)
     missing = [mf for mf in mandatory_read.MANDATORY_FILES
                if not mandatory_read._was_delivered(str(t), mf)]
     assert missing == []
+
+
+# --- la bascule des regles v2 : la porte exige les fichiers qui EXISTENT ---------------------
+# Sans cela, archiver les seize anciennes regles bloquerait chaque session au demarrage : la porte
+# reclamerait la lecture de fichiers absents, et la session qui voudrait la corriger serait bloquee
+# par la porte elle-meme.
+
+def _regles(tmp_path: Path, noms: list[str]) -> Path:
+    dossier = tmp_path / ".claude" / "rules"
+    dossier.mkdir(parents=True)
+    for nom in noms:
+        (dossier / nom).write_text("x", encoding="utf-8")
+    return tmp_path
+
+
+ANCIENNES = ["Interpretation-Protocol.md", "Confidentiality.md", "Monozukuri.md"]
+V2 = ["01-Lecture.md", "07-Securite.md", "03-Qualite.md"]
+
+
+def test_should_require_the_legacy_files_before_the_switch(tmp_path):
+    racine = _regles(tmp_path, ANCIENNES)
+    assert mandatory_read.mandatory_files(racine) == [f".claude/rules/{n}" for n in ANCIENNES]
+
+
+def test_should_require_the_v2_files_once_all_three_are_there(tmp_path):
+    racine = _regles(tmp_path, V2)
+    assert mandatory_read.mandatory_files(racine) == [f".claude/rules/{n}" for n in V2]
+
+
+def test_should_not_require_absent_legacy_files_after_archiving(tmp_path):
+    # Apres la bascule : v2 presentes, anciennes archivees. Aucune ancienne n'est reclamee.
+    racine = _regles(tmp_path, V2 + ["Quality.md"])
+    exigees = mandatory_read.mandatory_files(racine)
+    assert not any("Monozukuri" in f or "Interpretation" in f for f in exigees)
+
+
+def test_should_keep_the_legacy_set_while_the_v2_copy_is_incomplete(tmp_path):
+    # Copie en cours : deux v2 sur trois. On n'exige pas un jeu inacheve.
+    racine = _regles(tmp_path, ANCIENNES + V2[:2])
+    assert mandatory_read.mandatory_files(racine) == [f".claude/rules/{n}" for n in ANCIENNES]
+
+
+def test_should_let_a_v2_file_be_edited_without_the_gate(tmp_path):
+    data = {"tool_name": "Edit", "tool_input": {"file_path": r"D:\Kata\.claude\rules\03-Qualite.md"}}
+    assert mandatory_read._targets_a_mandatory_file(data)

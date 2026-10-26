@@ -120,7 +120,7 @@ Règle : la conscience qualité signale et ajoute les garde-fous anti-régressio
 
 ## Core Web Vitals 2026 (Shinkofa targets — stricter than Google "Good")
 
-Per `rules/Quality.md` BLOCKING :
+Per `rules/03-Qualite.md` BLOCKING :
 
 | Metric | Shinkofa target | Google "Good" | Diagnostic tool | Common fix |
 |--------|----------------|---------------|----------------|------------|
@@ -146,7 +146,7 @@ Pre-deploy blocked si non atteint sur plateformes publiques.
 | `@next/bundle-analyzer` | `ANALYZE=true next build` | Next.js specific chunk breakdown |
 | Import cost (IDE) | Per-import size | Catch heavy imports at write time |
 
-**Budget (BLOCKING — `rules/Quality.md`)**: No single JS chunk > 200KB gzipped. Lighthouse score 90+.
+**Budget (BLOCKING — `rules/03-Qualite.md`)**: No single JS chunk > 200KB gzipped. Lighthouse score 90+.
 
 ### Bundle optimization checklist
 
@@ -311,22 +311,22 @@ Pas de lesson écrite + pas de garde-fou = régression future = `-10` Process.
 - Profile BEFORE optimizing — never guess
 - Test on cible (mobile 4G low-end), not dev device only
 - Anti-régression CI mandatory for every significant optim
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides everything. No personal data in traces, profiles, lessons.
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides everything. No personal data in traces, profiles, lessons.
 - **Dignity awareness** — pas d'optim qui dégrade UX, accessibilité, ou casse `prefers-reduced-motion`.
 
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD. Shinzo project notes for all project tracking.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.** Chaque ms gagnée = une attention rendue.
 
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.
 
 ## References
 
-- `rules/Quality.md` — CWV 2026 Shinkofa targets, Lighthouse 90+, bundle budget 200KB, universal checklist
-- `rules/Workflows.md` — Gate 8 (Verify) includes performance proof
-- `rules/Dignity.md` — `prefers-reduced-motion`, sensory comfort BLOCKING
+- `rules/03-Qualite.md` — CWV 2026 Shinkofa targets, Lighthouse 90+, bundle budget 200KB, universal checklist
+- `rules/02-Parcours.md` — Gate 8 (Verify) includes performance proof
+- `rules/08-Ecriture.md` — `prefers-reduced-motion`, sensory comfort BLOCKING

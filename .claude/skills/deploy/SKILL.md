@@ -6,6 +6,8 @@ model: sonnet
 
 # /deploy — Deploy to Production
 
+> **Annexes à lire** (`.claude/rules-ondemand/`, un garde-fou bloque l'écriture sinon) : `Mise-En-Service` (test de fumée complet, retour arrière) · `Confidentialite-Detail` si la mise en ligne envoie vers l'extérieur.
+
 Execute these steps IN ORDER. Zero-error tolerance. Every step must PASS with evidence before proceeding to the next. Fix = Deploy.
 
 **Before step 1**: Read `.claude/rules-ondemand/Independent-Review.md` in full — a deploy is one of the trigger classes that rule gates (fresh-context review, THREE markers in order: `[REVIEW-BRIEF]` before launching the reviewer, then `[REVIEW] ... sur <empreinte> — verdict:` naming the commit read, or `[REVIEW-SKIP]`). It is not auto-loaded at session start; this is where it applies.
@@ -43,11 +45,11 @@ If ANY pre-flight fails → STOP. Do not proceed. Fix the issue first.
 
 2. **VEILLE**: Verify no breaking changes in dependencies. **CRITICAL**: Before building, verify dependency versions are real and current via web. A phantom version in package.json = failed build = failed deploy. If deploying RAG-powered features: verify `/pre-rag-audit` result is < 30 days old (check `docs/Pre-RAG-Audit-*.md`). If absent or stale → run `/pre-rag-audit` first.
 
-   > 🧭 **Expert convoque** : veille + dependances — une version fantome casse la construction
+   > 🧭 **Agents convoqués** : **Veille Master** · **Dependency Master** — une version fantome casse la construction
 
 3. **SECURITY**: Full scan. Verify CSP/headers don't break features. No critical/high CVEs.
 
-   > 🧭 **Expert convoque** : securite — zero faille critique avant mise en ligne
+   > 🧭 **Agents convoqués** : **Security Master** — zero faille critique avant mise en ligne
    ```bash
    # Python
    pip-audit || echo "FAIL"
@@ -57,7 +59,7 @@ If ANY pre-flight fails → STOP. Do not proceed. Fix the issue first.
 
 4. **BUILD** (BLOCKING — must succeed with zero errors):
 
-   > 🧭 **Expert convoque** : construction et mise en ligne — il prouve chaque etape, jamais « ca devrait marcher »
+   > 🧭 **Agents convoqués** : **Build Deploy Test Master** — il prouve chaque etape, jamais « ca devrait marcher »
    ```bash
    # Docker build with no cache after any fix
    docker compose build --no-cache <service>
@@ -97,7 +99,7 @@ If ANY pre-flight fails → STOP. Do not proceed. Fix the issue first.
 
 8. **SMOKE TESTS** (BLOCKING):
 
-   > 🧭 **Expert convoque** : supervision — verifier que la supervision recoit vraiment
+   > 🧭 **Agents convoqués** : **Monitoring Master** — verifier que la supervision recoit vraiment
    - Critical user paths verified (login, core features, payment if applicable)
    - On public platforms: verify Human Quality Gates post-deploy (Cognitive Load, Sensory Comfort, Error Resilience, Adaptation, Dignity)
    - Feedback Widget visible and functional (D25)
@@ -135,4 +137,18 @@ If rollback fails → **ESCALATE TO JAY IMMEDIATELY**.
 - **Zero silent failures**: every command must have its output checked. No `|| true`. No swallowed errors.
 - **Evidence over assertion**: paste the actual command output as proof. Never say "it should work."
 
-See `mnk/05-Workflows-Commit-Deploy.md` WF-07 for full details.
+See `.claude/rules/02-Parcours.md` WF-07 for full details.
+
+## End of the brick — the three proofs (recette)
+
+Never declare work finished on "tests pass". The three proofs are **written before coding** and
+checked at the end:
+
+| Proof | The question | Who judges |
+|---|---|---|
+| **Visible** | does it look like the mockup, on screen? | Jay |
+| **Proven** | which command, and which output, prove it works? | the independent review |
+| **Experienced** | does it hold live, end to end? | Jay |
+
+A brick without these three has a stop, not an end.
+Source: `docs/Doctrine-2026-10-25.md` § 3.

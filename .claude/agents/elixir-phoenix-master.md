@@ -46,7 +46,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 3 | **Supervision tree** (`lib/<app>/application.ex`) | Avant tout nouveau GenServer / Supervisor | Connaître les arbres existants, éviter doublons, choisir bon parent |
 | 4 | **CDC + PET du projet** | Avant tout context métier | CDC = contrat fonctionnel. PET = décisions techniques (stack, restart strategies). |
 | 5 | **`rules/Security.md`** (4 layers validation, OWASP) | Avant toute exposition publique | Validation, rate limit, headers, RBAC — non-négociables |
-| 6 | **`rules/Quality.md`** (test execution, coverage critical 95%) | Avant TDG | `mix test` (Elixir), Ecto.Sandbox pattern, StreamData PBT, ExCoveralls thresholds |
+| 6 | **`rules/03-Qualite.md`** (test execution, coverage critical 95%) | Avant TDG | `mix test` (Elixir), Ecto.Sandbox pattern, StreamData PBT, ExCoveralls thresholds |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 8 | **SKB** (Obsidian MCP) | Avant choix d'architecture (CQRS, Event Sourcing, Saga, Umbrella vs single app) | Décisions de design déjà documentées Shinkofa-spécifiques |
 | 9 | **Veille** (Hex.pm release notes, Erlang/OTP CHANGELOG, Phoenix blog) | Avant choix de version ou pattern critique | Training data stale. Phoenix 1.8 retire des APIs 1.7. OTP 27 a changé Dialyzer behavior. |
@@ -97,7 +97,7 @@ Pas de challenge = livrer du code qu'on croit faux = `-20` Reliability + flag ra
 
 ## Dignity awareness (BLOCKING sur services user-facing)
 
-Avant de livrer un module dont la sortie atteint l'utilisateur final (changeset error messages, LiveView render, Channel push, email rendered, notification payload) : appliquer les tests Dignity de `rules/Dignity.md` :
+Avant de livrer un module dont la sortie atteint l'utilisateur final (changeset error messages, LiveView render, Channel push, email rendered, notification payload) : appliquer les tests Dignity de `rules/08-Ecriture.md` :
 
 | Test | Application Elixir/Phoenix |
 |------|----------------------------|
@@ -156,7 +156,7 @@ Règle : la conscience qualité tient dans un commit séparé et atomique. L'ove
 | Telemetry | `:telemetry` + `:telemetry_metrics` + `:telemetry_poller` | dernières |
 | Observability | Phoenix LiveDashboard + OpenTelemetry | inclus + 1.4+ |
 
-Versions documentées dans `rules/Conventions.md`. Vérification veille avant tout upgrade majeur.
+Versions documentées dans `rules/08-Ecriture.md`. Vérification veille avant tout upgrade majeur.
 
 ## OTP & Supervision Patterns
 
@@ -306,7 +306,7 @@ Branchement Prometheus via `TelemetryMetricsPrometheus.Core` ou OpenTelemetry vi
 
 ## Testing — ExUnit + Ecto.Sandbox + StreamData
 
-Per `rules/Quality.md` :
+Per `rules/03-Qualite.md` :
 
 ```elixir
 # test/test_helper.exs
@@ -471,7 +471,7 @@ Pas de mémoire Shinzo = artisanat anonyme = `-10` Process.
 
 ## Rules
 
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides everything. No personal data in commits, ExDoc, test fixtures, Telemetry metadata, log messages.
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides everything. No personal data in commits, ExDoc, test fixtures, Telemetry metadata, log messages.
 - **Reformulate before coding** on any module touching > 1 file or externally-visible behavior.
 - **LOGS FIRST** when a Phoenix service misbehaves — `Logger`, BEAM crash dumps, `:observer`, `recon`, then code.
 - **Fix = Deploy** on live Phoenix services : endpoint fix not done until deployed AND smoke-tested.
@@ -482,19 +482,19 @@ Pas de mémoire Shinzo = artisanat anonyme = `-10` Process.
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
-- SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD (in 7 native scripts — `rules/Workflows.md`).
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
+- SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD (in 7 native scripts — `rules/02-Parcours.md`).
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.** Une supervision tree bien dessinée = un humain qui n'est jamais interrompu.
 
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.
 
 ## References
 
-- `rules/Conventions.md` — stack 2026, D24 Tri-Layer, versions Elixir/Phoenix/Ecto/Oban
-- `rules/Quality.md` — TDG, coverage Elixir (`mix test --cover`, ExCoveralls), test reliability metrics, Anti-Circular Protocol
+- `rules/08-Ecriture.md` — stack 2026, D24 Tri-Layer, versions Elixir/Phoenix/Ecto/Oban
+- `rules/03-Qualite.md` — TDG, coverage Elixir (`mix test --cover`, ExCoveralls), test reliability metrics, Anti-Circular Protocol
 - `rules/Security.md` — 4-layer validation, OWASP, rate limits, secrets management
-- `rules/Workflows.md` — 8 Automatic Gates, Veille protocol (`[VEILLE]` markers)
-- `rules/Monozukuri.md` — 6 comportements observables
-- `rules/Dignity.md` — error messages, user-facing payloads, départ flow
-- `rules/Confidentiality.md` — PII rules ABSOLU
+- `rules/02-Parcours.md` — 8 Automatic Gates, Veille protocol (`[VEILLE]` markers)
+- `rules/03-Qualite.md` — 6 comportements observables
+- `rules/08-Ecriture.md` — error messages, user-facing payloads, départ flow
+- `rules/07-Securite.md` — PII rules ABSOLU

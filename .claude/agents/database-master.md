@@ -73,11 +73,11 @@ Alternative: <ADD COLUMN NULL → backfill batched → ALTER NOT NULL via CHECK 
 Question: <Tu confirmes le plan en 3 étapes plutôt que la migration unique ?>
 ```
 
-Silence devant une migration risquée = trahison du métier. Cf. `rules/Honesty.md` Active Technical Challenge.
+Silence devant une migration risquée = trahison du métier. Cf. `rules/04-Verite.md` Active Technical Challenge.
 
 ## Dignity & Confidentiality (ABSOLU sur PII)
 
-`rules/Confidentiality.md` est ABSOLU et écrase toute autre règle. En contexte database :
+`rules/07-Securite.md` est ABSOLU et écrase toute autre règle. En contexte database :
 
 - **JAMAIS** dumper une table contenant du PII dans un fichier qui peut sortir du périmètre VPS (logs, S3 public, gist, message Slack).
 - **JAMAIS** mettre un email/nom/IP utilisateur dans un commit message, un test fixture, un seed, un commentaire SQL, un message d'erreur.
@@ -260,12 +260,12 @@ La mémoire transmet le métier. Pas de mémoire Shinzo = artisanat anonyme.
 
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.
 
 ## References
 
-- `rules/Quality.md` — coverage floors, test reliability metrics, Test Runtime Hygiene
+- `rules/03-Qualite.md` — coverage floors, test reliability metrics, Test Runtime Hygiene
 - `rules/Security.md` — app_user permissions, encryption, GDPR cascade delete
-- `rules/Confidentiality.md` — PII rules ABSOLU
-- `rules/Conventions.md` — uuidv7, snake_case, schema source of truth
-- `rules/Monozukuri.md` — 6 comportements observables
+- `rules/07-Securite.md` — PII rules ABSOLU
+- `rules/08-Ecriture.md` — uuidv7, snake_case, schema source of truth
+- `rules/03-Qualite.md` — 6 comportements observables

@@ -47,7 +47,7 @@ def test_dropped_text_blocks_as_in_the_real_journal(tmp_path):
     )
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 2
+    assert fired(r)
 
 
 def test_reformulation_written_to_state_file_unlocks_the_gate(tmp_path):
@@ -57,7 +57,7 @@ def test_reformulation_written_to_state_file_unlocks_the_gate(tmp_path):
     ) + [_tool_result("r1")]
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 0, f"state-file reformulation should pass: {r.stderr!r}"
+    assert not fired(r), f"state-file reformulation should pass: {r.stderr!r}"
 
 
 def test_state_file_edit_counts_too(tmp_path):
@@ -70,7 +70,7 @@ def test_state_file_edit_counts_too(tmp_path):
     ]
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 0, f"state-file edit should pass: {r.stderr!r}"
+    assert not fired(r), f"state-file edit should pass: {r.stderr!r}"
 
 
 def test_state_file_write_that_errored_does_not_unlock(tmp_path):
@@ -81,7 +81,7 @@ def test_state_file_write_that_errored_does_not_unlock(tmp_path):
         _tool_result("r1", is_error=True),
     ]
     transcript = _write_transcript(tmp_path, *entries)
-    assert _run(transcript).returncode == 2
+    assert fired(_run(transcript))
 
 
 def test_state_file_write_in_the_same_message_still_counts(tmp_path):
@@ -97,7 +97,7 @@ def test_state_file_write_in_the_same_message_still_counts(tmp_path):
     ]
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 0, f"in-flight state write should count: {r.stderr!r}"
+    assert not fired(r), f"in-flight state write should count: {r.stderr!r}"
 
 
 def test_state_file_without_a_marker_does_not_unlock(tmp_path):
@@ -106,7 +106,7 @@ def test_state_file_without_a_marker_does_not_unlock(tmp_path):
         _tool_result("r1"),
     ]
     transcript = _write_transcript(tmp_path, *entries)
-    assert _run(transcript).returncode == 2
+    assert fired(_run(transcript))
 
 
 def test_marker_in_an_ordinary_file_does_not_unlock(tmp_path):
@@ -119,7 +119,7 @@ def test_marker_in_an_ordinary_file_does_not_unlock(tmp_path):
         _tool_result("w1"),
     ]
     transcript = _write_transcript(tmp_path, *entries)
-    assert _run(transcript).returncode == 2
+    assert fired(_run(transcript))
 
 
 def test_state_file_before_a_new_instruction_does_not_count(tmp_path):
@@ -133,7 +133,7 @@ def test_state_file_before_a_new_instruction_does_not_count(tmp_path):
         _tool_result("w1"),
     ]
     transcript = _write_transcript(tmp_path, *entries)
-    assert _run(transcript).returncode == 2
+    assert fired(_run(transcript))
 
 
 def test_plan_file_is_exempt(tmp_path):
@@ -142,13 +142,13 @@ def test_plan_file_is_exempt(tmp_path):
     transcript = _write_transcript(tmp_path, *_one_prior_write())
     plan = Path.home() / ".claude" / "plans" / "composed-swimming-boole.md"
     r = _run(transcript, file_path=str(plan))
-    assert r.returncode == 0, f"plan file must pass: {r.stderr!r}"
+    assert not fired(r), f"plan file must pass: {r.stderr!r}"
 
 
 def test_a_project_folder_named_plans_stays_gated(tmp_path):
     transcript = _write_transcript(tmp_path, *_one_prior_write())
     r = _run(transcript, file_path="/repo/packages/foo/.claude/plans/real-code.js")
-    assert r.returncode == 2
+    assert fired(r)
 
 
 def test_dot_segments_cannot_walk_out_of_an_exempt_folder(tmp_path):
@@ -160,7 +160,7 @@ def test_dot_segments_cannot_walk_out_of_an_exempt_folder(tmp_path):
         "/repo/.claude/state/../../src/x.py",
     )
     for path in escapes:
-        assert _run(transcript, file_path=path).returncode == 2, path
+        assert fired(_run(transcript, file_path=path)), path
 
 
 def test_a_look_alike_state_path_does_not_unlock(tmp_path):
@@ -175,13 +175,13 @@ def test_a_look_alike_state_path_does_not_unlock(tmp_path):
             _tool_result("r1"),
         ]
         transcript = _write_transcript(tmp_path, *entries)
-        assert _run(transcript).returncode == 2, decoy
+        assert fired(_run(transcript)), decoy
 
 
 def test_block_message_names_the_channel_that_survives(tmp_path):
     transcript = _write_transcript(tmp_path, *_one_prior_write())
     r = _run(transcript)
-    assert r.returncode == 2
+    assert fired(r)
     assert b".claude/state/said.md" in r.stderr
 
 
@@ -195,4 +195,9 @@ def test_the_shared_said_channel_unlocks_the_gate(tmp_path):
     ]
     transcript = _write_transcript(tmp_path, *entries)
     r = _run(transcript)
-    assert r.returncode == 0, r.stderr
+    assert not fired(r), r.stderr
+
+
+def fired(r) -> bool:
+    """Le garde-fou s'est déclenché: il AVERTIT (annonce attendue) depuis le mandat du 2026-10-24."""
+    return r.returncode == 0 and b"ANNONCE ATTENDUE" in r.stderr

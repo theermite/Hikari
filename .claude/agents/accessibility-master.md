@@ -47,8 +47,8 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 | 1 | **WAI-ARIA Authoring Practices 1.2** | Avant TOUT pattern d'interaction non-trivial | Modal, combobox, tabs, tree, dialog — pattern canonique testé sur lecteurs écran |
 | 2 | **WCAG 2.2 AA Quick Reference** | Avant validation feature user-facing | Source canonique des success criteria |
 | 3 | **`@shinkofa/ui` inventory** (inventaire genere, `hooks/lego/ui-inventory.json`) | TOUJOURS — composants déjà accessibles | Réutiliser Lego = hériter de l'accessibilité testée |
-| 4 | **`rules/Dignity.md`** | TOUJOURS — agent user-facing | A11y et Dignity sont indissociables (8 tests BLOCKING) |
-| 5 | **`mnk/15-Human-Quality.md`** | Avant audit ND-friendly | HECQ framework, design par neurotype, ND beyond WCAG |
+| 4 | **`rules/08-Ecriture.md`** | TOUJOURS — agent user-facing | A11y et Dignity sont indissociables (8 tests BLOCKING) |
+| 5 | **`.claude/rules/08-Ecriture.md`** | Avant audit ND-friendly | HECQ framework, design par neurotype, ND beyond WCAG |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **axe-core rules documentation** (deque) | Pour comprendre une violation | Comprendre la règle avant de la fixer ou la suppress |
 | 8 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Patterns neurodiversité, profils utilisateurs | Connaissance ND deep |
@@ -106,7 +106,7 @@ A11y ET Dignity sont indissociables. **Dignity est BLOCKING permanent, pas condi
 | IA | Chat IA navigable clavier + lecteur, annonce arrivée message via live region polite ? |
 | Départ | Désinscription navigable clavier + screen reader en 2 tab+enter max ? |
 
-Référence : `rules/Dignity.md`.
+Référence : `rules/08-Ecriture.md`.
 
 Exemple BLOCKING : `<div onclick={...}>Submit</div>` sans `role="button"`, `tabindex="0"`, Enter handler = exclusion clavier = violation a11y ET Dignity.
 
@@ -230,7 +230,7 @@ Fournir alternatives statiques, pas juste removal :
 
 ## ND Beyond WCAG (D21 / Direction C — BLOCKING on public platforms)
 
-WCAG AA est le floor. Shinkofa ajoute : préférences cumulatives (motion + contrast + text + density), audit cognitive load (max 5 décisions/task), support multi-neurotype (ADHD, Autisme, Dyslexie, HPI, HSP), pas d'auto-play/blinking/countdowns. Référence : `mnk/15-Human-Quality.md`.
+WCAG AA est le floor. Shinkofa ajoute : préférences cumulatives (motion + contrast + text + density), audit cognitive load (max 5 décisions/task), support multi-neurotype (ADHD, Autisme, Dyslexie, HPI, HSP), pas d'auto-play/blinking/countdowns. Référence : `.claude/rules/08-Ecriture.md`.
 
 ## Feedback Widget Accessibility (D25 — BLOCKING on public platforms)
 
@@ -264,24 +264,24 @@ Pour patterns ARIA avancés, quirks screen readers, ND research : EN (W3C WAI, D
 
 ## Rules
 
-- **Confidentiality is absolute** — `rules/Confidentiality.md` overrides everything. Pas de PII dans captures audit, lessons, rapports.
+- **Confidentiality is absolute** — `rules/07-Securite.md` overrides everything. Pas de PII dans captures audit, lessons, rapports.
 - **Veille markers OBLIGATOIRE** sur recherche pattern (format `[SKB]` / `[VEILLE]` / `[VEILLE-SKIP]`).
 - **PASS/FAIL final, jamais "ça devrait être OK"** — preuve via screen reader + capture + axe-core output.
 
 ## References
 
-- `rules/Quality.md` — WCAG targets, ND principles, Human Quality Gates, Universal Project Checklist
-- `rules/Dignity.md` — 8 tests BLOCKING, 7 moments de vérité
-- `mnk/15-Human-Quality.md` — HECQ framework, design par neurotype
+- `rules/03-Qualite.md` — WCAG targets, ND principles, Human Quality Gates, Universal Project Checklist
+- `rules/08-Ecriture.md` — 8 tests BLOCKING, 7 moments de vérité
+- `.claude/rules/08-Ecriture.md` — HECQ framework, design par neurotype
 - WAI-ARIA Authoring Practices 1.2 — pattern canonique
 - WCAG 2.2 Quick Reference (w3.org/WAI/WCAG22/quickref/)
 
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.

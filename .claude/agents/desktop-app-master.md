@@ -44,12 +44,12 @@ Une seule violation = `-10` sur Reliability + flag rapport.
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
 | 1 | **Logs Qt** (`QLoggingCategory`, fichier log app) | Avant toute hypothèse bug | Qt logs ses propres warnings (signal not connected, deprecated API) |
-| 2 | **rules/Conventions.md** (stack table) | À chaque nouveau projet | PySide6 6.9+ (NEVER tkinter), Electron 40+, Nuitka, tufup — non-négociable |
+| 2 | **rules/08-Ecriture.md** (stack table) | À chaque nouveau projet | PySide6 6.9+ (NEVER tkinter), Electron 40+, Nuitka, tufup — non-négociable |
 | 3 | **Veille** (PySide6 release notes, Electron security advisories, Nuitka changelog) | Avant choix lib/version | Qt évolue (QtQuick, QtCharts), Electron change la sandbox API |
 | 4 | **mémoire Shinzo** (`GET /api/memories?type=lesson&query=PySide6|Electron|packaging`) | Avant tout nouveau setup | Leçons cross-projects sur packaging, DPI, theming |
 | 5 | **SKB domaine 05 (Neurodiversité)** | Avant tout UX choice | ND defaults pour theme/font/motion |
 | 6 | **Project notes Shinzo** (`[SHINZO]/02-Projets/[project].md`) | Session start | Setup actuel, plateformes cibles, signing keys location |
-| 7 | **rules/Quality.md** Lego Library section | Si app web hybride (Electron) | @shinkofa/ui peut s'utiliser dans Electron |
+| 7 | **rules/03-Qualite.md** Lego Library section | Si app web hybride (Electron) | @shinkofa/ui peut s'utiliser dans Electron |
 
 Sauter une source = `-10` Reliability.
 
@@ -88,7 +88,7 @@ Pas de challenge = `-20` Reliability.
 
 ## Dignity awareness (BLOCKING sur UI user-facing)
 
-Les 8 tests `rules/Dignity.md` appliqués au desktop :
+Les 8 tests `rules/08-Ecriture.md` appliqués au desktop :
 
 | Test | Application desktop |
 |------|---------------------|
@@ -203,7 +203,7 @@ NEVER disable contextIsolation. All main↔renderer via preload bridge.
 | Sensory Comfort | All animations optional | `reduced_motion` setting disables all QPropertyAnimation |
 | Error Resilience | Auto-save on data > 3 fields | QTimer-based auto-save every 30s + on focus-out |
 | Adaptation | Preferences persist between sessions | QSettings for all user preferences |
-| Dignity | 0 dark patterns, 0 condescension, 0 data without visible UX impact | Review all dialogs, messages, and data collection against `rules/Dignity.md` |
+| Dignity | 0 dark patterns, 0 condescension, 0 data without visible UX impact | Review all dialogs, messages, and data collection against `rules/08-Ecriture.md` |
 
 ## Cross-Platform Gotchas
 
@@ -313,10 +313,10 @@ Après chaque release packagée :
 
 ## References
 
-- `rules/Quality.md` — Human Quality Gates, ND-Friendly UX, Performance targets
-- `rules/Conventions.md` — PySide6 (NEVER tkinter), Electron stack versions
-- `rules/Dignity.md` — 8 tests applicables au desktop UI
-- `mnk/08-Agents.md` — Agent routing and symbioses
+- `rules/03-Qualite.md` — Human Quality Gates, ND-Friendly UX, Performance targets
+- `rules/08-Ecriture.md` — PySide6 (NEVER tkinter), Electron stack versions
+- `rules/08-Ecriture.md` — 8 tests applicables au desktop UI
+- `docs/Routage-Experts.md` — Agent routing and symbioses
 
 ## General Rules
 
@@ -329,7 +329,7 @@ Après chaque release packagée :
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords
 - SKB FIRST. mémoire Shinzo SECOND. Web THIRD. Shinzo project notes for all project tracking.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.

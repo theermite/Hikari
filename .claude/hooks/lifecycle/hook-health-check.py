@@ -58,6 +58,18 @@ def _est_dernier_recours(chemin: str) -> bool:
     return "windowsapps" in chemin.replace("\\", "/").lower()
 
 
+def _chemin_executable(nom: str, windows: bool | None = None) -> str:
+    """Le chemin sous la forme que ce Python sait lancer.
+
+    `_run.sh` retient `/c/Python313/python` (forme Git Bash); Python sous Windows ne lance pas cette
+    forme. Sans traduction, la sonde retombait sur `python` et nommait un autre interprete que le
+    lanceur. La traduction ne sert qu'a EXECUTER: le nom retenu reste celui du lanceur.
+    """
+    windows = sys.platform == "win32" if windows is None else windows
+    forme = re.fullmatch(r"/([a-zA-Z])/(.+)", nom)
+    return f"{forme.group(1).upper()}:/{forme.group(2)}" if windows and forme else nom
+
+
 def _version_si_il_tourne(nom: str) -> str:
     """La version, ou vide. On le FAIT TOURNER : c'est la seule preuve.
 
@@ -65,7 +77,7 @@ def _version_si_il_tourne(nom: str) -> str:
     l'execution — un test de presence le declarerait bon.
     """
     try:
-        proc = subprocess.run([nom, "-c", "import sys;print(sys.version.split()[0])"],
+        proc = subprocess.run([_chemin_executable(nom), "-c", "import sys;print(sys.version.split()[0])"],
                               capture_output=True, text=True, timeout=10)
     except (OSError, subprocess.SubprocessError):
         return ""

@@ -91,7 +91,7 @@ Pas de challenge = livrer recherche biaisée = `-20` Reliability + flag rapport 
 
 ## Dignity awareness (BLOCKING sur recherche destinée à contenu user-facing)
 
-Avant de livrer un rapport destiné à alimenter du contenu utilisateur (copy, blog, fonctionnalité IA-facing, support coaching, description neurodiversité) : appliquer les 8 tests Dignity de `rules/Dignity.md` :
+Avant de livrer un rapport destiné à alimenter du contenu utilisateur (copy, blog, fonctionnalité IA-facing, support coaching, description neurodiversité) : appliquer les 8 tests Dignity de `rules/08-Ecriture.md` :
 
 | Test | Question |
 |------|----------|
@@ -344,20 +344,20 @@ After ANY Standard or Deep Dive :
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST is non-negotiable. mémoire Shinzo SECOND. Web research THIRD.
-- Confidentiality is absolute — `rules/Confidentiality.md` overrides everything. No personal data in queries, citations, or proposed enrichments.
+- Confidentiality is absolute — `rules/07-Securite.md` overrides everything. No personal data in queries, citations, or proposed enrichments.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.
 
 ## References
 
-- `rules/Workflows.md` — "Verify before claiming", research in 7 languages, Double Regard
-- `rules/Honesty.md` — Confidence levels (Verified, Probable, Uncertain)
-- `rules/Monozukuri.md` — 6 comportements observables
-- `rules/Dignity.md` — 8 tests sur contenu user-facing
-- `rules/Strategic-Context.md` — 3 Layers filter for research prioritization
-- `mnk/08-Agents.md` — Agent routing and symbioses
+- `rules/02-Parcours.md` — "Verify before claiming", research in 7 languages, Double Regard
+- `rules/04-Verite.md` — Confidence levels (Verified, Probable, Uncertain)
+- `rules/03-Qualite.md` — 6 comportements observables
+- `rules/08-Ecriture.md` — 8 tests sur contenu user-facing
+- `rules/08-Ecriture.md` — 3 Layers filter for research prioritization
+- `docs/Routage-Experts.md` — Agent routing and symbioses
 - `Eichi-Shinkofa/docs/Research-Protocol.md` — Full 7-language research protocol

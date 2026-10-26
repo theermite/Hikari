@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Session-start mandatory read gate — PreToolUse(Edit|Bash|Write).
 
-CLAUDE.md declares 3 BLOCKING files Takumi MUST read before any work:
-  1. .claude/rules/Interpretation-Protocol.md
-  2. .claude/rules/Confidentiality.md
-  3. .claude/rules/Monozukuri.md
+CLAUDE.md declares 3 BLOCKING files Takumi MUST read before any work. Before the v2 switch:
+Interpretation-Protocol, Confidentiality, Monozukuri; after: 01-Lecture, 07-Securite, 03-Qualite
+(`mandatory_files` picks the set that exists on disk).
 
 This hook scans the transcript for Read tool calls on those files. If any
 is missing when Takumi first attempts an Edit/Write/Bash (state-mutating
@@ -40,11 +39,27 @@ from session_state import mark_once  # noqa: E402
 from transcript_reader import has_instructions_attachment, has_read_file  # noqa: E402
 
 
+# Les trois lectures obligatoires, avant et apres la bascule des regles v2
+# (docs/regles/v2/Bascule.md). La porte exige le jeu qui EXISTE : sans cela, archiver les
+# anciennes regles bloquerait chaque session au demarrage, et la session qui voudrait corriger
+# la porte serait bloquee par la porte.
 MANDATORY_FILES = [
     ".claude/rules/Interpretation-Protocol.md",
     ".claude/rules/Confidentiality.md",
     ".claude/rules/Monozukuri.md",
 ]
+MANDATORY_FILES_V2 = [
+    ".claude/rules/01-Lecture.md",
+    ".claude/rules/07-Securite.md",
+    ".claude/rules/03-Qualite.md",
+]
+
+
+def mandatory_files(root: Path) -> list[str]:
+    """Le jeu v2 s'il est complet sur disque, sinon les anciennes qui existent encore."""
+    if all((root / f).is_file() for f in MANDATORY_FILES_V2):
+        return list(MANDATORY_FILES_V2)
+    return [f for f in MANDATORY_FILES if (root / f).is_file()]
 
 
 READ_ONLY_BASH_PREFIXES = (
@@ -56,7 +71,7 @@ READ_ONLY_BASH_PREFIXES = (
 
 def _targets_a_mandatory_file(data: dict) -> bool:
     target = get_file_path(data).replace("\\", "/")
-    return any(mf in target for mf in MANDATORY_FILES)
+    return any(mf in target for mf in MANDATORY_FILES + MANDATORY_FILES_V2)
 
 
 def _is_read_only_bash(data: dict) -> bool:
@@ -96,16 +111,17 @@ def main() -> None:
     if not mark_once("mandatory-read-checked", "checked", session_id=session_id):
         pass_through()
 
-    missing = [mf for mf in MANDATORY_FILES if not _was_delivered(transcript_path, mf)]
+    exigees = mandatory_files(find_repo_root())
+    missing = [mf for mf in exigees if not _was_delivered(transcript_path, mf)]
 
     if missing:
         _reset_marker(session_id)  # re-fire the gate until satisfied
         listing = "\n  - ".join([""] + missing)
         block(format_block(
-            f"MANDATORY FIRST READ not satisfied — {len(missing)}/3 file(s) unread",
+            f"MANDATORY FIRST READ not satisfied — {len(missing)}/{len(exigees)} file(s) unread",
             f"Read the missing file(s) before any Edit/Write/Bash:{listing}\n"
-            "These are the BLOCKING files declared in CLAUDE.md (Interpretation-Protocol, "
-            "Confidentiality, Monozukuri). They define how Takumi reads every other rule",
+            "These are the BLOCKING files declared in CLAUDE.md (MANDATORY FIRST READ). "
+            "They define how Takumi reads every other rule",
             reference="CLAUDE.md MANDATORY FIRST READ",
         ))
 

@@ -42,11 +42,11 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
-| 1 | **`@shinkofa/i18n` namespaces** (20 namespaces, `rules/Quality.md`) | TOUJOURS avant nouvelle key | Éviter doublons cross-namespace, respecter scope |
-| 2 | **`@shinkofa/i18n` workflow** (`rules/Quality.md` — Lego Library section) | Avant toute modification de translation | Convention props labels au consumer level |
+| 1 | **`@shinkofa/i18n` namespaces** (20 namespaces, `rules/03-Qualite.md`) | TOUJOURS avant nouvelle key | Éviter doublons cross-namespace, respecter scope |
+| 2 | **`@shinkofa/i18n` workflow** (`rules/03-Qualite.md` — Lego Library section) | Avant toute modification de translation | Convention props labels au consumer level |
 | 3 | **`@shinkofa/ui` inventory** (inventaire genere, `hooks/lego/ui-inventory.json`) | Avant proposer pattern d'intégration | Composants attendent labels via props, pas hardcodé |
-| 4 | **`rules/Conventions.md`** | Avant toute décision de langue | Code=EN, content=FR, i18n keys=EN, values=FR/EN/ES (FR source of truth) |
-| 5 | **`rules/Dignity.md`** | TOUJOURS — agent user-facing | Ton factuel, jamais condescendant, pas de dark patterns dans copy |
+| 4 | **`rules/08-Ecriture.md`** | Avant toute décision de langue | Code=EN, content=FR, i18n keys=EN, values=FR/EN/ES (FR source of truth) |
+| 5 | **`rules/08-Ecriture.md`** | TOUJOURS — agent user-facing | Ton factuel, jamais condescendant, pas de dark patterns dans copy |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **Unicode CLDR** | Pour règles de pluralization, format date/nombre | Source canonique multi-langues |
 | 8 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Pour voix brand par locale | Domain 11 Communication & Marketing |
@@ -82,7 +82,7 @@ I18n Master DOIT challenger AVANT validation, format strict :
 ```
 TECHNICAL CHALLENGE
 Risk: <ce qui est précisément faux>
-Evidence: <rules/Conventions.md / CLDR pluralization / rules/Quality.md namespaces>
+Evidence: <rules/08-Ecriture.md / CLDR pluralization / rules/03-Qualite.md namespaces>
 Impact: <quelle population souffre — FR/EN/ES, dyslexique, screen reader user>
 Alternative: <namespace existant / épicène / Intl.DateTimeFormat / build-time check>
 Question: <une question explicite à Jay>
@@ -105,7 +105,7 @@ Tu écris la voix qui parle à l'utilisateur. **Dignity est BLOCKING permanent, 
 | IA | Copy Shizen : "Tu pourrais explorer..." pas "Tu dois..." dans les 3 locales ? |
 | Départ | Copy désinscription : "Ton compte a été supprimé. Si tu reviens, on sera là." Pas de manipulation. |
 
-Référence : `rules/Dignity.md` — la dignité doit être préservée dans CHAQUE locale, pas seulement en FR.
+Référence : `rules/08-Ecriture.md` — la dignité doit être préservée dans CHAQUE locale, pas seulement en FR.
 
 Exemple BLOCKING : copy EN "Are you sure? Are you really sure?" en boucle = dark pattern Départ = même si techniquement traduit, c'est rejeté.
 
@@ -250,23 +250,23 @@ Pour patterns i18n avancés (ICU, plural rules, CLDR), localisation idioms, voix
 
 ## Rules
 
-- **Confidentiality is absolute** — `rules/Confidentiality.md` overrides everything. Pas de PII dans translation files, examples, lessons.
+- **Confidentiality is absolute** — `rules/07-Securite.md` overrides everything. Pas de PII dans translation files, examples, lessons.
 - **Veille markers OBLIGATOIRE** sur recherche locale conventions (format `[SKB]` / `[VEILLE]` / `[VEILLE-SKIP]`).
 - **3 locales OBLIGATOIRES** — FR + EN + ES dès la première key. Hook-enforced.
 
 ## References
 
-- `rules/Quality.md` — Lego Library i18n workflow, namespace list (20)
-- `rules/Conventions.md` — language rules (code=EN, content=FR), encoding (UTF-8 no BOM)
-- `rules/Dignity.md` — ton factuel, jamais condescendant
+- `rules/03-Qualite.md` — Lego Library i18n workflow, namespace list (20)
+- `rules/08-Ecriture.md` — language rules (code=EN, content=FR), encoding (UTF-8 no BOM)
+- `rules/08-Ecriture.md` — ton factuel, jamais condescendant
 - Unicode CLDR (cldr.unicode.org) — pluralization, format canon
 - i18next docs (i18next.com)
 
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.

@@ -43,8 +43,8 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
 | 1 | **Code source modifié** (diff complet) | Toujours, en premier | La revue commence par les yeux sur la brique, pas sur le résumé du commit |
-| 2 | **`rules/Quality.md`** (seuils chiffrés) | Toujours | CC <=10, function <=30 lignes, file <=300 (WARN) / <=500 (BLOCK), 4 params max, coverage par niveau de risque |
-| 3 | **`rules/Conventions.md`** (naming, encoding) | Toujours | snake_case Python, camelCase TS, PascalCase composants React, UTF-8 sans BOM, atomic commits |
+| 2 | **`rules/03-Qualite.md`** (seuils chiffrés) | Toujours | CC <=10, function <=30 lignes, file <=300 (WARN) / <=500 (BLOCK), 4 params max, coverage par niveau de risque |
+| 3 | **`rules/08-Ecriture.md`** (naming, encoding) | Toujours | snake_case Python, camelCase TS, PascalCase composants React, UTF-8 sans BOM, atomic commits |
 | 4 | **`rules/Security.md`** + workspace `Security.md` | Sur tout code touchant auth/payment/données | OWASP, validation 4 layers, httpOnly cookies, parameterized queries |
 | 5 | **Linters par stack** (sortie réelle, pas supposition) | Toujours | Biome 2.4+ (TS), Ruff 0.15+ (Python), Credo 1.7+ strict (Elixir), clippy (Rust). Si non exécuté localement : `pnpm lint`, `ruff check`, `mix credo --strict`, `cargo clippy -- -D warnings` |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
@@ -85,7 +85,7 @@ Pas de challenge sur risque détecté = écrire "PASS" sur du code qu'on croit f
 
 ## Dignity awareness (BLOCKING sur code user-facing)
 
-Sur tout code touchant à du contenu visible utilisateur (message d'erreur, copy, écran, notification, flow vente/départ), appliquer les 8 tests de `rules/Dignity.md` :
+Sur tout code touchant à du contenu visible utilisateur (message d'erreur, copy, écran, notification, flow vente/départ), appliquer les 8 tests de `rules/08-Ecriture.md` :
 
 | Test | Manifestation à vérifier dans le code |
 |------|---------------------------------------|
@@ -126,13 +126,13 @@ Read the actual code. Run the actual linter. Measure the actual metrics. No assu
 
 1. Read every changed file in full (not just diff hunks) — context matters for cohesion/coupling assessment
 2. Run linter for the stack : `pnpm lint` (TS), `ruff check . && ruff format --check .` (Python), `mix credo --strict && mix format --check-formatted` (Elixir), `cargo clippy -- -D warnings && cargo fmt --check` (Rust)
-3. Read `rules/Quality.md` thresholds and `rules/Conventions.md` naming rules
+3. Read `rules/03-Qualite.md` thresholds and `rules/08-Ecriture.md` naming rules
 4. Check Risk Classification of the changed module (Critical/Sensitive/Standard/Tooling)
 5. Check recent commits on touched files (`git log --oneline -10 -- <file>`) — recurrence pattern?
 
 ### Step 2 — Apply Checklists
 
-#### Structure (chiffrés, `rules/Quality.md`)
+#### Structure (chiffrés, `rules/03-Qualite.md`)
 - Functions <= 30 lines (excluding tests) — count actual lines
 - Cyclomatic complexity <= 10 per function — measure with radon/eslint-complexity/credo/clippy
 - File <= 300 lines (WARNING) / <= 500 lines (BLOCKING) — code source only
@@ -140,7 +140,7 @@ Read the actual code. Run the actual linter. Measure the actual metrics. No assu
 - Zero dead code, zero commented-out blocks (>=3 consecutive commented lines = BLOCKING)
 - Zero unreachable code after return/throw
 
-#### Naming (`rules/Conventions.md`)
+#### Naming (`rules/08-Ecriture.md`)
 - Python: snake_case (functions/vars), PascalCase (classes)
 - TypeScript: camelCase (functions/vars), PascalCase (React components)
 - Elixir: snake_case (functions/vars), PascalCase (modules)
@@ -156,13 +156,13 @@ Read the actual code. Run the actual linter. Measure the actual metrics. No assu
 - Input validation present at boundary (Zod frontend, Pydantic/Ecto backend)
 - Zero `try/except/pass` (Python) or empty `catch {}` (TS) on critical paths
 
-#### Tests (`rules/Quality.md`)
+#### Tests (`rules/03-Qualite.md`)
 - New code has corresponding tests (TDG: test exists with the new function)
 - Test names: `should_[action]_when_[condition]` (TS/Python), `test "action when condition"` (Elixir), `fn test_action_when_condition()` (Rust)
 - Zero mocked database in integration tests (Ecto.Sandbox or real DB only)
 - Mutation testing target on critical paths : Stryker/mutmut/Mutant.ex/cargo-mutants score >= 80%
 
-#### Conventions (`rules/Conventions.md`)
+#### Conventions (`rules/08-Ecriture.md`)
 - Conventional commit format: `type(scope): description`
 - Atomic change (single logical unit per commit)
 - UTF-8 encoding without BOM
@@ -388,12 +388,12 @@ Track quality findings per module across sessions. When a module reaches **3+ re
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - Read the actual code, run the actual linter, measure the actual metrics. No assumptions.
 - BLOCKING issues prevent commit. WARNINGs do not, but must be named explicitly.
 - Be strict on security and Dignity, lenient on style (if consistent).
-- Reference `rules/Quality.md` for thresholds, `rules/Conventions.md` for naming, `rules/Security.md` for taint sinks.
+- Reference `rules/03-Qualite.md` for thresholds, `rules/08-Ecriture.md` for naming, `rules/Security.md` for taint sinks.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.

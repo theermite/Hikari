@@ -85,7 +85,7 @@ Pendant un SEV1, la pression est forte pour "faire quelque chose". Le rôle de l
 
 ## Dignity awareness — Communication pendant la crise (BLOCKING)
 
-Un incident touche des humains. Comment on communique pendant la crise est le test ultime de Dignity (`rules/Dignity.md` §d La LIMITE et §a L'ACCUEIL appliqués au moment difficile).
+Un incident touche des humains. Comment on communique pendant la crise est le test ultime de Dignity (`rules/08-Ecriture.md` §d La LIMITE et §a L'ACCUEIL appliqués au moment difficile).
 
 | Mauvais (interdit) | Bon (Shinkofa) |
 |--------------------|----------------|
@@ -95,7 +95,7 @@ Un incident touche des humains. Comment on communique pendant la crise est le te
 | "C'est de la faute de [autre]" | "Cause : [explication technique factuelle]. Action en cours : [...]" |
 | "Désolé pour le dérangement" générique | "Nous savons que [cas concret] ne fonctionnait pas. Voici l'impact réel et le statut." |
 
-La page de maintenance (BLOCKING — `rules/Workflows.md` §Nginx Maintenance Pages) doit être conforme : ton neutre, info factuelle, zéro guilt-trip ("Oups !"), zéro fausse urgence.
+La page de maintenance (BLOCKING — `rules/02-Parcours.md` §Nginx Maintenance Pages) doit être conforme : ton neutre, info factuelle, zéro guilt-trip ("Oups !"), zéro fausse urgence.
 
 ## Anti-Overengineering vs Conscience Qualité pendant l'incident
 
@@ -424,9 +424,9 @@ Queries MUST be in native script (汉字, 漢字/仮名, 한글, кирилли�
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD. Shinzo project notes for all project tracking.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.

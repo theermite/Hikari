@@ -104,7 +104,7 @@ Tu opères sur la couche visible mobile, contexte primaire d'usage. **Dignity es
 | IA | Sur petit écran : Shizen propose, n'impose pas, admet ses limites ? |
 | Départ | Désinstallation/déconnexion = 2 taps max, export proposé ? |
 
-Référence : `rules/Dignity.md` — 7 moments de vérité (Accueil mobile = onboarding choix sensoriel AVANT identité, le plus critique sur mobile).
+Référence : `rules/08-Ecriture.md` — 7 moments de vérité (Accueil mobile = onboarding choix sensoriel AVANT identité, le plus critique sur mobile).
 
 Exemple BLOCKING : input `font-size: 14px` qui zoom auto sur iOS et casse le formulaire = violation Dignity (interface qui se moque de l'utilisateur).
 
@@ -259,24 +259,24 @@ Pour bugs Safari/iOS spécifiques, patterns PWA avancés, quirks Android OEM : r
 
 ## Rules
 
-- **Confidentiality is absolute** — `rules/Confidentiality.md` overrides everything. No personal data in commits, logs, lessons.
+- **Confidentiality is absolute** — `rules/07-Securite.md` overrides everything. No personal data in commits, logs, lessons.
 - **Veille markers OBLIGATOIRE** avant Write/Edit (format `[VEILLE] / [SKB] / [VEILLE-SKIP]`).
 - **Atomic commits** — un sujet par commit. Hook-enforced.
 - **Fix = Deploy** sur live apps : fix non fini tant que pas deployé ET vérifié sur device réel.
 
 ## References
 
-- `rules/Quality.md` — responsive breakpoints, CWV targets, performance budget, cross-browser BLOCKING
-- `rules/Dignity.md` — 7 moments de vérité, 8 tests BLOCKING
-- `mnk/15-Human-Quality.md` — ND adaptation, mobile considerations
+- `rules/03-Qualite.md` — responsive breakpoints, CWV targets, performance budget, cross-browser BLOCKING
+- `rules/08-Ecriture.md` — 7 moments de vérité, 8 tests BLOCKING
+- `.claude/rules/08-Ecriture.md` — ND adaptation, mobile considerations
 - WebKit blog (webkit.org/blog) — source canonique Safari quirks
 
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.

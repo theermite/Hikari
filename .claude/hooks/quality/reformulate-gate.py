@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Reformulate gate — PreToolUse Write|Edit.
+"""Reformulate gate — PreToolUse Write|Edit. AVERTIT, ne bloque plus (2026-10-26).
+
+Pourquoi il avertit. Le mandat du 2026-10-24 dit: « un changement non trivial s'annonce, il ne
+s'approuve pas ». Un blocage fait attendre une approbation que la règle n'exige plus. Mesure du
+2026-10-26 sur 50 séances: 201 blocages, dont 104 contournés en répétant la même écriture — et le
+journal perd le texte de Takumi quand sa réflexion est coupée en deux, donc une annonce FAITE est
+vue comme absente. Un garde-fou qui bloque une annonce faite retire la capacité sans rien protéger
+(voir plus bas, sous-agents). Il avertit donc, au plus trois fois par tour.
+
 
 Enforces Workflows.md "Reformulate before coding": when a non-trivial change
 (>1 file in the current turn) is in progress, Takumi MUST have output a
@@ -53,7 +61,7 @@ HOOK_DIR = Path(__file__).resolve().parent
 LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
-from common import block, get_file_path, pass_through, read_hook_input  # type: ignore  # noqa: E402
+from common import get_file_path, pass_through, read_hook_input, warn  # type: ignore  # noqa: E402
 from reformulate_agreements import has_design_approval, names_a_pet_brick  # type: ignore  # noqa: E402
 from transcript_reader import (  # type: ignore  # noqa: E402
     entry_message,
@@ -246,14 +254,14 @@ def should_skip(file_path: str) -> bool:
     return False
 
 
-BLOCK_MSG = (
-    "BLOCKED: Non-trivial change (2+ files this turn) without reformulation. "
-    "Target: {file_path}. RECOVERY: Output a brief reformulation BEFORE retrying — "
-    "state (1) what you understood, (2) what you'll do, (3) what you won't touch, "
-    "(4) files impacted. Use the keyword REFORMULATION or a numbered list mentioning "
-    "files. If your text is not seen (the journal drops it when thinking is split), "
-    "Write the same reformulation to <project>/.claude/state/said.md — a "
-    "tool call is always recorded. See rules/Workflows.md 'Reformulate before coding'."
+MAX_RAPPELS = 3
+
+WARN_MSG = (
+    "ANNONCE ATTENDUE: changement non trivial (2+ fichiers ce tour) sans annonce visible. "
+    "Cible: {file_path}. Mandat: une phrase — ce que je fais, ce que je ne touche pas, les "
+    "fichiers — puis j'agis; aucune approbation n'est attendue. Si ton texte n'est pas vu "
+    "(le journal le perd quand la reflexion est coupee en deux), ecris-le dans "
+    "<projet>/.claude/state/said.md: un appel d'outil est toujours enregistre."
 )
 
 
@@ -315,7 +323,10 @@ def main() -> None:
     if not data.get("agent_id") and names_a_pet_brick(transcript_path, file_path):
         pass_through()
 
-    block(BLOCK_MSG.format(file_path=file_path))
+    # Au plus trois rappels par tour: au-delà, répéter coûte du contexte sans rien apprendre.
+    if writes_so_far <= MAX_RAPPELS:
+        warn(WARN_MSG.format(file_path=file_path))
+    pass_through()
 
 
 if __name__ == "__main__":

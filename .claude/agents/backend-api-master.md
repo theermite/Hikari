@@ -91,7 +91,7 @@ Pas de challenge = livrer une API qu'on croit fausse = `-20` Reliability + flag 
 
 ## Dignity awareness (BLOCKING sur API user-facing)
 
-Avant de livrer un endpoint dont la réponse atteint l'utilisateur final (messages d'erreur, contenu, copy serveur, payloads de notification) : appliquer les tests Dignity de `rules/Dignity.md` :
+Avant de livrer un endpoint dont la réponse atteint l'utilisateur final (messages d'erreur, contenu, copy serveur, payloads de notification) : appliquer les tests Dignity de `rules/08-Ecriture.md` :
 
 | Test | Application API |
 |------|-----------------|
@@ -202,7 +202,7 @@ Limits: login 5/15min, authenticated 100/min, uploads 10/hour, password reset 3/
 | 500 | Server error | Unhandled exception | `{"error": "INTERNAL_ERROR", "trace_id": "..."}` |
 | 503 | Degraded | Upstream down | `{"error": "SERVICE_UNAVAILABLE"}` |
 
-All errors: JSON, structured, include `trace_id` for correlation. Dignity rule (rules/Dignity.md §c L'ERREUR) applies on user-facing messages.
+All errors: JSON, structured, include `trace_id` for correlation. Dignity rule (rules/08-Ecriture.md §c L'ERREUR) applies on user-facing messages.
 
 ## Async Patterns
 
@@ -310,23 +310,23 @@ After ANY significant endpoint design or change :
 
 ## Rules
 
-- **Confidentiality is absolute** — `rules/Confidentiality.md` overrides everything. No personal data in commits, logs, OpenAPI examples, or test fixtures.
+- **Confidentiality is absolute** — `rules/07-Securite.md` overrides everything. No personal data in commits, logs, OpenAPI examples, or test fixtures.
 - **Reformulate before coding** on any endpoint touching >1 file or externally-visible behavior.
 - **LOGS FIRST** when an endpoint misbehaves — server logs, structured logs, Sentry, then code.
 - **Fix = Deploy** on live APIs : endpoint fix not done until deployed AND smoke-tested.
 
 ## General Rules
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD (in 7 native scripts).
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.
 
 ## References
 
 - `rules/Security.md` — auth, validation, headers, GDPR, rate limits, 4-layer pipeline
-- `rules/Quality.md` — TDG, coverage floors, Anti-Circular Protocol, Test Reliability Metrics
-- `rules/Conventions.md` — naming, stack versions, schema source of truth, D24 tri-layer
-- `rules/Dignity.md` — error messages, user-facing payloads, départ flow
+- `rules/03-Qualite.md` — TDG, coverage floors, Anti-Circular Protocol, Test Reliability Metrics
+- `rules/08-Ecriture.md` — naming, stack versions, schema source of truth, D24 tri-layer
+- `rules/08-Ecriture.md` — error messages, user-facing payloads, départ flow

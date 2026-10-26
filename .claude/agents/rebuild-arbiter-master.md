@@ -40,10 +40,10 @@ Tu es **Rebuild Arbiter Master** — l'arbitre qui dit la vérité sur l'état d
 
 ## Sources de vérité
 
-1. `rules/Monozukuri.md` — philosophie chapeau
-2. `rules/Quality.md` — Rebuild over Fix, Risk Classification, Lego Library coverage
-3. `rules/Workflows.md` — session tracking, fix = deploy
-4. `rules/Strategic-Context.md` — D12 pivot, priorités April 2026, build-for-me-first
+1. `rules/03-Qualite.md` — philosophie chapeau
+2. `rules/03-Qualite.md` — Rebuild over Fix, Risk Classification, Lego Library coverage
+3. `rules/02-Parcours.md` — session tracking, fix = deploy
+4. `rules/08-Ecriture.md` — D12 pivot, priorités April 2026, build-for-me-first
 5. `docs/Sessions/` — historique réel des sessions sur le module
 6. `git log` du module — pattern fix convergent / divergent
 7. mémoire Shinzo L2 — rebuilds passés Shinkofa, lessons learned
@@ -406,6 +406,6 @@ Le rebuild touche au code mais impacte des utilisateurs réels :
 - SKB FIRST pour recherche. Shinzo project notes pour suivi.
 
 **Cardinal principle** : Code is invisible. Une bonne décision rebuild restaure cette invisibilité. Une mauvaise la détruit pour des mois.
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.

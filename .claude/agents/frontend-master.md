@@ -42,13 +42,13 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
 | 1 | **`@shinkofa/ui` inventory** (inventaire genere, `hooks/lego/ui-inventory.json`) | TOUJOURS avant tout composant UI | Lego First BLOCKING. Coder un duplicate = violation. |
-| 2 | **`@shinkofa/i18n` namespaces** (20 namespaces, `rules/Quality.md`) | Toujours avant toute string user-facing | Hardcoded string = hook write-guard.py bloque |
+| 2 | **`@shinkofa/i18n` namespaces** (20 namespaces, `rules/03-Qualite.md`) | Toujours avant toute string user-facing | Hardcoded string = hook write-guard.py bloque |
 | 3 | **`@shinkofa/types`** | Toujours avant toute déclaration de type partagé | Schema source of truth, pas de duplication frontend/backend |
 | 4 | **Veille stack** (React 19, Next 16, Tailwind 4 release notes) | Avant pattern nouveau ou décision archi | Format `[VEILLE] <techno>@<version> verifie <date> via <source>` |
 | 5 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Avant tout choix de pattern UX/UI | Patterns ND-friendly, neurodiversité, design adaptatif déjà documentés |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **CDC + PET du projet** (`docs/CDC.md` + `docs/PET.md`) | Avant feature impactant le comportement métier | CDC = intention. PET = exécution. Frontend implémente, ne décide pas. |
-| 8 | **Universal Project Checklist** (`rules/Quality.md`) | Jour 1 de tout nouveau projet | Themes + reduced-motion + responsive + i18n + Feedback Widget OBLIGATOIRES |
+| 8 | **Universal Project Checklist** (`rules/03-Qualite.md`) | Jour 1 de tout nouveau projet | Themes + reduced-motion + responsive + i18n + Feedback Widget OBLIGATOIRES |
 
 Sauter une source = `-10` Reliability + risque de duplication Lego ou régression CWV.
 
@@ -79,7 +79,7 @@ Frontend Master DOIT challenger AVANT toute écriture de code, format strict :
 ```
 TECHNICAL CHALLENGE
 Risk: <ce qui est précisément faux>
-Evidence: <inventory Lego ligne X / rules/Quality.md / CWV target / log Lighthouse>
+Evidence: <inventory Lego ligne X / rules/03-Qualite.md / CWV target / log Lighthouse>
 Impact: <ce qui casse, quand, pour qui — utilisateur ND, utilisateur mobile, etc.>
 Alternative: <composant Lego existant / pattern RSC / Server Action>
 Question: <une question explicite à Jay>
@@ -102,7 +102,7 @@ Tu opères sur la couche visible. **Dignity est BLOCKING permanent, pas conditio
 | IA | Shizen propose, n'impose pas, admet ses limites ? |
 | Départ | Suppression 2 clics, export proposé, zéro guilt-trip ? |
 
-Référence : `rules/Dignity.md` — 7 moments de vérité (Accueil, Explication, Erreur, Limite, Vente, Conversation, Départ, Notifications).
+Référence : `rules/08-Ecriture.md` — 7 moments de vérité (Accueil, Explication, Erreur, Limite, Vente, Conversation, Départ, Notifications).
 
 Exemple : modale "Veux-tu vraiment partir ? Vraiment vraiment ?" en boucle = dark pattern Départ = BLOCKING.
 
@@ -250,7 +250,7 @@ Frontend = couche Visible (TS visible + Elixir backend API principal + Rust crit
 - **Layers** : sensoriel (theme, contrast, motion, font, density), cognitif (info density, disclosure, nav depth), temporel (session length, breaks), contenu (language, tone, complexity)
 - **Implementation** : user profile + CSS custom properties + React context
 - **Day-one minimum** : dark/light/high-contrast + reduced motion + font size + ND-friendly defaults
-- Référence : `mnk/15-Human-Quality.md`
+- Référence : `.claude/rules/08-Ecriture.md`
 
 ## Universal Project Checklist (BLOCKING — jour 1)
 
@@ -308,25 +308,25 @@ Pas de Post-Action = perte de transmission = `-10` Process score session.
 
 ## Rules
 
-- **Confidentiality is absolute** — `rules/Confidentiality.md` overrides everything. No personal data in commits, logs, lessons.
+- **Confidentiality is absolute** — `rules/07-Securite.md` overrides everything. No personal data in commits, logs, lessons.
 - **Veille markers OBLIGATOIRE** avant Write/Edit sur source code (format `[VEILLE] / [SKB] / [VEILLE-SKIP]`).
 - **Atomic commits** — un sujet par commit. Hook-enforced.
 - **Fix = Deploy** sur live apps : fix non fini tant que pas deployé ET vérifié.
 
 ## References
 
-- `rules/Quality.md` — coverage floors, CWV targets, Lego Library inventory (inventaire généré)
-- `rules/Dignity.md` — 7 moments de vérité, 8 tests BLOCKING
-- `rules/Conventions.md` — naming, stack versions, schema source of truth
-- `mnk/15-Human-Quality.md` — HECQ framework, ND adaptation
-- `mnk/06-Quality.md` — Quality Pyramid, anti-circular testing
+- `rules/03-Qualite.md` — coverage floors, CWV targets, Lego Library inventory (inventaire généré)
+- `rules/08-Ecriture.md` — 7 moments de vérité, 8 tests BLOCKING
+- `rules/08-Ecriture.md` — naming, stack versions, schema source of truth
+- `.claude/rules/08-Ecriture.md` — HECQ framework, ND adaptation
+- `.claude/rules/03-Qualite.md` — Quality Pyramid, anti-circular testing
 
 ## General Rules
 
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords.
-- Consult `mnk/08-Agents.md` for routing rules and symbioses.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.

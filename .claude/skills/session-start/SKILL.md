@@ -6,6 +6,8 @@ model: sonnet
 
 # /session-start — Begin Dev Session
 
+> **Annexes à lire** (`.claude/rules-ondemand/`, un garde-fou bloque l'écriture sinon) : `Conduite` et `Identite-Et-Strategie` (premier travail de la séance) · `Session-Autonome` si la séance doit enchaîner des briques sans validation brique par brique.
+
 Execute these steps IN ORDER. No skipping (unless LITE_MODE applies — see Step 0).
 
 ## Steps
@@ -29,20 +31,20 @@ Execute these steps IN ORDER. No skipping (unless LITE_MODE applies — see Step
    - **If Shinzo is not cloned locally: STOP. Clone it (`git clone git@github.com:theermite/Shinzo.git`) then re-start.**
 4. **SKB (Eichi)**: Verify Shinzo `02-Projets/` was read (step 3). SKB = Eichi repo (separate git repo, accessible via filesystem or Obsidian MCP). Load relevant domains on demand.
 
-   > 🧭 **Expert convoque** : savoir (SKB) — il cherche dans la base avant toute recherche web
+   > 🧭 **Agents convoqués** : **SKB Knowledge Master** — il cherche dans la base avant toute recherche web
 5. **RECAP**: Read last 3 session reports from `docs/Sessions/` in project repo. Display summary: work done, decisions, pending items, errors. If working on MNK-GoRin and a platform `/concevoir` is on the agenda, also skim `docs/Migration-Brief-v6.md` (10-min synthesis of v6.0.0 state).
-6. **CDC + PET CHECK + QE V2 CONFORMITY** *(SKIP in LITE_MODE)*: Verify `docs/CDC.md` (intention) and `docs/PET.md` (exécution) exist. If the project has `docs/critical-paths.md`, load it — risk classification affects all quality gates during the session. **QE V2 check** (per `rules/QE-V2-Retroactive.md`): verify CDC contains §7 Risk Classification (module → level table), §8 FMEA on Critical modules, and §9 Human Quality Gates checklist on public-facing projects (cognitive load, sensory comfort, error resilience, adaptation, dignity + Feedback Widget). Verify PET §6 Roadmap is populated. Flag any drift from implementation. If missing → signal to Jay, propose update. Do NOT auto-fix. *Note: `Blueprint.md` is no longer a project document — archetypes are reference-only in `mnk/10-Blueprints.md`.*
+6. **CDC + PET CHECK + QE V2 CONFORMITY** *(SKIP in LITE_MODE)*: Verify `docs/CDC.md` (intention) and `docs/PET.md` (exécution) exist. If the project has `docs/critical-paths.md`, load it — risk classification affects all quality gates during the session. **QE V2 check** (per `.claude/rules/03-Qualite.md`): verify CDC contains §7 Risk Classification (module → level table), §8 FMEA on Critical modules, and §9 Human Quality Gates checklist on public-facing projects (cognitive load, sensory comfort, error resilience, adaptation, dignity + Feedback Widget). Verify PET §6 Roadmap is populated. Flag any drift from implementation. If missing → signal to Jay, propose update. Do NOT auto-fix. *Note: `Blueprint.md` is no longer a project document — archetypes are reference-only in `.claude/rules/02-Parcours.md`.*
 7. **PRE-EXISTING ERRORS** *(SKIP in LITE_MODE)*: Run test suite. If ANY test fails, flag as priority.
 8. **VEILLE CHECK** *(SKIP in LITE_MODE)*: Verify stack versions via npm/pypi/web. Training data is ALWAYS months stale. One wrong version = cascading failures in code, tests, deploys.
 
-   > 🧭 **Expert convoque** : veille — le jeu de donnees du modele est perime par defaut
-9. **LEGO AUDIT** *(SKIP in LITE_MODE)*: If the project uses UI components, cross-reference project imports against `@shinkofa/ui` inventory in `rules/Quality.md` → "Shinkofa Lego Library" section. Flag any locally-defined components that should be imported from the library, and note any new library components available since last session.
-10. **PLAN**: Present today's plan based on pending items + Jay's request. Wait for validation.
-11. **PLAN MODE PAR BRIQUE** *(SKIP in LITE_MODE, or when no PET exists, or no unstarted brick)*: Once Jay validates the day's direction AND a PET exists with at least one unstarted brick, enter plan mode (EnterPlanMode) to plan the next brick(s) from PET §6 Roadmap. Present which bricks, files, tests, and order — related bricks may be planned together. Jay's approval of the plan (ExitPlanMode) IS the reformulation + approval for the implementation that follows; one atomic commit per brick. See `rules/Workflows.md` → "Plan Mode par brique".
+   > 🧭 **Agents convoqués** : **Veille Master** — le jeu de donnees du modele est perime par defaut
+9. **LEGO AUDIT** *(SKIP in LITE_MODE)*: If the project uses UI components, cross-reference project imports against `@shinkofa/ui` inventory in `.claude/rules/03-Qualite.md` → "Shinkofa Lego Library" section. Flag any locally-defined components that should be imported from the library, and note any new library components available since last session.
+10. **PLAN**: Present today's plan in one sentence, then act. No approval round outside the five stops (`.claude/rules/01-Lecture.md`).
+11. **PLAN MODE PAR BRIQUE** *(SKIP in LITE_MODE, or when no PET exists, or no unstarted brick)*: When a PET exists with at least one unstarted brick, enter plan mode (EnterPlanMode) to plan the next brick(s) from PET §6 Roadmap. Present which bricks, files, tests, and order — related bricks may be planned together. **The plan informs; it is not an approval request** (doctrine § 2). One atomic commit per brick. See `.claude/rules/02-Parcours.md` → « Plan Mode par brique ».
 
 ## Rules
 
-- **Context is measured, never estimated.** `hooks/lifecycle/context-gauge.py` reads the real occupied size each turn and speaks once per threshold — alert at 600 000 tokens, warm resume advised at 700 000. Do NOT count exchanges or file reads: measured 2026-09-06, that proxy was calibrated on a 200 000 window and ordered a stop at 479 000 out of 1 000 000. See `rules/Workflows.md`.
+- **Context is measured, never estimated.** `hooks/lifecycle/context-gauge.py` reads the real occupied size each turn and speaks once per threshold — alert at 600 000 tokens, warm resume advised at 700 000. Do NOT count exchanges or file reads: measured 2026-09-06, that proxy was calibrated on a 200 000 window and ordered a stop at 479 000 out of 1 000 000. See `.claude/rules/02-Parcours.md`.
 - **Shinzo sync is BLOCKING and non-negotiable** (step 3). A session without it is a process violation. If Shinzo is not cloned, escalate — never skip.
 - **4 files, not 21** — load `_Cross-Project.md` + `_Index.md` + current project file + `Notes-Jay.md`. Additional files on demand only.
 - **Notes-Jay processing** — at session start, identify unseen items (no status marker). At session end or when items are treated, update the Notes-Jay file in Shinzo with markers: `👀 Lu [date]` (seen), `🔧 En cours` (in progress), `✅ [date] — résumé` (done).
@@ -50,6 +52,6 @@ Execute these steps IN ORDER. No skipping (unless LITE_MODE applies — see Step
 - If CDC or PET is missing on a code project, suggest running `/concevoir` first.
 - Gate 0 must pass before ANY work begins.
 - **5S (WARN, BLOCKING 2026-06-19)**: the 5 piliers Seiri/Seiton/Seiso/Seiketsu/Shitsuke (`rules-ondemand/5S.md`, read in full by `/audit`) apply implicitly across the session — atelier propre means tests verts, lint zero, no orphan TODO at session end. No dedicated step; it manifests through the existing gates.
-- If a hook, tool, or system rule blocks any of these steps: apply the Post-Block Recovery Protocol (`mnk/11-Post-Block-Recovery.md`). Never stay passive.
+- If a hook, tool, or system rule blocks any of these steps: apply the Post-Block Recovery Protocol (`.claude/rules/01-Lecture.md`). Never stay passive.
 
-See `mnk/05-Workflows-Session.md` WF-01 for full details.
+See `.claude/rules/02-Parcours.md` WF-01 for full details.

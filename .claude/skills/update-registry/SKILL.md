@@ -100,10 +100,10 @@ migrations/
 - Registry is **descriptive**, not prescriptive — it documents what exists, not what should exist
 - Run after adding/removing/renaming classes or functions
 - CI can verify registry is up-to-date: `git diff --exit-code docs/registry/`
-- For `@shinkofa/*` packages: registry replaces the manual inventory in `rules/Quality.md` over time
+- For `@shinkofa/*` packages: registry replaces the manual inventory in `.claude/rules/03-Qualite.md` over time
 - Generated files are committed to git (human-readable documentation)
 - `signatures.jsonl` can be used by other tools (search, duplicate detection, `/pre-rag-audit`)
 
 ## Connection to Lego Library
 
-When run on `Shinkofa-Shared/packages/ui/`, the registry serves as the **auto-generated component inventory** — replacing the manually maintained table in `rules/Quality.md`. The rule "check inventory before coding" then points to the registry instead of a static table.
+When run on `Shinkofa-Shared/packages/ui/`, the registry serves as the **auto-generated component inventory** — replacing the manually maintained table in `.claude/rules/03-Qualite.md`. The rule "check inventory before coding" then points to the registry instead of a static table.

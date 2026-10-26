@@ -61,7 +61,7 @@ Exemples concrets :
 - `[VEILLE] Vitest@4.0.1 vérifié 2026-05-18 via npm`
 - `[VEILLE] Ruff@0.15.4 vérifié 2026-05-18 via astral.sh/blog`
 
-Format alternatif si pas de tech nouvelle (SKB ou skip justifié) — voir `rules/Workflows.md` § Veille/SKB Evidence Protocol.
+Format alternatif si pas de tech nouvelle (SKB ou skip justifié) — voir `rules/02-Parcours.md` § Veille/SKB Evidence Protocol.
 
 **Pourquoi le format est strict** : "j'ai vérifié sur le web" n'est pas vérifiable. Le marqueur est greppable, datable, et force à savoir CE QU'ON a réellement consulté. Opérationnalisation directe de Monozukuri comportement #5.
 
@@ -75,7 +75,7 @@ AI training data is months stale. Avant TOUTE recommandation qui influence une d
 4. **State confidence** — Verified (2+ sources agree) / Probable (1 source) / Uncertain (no source found)
 5. **Trace `[VEILLE]`** — output le marqueur dans la réponse
 
-## Research Languages (7 — per `rules/Workflows.md`)
+## Research Languages (7 — per `rules/02-Parcours.md`)
 
 | Language | Primary sources | Strength |
 |----------|----------------|----------|
@@ -163,7 +163,7 @@ For each major version bump:
 1. **Read CHANGELOG/UPGRADING** — list every breaking change
 2. **Grep codebase** — for each deprecated API, count usages
 3. **Estimate effort** — per breaking change: trivial (< 5 min) / moderate (< 1 hour) / significant (> 1 hour)
-4. **Assess risk** — does the change affect critical paths? (per `rules/Quality.md` definition)
+4. **Assess risk** — does the change affect critical paths? (per `rules/03-Qualite.md` definition)
 5. **Recommend** — update now / schedule / defer / skip this major
 
 ## Technology Radar
@@ -172,12 +172,12 @@ Four rings, per ThoughtWorks model:
 
 | Ring | Meaning | Action |
 |------|---------|--------|
-| **Adopt** | Proven, use by default | Part of standard stack (`rules/Conventions.md`) |
+| **Adopt** | Proven, use by default | Part of standard stack (`rules/08-Ecriture.md`) |
 | **Trial** | Worth using on a non-critical project | POC authorized |
 | **Assess** | Interesting, watch closely | Research only, no production use |
 | **Hold** | Do not start new work with this | Migrate away when touching related code |
 
-Current stack positions are defined in `rules/Conventions.md`. Radar updates are proposed during `/audit`.
+Current stack positions are defined in `rules/08-Ecriture.md`. Radar updates are proposed during `/audit`.
 
 ## Trend Detection
 
@@ -272,7 +272,7 @@ Alternative: <techno radar Adopt qui couvre le besoin>
 Question: <single explicit question for Jay's decision>
 ```
 
-Silence devant un risque technique détecté = échec du partenariat (cf. `rules/Honesty.md` § Active Technical Challenge).
+Silence devant un risque technique détecté = échec du partenariat (cf. `rules/04-Verite.md` § Active Technical Challenge).
 
 ## Failure Modes
 
@@ -304,8 +304,8 @@ Silence devant un risque technique détecté = échec du partenariat (cf. `rules
 - State confidence level on every factual claim
 - Issue Technical Challenge when risk detected, never silent
 - Follow all rules in `.claude/rules/` and the 4 Takumi Accords
-- Consult `mnk/08-Agents.md` for routing rules and symbioses
-- **Confidentialité absolue** — `rules/Confidentiality.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
+- Consult `docs/Routage-Experts.md` for routing rules and symbioses
+- **Confidentialité absolue** — `rules/07-Securite.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
 - **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
-- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/Quality.md` selon le module touché. Coverage et rigueur s'adaptent.
+- **Risk classification** — appliquer les niveaux Critical / Sensitive / Standard / Tooling de `rules/03-Qualite.md` selon le module touché. Coverage et rigueur s'adaptent.
