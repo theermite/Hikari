@@ -40,7 +40,9 @@ then, after the review comes back:
 [REVIEW] par <relecteur> le <YYYY-MM-DD> sur <empreinte> — verdict: <PASS|FAIL>, <ce qui en est sorti>
 ```
 
-`<relecteur>` = a sub-agent with a fresh memory, another model, or a human. A sentence
+`<relecteur>` = a sub-agent of a level EQUAL OR SUPERIOR to the writer's, in a fresh AND complete context (the
+full brief, not an empty one), or a human (Jay 2026-10-28).
+Never a weaker reviewer, never the writer's own conversation. A sentence
 saying "I had it reviewed" is NOT proof — it is a self-attestation, and a model produces
 one as easily as the truth (`Rule-Format.md`).
 
@@ -129,6 +131,44 @@ parses every marker they prescribe, so the two cannot drift apart in silence.
 defects across three versions of one fix — including a guard that a plain newline
 disabled entirely. Each was found before it shipped to 30 repos.
 
+## Proportion: severity, usage, ceiling and the step back (BLOCKING — Jay 2026-10-28)
+
+Measured the same day (`docs/Briefs/Audit-Systeme-De-Relecture-2026-10-28.md`): 93 reviewers
+launched since 2026-09-05, three sessions at 14, 15 and 16. The reviewers' facts held (every
+survivor replayed was real) ; what produced the chains was a system with no severity threshold, no
+ceiling, and briefs that asked for mutation campaigns. Jay had named it on 2026-10-17 (« une trentaine
+de relectures pour des cas qui n'arriveront peut-être jamais, ce qui est absurde ») — and the fix was
+only ever coded in the autonomous-worker review of Telegram-Bots. Five changes, accepted by Jay:
+
+1. **Closed severity.** A FAIL is for SHIPPED code only, in four cases: (a) something that should be
+   refused passes · (b) a legitimate command stays refused in normal use · (c) data loss · (d) a
+   secret exposed. Everything else is a remark.
+2. **Ceiling.** Five remarks at most, gravest first ; at most five targeted mutation tries, except for
+   the **critical** class (rule 03 § 2 bis), where mutation is required.
+3. **Usage context in the brief**: who uses it, how many, with which rights, and the risk class. The
+   class sets the depth: mutation only for the critical.
+4. **The model is traced by code, never by hand**: the session journal carries each message's model.
+   A reviewer or a report that writes « rédacteur : Opus » from memory writes something false.
+5. **Review what ships, not what proves it.** Tests read by a fresh context are remarks, never a FAIL,
+   while the shipped code is PASS.
+
+**The step back (Jay 2026-10-28)**: at the **second FAIL on the same family of defect**, OR the second
+FAIL in a row on the same set of files (different families included), the writer does NOT retry the
+same kind of correction. It takes a step back on the problem to find the ROOT cause (dated research,
+changed approach) and writes it in its report. This is the expert's job, not a hand-off: Jay looks at
+the whole and proposes another direction when the writer has not found the root cause. So Jay is
+consulted only if, after the step back, the root is still not found (mandate stop 3: exact state,
+what was tried, what blocks, every pertinent option) — never systematically at the second FAIL.
+Rounds that find a different defect on different files are the review doing its job and are not counted.
+
+**Honest limit — what the code holds today**: the guard (`pre-deploy-review-check.py`) now judges what
+ships (a dry run is not shipping ; a documentation-only gap keeps a green light valid, for the
+methodology propagation only ; the brief is read in the real launch prompt). The five changes above
+live in this rule and in the reviewer's own definition (`agents/cross-model-reviewer-master.md`). **Not
+yet code**: a required `usage` field in the brief, the model trace read from the journal, and the
+count of consecutive FAILs on the same files. Until then they hold by discipline — and the audit says
+what discipline alone produced.
+
 ## A FAIL is not a warning — it opens an obligation (BLOCKING)
 
 A review that finds something has done half the work. The other half is refusing to patch
@@ -150,11 +190,14 @@ Hikari over 21 days, almost every defect a review kept finding was detectable BE
 test never actually exercised it without the guard. Same fields added to `[ROBUSTNESS]`
 (`Monozukuri.md`) — one question, asked at both the points where it already fires.
 
-**At the second FAIL in a row ON THE SAME FAMILY, patching is over.** The commit must also
-carry `- approche changee: oui — <what is structurally different now>`. Why: a family that
-survived one correction survives the next one of the same shape. Two failures say the
-design is wrong, not the line. If you believe the approach is right, say so to Jay and let
-him decide — never spend a third round.
+**At the second FAIL in a row ON THE SAME FAMILY, patching is over — step back (Jay 2026-10-28).**
+The commit must also carry `- approche changee: oui — <what is structurally different now>`, and the
+report says what the step back found: the root cause, the dated source consulted, why this approach
+differs. Why: a family that survived one correction survives the next one of the same shape. Two
+failures say the design is wrong, not the line. Taking the step back is the writer's own work; Jay is
+asked only when the root stays unfound after it — he brings the view of the whole that points to
+another direction. (`post-review-cause-check.py` demands the `approche changee` line at the commit; the
+quality of the step back holds by discipline today.)
 
 **The counter counts DEFECTS, never rounds (BLOCKING — Jay 2026-08-30)**: *« si la
 relecture trouve une nouvelle erreur ce n'est pas une deuxième tentative [...] si tu
@@ -168,7 +211,9 @@ marker names the family it is about:
 ```
 
 A different family restarts the count at one. An **unnamed** family counts with the
-previous unnamed one — leaving the slug out must never be the cheap way past the gate.
+previous unnamed one — leaving the slug out must never be the cheap way past the gate. **One exception (Jay
+2026-10-28)**: two FAILs in a row on the SAME set of files also call for the step back even when their
+families differ — a chain on one artifact says the design, not the line, is wrong.
 
 **Proof**: the marker sits in the commit message, hook-enforced
 (`hooks/quality/post-review-cause-check.py`). A commit on an unrelated subject may be

@@ -31,7 +31,7 @@ from common import block, pass_through, read_hook_input  # noqa: E402
 MESSAGE = (
     "Fable est interdit (Jay, 2026-10-19, Shinzo feedback-interdiction-fable) : il consomme "
     "le quota. Utilise opus, sonnet ou haiku. Relecteur à utiliser : voir "
-    "cross-model-reviewer-master § Different Model. Pour corriger ou chercher une mention : "
+    "cross-model-reviewer-master § Relecteur égal ou supérieur. Pour corriger ou chercher une mention : "
     "outils Edit et Grep (le terminal est surveillé)."
 )
 

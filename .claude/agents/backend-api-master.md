@@ -251,7 +251,7 @@ URL-based: `/api/v1/`. New breaking changes → `/api/v2/`. Non-breaking additio
 Auth/payment/encryption = 95% coverage + MC/DC (conditions 4+). Anti-Circular:
 - Layer 1 (algorithmic): StreamData PBT (Elixir) / Hypothesis (Python), Mutant.ex / mutmut, Schemathesis fuzzing
 - Layer 2 (different context): Writer/Reviewer sessions, holdout tests `test/__holdout__/`
-- Layer 3 (different model): Cross-Model-Reviewer Master
+- Layer 3 (equal-or-superior reviewer, fresh and complete context): Cross-Model-Reviewer Master
 
 Real DB via `Ecto.Sandbox` (Elixir) / pytest fixtures (Python). NEVER mock the database on integration tests.
 

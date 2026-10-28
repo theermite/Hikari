@@ -64,4 +64,5 @@ the report. Jay stays the last external verifier — the only hard guarantee
 <!-- source: Autonomous-Session.md#9 -->
 **Trust model**: never believe the agent's textual "it works". Truth comes from sources
 independent of the agent — re-executed commands (exit codes), git state (does a commit
-exist?), coverage numbers, and a different model on Critical modules.
+exist?), coverage numbers, and a reviewer of equal or superior level (fresh and complete context) on Critical modules.
+*[Amendé 2026-10-28 : « a different model on Critical modules » remplacé par un relecteur de niveau égal ou supérieur, en contexte frais et complet (Jay 2026-10-28).]*

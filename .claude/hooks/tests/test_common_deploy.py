@@ -118,3 +118,13 @@ def test_every_archived_rule_has_a_new_home_that_exists():
         assert ancienne.name in ANCIENNES_REGLES, ancienne.name
     for nouvelle in ANCIENNES_REGLES.values():
         assert (racine / nouvelle.split(" ")[0]).exists(), nouvelle
+
+
+def test_every_new_home_is_a_file_the_propagation_ships():
+    # Un receveur ne reçoit que .claude/rules/ et .claude/rules-ondemand/ : une destination ailleurs
+    # (docs/, .claude/CLAUDE.md propre au projet) existe chez Kata et pas chez tous (2026-10-27 :
+    # 25 depots refuses, un test rouge chez chacun, le garde de fin de propagation a tout defait).
+    from common import ANCIENNES_REGLES
+    for ancienne, nouvelle in ANCIENNES_REGLES.items():
+        chemin = nouvelle.split(" ")[0]
+        assert chemin.startswith((".claude/rules/", ".claude/rules-ondemand/")), (ancienne, chemin)

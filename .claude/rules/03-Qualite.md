@@ -49,7 +49,7 @@ ailleurs.
 
 | Niveau | Ce qui est touché | Couverture minimum | Preuve supplémentaire |
 |---|---|---|---|
-| **Critique** | authentification, paiement, crypto, données personnelles, migration | **95 %** | tests de propriété + mutation + MC/DC ; un second modèle relit |
+| **Critique** | authentification, paiement, crypto, données personnelles, migration | **95 %** | tests de propriété + mutation + MC/DC ; un relecteur de niveau égal ou supérieur, en contexte frais et complet, relit |
 | **Sensible** | calcul métier, API publique, synchronisation | **90 %** | relecture indépendante obligatoire |
 | **Standard** | fonctionnalité visible, interface | **80 %** | relecture si l'interface est nouvelle |
 | **Outillage** | script interne, documentation, outil de développeur | **60 %** | aucun contrôle indépendant requis |
@@ -60,7 +60,7 @@ Un niveau déclaré après coup est un niveau choisi pour ce qui a été fait.
 ## 3. Le contrôle indépendant
 
 Le contexte qui écrit ne valide jamais seul. Trois couches : un test qui peut échouer, un contexte
-neuf qui cherche à réfuter, et — sur le critique — un autre modèle.
+neuf qui cherche à réfuter, et — sur le critique — un relecteur de niveau égal ou supérieur, en contexte frais et complet (jamais plus faible que le rédacteur).
 
 **Le brief de contrôle est un artefact de preuve** : périmètre, zones suspectes, et l'ordre de
 **réfuter**, jamais de valider. Un contrôle qui répond « ça me semble bon » n'a pas eu lieu.
@@ -87,6 +87,11 @@ correctif précédent.
 
 Après un verdict négatif : nommer la famille du défaut, sa cause, et l'artefact qui empêche le
 retour. Au deuxième échec de la même famille, changer de méthode — pas réessayer.
+
+**Le recul** (Jay 2026-10-28) : si une correction ne fonctionne pas, prendre du recul sur le problème
+pour trouver la **cause racine**, avant d'en tenter une autre. C'est le travail de l'expert, pas un renvoi
+vers Jay : lui regarde l'ensemble et propose une autre direction quand la racine n'a pas été trouvée de
+manière évidente — on le consulte dans ce cas, pas systématiquement.
 
 **Le marqueur obligatoire** sur tout commit `fix:` ou `hotfix:` (tenu par un garde-fou) :
 

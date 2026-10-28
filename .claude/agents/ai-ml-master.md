@@ -298,7 +298,7 @@ La mémoire transmet le métier. Pas de mémoire Shinzo = artisanat anonyme.
 
 ## References
 
-- `rules/03-Qualite.md` — Anti-Circular Testing Protocol (Layer 3: different model reviews), Pre-RAG Audit BLOCKING
+- `rules/03-Qualite.md` — Anti-Circular Testing Protocol (Layer 3: equal-or-superior reviewer, fresh and complete context), Pre-RAG Audit BLOCKING
 - `rules/Security.md` — LLM Security section
 - `rules/07-Securite.md` — PII rules ABSOLU pour prompts et logs
 - `rules/08-Ecriture.md` — §B/§C/§F appliqués à toute IA conversationnelle

@@ -50,6 +50,7 @@ from common import (  # noqa: E402
 )
 from shell_parse import simple_commands  # noqa: E402
 from transcript_reader import iter_spoken_text  # noqa: E402
+from review_gap import ecart_sans_code_propage as _ecart_sans_code_propage  # noqa: E402
 
 # Legitimate reasons to ship without a fresh pair of eyes. Closed on purpose: an
 # open motif field becomes "pas le temps" within a week.
@@ -95,8 +96,22 @@ def _names_a_propagation_script(token):
     return any(cleaned.endswith(script) for script in _PROPAGATION_SCRIPTS)
 
 
+_ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+
+def _without_env_prefix(segment):
+    """`PYTHONUTF8=1 python script.py` runs python: the leading NAME=value words are not the program."""
+    index = 0
+    while index < len(segment) and _ENV_ASSIGNMENT.match(segment[index]):
+        index += 1
+    return segment[index:]
+
+
 def _runs_a_propagation(segment):
     """The script is RUN, not merely named. `ruff check <script>` reads it."""
+    segment = _without_env_prefix(segment)
+    if not segment:
+        return False
     program = _program_name(segment[0])
     if program not in _EXECUTORS and not _names_a_propagation_script(segment[0]):
         return False
@@ -104,7 +119,13 @@ def _runs_a_propagation(segment):
     # both, the script named after is an argument being read, not executed.
     if "-m" in segment or "-c" in segment:
         return False
-    return any(_names_a_propagation_script(token) for token in segment)
+    if not any(_names_a_propagation_script(token) for token in segment):
+        return False
+    # A dry run writes nothing: only `--apply` ships (Jay 2026-10-28, three refusals of a read).
+    # The other scripts (sync-repo) have no dry-run flag and stay gated.
+    if any(token.replace("\\", "/").endswith("propagate-methodology.py") for token in segment):
+        return "--apply" in segment
+    return True
 
 _FORCE_FLAGS = {"--force", "--force-with-lease", "-f"}
 
@@ -214,6 +235,14 @@ def _was_briefed(recent_texts, index):
     return False
 
 
+# The hook reads the journal BEFORE the message that carries the command is written: a marker
+# put in that same message is never seen (measured 2026-10-27, three refusals in a row).
+_WHEN_TO_WRITE = (
+    "Write the marker in a message that comes BEFORE the command (a harmless call can "
+    "carry it), never in the message that runs it; or in a said-file."
+)
+
+
 def _missing_brief_message():
     fields = " · ".join(f"- {name}: <...>" for name in BRIEF_FIELDS)
     return (
@@ -221,6 +250,7 @@ def _missing_brief_message():
         "RECOVERY: before launching the reviewer, emit '[REVIEW-BRIEF]' then four "
         f"lines — {fields} — where `consigne` asks to REFUTE, never to validate. "
         "Then relaunch the review and emit its verdict. "
+        f"{_WHEN_TO_WRITE} "
         "Why: a reviewer without the project's goal can only check that the code "
         "agrees with itself, which is the bias Jay reported on 2026-08-30. And "
         "'contredis ce code' produced 8 findings where 'relis ce code' produced a "
@@ -302,10 +332,11 @@ def _block_message(command):
         "BLOCKED: shipping without an independent review. "
         f"COMMAND: {command.strip()[:120]}. "
         "RECOVERY: have a context that did NOT write this code read the diff "
-        "(a sub-agent with a fresh memory, or another model), then emit: "
+        "(a sub-agent of a level EQUAL OR SUPERIOR to the writer's, in a fresh AND complete context, or a human), then emit: "
         "'[REVIEW] par <relecteur> le <YYYY-MM-DD> - verdict: <PASS|FAIL>, "
         "<ce qui en est sorti>' and retry. "
         f"Legitimate skip: '[REVIEW-SKIP] motif: <{motifs}>'. "
+        f"{_WHEN_TO_WRITE} "
         "Why: on 2026-08-10, three reviews caught eight real defects, each one "
         "before it shipped. A sentence saying 'I checked' is not evidence."
     )
@@ -335,7 +366,7 @@ def head_courant():
     return empreinte if sortie.returncode == 0 and empreinte else None
 
 
-def _couvre_le_code_actuel(texte, head):
+def _couvre_le_code_actuel(texte, head, racine=None, tolerer_documentation=False):
     """None si le feu vert couvre le code qui part, sinon le message de refus.
 
     NE D'UNE QUESTION DE JAY le 2026-09-07 : « as-tu bien verifie tout ce que tu
@@ -359,15 +390,35 @@ def _couvre_le_code_actuel(texte, head):
     relu = trouve.group("commit").lower()
     if head.lower().startswith(relu) or relu.startswith(head.lower()):
         return None
+    if tolerer_documentation and _ecart_sans_code_propage(relu, head, racine):
+        return None
     return (
         f"BLOCKED: the review covered {relu}, the code now ships {head[:7]}. "
-        "Ce qui a change depuis n'a ete relu par personne. RECOVERY: faire relire "
+        "Ce qui a change depuis n'a ete relu par personne (seule de la documentation hors .claude/, scripts/ et rules-archives/ serait acceptee). RECOVERY: faire relire "
         f"l'ecart ('git diff {relu}..HEAD'), puis emettre un nouveau feu vert "
         f"'[REVIEW] ... sur {head[:7]} — verdict: PASS, <ce qui a change>'."
     )
 
 
-def verdict(command, recent_texts, head=_ABSENT):
+def _is_methodology_apply(command):
+    """True for `propagate-methodology.py --apply`, the one command run FROM Kata.
+
+    Only there does "documentation" mean what `_is_documentation` says. The guard is copied into
+    every project and also gates their deploys, where a package.json or a translation file is code
+    that ships (independent review, 2026-10-28). Unparseable input is not that command.
+    """
+    try:
+        segments = simple_commands(command)
+    except ValueError:
+        return False
+    return any(
+        _runs_a_propagation(segment)
+        and any(token.replace("\\", "/").endswith("propagate-methodology.py") for token in segment)
+        for segment in segments
+    )
+
+
+def verdict(command, recent_texts, head=_ABSENT, racine=None):
     """Return a block message, or None when the command may proceed.
 
     Texts arrive most recent first, so the latest verdict wins: a FAIL blocks
@@ -388,7 +439,8 @@ def verdict(command, recent_texts, head=_ABSENT):
             if marker.group("verdict").upper() == "PASS":
                 if not _was_briefed(recent_texts, index):
                     return _missing_brief_message()
-                return _couvre_le_code_actuel(text, head)
+                return _couvre_le_code_actuel(
+                    text, head, racine, tolerer_documentation=_is_methodology_apply(command))
             return (
                 "BLOCKED: the last independent review came back FAIL and nothing "
                 "says it was resolved. "

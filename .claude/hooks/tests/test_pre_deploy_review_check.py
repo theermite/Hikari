@@ -109,13 +109,13 @@ def test_a_command_that_is_not_a_deploy_passes():
 
 def test_methodology_propagation_counts_as_a_deploy():
     """Sending to 30 repos is a deploy — that is where a defect multiplies."""
-    command = "python scripts/propagate-methodology.py --all"
+    command = "python scripts/propagate-methodology.py --all --apply"
     assert gate.verdict(command, ["on y va"]) is not None
 
 
 def test_methodology_propagation_with_review_passes():
     marker = "[REVIEW] par cross-model le 2026-08-10 sur abc1234 — verdict: PASS, 2 defauts corriges"
-    command = "python scripts/propagate-methodology.py --all"
+    command = "python scripts/propagate-methodology.py --all --apply"
     assert gate.verdict(command, [marker, _BRIEF], head=COMMIT_RELU) is None
 
 
@@ -353,7 +353,7 @@ def test_python_reading_the_propagation_script_is_not_a_propagation():
 
 
 def test_running_the_propagation_script_by_path_is_gated():
-    assert gate.verdict("python scripts/propagate-methodology.py Kobo", []) is not None
+    assert gate.verdict("python scripts/propagate-methodology.py Kobo --apply", []) is not None
 
 
 def test_linting_the_propagation_script_is_not_running_it():

@@ -111,6 +111,11 @@ ANCIENNES_REGLES = {
     "Strategic-Context.md": ".claude/rules-ondemand/Identite-Et-Strategie.md",
     "Conventions.md": ".claude/rules-ondemand/Conventions-Et-Pile.md",
     "Dignity.md": ".claude/rules-ondemand/Interface.md",
+    # Trois règles périmées de l'ancien Michi-no-Kata, archivées le 2026-10-26 (décision de Jay).
+    # Destinations = fichiers PROPAGUES seulement : un receveur n'a ni docs/ ni le CLAUDE.md de Kata.
+    "Agents-Models.md": ".claude/rules-ondemand/Conduite.md",
+    "Quality-Security.md": ".claude/rules/03-Qualite.md (+ règle 07-Securite)",
+    "Static-Analysis.md": ".claude/rules-ondemand/Tests-Et-Mesures.md",
 }
 _REF_ANCIENNE = re.compile(r"(?:\.claude/)?rules/(" + "|".join(re.escape(n) for n in ANCIENNES_REGLES) + ")")
 

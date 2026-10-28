@@ -118,7 +118,7 @@ def test_a_reviewer_veille_is_not_takumi_veille(tmp_path):
 
 
 def test_pre_deploy_review_check_hears_brief_and_reviewer(tmp_path):
-    cmd = {"command": "python scripts/propagate-methodology.py Kobo"}
+    cmd = {"command": "python scripts/propagate-methodology.py Kobo --apply"}
     heard = _transcript(tmp_path, _said(BRIEF) + [_reviewer(PASS)])
     r = _run("guards/pre-deploy-review-check.py", tmp_path, heard, "Bash", cmd)
     assert r.returncode == 0, r.stderr

@@ -16,6 +16,8 @@ import re
 from pathlib import Path
 from typing import Any, Iterator
 
+from review_launch import brief_from_blocks, verdict_lines_from_user_message
+
 
 # iter_entries: every OSError or ValueError from opening OR READING the file
 # (missing file, a permission denial, an unencodable path -- 10th and 11th
@@ -111,6 +113,17 @@ def iter_tool_calls(transcript_path: str | Path, tool_name: str | None = None) -
             yield block
 
 
+# The host journal writes, after each tool call, an `api-request-blob` entry that COPIES the
+# previous message (thinking, text, tool_use). Measured 2026-10-27 on this session: 160 copies, 63
+# texts in them, 0 absent from the `assistant` entries. Heard as speech they doubled every text, and a
+# message carrying a text AND a said-file came back as T, S, T, S.
+COPY_ENTRY_TYPE = "api-request-blob"
+
+
+def is_copy_entry(entry) -> bool:
+    return isinstance(entry, dict) and entry.get("type") == COPY_ENTRY_TYPE
+
+
 def assistant_text_blocks(entry: dict) -> list[str]:
     """Text blocks Takumi actually SAID in this one parsed entry, or [].
 
@@ -119,6 +132,8 @@ def assistant_text_blocks(entry: dict) -> list[str]:
     something he said (independent review, 2026-09-14 -- veille_markers.py and
     veille-extended.py each duplicated this before sharing it here).
     """
+    if is_copy_entry(entry):
+        return []
     msg = entry_message(entry)
     if msg is None or msg.get("role") != "assistant":
         return []
@@ -194,6 +209,8 @@ def is_said_file(path) -> bool:
 
 def _content_of(entry, role: str) -> list:
     """The content blocks of this entry when it is a `role` message, else []."""
+    if is_copy_entry(entry):
+        return []
     msg = entry_message(entry)
     if msg is None or msg.get("role") != role:
         return []
@@ -241,6 +258,11 @@ def spoken_blocks(entry, errored: set) -> list[str]:
     return assistant_text_blocks(entry) + said
 
 
+def reviewer_launch_brief(entry) -> str:
+    """The brief of a reviewer launch recorded in this entry, or ""."""
+    return brief_from_blocks(_content_of(entry, "assistant"))
+
+
 def reviewer_handback(entry) -> str:
     """A sub-agent's final report, as the harness delivered it, or "".
 
@@ -255,7 +277,8 @@ def reviewer_handback(entry) -> str:
     origin = _handback_origin(entry)
     body = origin.get("body") if origin else None
     if not isinstance(body, str):
-        return ""
+        # The form this environment really writes: a user-role message (see review_launch).
+        return verdict_lines_from_user_message(entry_message(entry)) if entry.get("type") == "user" else ""
     lines = (ln.strip() for ln in body.splitlines())
     return "\n".join(ln for ln in lines if ln.startswith("[REVIEW] "))
 
@@ -304,6 +327,9 @@ def _spoken_items(transcript_path, include_reviewer: bool) -> Iterator[tuple[str
     for entry in iter_entries(transcript_path):
         errored |= errored_tool_ids(entry)
         items = [("takumi", t) for t in spoken_blocks(entry, errored)]
+        launch = reviewer_launch_brief(entry) if include_reviewer else ""
+        if launch:
+            items.append(("takumi", launch))
         report = reviewer_handback(entry) if include_reviewer else ""
         if report:
             items.append(("reviewer", report))

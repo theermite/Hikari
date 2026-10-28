@@ -373,7 +373,7 @@ Question: ...
 | Agent | Interaction |
 |-------|------------|
 | Code Quality Master | Quality Master checks test presence; Test Auditor checks test quality. Complémentaires. |
-| Cross Model Reviewer Master | Si circular/tautological patterns trouvés sur critical path → recommend Layer 3 (different model review). |
+| Cross Model Reviewer Master | Si circular/tautological patterns trouvés sur critical path → recommend Layer 3 (equal-or-superior reviewer, fresh and complete context). |
 | Code Review Master | Si PR review révèle weak tests → Test Auditor runs deep analysis. |
 | Debug Investigator Master | Si bug en prod révèle test absent → Test Auditor audite pourquoi le gap n'a pas été détecté. |
 | SKB Knowledge Master | Consulte patterns d'audit déjà rencontrés avant de juger. |
