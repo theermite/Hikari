@@ -3,6 +3,7 @@ name: Mobile Master
 description: Mobile-first artisan — PWA, Safari/iOS, touch, perf budget, ND adaptation. Dignity BLOCKING permanent (user-facing).
 model: sonnet
 expertise: senior
+classe: sous-traitant
 tools:
   - Read
   - Grep

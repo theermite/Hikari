@@ -3,6 +3,7 @@ name: Build Deploy Test Master
 description: Complete PRE-EXEC-POST deploy cycle. Zero 'it should work' — PROVE it.
 model: sonnet
 expertise: senior
+classe: sous-traitant
 tools:
   - Read
   - Bash

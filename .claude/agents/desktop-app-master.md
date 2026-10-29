@@ -3,6 +3,7 @@ name: Desktop App Master
 description: PySide6, Electron, cross-platform desktop, packaging, QSS.
 model: sonnet
 expertise: senior
+classe: sous-traitant
 tools:
   - Read
   - Grep

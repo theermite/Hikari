@@ -3,6 +3,7 @@ name: Veille Master
 description: Technology watch, version checking, web research, alerts.
 model: sonnet
 expertise: senior
+classe: etudes
 tools:
   - WebSearch
   - WebFetch

@@ -40,9 +40,10 @@ def test_a_denied_tool_is_certainly_refused():
     assert _etat("recherche-web", outils_refuses={"WebSearch"}) == "refusee"
 
 
-def test_web_search_is_unverifiable_when_no_rule_denies_it():
-    # relecture du 2026-10-26 (constat 7): c'est un outil INTÉGRÉ, l'absence d'un refus n'est pas une preuve
-    assert _etat("recherche-web") == "non-verifiable"
+def test_web_search_is_a_builtin_presumed_present_when_no_rule_denies_it():
+    # 2026-10-28 : deux seances ont declare [VEILLE-IMPOSSIBLE] alors que WebSearch et WebFetch existent
+    # (outils differes a charger par ToolSearch). Un outil fourni par l'application est presume present.
+    assert _etat("recherche-web") == "integree"
     assert _etat("recherche-web", outils_refuses={"WebFetch"}) == "refusee"
 
 
@@ -56,14 +57,15 @@ def test_an_unreadable_configuration_makes_a_server_unverifiable_not_absent():
     assert _etat("coffre-de-savoir", serveurs_mcp={"obsidian-vault"}, illisibles={".claude.json"}) == "declaree"
 
 
-def test_vision_can_never_be_verified_by_a_guard():
-    assert _etat("vision") == "non-verifiable"
+def test_vision_is_a_builtin_read_by_the_read_tool_and_refused_if_read_is_denied():
+    assert _etat("vision") == "integree"
+    assert _etat("vision", outils_refuses={"Read"}) == "refusee"
 
 
 def test_the_summary_says_what_is_missing_and_what_is_degraded():
     texte = capacites.resume(capacites.diagnostiquer(REGISTRE, set(), set(), set()))
     assert "Coffre de savoir" in texte and "lecture directe" in texte
-    assert "Vision" in texte and "non vérifiable" in texte
+    assert "Vision" in texte and "Read" in texte
     assert "d'après les outils réellement chargés" in texte
 
 
@@ -136,3 +138,53 @@ def test_the_probe_announces_without_ever_blocking(tmp_path):
     sortie = json.loads(r.stdout)
     assert "Capacités" in sortie["hookSpecificOutput"]["additionalContext"]
     assert sortie["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+
+
+# --- les capacites INTEGREES a l'application (2026-10-28) ------------------------------------------
+# Cause : « Recherche web — non vérifiable (…) → [VEILLE-IMPOSSIBLE] motif: pas-d-acces-web ». La fleche se
+# lisait comme une consigne : deux seances ont declare l'impossibilite sans chercher l'outil, qui etait
+# seulement DIFFERE (a charger par ToolSearch). La vision, elle, passe par l'outil Read.
+
+def _resume_par_defaut() -> str:
+    return capacites.resume(capacites.diagnostiquer(REGISTRE, set(), set(), set()))
+
+
+def test_the_summary_never_ties_the_impossibility_marker_to_an_unverified_builtin():
+    texte = _resume_par_defaut()
+    ligne = next(l for l in texte.splitlines() if "Recherche web" in l)
+    assert "présumée présente" in ligne
+    assert "ToolSearch" in ligne
+    # l'impossibilite n'est dite que sous condition : apres un essai de chargement qui echoue
+    assert "VEILLE-IMPOSSIBLE" not in ligne.split("ToolSearch")[0]
+    assert "seulement" in ligne.split("VEILLE-IMPOSSIBLE")[0]
+
+
+def test_the_summary_tells_how_to_load_the_deferred_web_tools():
+    assert "select:WebSearch,WebFetch" in _resume_par_defaut()
+
+
+def test_the_summary_tells_vision_to_be_tried_with_read_before_giving_up():
+    ligne = next(l for l in _resume_par_defaut().splitlines() if "Vision" in l)
+    assert "Read" in ligne and "avant" in ligne
+
+
+def test_a_builtin_that_is_refused_keeps_its_degradation_without_the_loading_advice():
+    texte = capacites.resume(capacites.diagnostiquer(REGISTRE, set(), {"WebSearch"}, set()))
+    ligne = next(l for l in texte.splitlines() if "Recherche web" in l)
+    assert "refusée" in ligne and "VEILLE-IMPOSSIBLE" in ligne and "ToolSearch" not in ligne
+
+
+def test_every_builtin_of_the_register_says_how_to_confirm_it():
+    integrees = [c for c in REGISTRE if c.get("integree")]
+    assert {c["id"] for c in integrees} == {"recherche-web", "vision"}
+    for c in integrees:
+        assert c["confirmation"].strip(), c["id"]
+
+
+def test_a_non_builtin_without_proof_stays_unverifiable():
+    assert _etat("suivi-d-erreurs") == "non-verifiable"
+
+
+def test_the_probe_text_given_at_startup_carries_the_builtin_advice(tmp_path):
+    texte = capacites.resume(capacites.diagnostiquer(REGISTRE, set(), set(), set()))
+    assert texte.count("select:WebSearch,WebFetch") == 1

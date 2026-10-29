@@ -3,6 +3,7 @@ name: Accessibility Master
 description: A11y artisan — WCAG 2.2 AA, ARIA patterns, screen readers, ND beyond WCAG. Dignity BLOCKING permanent (user-facing).
 model: sonnet
 expertise: senior
+classe: etudes
 tools:
   - Read
   - Grep

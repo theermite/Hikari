@@ -3,6 +3,7 @@ name: Cross Model Reviewer Master
 description: Anti-circular Layer 3. Independent review by a reviewer equal or superior to the writer, in a fresh and complete context.
 model: opus
 expertise: senior
+classe: controle
 tools:
   - Read
   - Grep

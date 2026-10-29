@@ -3,6 +3,7 @@ name: Backend API Master
 description: Elixir/Phoenix default (D24). FastAPI AI/ML only. 4-layer validation, Oban, Bandit.
 model: sonnet
 expertise: senior
+classe: sous-traitant
 tools:
   - Read
   - Grep

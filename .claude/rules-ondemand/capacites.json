@@ -1,42 +1,68 @@
 {
   "version": 1,
-  "doc": "Les capacites que les regles supposent. Lu au demarrage par hooks/lifecycle/capacites-check.py. Une capacite a une preuve possible: outil (refus lisible dans les reglages), mcp (declaration dans la configuration), commande (presente sur la machine) ou aucune (non verifiable par un garde-fou: le modele la confirme d'apres les outils reellement charges). Declaree n'est pas connectee: seul le harnais sait si un serveur repond.",
+  "doc": "Les capacites que les regles supposent. Lu au demarrage par hooks/lifecycle/capacites-check.py. Une capacite a une preuve possible: outil (refus lisible dans les reglages), mcp (declaration dans la configuration), commande (presente sur la machine) ou aucune (non verifiable par un garde-fou: le modele la confirme d'apres les outils reellement charges). Declaree n'est pas connectee: seul le harnais sait si un serveur repond. Une capacite INTEGREE a l'application (WebSearch, WebFetch, Read) est presumee presente sauf refus lisible : le modele la confirme d'apres ses outils, y compris les outils differes (ToolSearch), avant de declarer son absence.",
   "capacites": [
     {
       "id": "recherche-web",
       "nom": "Recherche web",
       "requise_par": "02-Parcours § 3 (porte Veille)",
-      "preuve": {"outils": ["WebSearch", "WebFetch"]},
-      "note": "outil intégré: l'absence d'un refus ne prouve pas sa présence",
-      "degradation": "[VEILLE-IMPOSSIBLE] motif: pas-d-acces-web — et le rapport le dit"
+      "preuve": {
+        "outils": [
+          "WebSearch",
+          "WebFetch"
+        ]
+      },
+      "degradation": "seulement si ToolSearch ne les trouve pas : [VEILLE-IMPOSSIBLE] motif: pas-d-acces-web — et le rapport le dit",
+      "integree": true,
+      "confirmation": "WebSearch et WebFetch sont fournis par l'application ; ils peuvent n'apparaître que comme outils DIFFÉRÉS : charge-les avec ToolSearch (select:WebSearch,WebFetch) AVANT toute déclaration",
+      "degradation_refusee": "[VEILLE-IMPOSSIBLE] motif: pas-d-acces-web — et le rapport le dit"
     },
     {
       "id": "coffre-de-savoir",
       "nom": "Coffre de savoir (Shinzo, Eichi)",
       "requise_par": "05-Savoir § 1",
-      "preuve": {"mcp": ["obsidian-vault"]},
+      "preuve": {
+        "mcp": [
+          "obsidian-vault"
+        ]
+      },
       "degradation": "lecture directe des fichiers du coffre, et on le dit"
     },
     {
       "id": "navigateur-de-test",
       "nom": "Navigateur de test",
       "requise_par": "03-Qualite § 1 (preuve visible)",
-      "preuve": {"mcp": ["playwright"]},
+      "preuve": {
+        "mcp": [
+          "playwright"
+        ]
+      },
       "degradation": "test automatisé sans navigateur, et on le dit; le navigateur intégré de l'application peut exister sans figurer ici"
     },
     {
       "id": "lecture-de-documents",
       "nom": "Lecture de documents (PDF)",
       "requise_par": "06-Capacites § 1",
-      "preuve": {"commandes": ["pdftotext"]},
+      "preuve": {
+        "commandes": [
+          "pdftotext"
+        ]
+      },
       "degradation": "le document est signalé illisible, jamais résumé de mémoire"
     },
     {
       "id": "vision",
       "nom": "Vision (images, captures)",
       "requise_par": "03-Qualite § 1 (preuve visible lue et comparée)",
-      "preuve": {},
-      "degradation": "aucune preuve visuelle n'est affirmée ; on demande une description ou un test"
+      "preuve": {
+        "outils": [
+          "Read"
+        ]
+      },
+      "degradation": "seulement si Read ne rend pas l'image : aucune preuve visuelle n'est affirmée ; on demande une description ou un test",
+      "integree": true,
+      "confirmation": "l'outil Read ouvre les images (PNG, JPG) : essaie-le sur une capture avant de déclarer l'absence",
+      "degradation_refusee": "aucune preuve visuelle n'est affirmée ; on demande une description ou un test"
     },
     {
       "id": "suivi-d-erreurs",

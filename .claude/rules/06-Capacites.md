@@ -25,12 +25,17 @@ test et le suivi d'erreurs. Dans un harnais sans ces outils, chaque marqueur `[V
 
 | Capacité | Si présente | Si absente |
 |---|---|---|
-| Recherche web | `[VEILLE] techno@version via source` | `[VEILLE-IMPOSSIBLE] motif: pas-d-acces-web`, et le rapport le dit |
-| Vision (images, captures) | une capture est lue et comparée | aucune preuve visuelle n'est affirmée ; on demande une description ou un test |
+| Recherche web | `[VEILLE] techno@version via source` | `[VEILLE-IMPOSSIBLE] motif: pas-d-acces-web`, et le rapport le dit — **seulement après avoir cherché l'outil, y compris différé** (`ToolSearch`, `select:WebSearch,WebFetch`) |
+| Vision (images, captures) | une capture est lue et comparée | aucune preuve visuelle n'est affirmée ; on demande une description ou un test — **seulement après avoir essayé l'outil `Read` sur l'image** |
 | Coffre de savoir (MCP) | consultation directe | lecture des fichiers, et on le dit |
 | Navigateur de test | vérification d'interface | test automatisé, et on le dit |
 | Suivi d'erreurs | le débogage commence là | journal local |
 | Lecture de documents | le document est lu | il est signalé illisible, jamais résumé de mémoire |
+
+**L'application fournit la recherche web et la lecture d'images** (Claude Code : `WebSearch`, `WebFetch`,
+`Read`). Elles sont **présumées présentes** sauf refus lisible dans les réglages : « non vérifiable par un
+garde-fou » ne veut jamais dire « absente » (deux séances ont déclaré l'impossibilité sans chercher l'outil,
+2026-10-28). Un harnais d'un autre fournisseur peut ne pas les avoir : le modèle le constate en essayant.
 
 Une dégradation est **toujours explicite**. Jamais silencieuse.
 
@@ -70,7 +75,7 @@ raison n'a pas été écrite.
 La sonde `lifecycle/capacites-check.py` annonce au démarrage ce qui est déclaré, refusé ou non
 vérifiable (registre : `.claude/rules-ondemand/capacites.json`). Sa limite est écrite : elle ne voit pas les outils
 réellement chargés, donc « déclarée » n'est pas « connectée ». La confirmation reste au modèle, d'après sa
-propre liste d'outils, en première ligne du rapport. Le coût et l'usage se mesurent à la passe hebdomadaire.
+propre liste d'outils (outils différés compris : `ToolSearch`), en première ligne du rapport. Le coût et l'usage se mesurent à la passe hebdomadaire.
 
 ## Ce que cette règle remplace
 

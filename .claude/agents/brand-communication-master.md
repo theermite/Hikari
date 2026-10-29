@@ -3,6 +3,7 @@ name: Brand Communication Master
 description: Brand voice artisan — Shinkofa+Ermite, tone, messaging, crisis comm. Dignity BLOCKING permanent (user-facing).
 model: sonnet
 expertise: senior
+classe: etudes
 tools:
   - Read
   - Grep

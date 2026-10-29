@@ -19,6 +19,7 @@ LIBELLES = {
     "non-declaree": "non déclarée",
     "refusee": "refusée par les réglages",
     "non-verifiable": "non vérifiable",
+    "integree": "intégrée à l'application, présumée présente",
 }
 
 
@@ -75,8 +76,17 @@ def _etat(preuve: dict, mcp: set[str], refuses: set[str], commandes: set[str], i
 
 def diagnostiquer(registre: list[dict], serveurs_mcp: set[str], outils_refuses: set[str],
                   commandes: set[str], illisibles: set[str] = frozenset()) -> list[dict]:
-    return [{**c, "etat": _etat(c.get("preuve", {}), serveurs_mcp, outils_refuses, commandes, illisibles)}
-            for c in registre]
+    return [{**c, "etat": _etat_complet(c, serveurs_mcp, outils_refuses, commandes, illisibles)} for c in registre]
+
+
+def _etat_complet(c: dict, mcp: set[str], refuses: set[str], commandes: set[str], illisibles: set[str]) -> str:
+    """Une capacité fournie par l'application (outil intégré) est présumée présente, sauf refus lisible.
+
+    2026-10-28 : « non vérifiable → [VEILLE-IMPOSSIBLE] » a fait déclarer l'absence de la recherche web par deux
+    séances, alors que WebSearch et WebFetch existent (outils différés, à charger par ToolSearch).
+    """
+    etat = _etat(c.get("preuve", {}), mcp, refuses, commandes, illisibles)
+    return "integree" if c.get("integree") and etat != "refusee" else etat
 
 
 def resume(diagnostic: list[dict], illisibles: set[str] = frozenset()) -> str:
@@ -90,7 +100,10 @@ def resume(diagnostic: list[dict], illisibles: set[str] = frozenset()) -> str:
     if bien:
         lignes.append("Déclarées : " + ", ".join(bien) + ".")
     for c in diagnostic:
-        if c["etat"] != "declaree":
+        if c["etat"] == "integree":
+            lignes.append(f"- {c['nom']} — {LIBELLES['integree']} : {c['confirmation']} ; {c['degradation']}.")
+        elif c["etat"] != "declaree":
             note = f" ({c['note']})" if c.get("note") else ""
-            lignes.append(f"- {c['nom']} — {LIBELLES[c['etat']]}{note} → {c['degradation']}.")
+            conduite = c.get("degradation_refusee") if c["etat"] == "refusee" else None
+            lignes.append(f"- {c['nom']} — {LIBELLES[c['etat']]}{note} → {conduite or c['degradation']}.")
     return "\n".join(lignes)

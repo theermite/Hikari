@@ -3,6 +3,7 @@ name: I18n Master
 description: I18n artisan — i18next, FR/EN/ES, 20 namespaces, locale formatting. Dignity BLOCKING permanent (user-facing).
 model: sonnet
 expertise: senior
+classe: sous-traitant
 tools:
   - Read
   - Grep

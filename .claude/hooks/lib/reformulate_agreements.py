@@ -14,6 +14,7 @@ from pathlib import Path
 
 from transcript_reader import (
     entry_message,
+    is_copy_entry,
     errored_tool_ids,
     iter_entries,
     norm_path as _norm_path,
@@ -66,7 +67,8 @@ def has_design_approval(transcript_path: str) -> bool:
     """
     if not transcript_path:
         return False
-    msgs = [m for m in (entry_message(e) for e in iter_entries(transcript_path, reverse=False)) if m]
+    msgs = [m for m in (entry_message(e) for e in iter_entries(transcript_path, reverse=False)
+                        if not is_copy_entry(e)) if m]
     errored: set = set()
     for msg in msgs:
         errored |= errored_tool_ids(msg)
@@ -128,6 +130,8 @@ def last_instruction_text(transcript_path: str) -> str:
     opens with "<" and is not Jay's voice: it authorizes nothing, so it yields ""
     (measured on real journals: a task id "b3wf2e265" read as a brick)."""
     for entry in iter_entries(transcript_path):
+        if is_copy_entry(entry):
+            continue  # the journal re-records each message; the copy is not Jay's voice
         msg = entry_message(entry)
         if msg and _is_real_user_message(msg) and not _is_continuation_message(msg):
             text = _user_text(msg)

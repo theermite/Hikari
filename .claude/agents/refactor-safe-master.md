@@ -3,6 +3,7 @@ name: Refactor Safe Master
 description: Safe refactoring. Max 3 files per commit (modulated by risk). Verify no regressions.
 model: sonnet
 expertise: senior
+classe: sous-traitant
 tools:
   - Read
   - Grep

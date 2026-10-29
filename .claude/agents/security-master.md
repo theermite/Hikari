@@ -3,6 +3,7 @@ name: Security Master
 description: OWASP, secrets, auth audit, headers, SAST. Auto-invoked before PROD deploy.
 model: opus
 expertise: senior
+classe: controle
 tools:
   - Read
   - Grep

@@ -3,6 +3,7 @@ name: GitHub CI Master
 description: GitHub Actions workflows, secrets, releases, PR automation.
 model: sonnet
 expertise: senior
+classe: sous-traitant
 tools:
   - Read
   - Bash

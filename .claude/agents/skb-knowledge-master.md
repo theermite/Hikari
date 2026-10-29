@@ -3,6 +3,7 @@ name: SKB Knowledge Master
 description: RAG search across SKB (Shinkofa Knowledge Base), knowledge graph, domain lookup. Always consulted FIRST.
 model: sonnet
 expertise: senior
+classe: etudes
 tools:
   - Read
   - Grep

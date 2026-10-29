@@ -3,6 +3,7 @@ name: UX Design Master
 description: UX artisan — cognitive load, ND-friendly, design tokens, morphic adaptation. Dignity BLOCKING permanent (user-facing).
 model: sonnet
 expertise: senior
+classe: etudes
 tools:
   - Read
   - Grep

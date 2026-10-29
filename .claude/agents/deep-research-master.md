@@ -3,6 +3,7 @@ name: Deep Research Master
 description: Multi-source research, competitive intel, market analysis.
 model: sonnet
 expertise: senior
+classe: etudes
 tools:
   - WebSearch
   - WebFetch

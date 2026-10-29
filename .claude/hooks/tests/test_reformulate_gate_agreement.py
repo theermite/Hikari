@@ -261,3 +261,27 @@ def test_lowercase_named_brick_matches(tmp_path):
     target = _project_with_pet(tmp_path, "| B-CHAT | x |\n")
     r = _run(_write_transcript(tmp_path / "t", *_instruction_then_write("fais la b-chat")), file_path=target)
     assert not fired(r)
+
+
+# --- Une copie du journal n'est pas Jay (audit 2026-10-29) -------------------
+# Le journal recopie chaque message dans une entrée `api-request-blob`. Cette
+# copie n'est pas une parole : elle ne doit jamais valoir accord.
+
+
+def _copy_of(entry: dict) -> dict:
+    return {"type": "api-request-blob", "message": entry}
+
+
+def test_a_journal_copy_naming_a_brick_is_not_the_agreement(tmp_path):
+    target = _project_with_pet(tmp_path)
+    entries = [*_instruction_then_write("fais autre chose"),
+               _copy_of(_user("go, lance-toi sur la brique 8"))]
+    r = _run(_write_transcript(tmp_path / "t", *entries), file_path=target)
+    assert fired(r), f"a copy must not name the brick: {r.stderr!r}"
+
+
+def test_a_journal_copy_of_an_approval_word_is_not_an_approval(tmp_path):
+    entries = [_user("on conçoit"), *_design_read(), _assistant_text("Voici le PET."),
+               _copy_of(_user("valide")), *_prior_write()]
+    r = _run(_write_transcript(tmp_path / "t", *entries))
+    assert fired(r), f"a copied approval word must not lift the gate: {r.stderr!r}"

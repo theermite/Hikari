@@ -65,6 +65,7 @@ from common import get_file_path, pass_through, read_hook_input, warn  # type: i
 from reformulate_agreements import has_design_approval, names_a_pet_brick  # type: ignore  # noqa: E402
 from transcript_reader import (  # type: ignore  # noqa: E402
     entry_message,
+    is_copy_entry,
     iter_entries,
     errored_tool_ids,
     norm_path,
@@ -136,6 +137,8 @@ def _window_entries(transcript_path: str):
     instruction-bearing user message. tool_result deliveries AND continuation
     nudges do NOT close the window."""
     for entry in iter_entries(transcript_path):
+        if is_copy_entry(entry):
+            continue  # the journal re-records each message; the copy is not a turn
         msg = entry_message(entry)
         if msg is None:
             continue
@@ -232,6 +235,8 @@ def has_approved_plan(transcript_path: str) -> bool:
     plan_ids: list[str] = []
     result_error: dict[str, bool] = {}
     for entry in iter_entries(transcript_path):
+        if is_copy_entry(entry):
+            continue
         msg = entry_message(entry)
         if msg is None:
             continue
