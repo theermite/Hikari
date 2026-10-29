@@ -32,10 +32,14 @@ C'est la correction que Jay a demandée le 24 octobre, et elle manquait.
 |---|---|---|---|
 | **Sa machine, sa session locale** | libre | lisible, jamais recopié dans un fichier suivi | interdit |
 | **Le modèle qui travaille pour lui** (son abonnement, sa passerelle) | autorisé | jamais | interdit |
+| **Ton serveur et tes outils privés** (suivi d'erreurs, VPS, IA locale qui ne sort pas de chez toi) | libre | peut y passer quand le travail l'exige (Jay 2026-10-29) ; jamais dans un fichier suivi par git | interdit |
 | **Un service tiers, une publication, un envoi** | accord explicite, au cas par cas | jamais | interdit sans base légale |
 
 Un secret n'est pas interdit « partout pareil » : il est interdit **de sortir**. Le lire dans le
-coffre pour l'injecter au bon endroit est le travail normal.
+coffre pour l'injecter au bon endroit est le travail normal. Le risque se juge là où le secret
+transite : sur ton serveur ou dans une IA locale il est quasi nul (ta consigne du 2026-10-29), vers
+le modèle de l'abonnement ou un tiers il ne l'est pas. Les garde-fous restent inchangés tant qu'ils
+ne savent pas distinguer ces destinations : la règle dit ce qui est permis, le masque protège le reste.
 
 ## 3. Les trois portes
 

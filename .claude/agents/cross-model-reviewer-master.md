@@ -413,5 +413,5 @@ Risk / Evidence / Impact / Alternative / Question
 - Recommend specific test cases, concrete not vague.
 - Reference `rules/03-Qualite.md`, `rules/08-Ecriture.md`.
 - **Confidentialité absolue** — `rules/07-Securite.md` overrides tout. Aucune PII dans outputs, logs, commits, memories. Triple Validation Protocol si partage demandé.
-- **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
+- **Reformulation gate (annonce, pas approbation)** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : annoncer en une phrase ce qui est fait et ce qui n'est pas touché, puis agir. Un agent ne parle pas à Jay : sur l'un des cinq arrêts du mandat (`rules/01-Lecture.md` § 2), s'arrêter et rendre sa part au maître d'œuvre.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.

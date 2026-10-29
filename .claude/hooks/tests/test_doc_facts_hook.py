@@ -82,7 +82,8 @@ def test_the_windows_separator_does_not_hide_a_staged_file():
 # --- le message ------------------------------------------------------------
 
 def test_the_message_names_the_file_the_line_and_both_numbers():
-    message = hook.message([_Ecart(RACINE / "docs/x.md", ligne=42, ecrit=16, reel=17)], [])
+    # La racine est donnee: sans elle le message lit le dossier de lancement (Windows, lancement depuis .claude/hooks).
+    message = hook.message([_Ecart(RACINE / "docs/x.md", ligne=42, ecrit=16, reel=17)], [], repo_root=RACINE)
     assert "docs/x.md" in message
     assert "42" in message
     assert "16" in message

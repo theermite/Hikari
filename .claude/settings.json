@@ -38,6 +38,11 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/writer-lock.py",
             "description": "One writer per repository: warn when another session wrote recently, block shared-state gestures"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/port-claim-guard.py",
+            "description": "Registre des ports: un fichier compose ne prend pas un port deja pris par un autre service (Jay 2026-07-29)"
           }
         ]
       },

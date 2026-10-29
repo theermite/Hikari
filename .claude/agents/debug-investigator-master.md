@@ -379,5 +379,5 @@ A bug that escaped tests may indicate **test quality issues**, not just code iss
 - Consult `docs/Routage-Experts.md` for routing rules and symbioses.
 - SKB FIRST for any research. mémoire Shinzo SECOND. Web THIRD. Shinzo project notes for all project tracking.
 - Cardinal principle stays alive : **Code is invisible. The goal is impact on people's lives.**
-- **Reformulation gate** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : STOP, énoncer (1) compréhension, (2) action prévue, (3) fichiers impactés, attendre validation Jay.
+- **Reformulation gate (annonce, pas approbation)** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : annoncer en une phrase ce qui est fait et ce qui n'est pas touché, puis agir. Un agent ne parle pas à Jay : sur l'un des cinq arrêts du mandat (`rules/01-Lecture.md` § 2), s'arrêter et rendre sa part au maître d'œuvre.
 - **Post-compact continuité** — après compression de contexte, traiter la reprise comme une continuation. Ne pas proposer de clôture sauf demande explicite de Jay.
