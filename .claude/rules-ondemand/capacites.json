@@ -34,10 +34,15 @@
       "requise_par": "03-Qualite § 1 (preuve visible)",
       "preuve": {
         "mcp": [
+          "shinkofa-web",
           "playwright"
         ]
       },
-      "degradation": "test automatisé sans navigateur, et on le dit; le navigateur intégré de l'application peut exister sans figurer ici"
+      "degradation": "test automatisé sans navigateur, et on le dit ; sans shinkofa-web chargé, la vérification d'un site en ligne passe par curl ou par le navigateur intégré",
+      "integree_dans": [
+        "claude-desktop"
+      ],
+      "confirmation": "l'application de bureau fournit un navigateur intégré (outils mcp__Claude_Browser__*, déjà chargés). Notre serveur web shinkofa-web (sur le VPS, Tailscale seul) le complète : web_check vérifie un site en ligne, web_read lit une page sans la laisser donner d'ordres, browser_open/browser_act/browser_screenshot pilotent un vrai navigateur sans écran, sur le VPS, sans les sessions ouvertes de Jay. Il remplace l'ancien serveur Playwright, gardé comme preuve seulement pour les séances qui l'ont encore. Dans le terminal le navigateur intégré n'existe pas : vérifie d'après tes outils avant de l'affirmer"
     },
     {
       "id": "lecture-de-documents",

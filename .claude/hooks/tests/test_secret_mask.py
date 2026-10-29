@@ -348,10 +348,12 @@ def test_mask_text_stays_fast_on_many_isolated_tokens():
         return "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(n))
 
     text = " ".join(token() for _ in range(8000))
-    start = time.time()
+    # Temps CPU du processus, pas temps mur : quatre suites en parallele (propagation, 2026-10-29) ralentissent
+    # l'horloge sans changer le travail. Une regression quadratique, elle, se voit toujours au CPU (3,4 s mesure).
+    start = time.process_time()
     sm.mask_text(text)
-    elapsed = time.time() - start
-    assert elapsed < 2.0, f"mask_text took {elapsed:.2f}s on 8000 tokens (quadratic regression?)"
+    elapsed = time.process_time() - start
+    assert elapsed < 2.0, f"mask_text took {elapsed:.2f}s of CPU on 8000 tokens (quadratic regression?)"
 
 
 # --- strict profile (all-tools redaction, 2026-10-18) -----------------------

@@ -14,7 +14,7 @@ from pathlib import Path
 ESCAPE = re.compile(r"#\s*PORT-OK:\s*\S")
 
 _COMPOSE_FILE = re.compile(r"(^|[\\/])(docker-)?compose[^\\/]*\.ya?ml$", re.IGNORECASE)
-_YAML_PORT = re.compile(r"^[ ]{2}(\d{2,5}):[ ]*(.*)$", re.MULTILINE)
+_YAML_PORT = re.compile(r"^[ ]{2}(\d{2,5})(?:-(\d{2,5}))?:[ ]*(.*)$", re.MULTILINE)
 _MD_ROW = re.compile(r"^\|[ ]*(\d{2,5})[ ]*\|(.*)$", re.MULTILINE)
 _PORT_MAPPING = re.compile(
     r"^[ \t]*-[ \t]*[\"']?(?:(?:\d{1,3}(?:\.\d{1,3}){3}|\[[0-9a-fA-F:]*\]):)?(\d{2,5}):\d{1,5}"
@@ -46,21 +46,58 @@ def _yaml_ports_section(text: str) -> str:
     return reste[: fin.start()] if fin else reste
 
 
-def read_owners(infra_root: Path) -> dict[int, str]:
-    """Port -> texte du ou des propriétaires déclarés, les deux listes réunies. {} si aucune lisible."""
+# Les sections du registre écrit à la main qui décrivent la machine de Jay, pas le serveur : le même numéro
+# de port y désigne un autre service (8007 : SearXNG local ; 3004 : un serveur de développement).
+_LOCAL_SECTION = re.compile(r"^## .*(ermite-game|local dev)", re.IGNORECASE)
+
+
+def _machine_rows(text: str, machine: str):
+    """Les lignes de port du registre écrit à la main qui appartiennent à `machine` ("vps" ou "local")."""
+    garde, local = [], False
+    for ligne in text.split("\n"):
+        if ligne.startswith("## "):
+            local = bool(_LOCAL_SECTION.match(ligne))
+        if local == (machine == "local"):
+            garde.append(ligne)
+    return _MD_ROW.finditer("\n".join(garde))
+
+
+def read_owners(infra_root: Path, machine: str = "vps") -> dict[int, str]:
+    """Port -> texte du ou des propriétaires déclarés sur `machine`. {} si aucune lisible.
+
+    "vps" (défaut : un fichier compose se met en ligne sur le serveur) réunit la liste du serveur
+    (`infra.yaml`) et les sections serveur du registre écrit à la main ; "local" ne lit que les
+    sections de la machine de Jay (les ports de développement ne sont pas dans `infra.yaml`).
+    """
     owners: dict[int, list[str]] = {}
-    sources = (
-        (infra_root / "registry" / "infra.yaml", lambda t: _YAML_PORT.finditer(_yaml_ports_section(t))),
-        (infra_root / "docs" / "Port-Registry.md", lambda t: _MD_ROW.finditer(t)),
-    )
+    sources = [(infra_root / "docs" / "Port-Registry.md", lambda t: _machine_rows(t, machine))]
+    if machine == "vps":
+        sources.insert(0, (infra_root / "registry" / "infra.yaml",
+                           lambda t: _YAML_PORT.finditer(_yaml_ports_section(t))))
     for path, finder in sources:
         try:
             text = path.read_text(encoding="utf-8")
         except OSError:
             continue
         for m in finder(text):
-            owners.setdefault(int(m.group(1)), []).append(m.group(2).strip())
+            debut = int(m.group(1))
+            fin = int(m.group(2)) if path.suffix == ".yaml" and m.group(2) else debut   # plage « 9001-9024 »
+            for port in range(debut, fin + 1):
+                owners.setdefault(port, []).append(m.group(m.lastindex).strip())
     return {port: " | ".join(parts) for port, parts in owners.items()}
+
+
+def divergence(infra_root: Path) -> tuple[list[int], list[int]]:
+    """(ports seulement dans infra.yaml, ports seulement dans Port-Registry.md), côté serveur."""
+    try:
+        yaml_text = (infra_root / "registry" / "infra.yaml").read_text(encoding="utf-8")
+        md_text = (infra_root / "docs" / "Port-Registry.md").read_text(encoding="utf-8")
+    except OSError:
+        return [], []
+    dans_yaml = {p for m in _YAML_PORT.finditer(_yaml_ports_section(yaml_text))
+                 for p in range(int(m.group(1)), int(m.group(2) or m.group(1)) + 1)}
+    dans_md = {int(m.group(1)) for m in _machine_rows(md_text, "vps")}
+    return sorted(dans_yaml - dans_md), sorted(dans_md - dans_yaml)
 
 
 def _norm(value: str) -> str:

@@ -10,6 +10,7 @@ réellement chargés — voir `lib/capacites.py`.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -26,7 +27,8 @@ def build_decision(racine: Path, home: Path) -> dict:
     commandes = {c for cap in registre for c in cap.get("preuve", {}).get("commandes", []) if shutil.which(c)}
     illisibles = capacites.configurations_illisibles(home, racine)
     diagnostic = capacites.diagnostiquer(registre, capacites.serveurs_mcp(home, racine),
-                                         capacites.outils_refuses(home, racine), commandes, illisibles)
+                                         capacites.outils_refuses(home, racine), commandes, illisibles,
+                                         entrypoint=os.environ.get("CLAUDE_CODE_ENTRYPOINT", ""))
     texte = capacites.resume(diagnostic, illisibles)
     return {"systemMessage": texte,
             "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": texte}}

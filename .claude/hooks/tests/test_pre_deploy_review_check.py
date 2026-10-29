@@ -96,7 +96,28 @@ def test_deploy_with_a_review_but_no_launch_brief_is_refused():
 
 
 def test_deploy_with_valid_skip_passes():
-    assert gate.verdict("./deploy.sh", ["[REVIEW-SKIP] motif: rollback"]) is None
+    assert gate.verdict("./deploy.sh", ["[REVIEW-SKIP] motif: rollback sur abc1234"], head="abc1234def") is None
+
+
+# --- une dispense dit ce qu'elle couvre, comme un feu vert (2026-10-29) --------------------
+# Sans empreinte, une dispense levait le garde pour tout code poste plus tard, sans limite.
+
+def test_a_skip_that_names_no_commit_is_refused():
+    message = gate.verdict("./deploy.sh", ["[REVIEW-SKIP] motif: rollback"], head="abc1234def")
+    assert message is not None and "names no commit" in message
+
+
+def test_a_skip_that_names_an_older_commit_is_refused():
+    message = gate.verdict("./deploy.sh", ["[REVIEW-SKIP] motif: no-code-change sur 1111111"], head="abc1234def")
+    assert message is not None and "1111111" in message
+
+
+def test_a_skip_that_names_the_commit_being_shipped_passes():
+    assert gate.verdict("./deploy.sh", ["[REVIEW-SKIP] motif: no-code-change sur abc1234"], head="abc1234def") is None
+
+
+def test_a_skip_is_not_checked_when_the_commit_cannot_be_read():
+    assert gate.verdict("./deploy.sh", ["[REVIEW-SKIP] motif: rollback"], head=None) is None
 
 
 def test_deploy_with_invented_skip_is_blocked():
@@ -499,8 +520,8 @@ def test_should_still_block_a_failing_review_even_with_a_brief():
 
 
 def test_should_not_ask_for_a_brief_when_the_review_is_legitimately_skipped():
-    skipped = "[REVIEW-SKIP] motif: rollback"
-    assert gate.verdict(DEPLOY, [skipped]) is None
+    skipped = "[REVIEW-SKIP] motif: rollback sur abc1234"
+    assert gate.verdict(DEPLOY, [skipped], head="abc1234def") is None
 
 
 def test_should_not_ask_for_a_brief_on_a_command_that_ships_nothing():
@@ -602,3 +623,14 @@ def test_should_parse_every_marker_the_review_agents_prescribe():
                 .replace("<ce qui en est sorti>", "1 defaut reel")
             )
             assert gate.find_marker(concrete) is not None, f"{agent.name}: {line}"
+
+
+def test_a_skip_takes_its_commit_from_its_own_line_not_from_the_whole_message():
+    texte = "j'ai relu sur abc1234 plus haut\n[REVIEW-SKIP] motif: rollback"
+    message = gate.verdict("./deploy.sh", [texte], head="abc1234def")
+    assert message is not None and "names no commit" in message
+
+
+def test_a_stale_skip_is_called_a_dispense_not_a_review():
+    message = gate.verdict("./deploy.sh", ["[REVIEW-SKIP] motif: rollback sur 1111111"], head="abc1234def")
+    assert "dispense" in message and "the review covered" not in message

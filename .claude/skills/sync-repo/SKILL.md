@@ -20,7 +20,7 @@ gestures will drift from the route that owns them.
 full — propagating to other repos is one of its trigger classes. THREE markers,
 in order: `[REVIEW-BRIEF]` (four lines, before launching the reviewer), then
 `[REVIEW] par <relecteur> le <date> sur <empreinte> — verdict: PASS|FAIL`, where
-`<empreinte>` is the commit actually read. Or `[REVIEW-SKIP] motif: <enum>`. The
+`<empreinte>` is the commit actually read. Or `[REVIEW-SKIP] motif: <enum> sur <empreinte>`. The
 gate refuses at each step, so the order is not decoration — emitting it wrong
 cost three round trips on 2026-09-07. It is not auto-loaded at session start;
 this is where it applies.

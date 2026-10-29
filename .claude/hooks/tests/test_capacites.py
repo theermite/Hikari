@@ -188,3 +188,38 @@ def test_a_non_builtin_without_proof_stays_unverifiable():
 def test_the_probe_text_given_at_startup_carries_the_builtin_advice(tmp_path):
     texte = capacites.resume(capacites.diagnostiquer(REGISTRE, set(), set(), set()))
     assert texte.count("select:WebSearch,WebFetch") == 1
+
+
+# --- sonde du navigateur de test (2026-10-29) ---------------------------------------------------
+# L'application de bureau fournit un navigateur integre (outils mcp__Claude_Browser__*) ; le terminal non.
+# Le point d'entree de la seance (CLAUDE_CODE_ENTRYPOINT) dit lequel des deux on est.
+
+def test_the_desktop_app_provides_a_builtin_test_browser():
+    assert _etat("navigateur-de-test", entrypoint="claude-desktop") == "integree"
+
+
+def test_outside_the_desktop_app_the_test_browser_needs_a_declared_server():
+    assert _etat("navigateur-de-test", entrypoint="cli") == "non-declaree"
+    assert _etat("navigateur-de-test") == "non-declaree"
+    assert _etat("navigateur-de-test", entrypoint="cli", serveurs_mcp={"playwright"}) == "declaree"
+    # notre propre serveur web (shinkofa-web, 2026-10-29) est la preuve attendue ; il remplace le serveur Playwright
+    assert _etat("navigateur-de-test", entrypoint="cli", serveurs_mcp={"shinkofa-web"}) == "declaree"
+
+
+def test_the_builtin_browser_says_how_to_confirm_it():
+    texte = capacites.resume(capacites.diagnostiquer(REGISTRE, set(), set(), set(), entrypoint="claude-desktop"))
+    ligne = next(l for l in texte.splitlines() if "Navigateur de test" in l)
+    assert "mcp__Claude_Browser__" in ligne and "intégrée" in ligne
+
+
+def test_the_probe_reads_the_entrypoint_from_the_environment(tmp_path):
+    import os
+    env = {**os.environ, "CLAUDE_CODE_ENTRYPOINT": "claude-desktop", "HOME": str(tmp_path), "USERPROFILE": str(tmp_path)}
+    sortie = subprocess.run([sys.executable, str(SONDE)], input=b"{}", capture_output=True, timeout=20, env=env, cwd=str(RACINE))
+    assert b"mcp__Claude_Browser__" in sortie.stdout
+
+
+def test_our_web_server_is_named_as_the_first_proof_and_says_what_it_is_good_for():
+    nav = next(c for c in REGISTRE if c["id"] == "navigateur-de-test")
+    assert nav["preuve"]["mcp"][0] == "shinkofa-web"
+    assert "web_check" in nav["confirmation"] and "browser_open" in nav["confirmation"]

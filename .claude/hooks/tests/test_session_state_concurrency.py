@@ -173,7 +173,9 @@ def test_frozen_lock_holder_times_out_instead_of_hanging_forever(tmp_path):
         release.set()
         holder.join(timeout=5)
 
-    assert elapsed < 2.0, f"timeout took {elapsed:.2f}s — not bounded as expected"
+    # Borne large : sous charge (quatre suites en parallele) 0,2 s peut en durer 1 ou 2. Le defaut cherche est
+    # « bloque pour toujours » : le porteur se libere a 5 s, donc 4 s distingue encore les deux cas.
+    assert elapsed < 4.0, f"timeout took {elapsed:.2f}s — not bounded as expected"
 
 
 def test_mark_once_under_concurrency_never_loses_a_key(tmp_path):

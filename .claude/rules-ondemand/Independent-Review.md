@@ -70,8 +70,11 @@ fix written in reaction feels urgent and research feels like a detour; it is the
 **Legitimate skip** (closed enum — an open motif field becomes "no time" within a week):
 
 ```
-[REVIEW-SKIP] motif: <rollback | hotfix-production-down | no-code-change | review-already-done>
+[REVIEW-SKIP] motif: <rollback | hotfix-production-down | no-code-change | review-already-done> sur <empreinte>
 ```
+
+Une dispense nomme, comme un feu vert, le commit qu'elle couvre (`... sur <empreinte>`). Sans empreinte, elle
+lèverait le garde pour tout le code posté après elle (corrigé le 2026-10-29).
 
 ## The launch is gated too, not only the verdict (BLOCKING — Jay 2026-08-30)
 

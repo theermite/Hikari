@@ -85,7 +85,10 @@ def main() -> None:
     owners = ports_registry.read_owners(infra) if infra else {}
     if not owners:
         pass_through()
-    _signaler(*ports_registry.check(content, canonical_project_name(repo), owners))
+    conflits, inconnus = ports_registry.check(content, canonical_project_name(repo), owners)
+    # Un port inscrit pour la machine de Jay n'est pas « absent du registre » (relecture du 2026-10-29).
+    local = ports_registry.read_owners(infra, machine="local")
+    _signaler(conflits, [p for p in inconnus if p not in local])
     pass_through()
 
 

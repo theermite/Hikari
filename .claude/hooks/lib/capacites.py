@@ -75,18 +75,22 @@ def _etat(preuve: dict, mcp: set[str], refuses: set[str], commandes: set[str], i
 
 
 def diagnostiquer(registre: list[dict], serveurs_mcp: set[str], outils_refuses: set[str],
-                  commandes: set[str], illisibles: set[str] = frozenset()) -> list[dict]:
-    return [{**c, "etat": _etat_complet(c, serveurs_mcp, outils_refuses, commandes, illisibles)} for c in registre]
+                  commandes: set[str], illisibles: set[str] = frozenset(), entrypoint: str = "") -> list[dict]:
+    """`entrypoint` : le point d'entrée de la séance (CLAUDE_CODE_ENTRYPOINT) ; une capacité peut y être intégrée."""
+    return [{**c, "etat": _etat_complet(c, serveurs_mcp, outils_refuses, commandes, illisibles, entrypoint)}
+            for c in registre]
 
 
-def _etat_complet(c: dict, mcp: set[str], refuses: set[str], commandes: set[str], illisibles: set[str]) -> str:
+def _etat_complet(c: dict, mcp: set[str], refuses: set[str], commandes: set[str], illisibles: set[str],
+                  entrypoint: str = "") -> str:
     """Une capacité fournie par l'application (outil intégré) est présumée présente, sauf refus lisible.
 
     2026-10-28 : « non vérifiable → [VEILLE-IMPOSSIBLE] » a fait déclarer l'absence de la recherche web par deux
     séances, alors que WebSearch et WebFetch existent (outils différés, à charger par ToolSearch).
     """
     etat = _etat(c.get("preuve", {}), mcp, refuses, commandes, illisibles)
-    return "integree" if c.get("integree") and etat != "refusee" else etat
+    fournie = c.get("integree") or (entrypoint and entrypoint in c.get("integree_dans", []))
+    return "integree" if fournie and etat != "refusee" else etat
 
 
 def resume(diagnostic: list[dict], illisibles: set[str] = frozenset()) -> str:

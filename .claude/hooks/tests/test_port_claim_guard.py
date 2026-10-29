@@ -125,3 +125,72 @@ def test_real_registry_is_readable_when_present():
         return
     owners = ports_registry.read_owners(infra)
     assert owners.get(22) and len(owners) >= 40
+
+
+# --- une machine, un registre : le meme numero peut servir deux services sur deux machines (2026-10-29) ---
+
+REGISTRE_DEUX_MACHINES = (
+    "## VPS OVH (217.182.206.127)\n\n| Port | Bind | Service |\n|---|---|---|\n| 3004 | 127.0.0.1 | Michi-Niwa web |\n\n"
+    "## Ermite-Game (Jay's local machine)\n\n| Port | Service | VPS access via |\n|---|---|---|\n"
+    "| 8007 | SearXNG de secours | Tailscale |\n\n"
+    "## Local Dev (ermite-game, Jay's Windows machine)\n\n| Port | Service | Project |\n|---|---|---|\n"
+    "| 3004 | dev server ad hoc | Hoso |\n"
+)
+
+
+def _infra_deux_machines(tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "Port-Registry.md").write_text(REGISTRE_DEUX_MACHINES, encoding="utf-8")
+    return tmp_path
+
+
+def test_owners_are_read_per_machine(tmp_path):
+    infra = _infra_deux_machines(tmp_path)
+    vps = ports_registry.read_owners(infra, machine="vps")
+    local = ports_registry.read_owners(infra, machine="local")
+    assert "Michi-Niwa" in vps[3004] and "Hoso" not in vps[3004] and 8007 not in vps
+    assert "Hoso" in local[3004] and local[8007].startswith("SearXNG") and "Michi-Niwa" not in local[3004]
+
+
+def test_default_machine_is_the_vps_because_compose_files_are_deployed_there(tmp_path):
+    infra = _infra_deux_machines(tmp_path)
+    assert ports_registry.read_owners(infra) == ports_registry.read_owners(infra, machine="vps")
+
+
+def test_a_port_declared_for_the_local_machine_is_known_not_unknown(tmp_path):
+    repo = _atelier(tmp_path, "Tour")
+    md = repo.parent / "Shinkofa-Infra" / "docs" / "Port-Registry.md"
+    md.write_text(MD + "\n## Ermite-Game (Jay's local machine)\n\n| Port | Service | VPS access via |\n"
+                  "|---|---|---|\n| 8555 | outil de la tour | Tailscale |\n", encoding="utf-8")
+    r = _ecrire(repo, _compose("8555"))
+    assert r.returncode == 0 and r.stderr == b""
+
+
+def test_a_port_in_no_registry_still_warns(tmp_path):
+    r = _ecrire(_atelier(tmp_path, "Tour"), _compose("8777"))
+    assert r.returncode == 0 and b"8777" in r.stderr
+
+
+# --- une plage du yaml (9001-9024) est lue comme les ports qu'elle couvre ; l'ecart entre listes se mesure ---
+
+def _infra_ecart(tmp_path):
+    (tmp_path / "registry").mkdir()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "registry" / "infra.yaml").write_text(
+        "meta:\n  v: 1\nports:\n  22: ssh\n  3020: shizen\n  9001-9003: mcp-fleet\ndatabases:\n  x: y\n", encoding="utf-8")
+    (tmp_path / "docs" / "Port-Registry.md").write_text(
+        "## VPS\n\n| Port | Service |\n|---|---|\n| 22 | ssh |\n| 9002 | mcp |\n| 8040 | mcp-web |\n\n"
+        "## Ermite-Game (local)\n\n| Port | Service |\n|---|---|\n| 11434 | Ollama |\n", encoding="utf-8")
+    return tmp_path
+
+
+def test_a_yaml_range_covers_every_port_it_names(tmp_path):
+    owners = ports_registry.read_owners(_infra_ecart(tmp_path))
+    assert {9001, 9002, 9003} <= set(owners) and "mcp-fleet" in owners[9001]
+
+
+def test_the_gap_between_the_two_lists_is_measured_per_port(tmp_path):
+    seulement_yaml, seulement_md = ports_registry.divergence(_infra_ecart(tmp_path))
+    assert seulement_yaml == [3020, 9001, 9003]     # 9002 est dans les deux
+    assert seulement_md == [8040]
+    assert ports_registry.divergence(tmp_path / "absent") == ([], [])

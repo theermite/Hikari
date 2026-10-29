@@ -16,8 +16,8 @@ because sending to ~30 repos multiplies a defect exactly like a deploy does.
 
 Accepted evidence, emitted in the conversation before the deploy:
 
-  [REVIEW] par <relecteur> le <YYYY-MM-DD> — verdict: <PASS|FAIL>, <ce qui en est sorti>
-  [REVIEW-SKIP] motif: <closed enum>
+  [REVIEW] par <relecteur> le <YYYY-MM-DD> sur <empreinte> — verdict: <PASS|FAIL>, <ce qui en est sorti>
+  [REVIEW-SKIP] motif: <closed enum> sur <empreinte>
 
 A sentence claiming a review happened is NOT evidence: the marker is falsifiable,
 the claim is not (Rule-Format.md — ask for an artefact, never a self-attestation).
@@ -50,6 +50,7 @@ from common import (  # noqa: E402
 )
 from shell_parse import simple_commands  # noqa: E402
 from transcript_reader import iter_spoken_text  # noqa: E402
+from model_trace import record_clearance  # noqa: E402
 from review_gap import ecart_sans_code_propage as _ecart_sans_code_propage  # noqa: E402
 
 # Legitimate reasons to ship without a fresh pair of eyes. Closed on purpose: an
@@ -366,7 +367,7 @@ def head_courant():
     return empreinte if sortie.returncode == 0 and empreinte else None
 
 
-def _couvre_le_code_actuel(texte, head, racine=None, tolerer_documentation=False):
+def _couvre_le_code_actuel(texte, head, racine=None, tolerer_documentation=False, dispense=False):
     """None si le feu vert couvre le code qui part, sinon le message de refus.
 
     NE D'UNE QUESTION DE JAY le 2026-09-07 : « as-tu bien verifie tout ce que tu
@@ -378,7 +379,16 @@ def _couvre_le_code_actuel(texte, head, racine=None, tolerer_documentation=False
     """
     if not head:
         return None  # etat inconnu : on ne transforme pas l'ignorance en refus
-    trouve = _SUR_COMMIT.search(_spoken(texte))
+    lu = _spoken(texte)
+    if dispense:   # l'empreinte d'une dispense est sur la ligne de la dispense, pas ailleurs dans le message
+        lu = next((ligne for ligne in lu.split("\n") if "[REVIEW-SKIP]" in ligne.upper()), "")
+    trouve = _SUR_COMMIT.search(lu)
+    if not trouve and dispense:
+        return (
+            "BLOCKED: the dispense names no commit — une dispense sans empreinte leverait le garde "
+            "pour tout le code poste apres elle. RECOVERY: emettre "
+            f"'[REVIEW-SKIP] motif: <motif> sur {head[:7]}'."
+        )
     if not trouve:
         return (
             "BLOCKED: the review says PASS but names no commit — on ne sait pas ce "
@@ -392,8 +402,9 @@ def _couvre_le_code_actuel(texte, head, racine=None, tolerer_documentation=False
         return None
     if tolerer_documentation and _ecart_sans_code_propage(relu, head, racine):
         return None
+    quoi = "the dispense covers" if dispense else "the review covered"
     return (
-        f"BLOCKED: the review covered {relu}, the code now ships {head[:7]}. "
+        f"BLOCKED: {quoi} {relu}, the code now ships {head[:7]}. "
         "Ce qui a change depuis n'a ete relu par personne (seule de la documentation hors .claude/, scripts/ et rules-archives/ serait acceptee). RECOVERY: faire relire "
         f"l'ecart ('git diff {relu}..HEAD'), puis emettre un nouveau feu vert "
         f"'[REVIEW] ... sur {head[:7]} — verdict: PASS, <ce qui a change>'."
@@ -433,7 +444,8 @@ def verdict(command, recent_texts, head=_ABSENT, racine=None):
         return None
     for index, text in enumerate(recent_texts):
         if find_skip(text):
-            return None
+            return _couvre_le_code_actuel(
+                text, head, racine, tolerer_documentation=_is_methodology_apply(command), dispense=True)
         marker = find_marker(text)
         if marker:
             if marker.group("verdict").upper() == "PASS":
@@ -463,6 +475,8 @@ def main():
     message = verdict(command, texts)
     if message:
         block(message)
+    if transcript:
+        record_clearance(texts, transcript, head_courant(), find_repo_root)
     pass_through()
 
 
