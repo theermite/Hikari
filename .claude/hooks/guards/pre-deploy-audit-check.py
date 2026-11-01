@@ -60,8 +60,8 @@ SKIP_MOTIFS = (
 
 # What each tool is recognised by in a REAL command, and the line to run when it is missing.
 TOOLS = {
-    "npm-audit": (re.compile(r"\bnpm\s+audit\b"), "npm audit --omit=dev"),
-    "pnpm-audit": (re.compile(r"\bpnpm\s+audit\b"), "pnpm audit --prod"),
+    "npm-audit": (re.compile(r"\bnpm(?:\s+--?prefix(?:=|\s+)\S+)?\s+audit\b"), "npm audit --omit=dev"),
+    "pnpm-audit": (re.compile(r"\bpnpm(?:\s+(?:-r|--recursive|(?:--filter|--dir|-C)(?:=|\s+)\S+))*\s+audit\b"), "pnpm audit --prod"),
     "pip-audit": (re.compile(r"\bpip[-_]audit\b"), "pip-audit"),
     "mix-deps-audit": (re.compile(r"\bmix\s+(?:deps|hex)\.audit\b"), "mix deps.audit"),
     "cargo-audit": (re.compile(r"\bcargo\s+audit\b"), "cargo audit"),
@@ -91,7 +91,7 @@ _DEPENDENCY_FILES = re.compile(
     r"(requirements|constraints)[\w.-]*\.txt|requirements/[\w./-]+\.txt)$"
 )
 # A runner in front of the tool does not change what ran.
-_RUNNER = re.compile(r"^(?:npx|uvx|pnpm\s+dlx|python3?\s+-m)\s+")
+_RUNNER = re.compile(r"^(?:npx|uvx|pnpm\s+dlx|python3?\s+-m|uv\s+run|poetry\s+run|pipx\s+run|npm\s+exec\s+--)\s+")
 
 _PUBLISH = re.compile(
     r"npm\s+publish|pnpm\s+(?:(?:-r|--recursive)\s+)?publish|yarn\s+publish|twine\s+upload|cargo\s+publish|"

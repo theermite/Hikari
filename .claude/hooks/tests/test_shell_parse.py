@@ -177,3 +177,87 @@ def test_a_heredoc_fed_to_python_stays_data():
 
 def test_none_is_tolerated():
     assert simple_commands(None) == []
+
+
+# --- a quoted string may span several lines (every multi-line commit message) ---------------------------------
+
+
+def test_a_multiline_quoted_message_is_one_argument():
+    command = "git commit -q -m 'feat: x\n\nsecond paragraph with docker compose up\n\nCo-Authored-By: A'"
+    segments = simple_commands(command)
+    assert len(segments) == 1 and segments[0][:3] == ["git", "commit", "-q"]
+    assert "docker compose up" in segments[0][-1]
+
+
+def test_a_multiline_message_after_a_heredoc_does_not_break_the_parse():
+    command = "python - <<'EOF'\nprint('docker compose up')\nEOF\ngit add a && git commit -q -m 'note\n\nsuite\n'"
+    segments = simple_commands(command)
+    assert segments[0] == ["python", "-"]
+    assert ["git", "add", "a"] in segments
+    assert any(s[:2] == ["git", "commit"] and "suite" in s[-1] for s in segments)
+
+
+def test_two_multiline_strings_in_one_command():
+    command = "echo 'a\nb' && echo \"c\nd\""
+    assert simple_commands(command) == [["echo", "a\nb"], ["echo", "c\nd"]]
+
+
+def test_a_quote_that_never_closes_still_fails_closed():
+    import pytest
+    with pytest.raises(ValueError):
+        simple_commands("git commit -m 'never closed\nsecond line")
+
+
+# --- a multi-line string with a LIVE command substitution is code, not text (regression found 2026-11-01) ------
+
+
+def test_a_multiline_double_quoted_string_with_a_substitution_fails_closed():
+    for command in ("git commit -m \"$(cat <<'EOF'\nmsg\nEOF\ncat .env\nEOF\n)\"",
+                    "echo \"line one\n$(cat .env)\"",
+                    "echo \"line one\n`cat .env`\""):
+        with pytest.raises(ValueError):
+            simple_commands(command)
+
+
+def test_a_multiline_single_quoted_string_may_hold_substitution_text_as_data():
+    command = "git commit -q -m 'note\n\nle garde lit `docker compose up` et $(date) comme du texte\n'"
+    segments = simple_commands(command)
+    assert len(segments) == 1 and "docker compose up" in segments[0][-1]
+
+
+# --- the two readings of the quotes must agree before lines are joined (relecture 7.7.0, 2026-11-01) --------------
+
+
+@pytest.mark.parametrize("command", [
+    # bash closes the string after `b"`, then runs the push; the tokenizer thinks the quote is still open
+    'echo "a\\" b"; git push --force origin main\necho "ok\\""',
+    # one escaped quote per line: a secret read hides between two searches
+    'grep -n "\\"name" package.json\ncat .env\ngrep -n "\\"version" package.json',
+])
+def test_a_line_whose_escaped_quotes_split_the_two_readings_fails_closed(command):
+    with pytest.raises(ValueError):
+        simple_commands(command)
+
+
+def test_a_string_bash_keeps_open_but_the_tokenizer_closes_fails_closed():
+    """`\\"` keeps bash inside the string, so the next line is TEXT for bash; the tokenizer would run it as a command."""
+    with pytest.raises(ValueError):
+        simple_commands('echo "a\\"\nls -la')
+
+
+def test_a_multiline_message_holding_escaped_quotes_fails_closed():
+    """Prudence: once lines are joined, the tokenizer cannot be trusted on `\\"` inside the string."""
+    with pytest.raises(ValueError):
+        simple_commands('git commit -m "title\nsays \\"hello\\" there"')
+
+
+def test_an_escaped_quote_on_a_single_line_still_parses_when_the_readings_agree():
+    assert simple_commands('echo "a\\"b\\"c"; ls') == [["echo", "a\\b\\c"], ["ls"]]
+
+
+def test_an_escaped_quote_inside_double_quotes_does_not_hide_a_live_substitution():
+    """Relecture 2026-11-01: bash reads \\" as a literal quote and stays in double quotes; an apostrophe after it
+    must not make the reader think it is in single quotes, with a command substitution behind."""
+    command = 'echo "A\\"\' $(cat .env) \'"\necho \\"'
+    with pytest.raises(ValueError):
+        simple_commands(command)

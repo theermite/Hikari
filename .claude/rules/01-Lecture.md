@@ -53,7 +53,9 @@ Jamais élargir son propre mandat, ni dans un sens ni dans l'autre.
 
 ## 4. Comment poser une question
 
-- Une question = **une phrase**, numérotée, avec ce que chaque réponse change.
+- Une question s'ouvre sur trois lignes que Jay lit sans avoir vu le code : **En clair** (le contexte, en
+  mots de tous les jours), **Ce que ça change** pour lui, **Ce que ça apporte, ou non**. Puis la question en
+  **une phrase**, numérotée, avec ce que chaque réponse change. Tenu par `clear-recap-check`.
 - **Toutes les options pertinentes** sont présentées, jamais moins de deux.
 - Aucune étiquette nue : un choix, une brique, un identifiant porte son contenu dans la même phrase.
 - Zéro jargon non expliqué. Si Jay doit ouvrir un fichier pour comprendre la question, elle est ratée.

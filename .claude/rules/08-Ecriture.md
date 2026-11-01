@@ -55,7 +55,9 @@ valide rien.
 ce que Jay doit décider ou faire, s'il y a quelque chose ; puis, **seulement si c'est nécessaire**, le
 détail. Je développe quand Jay le demande, ou quand une décision en dépend. Pourquoi : Jay est
 sensible à la surcharge ; un long texte lui coûte de l'énergie qu'il n'a pas à dépenser sur de
-l'écorce. Un détail non nécessaire se tait, il ne se range pas en fin de message.
+l'écorce. Un détail non nécessaire se tait, il ne se range pas en fin de message. **Un compte rendu de
+plus de 150 mots s'ouvre sur « En clair » et « Ce que ça change »** (Jay 2026-11-01 : « trop technique, ça
+m'embrouille ») ; ni nom de fichier, ni commande, ni numéro de commit dans ces lignes : ils vont au rapport.
 
 **Les emojis, avec mesure** (Jay 2026-10-29) : un à trois par réponse, comme repères — ✅ fait,
 ⚠️ attention, ❓ question pour Jay, 🔎 constat. Jamais en décor, jamais dans un commit, un rapport ou
@@ -109,7 +111,7 @@ Lues au moment du travail qui les requiert — un garde-fou bloque l'écriture s
 
 ## Sans hook
 
-La langue, la simplicité et les références nues sont tenues par des garde-fous. Le reste — la moitié
+La langue, la simplicité, les références nues et le gabarit des questions et des comptes rendus (`clear-recap-check`) sont tenus par des garde-fous. Le reste — la moitié
 des contraintes — se relit à chaque envoi, et les reproches de Jay comptent comme des défauts de
 session, pas comme des avis.
 

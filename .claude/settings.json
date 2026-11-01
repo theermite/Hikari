@@ -295,6 +295,16 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/fiche-fraicheur-check.py",
+            "description": "Session report: warn once per session when the project note in Shinzo is older than the last code commit (Jay 2026-11-01)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/cdc-read-before-code.py",
+            "description": "Warn once per session when code is written before the project's CDC was read (Jay 2026-11-01)"
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/writer-lock.py",
             "description": "One writer per repository: warn when another session wrote recently, block shared-state gestures"
           }
@@ -510,6 +520,11 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/handoff-nudge.py",
             "description": "Si Takumi demande a Jay de taper une commande sans raison de la liste fermee (secret, consentement, droits admin, geste physique) : garde le tour ouvert une fois, avec le rappel de la bonne route (Jay 2026-10-18)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/clear-recap-check.py",
+            "description": "Une question a Jay s'ouvre sur En clair / Ce que ca change / Ce que ca apporte ; un long compte rendu sur En clair et Ce que ca change ; pas de jargon accumule ni de numero de commit : garde le tour ouvert une fois (Jay 2026-11-01)"
           },
           {
             "type": "command",

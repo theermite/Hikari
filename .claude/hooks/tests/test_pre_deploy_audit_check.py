@@ -255,3 +255,32 @@ def test_local_dev_dispense_is_refused_for_anything_that_leaves_the_machine():
 def test_the_refusal_names_the_way_out():
     message = _verdict([f"[AUDIT-SKIP] motif: local-dev sur {HEAD[:7]}"], command="ssh vps docker compose up -d", ran=[])
     assert "[AUDIT]" in message
+
+
+# --- 2026-11-01: a note that QUOTES a deploy is not a deploy; an audit run through a wrapper is an audit -------
+
+
+def test_a_multiline_commit_message_that_quotes_a_deploy_ships_nothing():
+    command = ("python - <<'EOF'\nprint('x')\nEOF\n"
+               "git add docs/x.md && git commit -q -m 'docs: rapport\n\nle garde lit `docker compose up -d` comme un deploiement\n\nCo-Authored-By: A'")
+    assert _verdict([], command=command) is None
+
+
+def test_a_heredoc_note_that_quotes_a_deploy_ships_nothing():
+    assert _verdict([], command="cat > note.md <<'EOF'\ndocker compose up -d puis npm publish\nEOF") is None
+
+
+def test_a_quote_that_never_closes_is_still_read_raw_and_refused():
+    assert _verdict([], command="echo 'oops docker compose up -d\nsuite") is not None
+
+
+def test_an_audit_run_through_a_wrapper_or_an_option_is_recognised():
+    cases = {
+        "pip-audit": ["uv run pip-audit", "poetry run pip-audit -r req.txt"],
+        "npm-audit": ["npm --prefix web audit --omit=dev", "npm exec -- npm audit"],
+        "pnpm-audit": ["pnpm -r audit --prod", "pnpm --filter web audit"],
+    }
+    for tool, commands in cases.items():
+        text = f"[AUDIT] outil: {tool} sur abc1234 — critiques: 0, hautes: 0"
+        for command in commands:
+            assert _verdict([text], ran=[command]) is None, command
