@@ -223,3 +223,20 @@ def test_our_web_server_is_named_as_the_first_proof_and_says_what_it_is_good_for
     nav = next(c for c in REGISTRE if c["id"] == "navigateur-de-test")
     assert nav["preuve"]["mcp"][0] == "shinkofa-web"
     assert "web_check" in nav["confirmation"] and "browser_open" in nav["confirmation"]
+
+
+# --- un refus du navigateur integre, lu dans les reglages, l'emporte sur l'annonce (relecture du 2026-10-29) ---
+
+def test_a_denied_builtin_browser_is_not_announced_as_present():
+    for refus in ("mcp__Claude_Browser__*", "mcp__Claude_Browser", "mcp__Claude_Browser__navigate"):
+        assert _etat("navigateur-de-test", entrypoint="claude-desktop", outils_refuses={refus}) == "refusee", refus
+
+
+def test_an_unrelated_denied_tool_leaves_the_builtin_browser_present():
+    assert _etat("navigateur-de-test", entrypoint="claude-desktop", outils_refuses={"mcp__autre__outil"}) == "integree"
+
+
+def test_a_denied_builtin_browser_is_told_at_startup():
+    diag = capacites.diagnostiquer(REGISTRE, set(), {"mcp__Claude_Browser__*"}, set(), entrypoint="claude-desktop")
+    ligne = next(l for l in capacites.resume(diag).splitlines() if "Navigateur de test" in l)
+    assert "refusée par les réglages" in ligne and "intégrée à l'application" not in ligne

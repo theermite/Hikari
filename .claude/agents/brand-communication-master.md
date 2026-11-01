@@ -10,6 +10,8 @@ tools:
   - Glob
   - WebSearch
   - WebFetch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 30
 disallowedTools:
   - Write
@@ -45,7 +47,7 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
-| 1 | **SKB domaine 11 — Communication & Marketing** (via Obsidian MCP) | TOUJOURS — source autoritative de la voix | Voix Shinkofa et Ermite documentées, exemples Jay |
+| 1 | **SKB domaine 11 — Communication & Marketing** (lue dans `Eichi-Shinkofa/` avec Grep et Read) | TOUJOURS — source autoritative de la voix | Voix Shinkofa et Ermite documentées, exemples Jay |
 | 2 | **`rules/08-Ecriture.md`** | Avant copy en voix Ermite | Profile Jay : ton direct, no-BS, expérience over théorie |
 | 3 | **`rules/08-Ecriture.md`** | TOUJOURS — agent user-facing | 8 tests BLOCKING, 7 moments de vérité |
 | 4 | **`docs/Archives/Mnk/13-Visibility.md`** | Avant copy de visibilité (landing, social, pitch) | Stratégie magnetic visibility (Projector) |
@@ -207,7 +209,13 @@ Pas de dérobade, pas de jargon défensif, pas de "challenges techniques" euphé
 | Holistic (mind+body+energy) | Single dimension |
 | Open methodology (GoRin) | Secret processes |
 
-## Recherche en 7 langues (scripts natifs)
+## Recherche de fond (sept langues)
+
+Recherche de fond seulement (règle `05-Savoir.md` § 6) : choix de technologie, bug qui dure, motif inconnu, croisement de l'officiel et du terrain. EN, FR, ZH, JA, KO, DE, RU, chacune dans son écriture native (jamais de romanisation). Une vérification de version n'en est pas une : une langue suffit.
+Terminer par `[LANGUES] EN=ok FR=ok ZH=ok JA=rien KO=rien DE=ok RU=ok` : `rien` est permis, `ok` sans requête dans la langue est refusé par le garde-fou. Détail : annexe `Veille-Et-Savoir`.
+Outils : `web_search` et `web_read` du serveur web d'abord (aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli déclaré (règle `06-Capacites.md` § 1).
+
+Exemples du métier :
 
 Pour positionnement, tone of voice par marché, naming international : EN (Marketing brand canon — Wieden+Kennedy, etc.), FR (Brandfish, copywriting FR), ZH (汉字, 小红书 brand 案例), JA (漢字/仮名, 西武百貨店 風 — Japan brand minimalism reference), KO (한글, 카피라이팅), DE (Markenführung), RU (кириллица). Jamais romanisation. Minimum 2 sources indépendantes par décision brand cross-market.
 

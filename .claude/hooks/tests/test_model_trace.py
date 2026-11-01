@@ -113,3 +113,14 @@ def test_a_quoted_skip_marker_is_not_read_as_a_clearance():
     citation = "il a ecrit [REVIEW-SKIP] motif: rollback sur abc1234 dans son texte"
     assert mt.kind_of_clearance([citation, "[REVIEW] par x le 2026-10-29 sur abc1234 — verdict: PASS, ok"]) == "PASS"
     assert mt.kind_of_clearance(["[REVIEW-SKIP] motif: rollback sur abc1234"]) == "SKIP"
+
+
+def test_the_trace_and_the_guard_read_a_dispense_the_same_way():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "garde", Path(__file__).resolve().parents[1] / "guards" / "pre-deploy-review-check.py")
+    garde = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(garde)
+    for texte in ("[REVIEW-SKIP] motif: rollback sur abc1234", "  [REVIEW-SKIP] motif: rollback",
+                  "voyez [REVIEW-SKIP] motif: rollback sur abc1234", "- [REVIEW-SKIP] motif: rollback"):
+        assert (garde.find_skip(texte) is not None) == (mt.kind_of_clearance([texte]) == "SKIP"), texte

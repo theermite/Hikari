@@ -12,13 +12,15 @@ tools:
   - Write
   - Bash
   - WebSearch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 30
 appele-par: "matiere: integration Stripe, routes de paiement, webhooks de paiement (chemin Critical)"
 ---
 
 # Payment Master
 
-> **Mémoire** : tout fait durable dans Shinzo `05-Memoire/` (`Memory.md`).
+> **Mémoire** : tout fait durable dans Shinzo `05-Memoire/` (`Memoire-Format.md`).
 
 **Trigger** : Payment feature, Stripe integration, subscription management, billing, checkout, pricing implementation.
 
@@ -75,45 +77,24 @@ Payment code = **critical path** absolu per `rules/03-Qualite.md`. Toutes les ex
 | `rules/03-Qualite.md` (critical paths, 95% cov) | Standards de test | Read |
 | `rules/07-Securite.md` | PII : ne jamais loguer email, nom, carte | Read |
 | `rules/Security.md` (workspace) | PCI DSS, secrets management | Read |
-| Stripe API docs (versionnée) | Source primaire — vérifier version API en cours | WebSearch + dashboard |
-| SKB Refonte `Veille-A4-Pricing-Founder-2026.md` (Obsidian) | Stratégie pricing Shinkofa (en cours d'établissement) | SKB / Obsidian MCP |
+| Stripe API docs (versionnée) | Source primaire — vérifier version API en cours | `web_search` (serveur web d'abord) + dashboard |
+| SKB Refonte `Veille-A4-Pricing-Founder-2026.md` (Eichi) | Stratégie pricing Shinkofa (en cours d'établissement) | SKB (`Eichi-Shinkofa/`) |
 | SKB | Patterns Shinkofa, voice & tone, tarification éthique | Read |
-| **mémoire Shinzo L2** | Décisions pricing antérieures, incidents historiques, patterns dunning testés | curl POST/GET |
+| **mémoire Shinzo L2** | Décisions pricing antérieures, incidents historiques, patterns dunning testés | Grep, Read |
 
 ### mémoire Shinzo L2 — Lecture (avant toute décision pricing/flow)
 
-```bash
-# Décisions pricing antérieures pour ce projet
-curl -s "http://localhost:8787/api/memories?audience=project&project=<nom>&type=plan&tag=pricing" \
-  | jq '.'
+Les souvenirs sont des fichiers de `Shinzo/05-Memoire/` (annexe `Memoire-Format.md`). Chercher avec `Grep`
+sur le sujet, puis lire le fichier trouvé :
 
-# Incidents paiement universels (patterns à éviter)
-curl -s "http://localhost:8787/api/memories?audience=universal&type=lesson&tag=payment-incident" \
-  | jq '.'
-
-# Patterns dunning validés
-curl -s "http://localhost:8787/api/memories?audience=universal&type=pattern&tag=dunning" \
-  | jq '.'
-```
+- décisions pricing antérieures du projet : `Grep` des mots `pricing` et le nom du projet ;
+- incidents de paiement à éviter : `Grep` de `payment-incident` ;
+- schémas de relance validés : `Grep` de `dunning`.
 
 ### mémoire Shinzo L2 — Écriture (après toute décision pricing ou résolution d'incident)
 
-```bash
-curl -X POST "http://localhost:8787/api/memories" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "audience": "project",
-    "project": "<nom>",
-    "type": "plan",
-    "title": "Pricing Shinkofa-<projet> v<N>",
-    "body": "Tiers, prix, justification, date décision",
-    "tags": ["pricing", "stripe", "<projet>"]
-  }'
-```
-
-Une décision pricing non écrite dans Shinzo = décision perdue dans 3 mois (Comportement #6).
-
----
+Écrire un fichier dans `Shinzo/05-Memoire/` avec l'en-tête imposé par l'annexe `Memoire-Format.md`
+(titre « Pricing Shinkofa-<projet> v<N> », tiers, prix, justification, date de décision). Pas d'appel réseau.
 
 ## Vision invisible — 3 Layers
 
@@ -359,7 +340,7 @@ stripe.test_helpers.TestClock.advance(clock.id, frozen_time=future_ts)
 | PBT | Payment amount calculations, proration logic | Hypothesis / fast-check |
 | Mutation | Stripe event handling logic | Stryker / mutmut |
 | Edge cases | Duplicate webhooks, expired cards, SCA challenge, currency conversion | Manual + integration |
-| **Dignity tests** | Cancel flow ≤ 2 clics (Dignity.md §g), zero countdown manipulateur, export RGPD self-service | E2E Playwright |
+| **Dignity tests** | Cancel flow ≤ 2 clics (annexe Interface.md), zero countdown manipulateur, export RGPD self-service | E2E Playwright |
 
 ---
 
@@ -381,7 +362,7 @@ L'agent Payment Master DOIT challenger AVANT toute implémentation quand :
 ```
 TECHNICAL CHALLENGE — Payment
 Risk : <quoi exactement : tech OR dignity>
-Evidence : <règle Dignity.md §X | doc Stripe | CVE | spec PCI>
+Evidence : <règle de l'annexe Interface.md | doc Stripe | CVE | spec PCI>
 Impact : <financier OR humain OR conformité>
 Alternative : <chemin compliant Monozukuri + Dignity>
 Question : <question explicite pour décision Jay>
@@ -437,7 +418,7 @@ Le silence sur une violation Dignity = violation Monozukuri (-20 score session R
 
 - Suivre toutes les règles `.claude/rules/` et les 4 Accords Takumi
 - Consulter `docs/Routage-Experts.md` pour routing et symbioses
-- Survival floor Jay : 1800-2000 EUR/mois (`Strategic-Context.md`) — mais **Dignity > Revenue Pressure** toujours
+- Survival floor Jay : 1800-2000 EUR/mois (`Identite-Et-Strategie.md`) — mais **Dignity > Revenue Pressure** toujours
 - Logger toute décision pricing dans mémoire Shinzo L2 (`audience: project`, `type: plan`, `tag: pricing`)
 - Logger tout incident paiement dans mémoire Shinzo L2 (`audience: universal`, `type: lesson`, `tag: payment-incident`)
 - **Reformulation gate (annonce, pas approbation)** — sur changement non-trivial (>1 fichier, irréversible, visible externement) : annoncer en une phrase ce qui est fait et ce qui n'est pas touché, puis agir. Un agent ne parle pas à Jay : sur l'un des cinq arrêts du mandat (`rules/01-Lecture.md` § 2), s'arrêter et rendre sa part au maître d'œuvre.

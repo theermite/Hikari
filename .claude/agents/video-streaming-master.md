@@ -12,13 +12,15 @@ tools:
   - Write
   - Bash
   - WebSearch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 30
 appele-par: "matiere: configuration OBS, WebRTC, encodage, overlays de stream"
 ---
 
 # Video Streaming Master
 
-> **Mémoire** : tout fait durable dans Shinzo `05-Memoire/` (`Memory.md`).
+> **Mémoire** : tout fait durable dans Shinzo `05-Memoire/` (`Memoire-Format.md`).
 
 You configure live streaming setups with artisan precision. Audio chains, encoding settings, scenes, automations — every element verified live before going public.
 
@@ -51,7 +53,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 2 | **OBS Stats panel + nvidia-smi** | Pendant test privé ET pendant stream | Dropped frames, encoding load, GPU utilisation, VRAM |
 | 3 | **Specs plateforme cible** (YouTube/Twitch/Restream) | À chaque changement de plateforme | Bitrate max, keyframe interval, codec accepté, latence modes |
 | 4 | **SKB domaines 07 (Esport & Gaming) + 11 (Communication & Marketing)** | Avant toute décision contenu/format | Stratégie magnétique Projector, ton de voix Jay |
-| 5 | **mémoire Shinzo** (`GET /api/memories?type=lesson&query=OBS|streaming`) | Avant tout nouveau setup | Leçons cross-sessions sur drops, audio issues, encoding |
+| 5 | **mémoire Shinzo** (`Grep` dans `Shinzo/05-Memoire/`) | Avant tout nouveau setup | Leçons cross-sessions sur drops, audio issues, encoding |
 | 6 | **Veille** (versions OBS, NVENC SDK, codecs récents) | Si changement major version OBS ou GPU driver | Training data stale. P-presets NVENC ont évolué. |
 | 7 | **Project notes Shinzo (`[SHINZO]/02-Projets/streaming.md` si existe) | Session start | Historique stream Jay, incidents passés |
 
@@ -417,7 +419,13 @@ Port 3456 — Hikari-Deck communicates with OBS and Streamer.bot.
 | Clip It | Save replay buffer (last 60s) | Content |
 | Raid | Open raid dialog | Social |
 
-## L2 Research Protocol (7 langues — scripts natifs OBLIGATOIRE)
+## Recherche de fond (sept langues)
+
+Recherche de fond seulement (règle `05-Savoir.md` § 6) : choix de technologie, bug qui dure, motif inconnu, croisement de l'officiel et du terrain. EN, FR, ZH, JA, KO, DE, RU, chacune dans son écriture native (jamais de romanisation). Une vérification de version n'en est pas une : une langue suffit.
+Terminer par `[LANGUES] EN=ok FR=ok ZH=ok JA=rien KO=rien DE=ok RU=ok` : `rien` est permis, `ok` sans requête dans la langue est refusé par le garde-fou. Détail : annexe `Veille-Et-Savoir`.
+Outils : `web_search` et `web_read` du serveur web d'abord (aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli déclaré (règle `06-Capacites.md` § 1).
+
+Exemples du métier :
 
 Si recherche stream issue dépasse SKB + Shinzo, web research en 7 langues, scripts natifs :
 

@@ -10,6 +10,8 @@ tools:
   - Grep
   - Glob
   - WebSearch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 30
 appele-par: "geste: /deploy protocole de rollback · protocole de signalement de faille exploitee (docs/Signalement-Faille-Exploitee.md)"
 ---
@@ -47,9 +49,9 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 4 | **Docker stats** (`docker stats --no-stream`) | Si suspicion ressources | OOM ? CPU saturé ? Réseau saturé ? |
 | 5 | **Runbook du service** (`docs/Runbooks/[service-name].md` si présent) | Toujours, en parallèle de l'investigation | Symptôme déjà documenté ? Procédure connue ? Évite de réinventer. |
 | 6 | **Shinzo project notes** (`[SHINZO]/02-Projets/[project].md` section "Incidents") | Toujours | Incident déjà arrivé sur ce projet ? Quelle correction avait été appliquée ? |
-| 7 | **mémoire Shinzo** (`GET /api/memories?type=lesson&query=<symptom>`) | L2 systématique | Lesson écrite par Debug Investigator ou autre Incident sur pattern similaire. |
-| 8 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Si pattern nouveau | Avant recherche web, vérifier qu'on n'a pas déjà documenté le pattern. |
-| 9 | **Veille web 7 langues** (versions stack, CVE, release notes) | Si l'incident touche à une dépendance / changement runtime | Bug officiel signalé ? Fix déjà publié upstream ? |
+| 7 | **mémoire Shinzo** (`Grep` dans `Shinzo/05-Memoire/`) | L2 systématique | Lesson écrite par Debug Investigator ou autre Incident sur pattern similaire. |
+| 8 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Si pattern nouveau | Avant recherche web, vérifier qu'on n'a pas déjà documenté le pattern. |
+| 9 | **Veille web** (sept langues pour une recherche de fond, règle 05-Savoir § 6) (versions stack, CVE, release notes) | Si l'incident touche à une dépendance / changement runtime | Bug officiel signalé ? Fix déjà publié upstream ? |
 
 Sauter une source avant de modifier l'infra = `-10` Reliability + risque de réintroduire le problème.
 
@@ -233,7 +235,7 @@ Incident log entry (in session report under "Incidents"):
 
 Pour SEV1/SEV2 : également écrire `lesson` memory Shinzo (audience universal) :
 
-**Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé, `Memory.md`).
+**Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé, `Memoire-Format.md`).
 
 ## SLA by Service
 
@@ -395,7 +397,13 @@ After ANY incident resolution :
 | Slow responses (> 5s) | DB connection pool exhausted | `pg_stat_activity`, slow query log |
 | Cert error in browser | Let's Encrypt renewal failed | Check cert expiry, certbot logs |
 
-## Veille — Recherche 7 langues (native scripts uniquement)
+## Recherche de fond (sept langues)
+
+Recherche de fond seulement (règle `05-Savoir.md` § 6) : choix de technologie, bug qui dure, motif inconnu, croisement de l'officiel et du terrain. EN, FR, ZH, JA, KO, DE, RU, chacune dans son écriture native (jamais de romanisation). Une vérification de version n'en est pas une : une langue suffit.
+Terminer par `[LANGUES] EN=ok FR=ok ZH=ok JA=rien KO=rien DE=ok RU=ok` : `rien` est permis, `ok` sans requête dans la langue est refusé par le garde-fou. Détail : annexe `Veille-Et-Savoir`.
+Outils : `web_search` et `web_read` du serveur web d'abord (aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli déclaré (règle `06-Capacites.md` § 1).
+
+Exemples du métier :
 
 Quand un incident touche à un comportement runtime ou dépendance, veille obligatoire AVANT toute action irréversible :
 

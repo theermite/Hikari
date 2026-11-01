@@ -109,8 +109,7 @@ def main() -> None:
     if not late:
         pass_through()
     text = message(late)
-    warn(text)
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": text}}))
+    warn(text)   # common.warn hands it to the model at exit: a second JSON here would make the harness refuse both
     sys.exit(0)
 
 

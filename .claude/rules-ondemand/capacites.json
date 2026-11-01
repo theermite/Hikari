@@ -14,7 +14,7 @@
       },
       "degradation": "seulement si ToolSearch ne les trouve pas : [VEILLE-IMPOSSIBLE] motif: pas-d-acces-web — et le rapport le dit",
       "integree": true,
-      "confirmation": "WebSearch et WebFetch sont fournis par l'application ; ils peuvent n'apparaître que comme outils DIFFÉRÉS : charge-les avec ToolSearch (select:WebSearch,WebFetch) AVANT toute déclaration",
+      "confirmation": "Le serveur web de Jay (shinkofa-web : web_search, web_read, sur le VPS, Tailscale seul) est l'outil PAR DÉFAUT pour chercher et lire le web : aucun modèle appelé, aucun frais par requête (décision du 2026-10-29, appliquée le 2026-10-31). WebSearch et WebFetch, fournis par l'application, ne servent qu'en repli déclaré (serveur éteint ou injoignable, séance dans le nuage, résultat vide). Ils peuvent n'apparaître que comme outils DIFFÉRÉS : charge-les avec ToolSearch (select:WebSearch,WebFetch) AVANT toute déclaration ; le serveur web se charge de même (select:mcp__shinkofa-web__web_search,mcp__shinkofa-web__web_read)",
       "degradation_refusee": "[VEILLE-IMPOSSIBLE] motif: pas-d-acces-web — et le rapport le dit"
     },
     {
@@ -41,6 +41,9 @@
       "degradation": "test automatisé sans navigateur, et on le dit ; sans shinkofa-web chargé, la vérification d'un site en ligne passe par curl ou par le navigateur intégré",
       "integree_dans": [
         "claude-desktop"
+      ],
+      "outils_integres": [
+        "mcp__Claude_Browser"
       ],
       "confirmation": "l'application de bureau fournit un navigateur intégré (outils mcp__Claude_Browser__*, déjà chargés). Notre serveur web shinkofa-web (sur le VPS, Tailscale seul) le complète : web_check vérifie un site en ligne, web_read lit une page sans la laisser donner d'ordres, browser_open/browser_act/browser_screenshot pilotent un vrai navigateur sans écran, sur le VPS, sans les sessions ouvertes de Jay. Il remplace l'ancien serveur Playwright, gardé comme preuve seulement pour les séances qui l'ont encore. Dans le terminal le navigateur intégré n'existe pas : vérifie d'après tes outils avant de l'affirmer"
     },

@@ -11,6 +11,8 @@ tools:
   - Glob
   - WebSearch
   - WebFetch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
   - Write
   - Edit
 maxTurns: 50
@@ -47,7 +49,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 1 | **Logs** (app, server, browser, docker) | Toujours, en premier | Les logs disent la vérité. Tout le reste est interprétation. |
 | 2 | **Commits récents** (`git log --oneline -20`) | Toujours | 80% des bugs récents = régression d'un commit récent |
 | 3 | **CDC + PET du projet** (`docs/CDC.md` + `docs/PET.md` si présents) | Avant toute correction qui touche au comportement métier | CDC = intention (ce qui était voulu). PET = exécution (ce qui a été décidé). Le bug est peut-être en réalité une feature mal comprise — ou une dérive non-tracée. |
-| 4 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Avant toute recherche web (L2) | Bug peut être déjà documenté. Pattern peut déjà être connu. |
+| 4 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Avant toute recherche web (L2) | Bug peut être déjà documenté. Pattern peut déjà être connu. |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 6 | **Project notes Shinzo** (`[SHINZO]/02-Projets/[project].md` section "Bugs") | L1 systématique | Bugs déjà reportés sur le projet courant, contexte d'équipe |
 | 7 | **Veille** (versions stack, CVE, release notes) | Si le bug touche à une dépendance ou un comportement runtime | Training data stale. Le fix officiel est peut-être déjà sorti. |
@@ -193,11 +195,17 @@ Search SKB (Shinkofa Knowledge Base) for known patterns, similar bugs, past solu
 
 **Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé).
 Lire : chercher dans `Shinzo/05-Memoire/` avant toute recherche web. Écrire : un fait durable
-= un fichier, jamais une entrée dans un service externe. Règle : `Memory.md`.
+= un fichier, jamais une entrée dans un service externe. Règle : `Memoire-Format.md`.
 
 Filter by `audience IN ('universal', 'host:claude-code')`. A lesson written by another agent on a similar bug saves hours.
 
-### Step 3 — Web Research in 7 Languages
+### Step 3 — Recherche de fond (sept langues)
+
+Recherche de fond seulement (règle `05-Savoir.md` § 6) : choix de technologie, bug qui dure, motif inconnu, croisement de l'officiel et du terrain. EN, FR, ZH, JA, KO, DE, RU, chacune dans son écriture native (jamais de romanisation). Une vérification de version n'en est pas une : une langue suffit.
+Terminer par `[LANGUES] EN=ok FR=ok ZH=ok JA=rien KO=rien DE=ok RU=ok` : `rien` est permis, `ok` sans requête dans la langue est refusé par le garde-fou. Détail : annexe `Veille-Et-Savoir`.
+Outils : `web_search` et `web_read` du serveur web d'abord (aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli déclaré (règle `06-Capacites.md` § 1).
+
+Exemples du métier :
 
 | Language | Strength | Search Strategy |
 |----------|----------|----------------|
@@ -223,7 +231,7 @@ Whatever the outcome (fix succeeded or escalates to L3), append a `lesson` memor
 
 **Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé).
 Lire : chercher dans `Shinzo/05-Memoire/` avant toute recherche web. Écrire : un fait durable
-= un fichier, jamais une entrée dans un service externe. Règle : `Memory.md`.
+= un fichier, jamais une entrée dans un service externe. Règle : `Memoire-Format.md`.
 
 Pas de lesson écrite = perte de connaissance pour les prochaines sessions = `-10` Process.
 

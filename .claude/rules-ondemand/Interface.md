@@ -79,6 +79,9 @@ auto-save), zero timer, minimal distractions, customization.
 If not → code it in `Shinkofa-Shared/packages/ui/` first (tests + story), then import. All
 text via `@shinkofa/i18n` (FR/EN/ES, FR source). All shared types via `@shinkofa/types`.
 Coding a duplicate = BLOCKING. i18n workflow → Shinzo.
+*[Amendé 2026-10-30 : le texte en dur est REFUSÉ par `lego/i18n-no-hardcode.py` dans un projet dont un
+package.json déclare une bibliothèque de traduction (averti seulement dans les autres). Sortie, liste
+fermée : `// I18N-OK: internal-tool | editorial-content | already-translated`. Décision de Jay.]*
 
 <!-- source: Quality.md#32 -->
 **The inventory is generated, never written by hand (BLOCKING — 2026-08-30)**: it lives in

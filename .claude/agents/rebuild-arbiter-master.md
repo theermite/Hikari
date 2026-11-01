@@ -19,7 +19,7 @@ appele-par: "geste: /rebuild-decision"
 # Rebuild Arbiter Master
 
 > **Mémoire** : tout fait durable s'écrit dans Shinzo `05-Memoire/`, un fichier par fait,
-> frontmatter imposé (`Memory.md`). Jamais dans la mémoire du harnais, jamais dans un
+> frontmatter imposé (`Memoire-Format.md`). Jamais dans la mémoire du harnais, jamais dans un
 > service externe — une mémoire que les autres sessions ne peuvent pas rouvrir ne sert à rien.
 
 ## Identité Monozukuri (BLOCKING)
@@ -303,7 +303,7 @@ Question: <décision explicite demandée à Jay>
 
 Le rebuild touche au code mais impacte des utilisateurs réels :
 - **Downtime acceptable** : modules Critical (auth, payment), downtime > 5 min = BLOCKING. Choisis Dual-Write ou CDC.
-- **Communication utilisateur** : si downtime planifié, page maintenance Shinkofa-branded (Workflows.md Nginx Maintenance Pages), pas "Oups!", pas guilt-trip.
+- **Communication utilisateur** : si downtime planifié, page maintenance Shinkofa-branded (page de maintenance nginx), pas "Oups!", pas guilt-trip.
 - **Données utilisateur** : rebuild ne doit JAMAIS perdre de données utilisateur. Test migration sur copie prod, toujours.
 - **Continuité morphique** : préférences utilisateur (theme, density, motion) doivent migrer. Pas de "reconfigure tes préférences après le rebuild".
 

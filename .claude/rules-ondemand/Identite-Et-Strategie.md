@@ -123,6 +123,9 @@ self-knowledge free). Hibiki/Uneru/desktop-stream = for Jay, non-commercial. Det
 <!-- source: Strategic-Context.md#4 -->
 **⚠️ To revise (2026-08-22)**: Jay confirms freelance focus is no longer current. L2
 revenue path needs a replacement — decision pending, dedicated session.
+*[Amendé 2026-10-30, Jay : le chemin de revenu est (1) acquérir des utilisateurs pour l'écosystème Shinkofa,
+(2) vendre des packs pionniers, (3) acquérir de nouvelles personnes à coacher, et surtout (4) trouver un
+investisseur. Le détail chiffré reste à concevoir en séance dédiée.]*
 
 <!-- source: Strategic-Context.md#5 -->
 **L1 — ACTION (the next step)**: 2 valid axes — revenue (toward the survival floor /

@@ -634,3 +634,16 @@ def test_a_skip_takes_its_commit_from_its_own_line_not_from_the_whole_message():
 def test_a_stale_skip_is_called_a_dispense_not_a_review():
     message = gate.verdict("./deploy.sh", ["[REVIEW-SKIP] motif: rollback sur 1111111"], head="abc1234def")
     assert "dispense" in message and "the review covered" not in message
+
+
+# --- une dispense s'ouvre sur sa ligne ; un marqueur cite en prose ne leve rien (relecture du 2026-10-29) ---
+
+def test_a_prose_line_quoting_the_marker_does_not_hide_the_real_dispense():
+    texte = "il a ecrit [REVIEW-SKIP] motif: rollback sur 1111111 dans son texte\n[REVIEW-SKIP] motif: rollback sur abc1234"
+    assert gate.verdict("./deploy.sh", [texte], head="abc1234def") is None
+
+
+def test_a_marker_quoted_mid_line_lifts_no_gate_even_when_the_head_is_unknown():
+    citation = "voyez [REVIEW-SKIP] motif: rollback sur abc1234 dans le rapport"
+    assert gate.find_skip(citation) is None
+    assert gate.verdict("./deploy.sh", [citation], head=None) is not None

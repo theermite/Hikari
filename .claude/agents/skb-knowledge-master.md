@@ -10,6 +10,8 @@ tools:
   - Glob
   - WebSearch
   - WebFetch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 30
 disallowedTools:
   - Write
@@ -45,8 +47,8 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
-| 1 | **Obsidian MCP `vault_search`** | Toujours, en premier | Recherche full-text indexée, le plus rapide |
-| 2 | **Obsidian MCP `vault_read`** sur fichier précis si connu | Si le chemin SKB est identifiable | Lecture verbatim de la source primaire |
+| 1 | **`Grep` dans `Eichi-Shinkofa/`** | Toujours, en premier | Recherche dans tous les fichiers `.md` de la base |
+| 2 | **`Read`** sur fichier précis si connu | Si le chemin SKB est identifiable | Lecture verbatim de la source primaire |
 | 3 | **Domaine ciblé** (table des 16 domaines) | Toujours | Recherche ouverte non-filtrée = bruit. Filtrer par domaine = précision. |
 | 4 | **Grep/Glob fallback** (`D:\30-Dev-Projects\Eichi-Shinkofa\`) | Si MCP indisponible | Garantit une réponse même MCP down |
 | 5 | **Domaine 09 — Cross-Domain Correlations** | Question multi-disciplinaire | Liens HD × MBTI × Astro déjà documentés |
@@ -150,7 +152,7 @@ domaines de savoir (compte lu dans le dépôt, jamais recopié):
 ### 1. Keyword Search (fastest)
 
 ```
-vault_search("keyword")  → exact matches
+Grep "keyword" dans Eichi-Shinkofa/  → exact matches
 ```
 
 Use for: known terms, specific concepts, file names.
@@ -158,7 +160,7 @@ Use for: known terms, specific concepts, file names.
 ### 2. Domain-Filtered Search
 
 ```
-vault_search("keyword") → filter results by domain folder (01-Philosophies/, 05-Neurodiversity/, etc.)
+Grep "keyword" dans Eichi-Shinkofa/ → filter results by domain folder (01-Philosophies/, 05-Neurodiversity/, etc.)
 ```
 
 Use for: when you know which domain contains the answer.
@@ -166,8 +168,8 @@ Use for: when you know which domain contains the answer.
 ### 3. Cross-Domain Correlation
 
 ```
-vault_search("concept A") → note domains found
-vault_search("concept B") → note domains found
+Grep "concept A" → note domains found
+Grep "concept B" → note domains found
 → Check domain 09 (Cross-Domain Correlations) for existing links
 → If no existing correlation: synthesize from both domain results AND flag for Jay (potential domain 09 enrichment)
 ```
@@ -187,28 +189,22 @@ Use for: deep exploration of a topic, building full understanding.
 
 ## Access Methods
 
-### Via Obsidian MCP (preferred)
+### Via le système de fichiers
 
-If `obsidian-vault` MCP is connected:
-- `vault_search` — keyword search across vault
-- `vault_read` — read specific file by path
-- `vault_tags` — list all tags for filtering
+Emplacement : `D:\30-Dev-Projects\Eichi-Shinkofa\`
+- `Grep` pour chercher dans tous les `.md`
+- `Glob` pour trouver un fichier par motif
+- `Read` pour lire un fichier précis
 
-### Via File System (fallback)
-
-Location: `D:\30-Dev-Projects\Eichi-Shinkofa\`
-- Grep for content search across all `.md` files
-- Glob for file pattern matching
-- Read for specific files
+Si le dossier est absent, le dire dans la réponse : jamais de résumé de mémoire (règle 06 § 1).
 
 ### Search Fallback Chain
 
 ```
-1. Obsidian MCP vault_search → found? → return with citation
-2. Obsidian MCP vault_read (specific known file) → found? → return
-3. File system Grep across SKB directory → found? → return
-4. mémoire Shinzo query (lessons cross-session) → found? → return
-5. "Not in SKB" → hand off to Deep Research Master for web research + propose enrichment to Jay
+1. Grep dans Eichi-Shinkofa/ → trouvé ? → rendre avec la citation
+2. Read d'un fichier précis connu → trouvé ? → rendre
+3. Grep dans Shinzo/05-Memoire/ (leçons entre séances) → trouvé ? → rendre
+4. « Absent de la SKB » → rendre la main à Takumi, qui convoque Deep Research Master pour la recherche web, puis Takumi propose l'enrichissement à Jay
 ```
 
 ## Relevance Scoring
@@ -297,7 +293,7 @@ After ANY significant query result :
 | SKB skipped | Went straight to web search | ALWAYS search SKB first — this is BLOCKING |
 | Stale knowledge | SKB says X, but X has changed | Flag as outdated, verify via web, propose update |
 | Wrong domain | Searched domain 13 (AI) for a coaching question | Check domain table, coaching = domain 03 |
-| MCP disconnected | vault_search fails | Fall back to file system Grep, document fallback used |
+| Eichi folder missing | Grep finds no directory | Say so in the answer; never summarize from memory (rule 06 § 1) |
 | Over-reliance | Used SKB answer without checking currency | Cross-validate with web for time-sensitive topics |
 | Paraphrased instead of verbatim | "Roughly speaking, SKB says..." | BLOCKING — return exact quote with citation |
 | Hallucinated source | Cited a file that doesn't exist | BLOCKING — verify path with Read before citing |
@@ -328,7 +324,7 @@ After ANY significant query result :
 
 ## References
 
-- `rules/02-Parcours.md` — "Consult SKB first", research protocol, 7 languages
+- `rules/05-Savoir.md` § 6 — "Consult SKB first", research protocol, 7 languages
 - `rules/03-Qualite.md` — Pre-RAG Audit requirement for SKB re-indexation
 - `rules/03-Qualite.md` — 6 comportements observables
 - `rules/08-Ecriture.md` — 8 tests sur contenu user-facing

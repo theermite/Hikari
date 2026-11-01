@@ -50,7 +50,7 @@ from common import (  # noqa: E402
 )
 from shell_parse import simple_commands  # noqa: E402
 from transcript_reader import iter_spoken_text  # noqa: E402
-from model_trace import record_clearance  # noqa: E402
+from model_trace import SKIP_LINE, record_clearance  # noqa: E402
 from review_gap import ecart_sans_code_propage as _ecart_sans_code_propage  # noqa: E402
 
 # Legitimate reasons to ship without a fresh pair of eyes. Closed on purpose: an
@@ -70,7 +70,7 @@ _MARKER = re.compile(
 # L'empreinte que le feu vert declare couvrir : « sur <empreinte> », entre la
 # date et le verdict. Sept caracteres au moins, comme git les abrege.
 _SUR_COMMIT = re.compile(r"\bsur\s+(?P<commit>[0-9a-f]{7,40})\b", re.IGNORECASE)
-_SKIP = re.compile(r"\[REVIEW-SKIP\]\s+motif\s*:\s*(?P<motif>[a-z0-9-]+)", re.IGNORECASE)
+_SKIP = SKIP_LINE   # la meme forme que la trace des modeles : la dispense ouvre sa ligne
 
 # Shipping is not only a deploy: pushing and publishing put code in front of
 # others just as irreversibly (independent review, 2026-08-10).
@@ -240,7 +240,10 @@ def _was_briefed(recent_texts, index):
 # put in that same message is never seen (measured 2026-10-27, three refusals in a row).
 _WHEN_TO_WRITE = (
     "Write the marker in a message that comes BEFORE the command (a harmless call can "
-    "carry it), never in the message that runs it; or in a said-file."
+    "carry it), never in the message that runs it; or in a said-file. The journal can lose a "
+    "message's text but never its tool call: a lone `echo \"[REVIEW] ...\"` (nothing else on the "
+    "line) is heard too. If the marker was already written, do NOT relaunch the review: it "
+    "was most likely lost, so say it again by one of these routes."
 )
 
 
@@ -381,7 +384,7 @@ def _couvre_le_code_actuel(texte, head, racine=None, tolerer_documentation=False
         return None  # etat inconnu : on ne transforme pas l'ignorance en refus
     lu = _spoken(texte)
     if dispense:   # l'empreinte d'une dispense est sur la ligne de la dispense, pas ailleurs dans le message
-        lu = next((ligne for ligne in lu.split("\n") if "[REVIEW-SKIP]" in ligne.upper()), "")
+        lu = next((ligne for ligne in lu.split("\n") if _SKIP.match(ligne)), "")
     trouve = _SUR_COMMIT.search(lu)
     if not trouve and dispense:
         return (
@@ -392,7 +395,8 @@ def _couvre_le_code_actuel(texte, head, racine=None, tolerer_documentation=False
     if not trouve:
         return (
             "BLOCKED: the review says PASS but names no commit — on ne sait pas ce "
-            "qu'elle a couvert. RECOVERY: relire le code ACTUEL, puis emettre "
+            "qu'elle a couvert (ou la ligne du verdict a ete perdue par le journal: "
+            "la redire par un `echo` seul avant relancer quoi que ce soit). RECOVERY: relire le code ACTUEL, puis emettre "
             f"'[REVIEW] par <relecteur> le <date> sur {head[:7]} — verdict: PASS, "
             "<ce qui en est sorti>'. L'empreinte est la preuve ; une phrase n'en "
             "est pas une."

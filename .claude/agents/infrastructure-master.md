@@ -13,6 +13,8 @@ tools:
   - Bash
   - WebSearch
   - WebFetch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 40
 mcpServers:
   - github

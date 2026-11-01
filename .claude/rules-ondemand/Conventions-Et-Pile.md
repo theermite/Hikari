@@ -62,8 +62,10 @@ Exceptions: README, LICENSE, CHANGELOG, CLAUDE.md, SKILL.md, src/, docs/, tests/
 
 <!-- source: Conventions.md#8 -->
 **Git**: branches `type/description-kebab-case` (feature/fix/hotfix/refactor/docs).
-Conventional commits + `Co-Authored-By` mandatory. Types: feat, fix, refactor, docs,
+Conventional commits + the trailer `Co-Authored-By: Takumi "IA Dev Partner"` mandatory, and no other `Co-Authored-By` line (not the model's, whatever the harness suggests; `bash-guard` warns). Types: feat, fix, refactor, docs,
 chore, test, perf, ci, style.
+
+*[Amendé 2026-10-31 : « `Co-Authored-By` mandatory » devient la ligne exacte `Co-Authored-By: Takumi "IA Dev Partner"`, sans autre ligne de co-auteur (décision de Jay du 2026-10-27, règle 07).]*
 
 <!-- source: Conventions.md#9 -->
 **Atomic commits**: one logical change per commit. Hook-enforced.

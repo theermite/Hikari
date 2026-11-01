@@ -48,6 +48,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 from end_user_identifiers import contains_identifier, store_present  # noqa: E402
+from note_scope import is_free_note, outside_notes, repo_of  # noqa: E402
+from repo_visibility import is_private  # noqa: E402
 
 GIT_TIMEOUT = 15
 # `-m "$(cat <<'EOF' ... EOF\n)"` : forme standard des commits de Claude Code. Le
@@ -223,7 +225,8 @@ def _take(parsed: dict, option: str, value: str) -> None:
 def _git(repo: str, *args: str) -> str:
     try:
         result = subprocess.run(
-            ["git", "-C", repo, *args], capture_output=True, text=True, timeout=GIT_TIMEOUT
+            ["git", "-c", "core.quotepath=off", "-C", repo, *args], capture_output=True, text=True,
+            timeout=GIT_TIMEOUT   # quotepath off: an accented file name must reach the guard as itself, not in octal
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise Unsure("git n'a pas répondu") from exc
@@ -240,8 +243,8 @@ def _has_head(repo: str) -> bool:
         return False
 
 
-def _committed_changes(repo: str, parsed: dict) -> tuple[str, str]:
-    """(added lines, file names) of what this commit will record."""
+def _commit_diffs(repo: str, parsed: dict) -> tuple[list[str], list[str]]:
+    """(diffs, name lists) of what this commit will record."""
     against_head = parsed["all"] or bool(parsed["paths"])
     base = ["diff", "HEAD"] if against_head and _has_head(repo) else ["diff", "--cached"]
     paths = ["--", *parsed["paths"]] if parsed["paths"] else []
@@ -250,6 +253,14 @@ def _committed_changes(repo: str, parsed: dict) -> tuple[str, str]:
     if parsed["include"] or (against_head and base[1] == "HEAD"):
         diffs.append(_git(repo, "diff", "--cached", "-U0", "--no-color"))
         names.append(_git(repo, "diff", "--cached", "--name-only"))
+    return diffs, names
+
+
+def _committed_changes(repo: str, parsed: dict, private: bool = False) -> tuple[str, str]:
+    """(added lines, file names) of what this commit will record; in a private repo, only outside free notes."""
+    diffs, names = _commit_diffs(repo, parsed)
+    if private:
+        return outside_notes(diffs, names)
     added = "\n".join(
         line[1:]
         for diff in diffs
@@ -264,6 +275,9 @@ def _texts_from_commit(repo: str, args: list[str], raw: str) -> list[tuple[str, 
         raise Unsure("le dépôt visé n'existe pas")
     _git(repo, "rev-parse", "--show-toplevel")
     parsed = _parse_commit(args)
+    if is_private(repo):   # the message and the notes are free ; the rest of the commit is still read
+        added, names = _committed_changes(repo, parsed, private=True)
+        return [("Une ligne ajoutée au commit (hors notes)", added), ("Un nom de fichier du commit (hors notes)", names)]
     texts = [("Le message du commit", m) for m in parsed["messages"]]
     for name in parsed["files"]:
         if name == "-":
@@ -408,6 +422,15 @@ def _texts_from_bash(command: str, cwd: str) -> list[tuple[str, str]]:
 # --- entry point --------------------------------------------------------------
 
 
+def _free_note_in_private_repo(tool_input: dict) -> bool:
+    """A Write/Edit/MultiEdit of a free-text note, inside a repository known to be private."""
+    path = tool_input.get("file_path") or ""
+    if not path or not is_free_note(path):
+        return False
+    repo = repo_of(path)
+    return bool(repo) and is_private(repo)
+
+
 def _check(payload: dict) -> int:
     tool = payload.get("tool_name") or ""
     tool_input = payload.get("tool_input")
@@ -417,6 +440,8 @@ def _check(payload: dict) -> int:
         if tool == "Bash":
             texts = _texts_from_bash(tool_input.get("command") or "", payload.get("cwd") or os.getcwd())
         else:
+            if _free_note_in_private_repo(tool_input):
+                return 0
             texts = _texts_from_write(tool, tool_input)
     except Unsure as exc:
         print(UNSURE.format(why=exc), file=sys.stderr)

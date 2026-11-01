@@ -64,6 +64,10 @@ Bounds, unchanged: secrets never · account keys and fraud-risk data never (Gate
 A) · third-party data never — a note or memory naming an end user is not served
 (Gate C) · only for work done for him, never published · a provider outside his
 subscription or his gateway is not covered.
+*[Amendé 2026-10-30 : « a provider outside his subscription or his gateway is not covered » est remplacé par la
+décision de Jay : tout fournisseur qu'il choisit d'utiliser est couvert, il en assume les conditions ; s'il n'en
+accepte pas, il ne l'utilise pas. « Third-party data never » ne vise plus ses proches ni ses clients dans la
+conversation, seulement le contenu des utilisateurs de plateformes.]*
 
 <!-- source: Confidentiality.md#13 -->
 **Protocol when an identity is required for an outbound action (LITERAL)**:
@@ -102,6 +106,13 @@ End-user data is not collected, written, transmitted, or used as an example.
    example. Always anonymise.
 4. Never send end-user data to a third party — including an external AI model —
    without a legal basis and the master user's approval.
+
+*[Amendé 2026-10-30 : « end-user data » = ce que les utilisateurs d'une plateforme déposent dans sa base
+(contenu, messages, données intimes), pas les proches ni les clients de Jay. Le point 1 vaut pour les fichiers,
+tests, journaux et rapports ; il ne vaut plus pour la conversation avec Jay, qui est libre : ce qui part chez
+un fournisseur de modèle, Jay l'assume. Un dépôt public ou une publication ne porte jamais une donnée
+d'utilisateur ; un journal se juge selon son lieu (privé : lisible, accessible à des tiers : aucune donnée
+d'utilisateur). Entre utilisateurs, seul un partage défini par une fonctionnalité montre l'information d'un autre.]*
 
 <!-- source: Confidentiality.md#16 -->
 **Active duty**: when building a feature handling end-user data, apply

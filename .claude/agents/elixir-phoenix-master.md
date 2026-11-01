@@ -49,7 +49,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 5 | **`rules/Security.md`** (4 layers validation, OWASP) | Avant toute exposition publique | Validation, rate limit, headers, RBAC — non-négociables |
 | 6 | **`rules/03-Qualite.md`** (test execution, coverage critical 95%) | Avant TDG | `mix test` (Elixir), Ecto.Sandbox pattern, StreamData PBT, ExCoveralls thresholds |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
-| 8 | **SKB** (Obsidian MCP) | Avant choix d'architecture (CQRS, Event Sourcing, Saga, Umbrella vs single app) | Décisions de design déjà documentées Shinkofa-spécifiques |
+| 8 | **SKB** (lue dans `Eichi-Shinkofa/` avec Grep et Read) | Avant choix d'architecture (CQRS, Event Sourcing, Saga, Umbrella vs single app) | Décisions de design déjà documentées Shinkofa-spécifiques |
 | 9 | **Veille** (Hex.pm release notes, Erlang/OTP CHANGELOG, Phoenix blog) | Avant choix de version ou pattern critique | Training data stale. Phoenix 1.8 retire des APIs 1.7. OTP 27 a changé Dialyzer behavior. |
 
 Sauter une source = `-10` Reliability + risque de re-design sur même décision.
@@ -325,7 +325,7 @@ end
 - `async: true` quand isolation Sandbox suffit (default à viser)
 - `async: false` UNIQUEMENT si état global partagé (ETS, PubSub topic, fixture filesystem)
 - StreamData (`use ExUnitProperties`) pour PBT sur fonctions pures critiques (Anti-Circular Layer 1)
-- `ExCoveralls` configuration : critical paths 95%, global 80% (cf. Quality.md)
+- `ExCoveralls` configuration : critical paths 95%, global 80% (cf. 03-Qualite.md)
 - Mutation testing : `mix mutant` sur paths critiques mensuellement
 
 Anti-pattern BLOCKING : mock du Repo. Ecto.Sandbox EST la solution propre. Mock = test qui ment.
@@ -418,7 +418,7 @@ Jamais big-bang. POC validé par Shinzo.
 | Mock du `Repo` en test | Test qui ment | `Ecto.Sandbox` |
 | `cast/3` sans validate_required puis insert | Données vides en DB | `validate_required` après cast |
 
-## Critical Path Testing (Quality.md)
+## Critical Path Testing (Tests-Et-Mesures.md)
 
 Auth / payment / encryption = 95% coverage + MC/DC (conditions 4+). Anti-Circular Protocol :
 
@@ -466,7 +466,7 @@ Après toute livraison significative (nouveau context, supervision tree non-triv
 
 **Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé).
 Lire : chercher dans `Shinzo/05-Memoire/` avant toute recherche web. Écrire : un fait durable
-= un fichier, jamais une entrée dans un service externe. Règle : `Memory.md`.
+= un fichier, jamais une entrée dans un service externe. Règle : `Memoire-Format.md`.
 
 Pas de mémoire Shinzo = artisanat anonyme = `-10` Process.
 
@@ -477,7 +477,7 @@ Pas de mémoire Shinzo = artisanat anonyme = `-10` Process.
 - **LOGS FIRST** when a Phoenix service misbehaves — `Logger`, BEAM crash dumps, `:observer`, `recon`, then code.
 - **Fix = Deploy** on live Phoenix services : endpoint fix not done until deployed AND smoke-tested.
 - **Dialyzer + Credo strict + Sobelow** doivent être clean avant tout merge.
-- **`mix test` doit passer à 100%** — `--cover` validé contre seuils Quality.md.
+- **`mix test` doit passer à 100%** — `--cover` validé contre seuils 03-Qualite.md.
 - **Ecto.Sandbox uniquement** pour tests integration. Mocker le Repo = `-20` Reliability.
 
 ## General Rules

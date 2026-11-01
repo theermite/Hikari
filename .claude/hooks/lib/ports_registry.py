@@ -9,6 +9,7 @@ Aucune dépendance (pas de PyYAML) : les garde-fous tournent avec le Python nu.
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 ESCAPE = re.compile(r"#\s*PORT-OK:\s*\S")
@@ -62,12 +63,20 @@ def _machine_rows(text: str, machine: str):
     return _MD_ROW.finditer("\n".join(garde))
 
 
+def _bounds(first: str, last: str | None) -> tuple[int, int]:
+    """Les deux bouts d'une plage « 9001-9024 », dans l'ordre : une plage écrite à l'envers nomme les mêmes ports."""
+    debut = int(first)
+    fin = int(last) if last else debut
+    return (debut, fin) if debut <= fin else (fin, debut)
+
+
 def read_owners(infra_root: Path, machine: str = "vps") -> dict[int, str]:
     """Port -> texte du ou des propriétaires déclarés sur `machine`. {} si aucune lisible.
 
-    "vps" (défaut : un fichier compose se met en ligne sur le serveur) réunit la liste du serveur
-    (`infra.yaml`) et les sections serveur du registre écrit à la main ; "local" ne lit que les
-    sections de la machine de Jay (les ports de développement ne sont pas dans `infra.yaml`).
+    "vps" (défaut : un fichier compose se met en ligne sur le serveur) lit `infra.yaml`, seule source du serveur
+    (décision du 2026-10-31 : il couvre 52 des 67 ports qui écoutent, le registre écrit à la main 43, et ses
+    lignes périmées réservaient des ports libres). Le registre écrit à la main ne sert de repli que si le YAML
+    est illisible. "local" ne lit que les sections de la machine de Jay (absentes d'`infra.yaml`).
     """
     owners: dict[int, list[str]] = {}
     sources = [(infra_root / "docs" / "Port-Registry.md", lambda t: _machine_rows(t, machine))]
@@ -75,13 +84,14 @@ def read_owners(infra_root: Path, machine: str = "vps") -> dict[int, str]:
         sources.insert(0, (infra_root / "registry" / "infra.yaml",
                            lambda t: _YAML_PORT.finditer(_yaml_ports_section(t))))
     for path, finder in sources:
+        if owners and machine == "vps" and path.suffix != ".yaml":
+            break  # le YAML a répondu : la liste écrite à la main n'ajoute rien pour le serveur
         try:
             text = path.read_text(encoding="utf-8")
         except OSError:
             continue
         for m in finder(text):
-            debut = int(m.group(1))
-            fin = int(m.group(2)) if path.suffix == ".yaml" and m.group(2) else debut   # plage « 9001-9024 »
+            debut, fin = _bounds(m.group(1), m.group(2) if path.suffix == ".yaml" else None)
             for port in range(debut, fin + 1):
                 owners.setdefault(port, []).append(m.group(m.lastindex).strip())
     return {port: " | ".join(parts) for port, parts in owners.items()}
@@ -95,7 +105,7 @@ def divergence(infra_root: Path) -> tuple[list[int], list[int]]:
     except OSError:
         return [], []
     dans_yaml = {p for m in _YAML_PORT.finditer(_yaml_ports_section(yaml_text))
-                 for p in range(int(m.group(1)), int(m.group(2) or m.group(1)) + 1)}
+                 for p in range(_bounds(m.group(1), m.group(2))[0], _bounds(m.group(1), m.group(2))[1] + 1)}
     dans_md = {int(m.group(1)) for m in _machine_rows(md_text, "vps")}
     return sorted(dans_yaml - dans_md), sorted(dans_md - dans_yaml)
 
@@ -141,3 +151,36 @@ def check(content: str, project: str, owners: dict[int, str]) -> tuple[list[tupl
         elif not same_service(owner, names):
             conflicts.append((port, owner))
     return conflicts, unknown
+
+
+# --- Le registre contre la realite du serveur (2026-10-31) ---------------------------------------------
+
+_FIRST_EPHEMERAL = 32768
+
+
+def unregistered_listeners(listening: set[int], owners: dict[int, str]) -> list[int]:
+    """Ports qui ecoutent sur le serveur sans figurer au registre. Hors sujet: les ports systeme (< 1024)
+    et ephemeres (>= 32768). {} de proprietaires = registre illisible: on ne devine pas."""
+    if not owners:
+        return []
+    return sorted(p for p in listening if 1024 <= p < _FIRST_EPHEMERAL and p not in owners)
+
+
+def _main_checkout(repo_root: Path) -> Path:
+    """Le depot principal, meme depuis une copie de travail (git worktree) rangee sous lui."""
+    try:
+        out = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                             cwd=str(repo_root), capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return repo_root
+    common = Path(out.stdout.strip()) if out.returncode == 0 and out.stdout.strip() else None
+    return common.parent if common and common.name == ".git" else repo_root
+
+
+def find_infra_root(repo_root: Path, home: Path | None = None) -> Path | None:
+    """Shinkofa-Infra: frere du depot, frere du depot principal (copie de travail), ou ~/apps."""
+    for base in (repo_root.parent, _main_checkout(repo_root).parent, (home or Path.home()) / "apps"):
+        candidat = base / "Shinkofa-Infra"
+        if (candidat / "registry").is_dir() or (candidat / "docs" / "Port-Registry.md").is_file():
+            return candidat
+    return None

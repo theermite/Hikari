@@ -22,6 +22,7 @@ Exit codes: 0 pass, 2 block (mirrors post-write-guard.py).
 from __future__ import annotations
 
 import ast
+import subprocess
 import sys
 from pathlib import Path
 
@@ -116,23 +117,70 @@ def _eligible_source(data: dict) -> str | None:
         return None
 
 
-def _collect_violations(tree: ast.AST) -> list[str]:
-    """One line per function over a threshold (length or complexity)."""
-    violations: list[str] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
+def _functions(node: ast.AST, prefix: str = ""):
+    """(qualified name, function node) for every function, classes and enclosing functions in the name."""
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            yield prefix + child.name, child
+            yield from _functions(child, prefix + child.name + ".")
+        elif isinstance(child, ast.ClassDef):
+            yield from _functions(child, prefix + child.name + ".")
+        else:
+            yield from _functions(child, prefix)
+
+
+def _measure(tree: ast.AST) -> list[tuple[str, str, int, int]]:
+    """(name, kind, value, line) for every function over a threshold; kind is "length" or "complexity"."""
+    found: list[tuple[str, str, int, int]] = []
+    for name, node in _functions(tree):
         length = _function_length(node)
         if length > MAX_FUNC_LINES:
-            violations.append(
-                f"  - `{node.name}` (line {node.lineno}): {length} lines (max {MAX_FUNC_LINES})"
-            )
+            found.append((name, "length", length, node.lineno))
         cc = _complexity(node)
         if cc > MAX_COMPLEXITY:
-            violations.append(
-                f"  - `{node.name}` (line {node.lineno}): cyclomatic complexity {cc} (max {MAX_COMPLEXITY})"
-            )
-    return violations
+            found.append((name, "complexity", cc, node.lineno))
+    return found
+
+
+def _describe(name: str, kind: str, value: int, line: int) -> str:
+    if kind == "length":
+        return f"  - `{name}` (line {line}): {value} lines (max {MAX_FUNC_LINES})"
+    return f"  - `{name}` (line {line}): cyclomatic complexity {value} (max {MAX_COMPLEXITY})"
+
+
+def _parse(source: str | None) -> ast.AST | None:
+    try:
+        return ast.parse(source) if source is not None else None
+    except SyntaxError:
+        return None
+
+
+def split_violations(source: str, committed: str | None) -> tuple[list[str], list[str]]:
+    """(new, inherited) violation lines. Inherited = already over the limit in the committed
+    version and not worse now: the edit did not cause it, so it is reported, not blocked."""
+    tree = _parse(source)
+    if tree is None:
+        return [], []
+    before_tree = _parse(committed)
+    before: dict[tuple[str, str], int] = {}
+    for name, kind, value, _line in (_measure(before_tree) if before_tree is not None else []):
+        before[(name, kind)] = max(value, before.get((name, kind), 0))
+    new, inherited = [], []
+    for name, kind, value, line in _measure(tree):
+        target = inherited if value <= before.get((name, kind), 0) else new
+        target.append(_describe(name, kind, value, line))
+    return new, inherited
+
+
+def _committed_source(file_path: str) -> str | None:
+    """The file as committed at HEAD, or None (untracked, no git, unreadable)."""
+    try:
+        rel = Path(file_path).resolve().relative_to(PROJECT_ROOT).as_posix()
+        out = subprocess.run(["git", "show", f"HEAD:{rel}"], cwd=str(PROJECT_ROOT),
+                             capture_output=True, timeout=10)
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout.decode("utf-8", errors="replace") if out.returncode == 0 else None
 
 
 def main() -> int:
@@ -140,18 +188,18 @@ def main() -> int:
     source = _eligible_source(data)
     if source is None:
         return 0
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return 0  # fragment / invalid — cannot analyze, never false-block
-
-    violations = _collect_violations(tree)
-    if not violations:
+    new, inherited = split_violations(source, _committed_source(common.get_file_path(data)))
+    if inherited:
+        common.warn(common.format_warn(
+            "function already over the limit before this edit (not made worse)\n" + "\n".join(inherited),
+            "not blocking; split it when you next work on it.",
+            reference="rules/Quality.md (Maintainability)"))
+    if not new:
         return 0
 
     common.block(
         common.format_block(
-            "Maintainability: function over the limit\n" + "\n".join(violations),
+            "Maintainability: function over the limit\n" + "\n".join(new),
             "Split the function into smaller cohesive units (one concept each). "
             "A 30-line function with low complexity reads better than a clever dense one.",
             reference="rules/Quality.md (Maintainability)",

@@ -265,3 +265,64 @@ def test_windows_backslash_repo_path_is_understood():
 def test_windows_backslash_explicit_file_passes():
     command = r"git -C D:\30-Dev-Projects\Shinzo add -- 02-Projets\Kata.md"
     assert bg.check_git_add_broad(command) is None
+
+
+# --- Co-Authored-By: the line is Jay's, not the model's (rule 07, Authorized Defaults) -------------
+
+TAKUMI = 'Co-Authored-By: Takumi "IA Dev Partner"'
+
+
+def _commit(trailer):
+    return f'git commit -m "feat(x): y\n\n{trailer}"'
+
+
+def test_the_takumi_line_passes():
+    command = _commit(TAKUMI)
+    assert bg.check_co_authored_by(command, command) is None
+
+
+def test_a_model_line_is_flagged_with_the_right_one():
+    command = _commit("Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>")
+    message = bg.check_co_authored_by(command, command)
+    assert message is not None and "IA Dev Partner" in message
+
+
+def test_a_missing_line_is_still_flagged():
+    command = 'git commit -m "feat(x): y"'
+    assert bg.check_co_authored_by(command, command) is not None
+
+
+def test_one_wrong_line_among_right_ones_is_flagged():
+    command = _commit(TAKUMI + "\nCo-Authored-By: Someone <a@b.c>")
+    assert bg.check_co_authored_by(command, command) is not None
+
+
+def test_the_line_only_quoted_in_prose_does_not_count():
+    command = 'git commit -m "docs: la ligne Co-Authored-By: Takumi est la bonne"'
+    assert bg.check_co_authored_by(command, command) is not None
+
+
+# --- review 2026-10-31: the check must work on the REAL hook input (JSON, command nested) ---------------
+
+
+def _hook_output(command: str):
+    import json
+    import subprocess
+    import sys
+    done = subprocess.run([sys.executable, str(HOOK)], capture_output=True, text=True,
+                          input=json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}))
+    return done.stderr
+
+
+def test_the_real_hook_accepts_the_right_trailer():
+    assert "trailer" not in _hook_output(f"git commit -m 'feat(x): y\n\n{TAKUMI}'")
+    assert "trailer" not in _hook_output('git commit -m "feat(x): y\n\nCo-Authored-By: Takumi \\"IA Dev Partner\\""')
+
+
+def test_the_real_hook_flags_the_models_trailer():
+    err = _hook_output("git commit -m 'feat(x): y\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>'")
+    assert "IA Dev Partner" in err
+
+
+def test_the_real_hook_flags_a_missing_trailer():
+    assert "trailer" in _hook_output("git commit -m 'feat(x): y'")

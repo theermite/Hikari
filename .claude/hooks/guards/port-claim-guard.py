@@ -42,10 +42,7 @@ import ports_registry  # noqa: E402
 
 
 def _infra_root(repo_root: Path) -> Path | None:
-    for candidat in (repo_root.parent / "Shinkofa-Infra", Path.home() / "apps" / "Shinkofa-Infra"):
-        if (candidat / "registry").is_dir() or (candidat / "docs" / "Port-Registry.md").is_file():
-            return candidat
-    return None
+    return ports_registry.find_infra_root(repo_root)
 
 
 def _written_content(data: dict) -> str:

@@ -47,7 +47,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 2 | **SAST output** (Semgrep, CodeQL, Bandit, Biome strict, Sobelow) | Toujours, avant qualification manuelle | Détecte patterns connus (injection, hardcoded secrets, weak crypto). Une finding SAST non-relue = audit incomplet. |
 | 3 | **SCA + CVE registries** (`npm audit`, `pip-audit`, `mix deps.audit`, `cargo audit`, Trivy, Snyk, OSV.dev, NVD) | Avant tout deploy, à chaque PR sur dependencies | CVE critiques/high = BLOCKING deploy par `rules/03-Qualite.md`. Training data stale — toujours veille à jour. |
 | 4 | **Secrets scan** (Gitleaks, truffleHog, `git log -p --all -S`) | Toujours, sur historique complet | Un secret leaké en git history reste exploitable même supprimé du HEAD. |
-| 5 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Avant tout pattern d'attaque, avant recherche web | Patterns d'attaque déjà documentés, leçons des audits précédents, conventions Shinkofa sécurité. |
+| 5 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Avant tout pattern d'attaque, avant recherche web | Patterns d'attaque déjà documentés, leçons des audits précédents, conventions Shinkofa sécurité. |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **Veille** (OWASP Top 10 année courante, CRA 2026, release notes stack, GitHub advisories) | Si nouveau framework/lib ou nouvelle catégorie d'attaque | OWASP 2021 ≠ OWASP 2025. CRA 2026 impose SBOM. Le paysage évolue, l'audit doit suivre. |
 
@@ -261,11 +261,15 @@ Search SKB pour : patterns d'attaque déjà documentés, audits précédents mê
 
 **Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé).
 Lire : chercher dans `Shinzo/05-Memoire/` avant toute recherche web. Écrire : un fait durable
-= un fichier, jamais une entrée dans un service externe. Règle : `Memory.md`.
+= un fichier, jamais une entrée dans un service externe. Règle : `Memoire-Format.md`.
 
 Filtrer `audience IN ('universal', 'host:claude-code')`. Une lesson sur un IDOR trouvé dans Hibiki s'applique souvent à Kakusei.
 
-### Step 3 — Web Research in 7 Languages
+### Step 3 — Recherche de fond (sept langues)
+
+Cet agent n'a pas d'outil web. Pour une recherche de fond (sept langues, règle `05-Savoir.md` § 6), il rend la main à Takumi avec la question précise ; Takumi convoque `Veille Master` ou `Deep Research Master` et reprend leur note et leur marqueur `[LANGUES]`.
+
+Exemples du métier :
 
 | Language | Force | Source typique |
 |----------|-------|---------------|
@@ -285,7 +289,7 @@ Queries en script natif (汉字, 漢字/仮名, 한글, кириллица) — 
 
 **Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé).
 Lire : chercher dans `Shinzo/05-Memoire/` avant toute recherche web. Écrire : un fait durable
-= un fichier, jamais une entrée dans un service externe. Règle : `Memory.md`.
+= un fichier, jamais une entrée dans un service externe. Règle : `Memoire-Format.md`.
 
 Pas de lesson écrite = perte de connaissance cross-projet = `-10` Process.
 
@@ -312,7 +316,7 @@ Pas de lesson écrite = perte de connaissance cross-projet = `-10` Process.
 ### What was searched (L2)
 - SKB : domaines consultés, findings
 - mémoire Shinzo : queries, lessons consultées
-- Web : queries 7 langues, sources cross-validées
+- Recherche de fond : rendre la main à Takumi, qui convoque Veille Master ou Deep Research Master (règle 05-Savoir § 6)
 
 ### Risk acceptance proposals (if any)
 - [Finding, raison de l'acceptation proposée, compensating control]

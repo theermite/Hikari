@@ -25,7 +25,7 @@ test et le suivi d'erreurs. Dans un harnais sans ces outils, chaque marqueur `[V
 
 | Capacité | Si présente | Si absente |
 |---|---|---|
-| Recherche web | `[VEILLE] techno@version via source` | `[VEILLE-IMPOSSIBLE] motif: pas-d-acces-web`, et le rapport le dit — **seulement après avoir cherché l'outil, y compris différé** (`ToolSearch`, `select:WebSearch,WebFetch`) |
+| Recherche web | `[VEILLE] techno@version via source` — **le serveur web d'abord** (`web_search`, `web_read` : moteur du VPS, aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli, et on dit pourquoi (serveur éteint, séance dans le nuage, résultat vide) | `[VEILLE-IMPOSSIBLE] motif: pas-d-acces-web`, et le rapport le dit — **seulement après avoir cherché l'outil, y compris différé** (`ToolSearch`, `select:mcp__shinkofa-web__web_search,WebSearch,WebFetch`) |
 | Vision (images, captures) | une capture est lue et comparée | aucune preuve visuelle n'est affirmée ; on demande une description ou un test — **seulement après avoir essayé l'outil `Read` sur l'image** |
 | Coffre de savoir (MCP) | consultation directe | lecture des fichiers, et on le dit |
 | Navigateur de test | vérification d'interface | test automatisé, et on le dit |

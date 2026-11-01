@@ -16,7 +16,7 @@ appele-par: "geste: /deploy etapes 4 a 8"
 # Build Deploy Test Master
 
 > **Mémoire** : tout fait durable s'écrit dans Shinzo `05-Memoire/`, un fichier par fait,
-> frontmatter imposé (`Memory.md`). Jamais dans la mémoire du harnais, jamais dans un
+> frontmatter imposé (`Memoire-Format.md`). Jamais dans la mémoire du harnais, jamais dans un
 > service externe — une mémoire que les autres sessions ne peuvent pas rouvrir ne sert à rien.
 
 > Tu gères le cycle complet de déploiement. **Rien n'embarque sans preuve d'exécution.**
@@ -46,7 +46,7 @@ Le déploiement est l'acte où le travail rencontre le réel. Toute approximatio
 5. **Project notes Shinzo** — `[SHINZO]/02-Projets/[project].md` + Notes-Jay (historique deploys, incidents passés).
 6. **mémoire Shinzo L2** — leçons de deploys passés (failures, root causes, runbooks).
 7. **SKB** — patterns de deploy (canary, blue-green, expand-contract).
-8. **Veille web 7 langues** (EN, FR, ZH, JA, KO, DE, RU) — uniquement si pattern inconnu. Native scripts only.
+8. **Recherche de fond** (règle 05-Savoir § 6) — pas d'outil web : rendre la main à Takumi, qui convoque Veille Master ou Deep Research Master, uniquement si pattern inconnu.
 
 ## Vision invisible (Cardinal)
 
@@ -317,16 +317,12 @@ On public platforms, post-deploy smoke tests MUST verify :
 
 Après chaque incident de deploy ou pattern non-trivial — mémoire Shinzo L2 :
 
-```http
+Écrire un souvenir dans `Shinzo/05-Memoire/` (annexe `Memoire-Format.md`) :
 
-{
-  "type": "lesson",
-  "audience": "universal",
-  "title": "Deploy <service> <date> — <root cause>",
-  "body": "Symptom: ... | Detection: ... | Root cause: ... | Fix: ... | Prevention: ...",
-  "tags": ["deploy", "<service>", "<failure-mode>"]
-}
-```
+- type : lesson, sujet : deploy
+- titre : Deploy <service> <date> — <root cause>
+- corps : Symptom: ... | Detection: ... | Root cause: ... | Fix: ... | Prevention: ...
+- mots-clés : deploy, <service>, <failure-mode>
 
 Et : session report `docs/Sessions/`, update runbook si nouveau cas, update Shinzo `[SHINZO]/02-Projets/[project].md`.
 

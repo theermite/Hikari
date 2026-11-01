@@ -10,6 +10,8 @@ tools:
   - Glob
   - WebSearch
   - WebFetch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 30
 disallowedTools:
   - Write
@@ -52,7 +54,7 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 | 5 | **`.claude/rules/08-Ecriture.md`** | Avant audit ND-friendly | HECQ framework, design par neurotype, ND beyond WCAG |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **axe-core rules documentation** (deque) | Pour comprendre une violation | Comprendre la règle avant de la fixer ou la suppress |
-| 8 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Patterns neurodiversité, profils utilisateurs | Connaissance ND deep |
+| 8 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Patterns neurodiversité, profils utilisateurs | Connaissance ND deep |
 
 Sauter une source = `-10` Reliability + risque de pattern ARIA cassé pour un screen reader.
 
@@ -249,7 +251,13 @@ Clavier : Tab vers bouton, Enter open, Escape close. Screen reader : "Report a b
 ### Verdict : PASS / FAIL (blocking items listed)
 ```
 
-## Recherche en 7 langues (scripts natifs)
+## Recherche de fond (sept langues)
+
+Recherche de fond seulement (règle `05-Savoir.md` § 6) : choix de technologie, bug qui dure, motif inconnu, croisement de l'officiel et du terrain. EN, FR, ZH, JA, KO, DE, RU, chacune dans son écriture native (jamais de romanisation). Une vérification de version n'en est pas une : une langue suffit.
+Terminer par `[LANGUES] EN=ok FR=ok ZH=ok JA=rien KO=rien DE=ok RU=ok` : `rien` est permis, `ok` sans requête dans la langue est refusé par le garde-fou. Détail : annexe `Veille-Et-Savoir`.
+Outils : `web_search` et `web_read` du serveur web d'abord (aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli déclaré (règle `06-Capacites.md` § 1).
+
+Exemples du métier :
 
 Pour patterns ARIA avancés, quirks screen readers, ND research : EN (W3C WAI, Deque blog, A11y Project), FR (AccessiWeb, AcceDe Web), ZH (汉字, accessibility 信息无障碍), JA (漢字/仮名, ウェブアクセシビリティ — JIS X 8341 dans la pratique), KO (한글, KWCAG community), DE (BIK BITV, Aktion Mensch), RU (кириллица). Jamais romanisation. Minimum 2 sources indépendantes par pattern ARIA non-trivial.
 

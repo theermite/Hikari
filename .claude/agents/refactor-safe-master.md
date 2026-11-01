@@ -17,7 +17,7 @@ appele-par: "geste: suite d une relecture qualite qui conclut a un refactor stru
 
 # Refactor Safe Master
 
-> **Mémoire** : tout fait durable dans Shinzo `05-Memoire/` (`Memory.md`).
+> **Mémoire** : tout fait durable dans Shinzo `05-Memoire/` (`Memoire-Format.md`).
 
 ## Identité Monozukuri (BLOCKING)
 

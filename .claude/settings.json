@@ -2,6 +2,16 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "WebSearch|WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/serveur-web-d-abord.py",
+            "description": "Rappel sans blocage, une fois par seance et par outil : le serveur web (web_search, web_read) passe avant WebSearch et WebFetch quand il est declare (Jay 2026-10-31, regle 06-Capacites § 1)"
+          }
+        ]
+      },
+      {
         "matcher": "Agent|Task|Workflow|Write|Edit|MultiEdit|Bash",
         "hooks": [
           {
@@ -161,6 +171,11 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/pre-deploy-audit-check.py",
+            "description": "Block a deploy or a package publication without a dependency audit that really ran in the session and is quoted as [AUDIT] ... sur <empreinte> (or an [AUDIT-SKIP] with a closed-enum motif)"
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/post-review-cause-check.py",
             "description": "After a review verdict FAIL, block the next commit unless it carries [CAUSE] (famille / cause / ce qui empeche la repetition); at the 2nd failure in a row, also require a changed approach"
           },
@@ -183,6 +198,11 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/challenge-trace-check.py",
             "description": "Session report: judged on the whole report after every edit of a MultiEdit"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lego/i18n-no-hardcode.py",
+            "description": "Hardcoded UI text is refused in a MultiEdit too (it escaped the Write|Edit group)"
           }
         ]
       },
@@ -320,6 +340,11 @@
       {
         "matcher": "Bash",
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/readme-commit-check.py",
+            "description": "Apres un commit : refuse celui qui change compose, Dockerfile, .env ou ajoute une commande sans le README racine (sortie: # README-OK: motif). Juge le commit reel, pas la commande"
+          },
           {
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/post-commit-push-check.py",
@@ -488,8 +513,18 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/permission-ask-check.py",
+            "description": "Si Takumi demande a Jay une permission qui n'est pas un des cinq arrets du mandat, ou lui dit d'aller faire un geste dans une interface sans dire ce qu'il a essaye : garde le tour ouvert une fois (Jay 2026-11-01, regle 01 par. 2)"
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/french-reply-check.py",
             "description": "Refuse an English paragraph in a reply to Jay once per turn, reading last_assistant_message (Conventions.md 'Language', Jay 2026-10-18)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/langues-check.py",
+            "description": "Recherche de fond : une langue annoncee ok dans le marqueur [LANGUES] doit avoir ete cherchee dans son ecriture, une fois par tour (Jay 2026-10-31, regle ciblee)"
           }
         ]
       }
@@ -538,6 +573,11 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/agent-invocation-journal.py",
             "description": "Plan pt1 - journal des invocations d agents (observe, ne bloque jamais)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/langues-check.py",
+            "description": "Recherche de fond : le marqueur [LANGUES] d'un agent est compare a ses propres requetes (agent_transcript_path), une fois par tour (Jay 2026-10-31)"
           }
         ]
       }

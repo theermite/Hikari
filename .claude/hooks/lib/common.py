@@ -21,6 +21,7 @@ Use `format_block(...)` / `format_warn(...)` to keep messages consistent.
 
 from __future__ import annotations
 
+import atexit
 import json
 import re
 import subprocess
@@ -32,17 +33,26 @@ from typing import Any
 # --- I/O ----------------------------------------------------------------------
 
 
+_EVENT = ""             # the harness event of this run, learned when the input is read
+_PENDING: list[str] = []  # warnings waiting to be handed to the model at exit
+# The events whose `additionalContext` the harness gives to the model. Elsewhere (Stop, SessionEnd...) the field
+# does not exist: printing it would only be noise, so those warnings stay on stderr.
+_CONTEXT_EVENTS = ("PreToolUse", "PostToolUse", "UserPromptSubmit", "SessionStart")
+
+
 def read_hook_input() -> tuple[str, dict[str, Any]]:
     """Read stdin, return (raw_text, parsed_json_or_empty_dict).
 
     Hooks receive JSON on stdin from the Claude Code harness. If stdin is
     malformed or empty, return raw='', data={}.
     """
+    global _EVENT
     raw = sys.stdin.read()
     try:
         data = json.loads(raw) if raw else {}
     except (json.JSONDecodeError, ValueError):
         data = {}
+    _EVENT = str(data.get("hook_event_name") or "") if isinstance(data, dict) else ""
     return raw, data
 
 
@@ -76,9 +86,29 @@ def block(message: str) -> None:
     sys.exit(2)
 
 
+def emit_context(event: str, messages: list[str]) -> None:
+    """Hand `messages` to the model as ONE `additionalContext` document (read only on exit 0).
+
+    Why (2026-10-30): a warning on stderr with exit 0 is seen in a journal, never by the model — the Lego and
+    translation warnings were mute while 362 files carried hard-coded text.
+    """
+    if messages and event in _CONTEXT_EVENTS:
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": event,
+                                                 "additionalContext": "\n".join(messages)}}))
+        sys.stdout.flush()
+
+
+def _flush_pending() -> None:
+    emit_context(_EVENT, _PENDING)
+    _PENDING.clear()
+
+
 def warn(message: str) -> None:
-    """Print warning to stderr without blocking. Caller is responsible for exit 0."""
+    """Warn without blocking: on stderr for the human AND, at exit, to the model. Caller exits 0."""
     print(message, file=sys.stderr)
+    if not _PENDING:
+        atexit.register(_flush_pending)
+    _PENDING.append(message)
 
 
 def pass_through() -> None:
@@ -158,8 +188,11 @@ def format_warn(reason: str, action: str, reference: str | None = None) -> str:
 # the (slow, network-probing) gates. The patterns below match deploy ACTIONS,
 # never bare tool-name substrings.
 
+# Options may sit between `compose` and the verb: `docker compose -f prod.yml up`, `--profile prod up`.
+_COMPOSE_OPTS = r"(?:-\S+\s+(?:[^\s-]\S*\s+)?)*"
+
 _DEPLOY_PATTERNS = [
-    re.compile(r"\bdocker(?:-compose)?\s+(?:compose\s+)?up\b"),
+    re.compile(r"\bdocker(?:-compose)?\s+(?:compose\s+)?" + _COMPOSE_OPTS + r"up\b"),
     re.compile(r"\bdocker\s+stack\s+deploy\b"),
     re.compile(r"\bdeploy\.sh\b"),
     re.compile(r"\bvercel\s+(?:--prod|deploy)\b"),
@@ -176,7 +209,7 @@ _DEPLOY_PATTERNS = [
     # substring docker/deploy/systemctl (which appears in filenames/grep args).
     re.compile(
         r"\bssh\s+\S+\s+.*?(?:"
-        r"docker(?:-compose)?\s+(?:compose\s+)?(?:up|restart)|"
+        r"docker(?:-compose)?\s+(?:compose\s+)?" + _COMPOSE_OPTS + r"(?:up|restart)|"
         r"docker\s+stack\s+deploy|"
         r"systemctl\s+(?:restart|start|stop)|"
         r"deploy\.sh|"
@@ -185,7 +218,7 @@ _DEPLOY_PATTERNS = [
     # git pull chained into a deploy action (not the bare word "restart").
     re.compile(
         r"\bgit\s+pull\b.*?(?:"
-        r"docker(?:-compose)?\s+(?:compose\s+)?(?:up|restart)|"
+        r"docker(?:-compose)?\s+(?:compose\s+)?" + _COMPOSE_OPTS + r"(?:up|restart)|"
         r"systemctl\s+(?:restart|start|stop)|"
         r"deploy\.sh)"
     ),

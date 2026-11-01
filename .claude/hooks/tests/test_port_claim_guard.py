@@ -80,9 +80,16 @@ def test_a_filler_word_does_not_prove_ownership(tmp_path):
     assert r.returncode == 2
 
 
-def test_port_only_in_the_hand_written_list_is_still_known(tmp_path):
+def test_a_server_port_only_in_the_hand_written_list_is_not_an_owner_when_the_yaml_is_readable(tmp_path):
+    """Decision 2026-10-31: infra.yaml is the single source for the server; the hand-written file's stale rows
+    (retired services) must not claim ports. Measured: yaml covers 52 of 67 listening ports, the md 43."""
     r = _ecrire(_atelier(tmp_path, "Manabi"), _compose("8007"))
-    assert r.returncode == 2 and b"SearXNG" in r.stderr
+    assert r.returncode == 0 and b"8007" in r.stderr and b"SearXNG" not in r.stderr
+
+
+def test_the_hand_written_list_is_the_fallback_when_there_is_no_yaml(tmp_path):
+    infra = _infra_deux_machines(tmp_path)
+    assert 3004 in ports_registry.read_owners(infra)
 
 
 def test_unknown_port_warns_without_blocking(tmp_path):
@@ -194,3 +201,32 @@ def test_the_gap_between_the_two_lists_is_measured_per_port(tmp_path):
     assert seulement_yaml == [3020, 9001, 9003]     # 9002 est dans les deux
     assert seulement_md == [8040]
     assert ports_registry.divergence(tmp_path / "absent") == ([], [])
+
+
+# --- plages du yaml : cas limites (relecture du 2026-10-29) ---------------------------------------------
+
+def _infra_plage(tmp_path, plages: str):
+    (tmp_path / "registry").mkdir()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "registry" / "infra.yaml").write_text(f"meta:\n  v: 1\nports:\n{plages}databases:\n  x: y\n", encoding="utf-8")
+    (tmp_path / "docs" / "Port-Registry.md").write_text("## VPS\n\n| Port | Service |\n|---|---|\n", encoding="utf-8")
+    return tmp_path
+
+
+def test_an_inverted_yaml_range_still_names_its_ports(tmp_path):
+    owners = ports_registry.read_owners(_infra_plage(tmp_path, "  9003-9001: fleet\n"))
+    assert set(owners) == {9001, 9002, 9003}
+
+
+def test_a_range_with_equal_ends_names_one_port(tmp_path):
+    assert set(ports_registry.read_owners(_infra_plage(tmp_path, "  9001-9001: seul\n"))) == {9001}
+
+
+def test_the_divergence_reads_an_inverted_range_like_the_owners(tmp_path):
+    seulement_yaml, _ = ports_registry.divergence(_infra_plage(tmp_path, "  9003-9001: fleet\n"))
+    assert seulement_yaml == [9001, 9002, 9003]
+
+
+def test_a_range_and_a_single_line_for_the_same_port_both_own_it(tmp_path):
+    owners = ports_registry.read_owners(_infra_plage(tmp_path, "  9001-9002: fleet\n  9002: web\n"))
+    assert "fleet" in owners[9002] and "web" in owners[9002]

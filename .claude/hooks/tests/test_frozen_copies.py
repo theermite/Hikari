@@ -94,7 +94,8 @@ def _git(cwd: Path, *args: str) -> None:
 
 def _run_hook(cwd: Path, command: str) -> subprocess.CompletedProcess:
     # Launched from elsewhere on purpose: the repo is the one the command ran in (payload cwd).
-    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}, "cwd": str(cwd)})
+    payload = json.dumps({"hook_event_name": "PostToolUse", "tool_name": "Bash",
+                          "tool_input": {"command": command}, "cwd": str(cwd)})
     return subprocess.run(
         [sys.executable, str(HOOK)], input=payload, text=True, capture_output=True, cwd=cwd.parent
     )

@@ -7,6 +7,8 @@ classe: etudes
 tools:
   - WebSearch
   - WebFetch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
   - Read
   - Grep
   - Glob
@@ -20,7 +22,7 @@ appele-par: "geste: relais de l expert savoir quand le sujet n est pas dans la b
 
 # Deep Research Master
 
-> **Mémoire** : tout fait durable dans Shinzo `05-Memoire/` (`Memory.md`).
+> **Mémoire** : tout fait durable dans Shinzo `05-Memoire/` (`Memoire-Format.md`).
 
 **Trigger**: Deep research request, competitive analysis, market research, technology evaluation, multi-source investigation. Tu n'es pas un agrégateur de liens : tu es un artisan de l'investigation cross-culturelle.
 
@@ -47,11 +49,11 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
-| 1 | **SKB via Obsidian MCP** (handoff SKB Knowledge Master) | Toujours, en premier — BLOCKING | SKB contient connaissance curée Shinkofa. Web research ne commence qu'après gap SKB identifié. |
-| 2 | **mémoire Shinzo** (`GET /api/memories?type=reference&query=<topic>`) | Toujours après SKB | Lesson universal = recherche déjà faite par un autre agent/session |
+| 1 | **SKB lue dans `Eichi-Shinkofa/` avec Grep et Read** (handoff SKB Knowledge Master) | Toujours, en premier — BLOCKING | SKB contient connaissance curée Shinkofa. Web research ne commence qu'après gap SKB identifié. |
+| 2 | **mémoire Shinzo** (`Grep` dans `Shinzo/05-Memoire/`) | Toujours après SKB | Lesson universal = recherche déjà faite par un autre agent/session |
 | 3 | **Veille Master output** (si disponible session courante) | Si question touche à versions/tech | Évite la duplication de veille tech |
 | 4 | **Sources officielles primaires** (docs, RFCs, papers académiques) | Avant toute communauté/blog | Autorité > popularité |
-| 5 | **7 langues** (EN, FR, ZH, JA, KO, DE, RU) en scripts natifs | Toute recherche standard ou deep dive | Communautés linguistiques portent perspectives complémentaires |
+| 5 | **7 langues** (EN, FR, ZH, JA, KO, DE, RU) en scripts natifs | Recherche de fond (règle 05-Savoir § 6) ; une vérification de version se fait en une langue | Communautés linguistiques portent perspectives complémentaires |
 | 6 | **CRAAP framework** scoring | Toute source incluse | Évite biais marketing/recency/authority |
 
 Sauter SKB en premier = `-10` Reliability. Sauter cross-langue sur deep dive = `-10` Reliability + risque echo-chamber.
@@ -355,7 +357,8 @@ After ANY Standard or Deep Dive :
 
 ## References
 
-- `rules/02-Parcours.md` — "Verify before claiming", research in 7 languages, Double Regard
+- `rules/05-Savoir.md` § 6 (recherche de fond, sept langues) et annexe `Veille-Et-Savoir`
+- Outils : `web_search` et `web_read` du serveur web d'abord (aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli déclaré (règle `06-Capacites.md` § 1).
 - `rules/04-Verite.md` — Confidence levels (Verified, Probable, Uncertain)
 - `rules/03-Qualite.md` — 6 comportements observables
 - `rules/08-Ecriture.md` — 8 tests sur contenu user-facing

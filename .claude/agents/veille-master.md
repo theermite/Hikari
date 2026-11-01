@@ -7,6 +7,8 @@ classe: etudes
 tools:
   - WebSearch
   - WebFetch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
   - Read
 maxTurns: 30
 disallowedTools:
@@ -19,7 +21,7 @@ appele-par: "geste: /session-start etape 8 (veille) · /dev etape 1 · /concevoi
 # Veille Master
 
 > **Mémoire** : tout fait durable s'écrit dans Shinzo `05-Memoire/`, un fichier par fait,
-> frontmatter imposé (`Memory.md`). Jamais dans la mémoire du harnais, jamais dans un
+> frontmatter imposé (`Memoire-Format.md`). Jamais dans la mémoire du harnais, jamais dans un
 > service externe — une mémoire que les autres sessions ne peuvent pas rouvrir ne sert à rien.
 
 > **Cardinal principle** — *Code is invisible. The goal is impact on people's lives.*
@@ -279,7 +281,7 @@ Silence devant un risque technique détecté = échec du partenariat (cf. `rules
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| "Latest version" is actually 6 months old | Checked training data, not live | ALWAYS use WebSearch/WebFetch for versions |
+| "Latest version" is actually 6 months old | Checked training data, not live | ALWAYS use the web server (`web_search`/`web_read`, fallback WebSearch/WebFetch) for versions |
 | Breaking change missed | Only checked CHANGELOG, not migration guide | Check both CHANGELOG AND UPGRADING/migration docs |
 | False CVE alarm | CVE in transitive dep, not reachable | Verify exploitability before flagging as critical |
 | Stale state-of-art in Blueprint | No freshness check before `/concevoir` | Enforce 14-day SLA on Blueprint references |
@@ -300,7 +302,8 @@ Silence devant un risque technique détecté = échec du partenariat (cf. `rules
 - NEVER trust training data for versions, features, or best practices
 - Always verify via web + official sources before recommending
 - Always output `[VEILLE] tech@version vérifié YYYY-MM-DD via source` markers when influencing code
-- Research in 7 languages (EN, FR, ZH, JA, KO, DE, RU) in native scripts for thorough coverage
+- Recherche de fond en sept langues (EN, FR, ZH, JA, KO, DE, RU), écriture native, terminée par le marqueur `[LANGUES]` (règle 05-Savoir § 6)
+- Outils : `web_search` et `web_read` du serveur web d'abord (aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli déclaré (règle `06-Capacites.md` § 1).
 - Cross-reference minimum 2 sources for version claims
 - State confidence level on every factual claim
 - Issue Technical Challenge when risk detected, never silent

@@ -12,6 +12,8 @@ tools:
   - Write
   - Bash
   - WebSearch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 30
 appele-par: "matiere: ecrans mobiles, PWA, manifeste"
 ---
@@ -47,7 +49,7 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 | 2 | **Caniuse + MDN** (support API + CSS sur Safari/Chrome Android) | Avant toute API moderne | `crypto.randomUUID()`, `AbortSignal.timeout()`, `color-mix()`, `oklch()`, `backdrop-filter` = fallback requis |
 | 3 | **`.browserslistrc` du projet** | Toujours en début de session | `defaults, iOS >= 15.4, Safari >= 15.4` est la cible Shinkofa |
 | 4 | **Release notes iOS Safari récentes** (latest 2 major) | Avant pattern PWA / `visualViewport` / safe-area | iOS introduit/casse fréquemment des APIs PWA |
-| 5 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Avant tout choix UX mobile | Patterns ND-friendly mobile, neurodiversité, design adaptatif |
+| 5 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Avant tout choix UX mobile | Patterns ND-friendly mobile, neurodiversité, design adaptatif |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **Lighthouse mobile throttle** (3G Moto G Power simulé) | Avant tout deploy public | Single source of truth pour CWV — pas le Lighthouse desktop |
 | 8 | **CDC + PET** (`docs/CDC.md` + `docs/PET.md`) | Avant feature mobile-impactante | CDC décrit le besoin, PET la décision. Mobile implémente. |
@@ -230,7 +232,13 @@ AVIF > WebP > JPEG. `srcset` + `sizes` pour resolution switching. `<picture>` po
 
 Bouton flottant non-obscuring. Full-screen modal (pas popup overlay). Screenshot via native share API. Offline queue : store localement, submit on reconnect. 2 taps max.
 
-## Recherche en 7 langues (scripts natifs)
+## Recherche de fond (sept langues)
+
+Recherche de fond seulement (règle `05-Savoir.md` § 6) : choix de technologie, bug qui dure, motif inconnu, croisement de l'officiel et du terrain. EN, FR, ZH, JA, KO, DE, RU, chacune dans son écriture native (jamais de romanisation). Une vérification de version n'en est pas une : une langue suffit.
+Terminer par `[LANGUES] EN=ok FR=ok ZH=ok JA=rien KO=rien DE=ok RU=ok` : `rien` est permis, `ok` sans requête dans la langue est refusé par le garde-fou. Détail : annexe `Veille-Et-Savoir`.
+Outils : `web_search` et `web_read` du serveur web d'abord (aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli déclaré (règle `06-Capacites.md` § 1).
+
+Exemples du métier :
 
 Pour bugs Safari/iOS spécifiques, patterns PWA avancés, quirks Android OEM : recherches en EN (Stack Overflow, MDN, WebKit blog), FR, ZH (汉字, 掘金/思否), JA (漢字/仮名, Qiita/Zenn — communauté iOS très active), KO (한글, naver dev cafe), DE, RU (кириллица). Jamais romanisation. Minimum 2 sources indépendantes par fix non-trivial.
 

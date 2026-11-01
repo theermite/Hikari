@@ -58,6 +58,16 @@ Une seule source, générée. Un service qui démarre sur un port consulte le re
 registre est mis à jour **dans le même geste**, jamais après. Une dérive entre le registre et la
 machine réelle est un défaut, pas une note.
 
+## 6. La recherche de fond : sept langues, couverture prouvée
+
+Une **recherche de fond** (choix d'une technologie, bug qui dure après deux correctifs, enrichissement
+d'Eichi, motif inconnu) se fait en **sept langues** — EN, FR, ZH, JA, KO, DE, RU — dans l'écriture
+native, et croise l'officiel et le terrain. Une vérification de version ou de syntaxe n'en est pas une.
+
+Elle se termine par `[LANGUES] EN=ok FR=ok ZH=ok JA=rien KO=rien DE=ok RU=ok`. Dire `rien` est permis ;
+`ok` sans requête lancée dans cette langue est refusé. Un agent sans outil web ne cherche pas : il rend
+la main à Takumi, qui convoque l'agent de veille ou de recherche approfondie. (Jay, décision du 2026-10-31.)
+
 ## Annexes
 
 Lues au moment du travail qui les requiert — un garde-fou bloque l'écriture sinon (règle 01 § 7).
@@ -66,11 +76,11 @@ Lues au moment du travail qui les requiert — un garde-fou bloque l'écriture s
 |---|---|
 | `Memoire-Format` | avant d'écrire un souvenir : schéma, dépôt, sommaires |
 | `Provenance-Du-Contenu` | avant de publier : la légende fermée, la valeur lisible par machine, la mention visible |
-| `Veille-Et-Savoir` | la preuve de savoir avant d'écrire du code |
+| `Veille-Et-Savoir` | la preuve de savoir avant d'écrire du code, et le détail de la recherche de fond (§ 6) |
 
 ## Sans hook
 
-Le sommaire et le rappel sont tenus par du code. L'effet d'une consultation ne l'est pas : il se lit
+La couverture annoncée est tenue par `quality/langues-check.py`, pour Takumi et pour les agents (limites dans l'annexe). Le sommaire et le rappel sont tenus par du code. L'effet d'une consultation ne l'est pas : il se lit
 dans le compte rendu (« ce document a changé cette décision »), et la passe hebdomadaire compte les
 semaines sans consultation utile.
 

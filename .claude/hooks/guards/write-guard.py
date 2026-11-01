@@ -24,6 +24,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+from common import emit_context  # noqa: E402
+from ui_checks import check_lego_library  # noqa: E402
 from transcript_reader import is_said_file, norm_path  # noqa: E402
 
 
@@ -51,35 +53,6 @@ WEAK_HASH_PATTERNS = [
     (r"hashlib\.sha1", "SHA1"),
 ]
 
-LEGO_COMPONENTS = (
-    "Button|Input|Textarea|Badge|Card|Skeleton|Modal|EmptyState|"
-    "ThemeProvider|ThemeToggle|BackToTop|RevealOnScroll|LanguageSwitcher|"
-    "CookieConsent|TagInput|DictationButton|CollapsibleCard|PromptDialog|"
-    "SaveIndicator|ConfirmModal|SafeImage|BodyGraph|BodyGraphCenter|"
-    "BodyGraphChannel|BodyGraphLegend|StructuredData|ArticleSchema|"
-    "BreadcrumbSchema|FAQSchema|ReviewSchema|PortfolioSchema|"
-    "PortfolioItemSchema|PortfolioListSchema|ServiceSchema|"
-    "ToastProvider|Toast|"
-    "FilePicker|FilePickerUploadZone|FilePickerBrowseGrid|"
-    "FilePickerPreview|ImagePicker|ImageBrowserModal|"
-    "NavShell|NavLink|NavGroup|"
-    "SettingsSection|RevealToggle|PasswordChangeForm|"
-    "AvatarUpload|AvatarCropModal|"
-    "EnergySlider|DayScore|KiGauge|KiBudgetGauges|KiCheckIn|"
-    "SportTracker|MealTracker|TaskCard|SleepTracker|"
-    "KiBudgetMini|SleepSummaryCard|EnergyTrendChart|EnergyPixelMap|"
-    "TodayTasksList|QuickActionGrid|ProfileChipBar|"
-    "QuestionRenderer|ProgressTracker|LoadingStepper|PhaseCard|"
-    "CollapsibleSection|LikertOptions|SingleChoice|MultiChoice|OpenText|"
-    "DodgeMaster|SkillshotTrainer|MultiTask|ImagePairs"
-)
-
-# Generated / vendored / test material: a Lego duplicate or a hardcoded string
-# there is not the defect these checks exist to catch.
-UI_SKIP_PATTERNS = (
-    "Shinkofa-Shared/", "node_modules/", ".test.", ".spec.",
-    ".stories.", "__tests__", ".claude/",
-)
 
 # A file that SHOWS a forbidden pattern is not doing it: a security test asserts
 # on a fake key, a doc teaches the counter-example. Blocking those blocks exactly
@@ -233,48 +206,6 @@ def check_stack_versions(filename, content):
                 "ACTION: Verify version via Docker Hub. If already verified, continue."
             )
     return None
-
-
-def _skips_ui_check(file_path, ext):
-    if ext not in ("tsx", "jsx"):
-        return True
-    return any(p in file_path for p in UI_SKIP_PATTERNS)
-
-
-def check_lego_library(file_path, ext, content):
-    if _skips_ui_check(file_path, ext):
-        return None
-    pattern = rf"(export )?(function|const) ({LEGO_COMPONENTS})[^a-zA-Z]"
-    match = re.search(pattern, content)
-    if not match:
-        return None
-    comp_name_match = re.search(rf"({LEGO_COMPONENTS})", match.group(0))
-    if not comp_name_match:
-        return None
-    comp = comp_name_match.group(1)
-    return (
-        f"BLOCKED: '{comp}' already exists in @shinkofa/ui. "
-        "RECOVERY: Import from @shinkofa/ui instead of redefining "
-        "(e.g. `import { " + comp + " } from '@shinkofa/ui'`). "
-        "NEVER duplicate a Lego component. See rules/Quality.md Lego Library."
-    )
-
-
-def check_i18n_hardcoded(file_path, ext, content):
-    if _skips_ui_check(file_path, ext):
-        return None
-    messages = []
-    if re.search(r'(title|placeholder|aria-label|alt)="[A-Z][a-zA-Z ]{3,}"', content):
-        messages.append(
-            "WARNING: Hardcoded user-facing string in JSX attribute. "
-            "ACTION: Replace with @shinkofa/i18n key via labels prop pattern."
-        )
-    if re.search(r">[A-Z][a-zA-Z ]{3,}<", content):
-        messages.append(
-            "WARNING: Hardcoded user-facing text in JSX. "
-            "ACTION: Replace with {t('namespace:key')} from @shinkofa/i18n."
-        )
-    return "\n".join(messages) if messages else None
 
 
 def check_hs256(ext, content, file_path=""):
@@ -466,7 +397,6 @@ def _blockers(raw, file_path, filename, name, ext, dirname, content):
 def _warnings(file_path, filename, name, ext, content):
     return [
         check_stack_versions(filename, content),
-        check_i18n_hardcoded(file_path, ext, content),
         check_naming(file_path, filename, name, ext),
         check_hook_protection(file_path),
         check_uuidv7(file_path, content),
@@ -487,9 +417,10 @@ def main():
             print(msg, file=sys.stderr)
             sys.exit(2)
 
-    for msg in _warnings(file_path, filename, name, ext, content):
-        if msg:
-            print(msg, file=sys.stderr)
+    avertissements = [msg for msg in _warnings(file_path, filename, name, ext, content) if msg]
+    for msg in avertissements:
+        print(msg, file=sys.stderr)
+    emit_context(str(data.get("hook_event_name") or ""), avertissements)   # stderr + exit 0 never reaches the model
 
     sys.exit(0)
 

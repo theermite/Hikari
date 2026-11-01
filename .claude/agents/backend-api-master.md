@@ -247,7 +247,7 @@ URL-based: `/api/v1/`. New breaking changes → `/api/v2/`. Non-breaking additio
 - FastAPI for a new non-AI/ML backend (contredit D24)
 - Bandit / Phoenix / Oban version with known CVE non patché
 
-## Critical Path Testing (Quality.md)
+## Critical Path Testing (Tests-Et-Mesures.md)
 
 Auth/payment/encryption = 95% coverage + MC/DC (conditions 4+). Anti-Circular:
 - Layer 1 (algorithmic): StreamData PBT (Elixir) / Hypothesis (Python), Mutant.ex / mutmut, Schemathesis fuzzing

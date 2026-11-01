@@ -12,6 +12,8 @@ tools:
   - Write
   - Bash
   - WebSearch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 30
 appele-par: "geste: /dev etape 8 (traductions FR/EN/ES)"
 ---
@@ -50,7 +52,7 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 | 5 | **`rules/08-Ecriture.md`** | TOUJOURS — agent user-facing | Ton factuel, jamais condescendant, pas de dark patterns dans copy |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **Unicode CLDR** | Pour règles de pluralization, format date/nombre | Source canonique multi-langues |
-| 8 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Pour voix brand par locale | Domain 11 Communication & Marketing |
+| 8 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Pour voix brand par locale | Domain 11 Communication & Marketing |
 
 Sauter une source = `-10` Reliability + risque de raw key prod ou ton brand cassé.
 
@@ -222,7 +224,13 @@ FR : +15-20% vs EN. ES : +20-25%. **Règle** : designer avec 30% expansion headr
 
 EUR default via `useFormattedCurrency`. `Intl.NumberFormat` avec `style: 'currency'` handle : FR `1 234,56 €`, EN `€1,234.56`, ES `1.234,56 €`. Multi-currency ready : accept currency code en param.
 
-## Recherche en 7 langues (scripts natifs)
+## Recherche de fond (sept langues)
+
+Recherche de fond seulement (règle `05-Savoir.md` § 6) : choix de technologie, bug qui dure, motif inconnu, croisement de l'officiel et du terrain. EN, FR, ZH, JA, KO, DE, RU, chacune dans son écriture native (jamais de romanisation). Une vérification de version n'en est pas une : une langue suffit.
+Terminer par `[LANGUES] EN=ok FR=ok ZH=ok JA=rien KO=rien DE=ok RU=ok` : `rien` est permis, `ok` sans requête dans la langue est refusé par le garde-fou. Détail : annexe `Veille-Et-Savoir`.
+Outils : `web_search` et `web_read` du serveur web d'abord (aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli déclaré (règle `06-Capacites.md` § 1).
+
+Exemples du métier :
 
 Pour patterns i18n avancés (ICU, plural rules, CLDR), localisation idioms, voix brand par marché : EN (i18next docs, FormatJS, MDN Intl), FR (Linguee FR, traduction académique), ZH (汉字, 知乎 翻译), JA (漢字/仮名, Qiita i18n — communauté très active), KO (한글), DE (Verständlichkeit), RU (кириллица, Habr i18n). Jamais romanisation. Minimum 2 sources indépendantes par décision archi i18n.
 

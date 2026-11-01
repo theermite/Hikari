@@ -37,12 +37,12 @@ appele-par: "matiere: migrations, schemas, requetes SQL/Ecto"
 | Source | Quoi | Quand consulter |
 |--------|------|-----------------|
 | **Logs PostgreSQL** | `/var/log/postgresql/postgresql-*.log` — slow query, deadlock, autovacuum | TOUJOURS L1 avant toute hypothèse |
-| **mémoire Shinzo (L2)** | `POST /api/memories?type=reference&category=database` — incidents passés, schemas critiques, recettes de migration | Avant toute migration sur table critique, après tout incident |
-| **SKB** (Obsidian MCP) | Domain : `08-Database-Patterns/`, `10-Infrastructure/PostgreSQL/`, retours incidents | Avant toute décision d'architecture data |
+| **mémoire Shinzo (L2)** | `Grep` dans `Shinzo/05-Memoire/` — incidents passés, schemas critiques, recettes de migration | Avant toute migration sur table critique, après tout incident |
+| **SKB** (lue dans `Eichi-Shinkofa/` avec Grep et Read) | Domain : `08-Database-Patterns/`, `10-Infrastructure/PostgreSQL/`, retours incidents | Avant toute décision d'architecture data |
 | **`pg_stat_*` views** | `pg_stat_activity`, `pg_stat_statements`, `pg_stat_user_indexes`, `pg_locks` | Diagnostic perf, locks, indices morts |
 | **Migration folder** | `priv/repo/migrations/` (Ecto), `alembic/versions/` (Python), `prisma/migrations/` (TS) | Avant écriture migration : qui touche cette table ? quand ? pourquoi ? |
 | **Veille (web)** | PostgreSQL release notes (18.x), Ecto/SQLAlchemy/Prisma docs, CVE PostgreSQL | Avant adoption feature, avant version upgrade |
-| **Recherche 7 langues** | EN, FR, ZH (汉字), JA (漢字/仮名), KO (한글), DE, RU (кириллица) — scripts natifs OBLIGATOIRES | Patterns inconnus, comportements PG bizarres, optimisations spécifiques |
+| **Recherche de fond** | Rendre la main à Takumi pour Veille Master / Deep Research Master (pas d'outil web ; règle 05-Savoir § 6) | Patterns inconnus, comportements PG bizarres, optimisations spécifiques |
 
 ## Vision invisible — les 3 Layers en database
 
@@ -109,7 +109,7 @@ Avant TOUTE modification de schema ou migration :
 
 ## Schema Design Rules
 
-- `uuidv7()` pour toutes les primary keys (sortable, performant — Conventions.md)
+- `uuidv7()` pour toutes les primary keys (sortable, performant — Interface.md)
 - `snake_case` pour tables (pluriel) et colonnes
 - `created_at`, `updated_at` sur chaque table (triggers auto)
 - Soft delete (`deleted_at`) préféré au hard delete
@@ -253,7 +253,7 @@ Après toute migration significative, incident DB résolu, ou pattern d'optimisa
 
 **Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé).
 Lire : chercher dans `Shinzo/05-Memoire/` avant toute recherche web. Écrire : un fait durable
-= un fichier, jamais une entrée dans un service externe. Règle : `Memory.md`.
+= un fichier, jamais une entrée dans un service externe. Règle : `Memoire-Format.md`.
 
 La mémoire transmet le métier. Pas de mémoire Shinzo = artisanat anonyme.
 
@@ -268,5 +268,5 @@ La mémoire transmet le métier. Pas de mémoire Shinzo = artisanat anonyme.
 - `rules/03-Qualite.md` — coverage floors, test reliability metrics, Test Runtime Hygiene
 - `rules/Security.md` — app_user permissions, encryption, GDPR cascade delete
 - `rules/07-Securite.md` — PII rules ABSOLU
-- `rules/08-Ecriture.md` — uuidv7, snake_case, schema source of truth
+- `Interface.md` (uuidv7) et `Conventions-Et-Pile.md` (snake_case, schema source of truth)
 - `rules/03-Qualite.md` — 6 comportements observables

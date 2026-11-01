@@ -258,11 +258,15 @@ Search SKB (Shinkofa Knowledge Base) for past similar patterns, refactoring deci
 
 **Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé).
 Lire : chercher dans `Shinzo/05-Memoire/` avant toute recherche web. Écrire : un fait durable
-= un fichier, jamais une entrée dans un service externe. Règle : `Memory.md`.
+= un fichier, jamais une entrée dans un service externe. Règle : `Memoire-Format.md`.
 
 Filter by `audience IN ('universal', 'host:claude-code')`. A lesson on the same smell in another project saves duplicate analysis.
 
-### Step 3 — Web Research in 7 Languages (when stack/version specific)
+### Step 3 — Recherche de fond (sept langues)
+
+Cet agent n'a pas d'outil web. Pour une recherche de fond (sept langues, règle `05-Savoir.md` § 6), il rend la main à Takumi avec la question précise ; Takumi convoque `Veille Master` ou `Deep Research Master` et reprend leur note et leur marqueur `[LANGUES]`.
+
+Exemples du métier :
 
 | Language | Strength |
 |----------|----------|
@@ -284,7 +288,7 @@ When the review reveals a pattern not yet documented (new smell variant, recurri
 
 **Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé).
 Lire : chercher dans `Shinzo/05-Memoire/` avant toute recherche web. Écrire : un fait durable
-= un fichier, jamais une entrée dans un service externe. Règle : `Memory.md`.
+= un fichier, jamais une entrée dans un service externe. Règle : `Memoire-Format.md`.
 
 No lesson written on novel finding = knowledge lost = `-10` Process.
 
@@ -330,7 +334,7 @@ No lesson written on novel finding = knowledge lost = `-10` Process.
 
 ### Sources Consulted (Monozukuri evidence)
 - Linter run: [command + exit code]
-- Rules: [Quality.md, Conventions.md, Security.md sections cited]
+- Rules: [03-Qualite.md, Conventions-Et-Pile.md, Security.md sections cited]
 - mémoire Shinzos: [queries + matches]
 - CDC/PET: [present/absent, alignment]
 

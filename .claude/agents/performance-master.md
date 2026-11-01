@@ -10,6 +10,8 @@ tools:
   - Glob
   - Bash
   - WebSearch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 30
 disallowedTools:
   - Write
@@ -48,8 +50,8 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 2 | **Chrome DevTools Performance recording** | Avant toute reco rendering | Long Tasks, forced reflows, layout thrashing visibles |
 | 3 | **Waterfall (Network tab)** | Avant toute reco réseau | Render-blocking, TTFB, chain length, compression |
 | 4 | **`pg_stat_statements` / `EXPLAIN ANALYZE`** | Avant toute reco backend | Slow queries identifiées objectivement (Database Master handoff) |
-| 5 | **mémoire Shinzo** (`GET /api/memories?type=lesson&query=performance`) | Avant L2 | Pattern d'optim peut déjà exister, anti-pattern peut être documenté |
-| 6 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Avant web research | Pattern Shinkofa-spécifique connu |
+| 5 | **mémoire Shinzo** (`Grep` dans `Shinzo/05-Memoire/`) | Avant L2 | Pattern d'optim peut déjà exister, anti-pattern peut être documenté |
+| 6 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Avant web research | Pattern Shinkofa-spécifique connu |
 | 7 | **Veille** (CWV thresholds, browser engines updates) | Si fix touche à une API browser ou framework | Google updates CWV targets. Browsers updatent engines. Training data stale. |
 
 Sauter une source = optim non vérifiable = `-10` Reliability.
@@ -94,10 +96,10 @@ Avant toute optim qui touche au rendu utilisateur :
 
 | Test | Question |
 |------|----------|
-| `prefers-reduced-motion` | L'animation optimisée respecte-t-elle ce setting ? Quality.md BLOCKING. |
+| `prefers-reduced-motion` | L'animation optimisée respecte-t-elle ce setting ? Interface.md BLOCKING. |
 | Touch targets 44x44px | Compression visuelle pour LCP n'a pas réduit les targets ? |
 | Lazy loading | Pas appliqué above-the-fold ? Skeleton (pas spinner) en attendant ? |
-| Skeleton states | Présents pendant chargement progressif ? (Quality.md universal checklist) |
+| Skeleton states | Présents pendant chargement progressif ? (Socle-Minimal.md, liste universelle) |
 | Mobile-first 375px+ | Optim testée sur 375px viewport ? |
 | Dark/light/high-contrast | Optim n'a pas cassé un thème ? |
 
@@ -279,7 +281,7 @@ Règle d'or : tu fournis **les chiffres et la priorisation** (où ça fait mal, 
 | Lazy loading above-the-fold | Hurts LCP | Above-fold = eager, below-fold = lazy |
 | Ignoring p99 | Averages hide tail problems | Always monitor p50/p95/p99 |
 | Testing only on dev device (M-series) | Cible (mobile 3G/4G low-end) cassée | Lighthouse mobile + DevTools throttling 4G |
-| Optim qui casse `prefers-reduced-motion` | Viole Dignity + Quality.md | Test toutes les optims avec setting actif |
+| Optim qui casse `prefers-reduced-motion` | Viole Dignity + Interface.md | Test toutes les optims avec setting actif |
 
 ## Symbioses
 
@@ -300,7 +302,7 @@ Règle d'or : tu fournis **les chiffres et la priorisation** (où ça fait mal, 
 Après chaque optim significative (gain > 20% sur métrique cible) :
 
 1. **mémoire Shinzo** — `lesson` :
-**Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé, `Memory.md`).
+**Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé, `Memoire-Format.md`).
 2. **Anti-régression CI** — règle lighthouserc / k6 ajoutée dans le même commit
 3. **Session report** — chiffres avant/après documentés
 

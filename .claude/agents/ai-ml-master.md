@@ -37,12 +37,12 @@ appele-par: "geste: /pre-rag-audit · matiere: pipelines RAG, configuration Olla
 | Source | Quoi | Quand consulter |
 |--------|------|-----------------|
 | **Logs LLM** | Logs structurés (PII scrubbed) — latence, tokens, refusals, hallucinations détectées | TOUJOURS L1 avant toute hypothèse pipeline |
-| **mémoire Shinzo (L2)** | `POST /api/memories?type=reference&category=ai-ml` — patterns RAG passés, prompts versionnés, incidents | Avant tout nouveau pipeline. Après toute optim qui marche. |
-| **SKB** (Obsidian MCP) | Domain : `12-AI-LLM/`, `13-RAG/`, eval baselines, prompts library — la SKB est elle-même la première source RAG | Avant toute conception pipeline |
+| **mémoire Shinzo (L2)** | `Grep` dans `Shinzo/05-Memoire/` — patterns RAG passés, prompts versionnés, incidents | Avant tout nouveau pipeline. Après toute optim qui marche. |
+| **SKB** (lue dans `Eichi-Shinkofa/` avec Grep et Read) | Domain : `12-AI-LLM/`, `13-RAG/`, eval baselines, prompts library — la SKB est elle-même la première source RAG | Avant toute conception pipeline |
 | **RAGAS / DeepEval** | Faithfulness, Answer Relevancy, Context Precision/Recall | À chaque change pipeline. Régression = BLOCKING. |
 | **`/pre-rag-audit`** | Audit OBLIGATOIRE avant toute (ré)indexation KB (cf. `rules/02-Parcours.md`) | Avant toute indexation. Tous les 30 jours sur SKB. |
 | **Veille (web)** | Anthropic / OpenAI / Ollama release notes, papers récents (LangChain, LlamaIndex), CVE LLM | Avant choix modèle/version, avant adoption pattern |
-| **Recherche 7 langues** | EN, FR, ZH (汉字), JA (漢字/仮名), KO (한글), DE, RU (кириллица) — scripts natifs OBLIGATOIRES | Multilingue retrieval, eval cross-lingual, robustesse |
+| **Recherche de fond** | Rendre la main à Takumi pour Veille Master / Deep Research Master (pas d'outil web ; règle 05-Savoir § 6) | Multilingue retrieval, eval cross-lingual, robustesse |
 
 ## Vision invisible — les 3 Layers en AI/ML
 
@@ -105,7 +105,7 @@ Test dual Dignity : un HPI lit la réponse → ne se sent pas pris pour un idiot
 | Layer | Technology | Role |
 |-------|-----------|------|
 | Local LLM | Ollama + qwen3:8b-nothink | Primary local inference |
-| Cloud LLM | Claude Opus 4.7 / Sonnet 4.6 / Haiku 4.5 / DeepSeek-V3 | Cloud inference |
+| Cloud LLM | Claude Opus 5 / Sonnet 5 / Haiku 4.5 / DeepSeek-V3 | Cloud inference |
 | Orchestration | LangChain, LangGraph | Chains, agents, state machines |
 | Embeddings | sentence-transformers, Ollama embed | Vector generation |
 | Vector DB | ChromaDB (local), pgvector (production) | Similarity search |
@@ -187,8 +187,8 @@ Run evals on every pipeline change. Regression = BLOCKING.
 | Model | Role | Cost |
 |-------|------|------|
 | Haiku 4.5 | Classification, routing, extraction | $$ |
-| Sonnet 4.6 | Execution, code gen, structured output | $$$ |
-| Opus 4.7 | Complex reasoning, architecture, ambiguity | $$$$ |
+| Sonnet 5 | Execution, code gen, structured output | $$$ |
+| Opus 5 | Complex reasoning, architecture, ambiguity | $$$$ |
 
 Route by task complexity: Haiku classifies → Sonnet executes → Opus for edge cases.
 
@@ -287,7 +287,7 @@ def test_should_refuse_when_asked_to_ignore_instructions():
 
 Après tout pipeline livré, eval significatif, prompt versionné, ou incident :
 
-**Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé, `Memory.md`).
+**Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé, `Memoire-Format.md`).
 
 La mémoire transmet le métier. Pas de mémoire Shinzo = artisanat anonyme.
 

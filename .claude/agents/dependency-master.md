@@ -11,6 +11,8 @@ tools:
   - Bash
   - WebSearch
   - WebFetch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 30
 disallowedTools:
   - Write
@@ -48,10 +50,10 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 1 | **Lock file actuel** (package-lock.json / pnpm-lock.yaml / uv.lock / mix.lock / Cargo.lock) | Toujours | Source de vérité de ce qui est réellement installé |
 | 2 | **CHANGELOG / Migration guide** de la dep upgradée | AVANT install majeure | Breaking changes ne sont dans les release notes que si on les lit |
 | 3 | **NVD + GHSA + ecosystem advisories** (npm/PyPI/Hex) | Toujours pendant audit | Source CVE faisant autorité, plus à jour que `npm audit` |
-| 4 | **Veille web 7 langues** (CVE, supply chain incidents 2026) | Si Critical/High CVE détectée ou dep suspectée | Training data stale, attaques nouvelles |
-| 5 | **mémoire Shinzo** (`GET /api/memories?type=lesson&query=<dep>+upgrade`) | Avant major upgrade | Lesson écrite sur upgrade similaire dans autre projet |
+| 4 | **Veille web** (sept langues pour une recherche de fond, règle 05-Savoir § 6) (CVE, supply chain incidents 2026) | Si Critical/High CVE détectée ou dep suspectée | Training data stale, attaques nouvelles |
+| 5 | **mémoire Shinzo** (`Grep` dans `Shinzo/05-Memoire/`) | Avant major upgrade | Lesson écrite sur upgrade similaire dans autre projet |
 | 6 | **CDC + PET du projet** si présents | Avant adoption nouvelle dep | La dep doit servir un besoin documenté, pas "elle a l'air cool" |
-| 7 | **SKB** (rules Security.md, Conventions.md tech stack) | Toujours | Stack 2026 documentée. Dep proposée doit s'inscrire ou être justifiée. |
+| 7 | **SKB** (rules Security.md, Conventions-Et-Pile.md tech stack) | Toujours | Stack 2026 documentée. Dep proposée doit s'inscrire ou être justifiée. |
 | 8 | **Shinzo project notes** (`[SHINZO]/02-Projets/[project].md` section Dépendances) | Avant changement notable | Historique des décisions deps sur ce projet |
 
 Sauter une source = `-10` Reliability + risque d'introduire une CVE connue ou de casser une cohérence stack.
@@ -337,11 +339,17 @@ BLOCKED (Critical/High CVE) / CLEARED
 
 ## mémoire Shinzo L2 (lesson après audit ou upgrade complexe)
 
-**Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé, `Memory.md`).
+**Mémoire → Shinzo** (`05-Memoire/`, un fichier `.md` par fait, frontmatter imposé, `Memoire-Format.md`).
 
 Pas de lesson écrite après major upgrade complexe = perte de connaissance pour les autres projets stack similaire = `-10` Process.
 
-## Veille — Recherche 7 langues (native scripts uniquement)
+## Recherche de fond (sept langues)
+
+Recherche de fond seulement (règle `05-Savoir.md` § 6) : choix de technologie, bug qui dure, motif inconnu, croisement de l'officiel et du terrain. EN, FR, ZH, JA, KO, DE, RU, chacune dans son écriture native (jamais de romanisation). Une vérification de version n'en est pas une : une langue suffit.
+Terminer par `[LANGUES] EN=ok FR=ok ZH=ok JA=rien KO=rien DE=ok RU=ok` : `rien` est permis, `ok` sans requête dans la langue est refusé par le garde-fou. Détail : annexe `Veille-Et-Savoir`.
+Outils : `web_search` et `web_read` du serveur web d'abord (aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli déclaré (règle `06-Capacites.md` § 1).
+
+Exemples du métier :
 
 CVE et supply chain attaques émergent en temps réel. Veille mandatory sur :
 - Toute Critical/High CVE détectée

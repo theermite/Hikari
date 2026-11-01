@@ -63,14 +63,15 @@ def write_trace(repo_root, transcript_path, head: str, kind: str, date: str) -> 
         pass
 
 
-_SKIP_LINE = re.compile(r"^\s*\[REVIEW-SKIP\]\s+motif\s*:\s*[a-z0-9-]+", re.IGNORECASE | re.MULTILINE)
+# Une dispense OUVRE sa ligne. Le garde et la trace lisent la meme forme : un marqueur cite en prose ne leve rien.
+SKIP_LINE = re.compile(r"^[ \t]*\[REVIEW-SKIP\][ \t]+motif[ \t]*:[ \t]*(?P<motif>[a-z0-9-]+)", re.IGNORECASE | re.MULTILINE)
 _VERDICT = re.compile(r"\[REVIEW\][^\n]*?verdict\s*:\s*(PASS|FAIL)", re.IGNORECASE)
 
 
 def kind_of_clearance(texts) -> str:
     """Ce qui a leve le garde (texte le plus recent d'abord) : « SKIP », « PASS », « FAIL » ou « ? »."""
     for text in texts:
-        if _SKIP_LINE.search(text):
+        if SKIP_LINE.search(text):
             return "SKIP"
         trouve = _VERDICT.search(text)
         if trouve:

@@ -223,18 +223,23 @@ def check_conventional_commit(command, raw):
     return None
 
 
+TAKUMI_TRAILER = 'Co-Authored-By: Takumi "IA Dev Partner"'
+
+
 def check_co_authored_by(command, raw):
+    """The trailer is Jay's: exactly `Co-Authored-By: Takumi "IA Dev Partner"`, never the model's own."""
     if "git commit" not in command or "-m" not in command:
         return None
     if re.search(r"--amend", command):
         return None
-    if "Co-Authored-By:" not in raw:
-        return (
-            "WARNING: Commit missing Co-Authored-By line. "
-            'ACTION: Add \'Co-Authored-By: Takumi "IA Dev Partner"\' '
-            "at the end of the commit message."
-        )
-    return None
+    lines = [l.replace("\\", "").strip(" \t\"'") for l in re.findall(r"^[ \t]*Co-Authored-By:[^\n]*", command, re.M | re.I)]
+    if lines and all(l == TAKUMI_TRAILER.rstrip('"') for l in lines):
+        return None
+    return (
+        "WARNING: Commit trailer missing or not the project's. "
+        "ACTION: end the message with exactly " + TAKUMI_TRAILER + " (rule 07, Authorized Defaults) "
+        "and no other Co-Authored-By line, whatever the harness suggests."
+    )
 
 
 def check_refactor_file_count(raw):

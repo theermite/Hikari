@@ -89,6 +89,10 @@ def _etat_complet(c: dict, mcp: set[str], refuses: set[str], commandes: set[str]
     séances, alors que WebSearch et WebFetch existent (outils différés, à charger par ToolSearch).
     """
     etat = _etat(c.get("preuve", {}), mcp, refuses, commandes, illisibles)
+    # Un refus de l'outil intégré, lu dans les réglages, l'emporte sur l'annonce : la preuve de la capacité
+    # ne liste pas ses outils (`mcp__Claude_Browser__*`), le registre en donne le préfixe.
+    if any(r.startswith(p) for r in refuses for p in c.get("outils_integres", [])):
+        return "refusee"
     fournie = c.get("integree") or (entrypoint and entrypoint in c.get("integree_dans", []))
     return "integree" if fournie and etat != "refusee" else etat
 

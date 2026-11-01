@@ -10,6 +10,8 @@ tools:
   - Glob
   - WebSearch
   - WebFetch
+  - mcp__shinkofa-web__web_search
+  - mcp__shinkofa-web__web_read
 maxTurns: 30
 disallowedTools:
   - Write
@@ -48,7 +50,7 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 | 1 | **`@shinkofa/ui` inventory** (inventaire genere, `hooks/lego/ui-inventory.json`) | TOUJOURS avant proposer un pattern UI | Lego First. Pattern existant doit être réutilisé, pas réinventé. |
 | 2 | **`rules/08-Ecriture.md`** | TOUJOURS — agent user-facing | 8 tests + 7 moments de vérité BLOCKING |
 | 3 | **`.claude/rules/08-Ecriture.md`** | Avant toute feature touchant cognitif/émotionnel | HECQ framework, design par neurotype |
-| 4 | **SKB** (Shinkofa Knowledge Base via Obsidian MCP) | Avant toute décision UX | Coaching, neurodiversité, communication — domaines déjà documentés |
+| 4 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Avant toute décision UX | Coaching, neurodiversité, communication — domaines déjà documentés |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 6 | **`@shinkofa/i18n` namespaces** | Avant proposer copy | 20 namespaces, FR source of truth, longueur 30% expansion |
 | 7 | **CDC + PET du projet** | Avant feature ayant comportement métier | CDC = intention. PET = décision archi. UX implémente l'intention. |
@@ -230,7 +232,13 @@ Adaptation cumulative (pas binaire). Onboarding demande préférences. Dimension
 
 Pour chaque nouveau flow : (1) define persona (neurotype, niveau, état émotionnel), (2) define goal, (3) per step évalue : visibilité, affordance, feedback, forgiveness (score 0/1/2), (4) threshold : moyenne >= 1.5, zéro 0-scores sur critical path.
 
-## Recherche en 7 langues (scripts natifs)
+## Recherche de fond (sept langues)
+
+Recherche de fond seulement (règle `05-Savoir.md` § 6) : choix de technologie, bug qui dure, motif inconnu, croisement de l'officiel et du terrain. EN, FR, ZH, JA, KO, DE, RU, chacune dans son écriture native (jamais de romanisation). Une vérification de version n'en est pas une : une langue suffit.
+Terminer par `[LANGUES] EN=ok FR=ok ZH=ok JA=rien KO=rien DE=ok RU=ok` : `rien` est permis, `ok` sans requête dans la langue est refusé par le garde-fou. Détail : annexe `Veille-Et-Savoir`.
+Outils : `web_search` et `web_read` du serveur web d'abord (aucun modèle appelé, aucun frais par requête) ; `WebSearch` et `WebFetch` seulement en repli déclaré (règle `06-Capacites.md` § 1).
+
+Exemples du métier :
 
 Pour patterns UX avancés, recherche psycho cognitive, design tokens, ND research : EN (Nielsen Norman, Smashing, A11y Project), FR, ZH (汉字, UX Coffee 知乎), JA (漢字/仮名, UX MILK, note.com — très bonne recherche cognitive), KO (한글, brunch.co.kr), DE, RU (кириллица, Habr UX). Jamais romanisation. Minimum 2 sources indépendantes par décision archi.
 

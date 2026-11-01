@@ -16,6 +16,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterator
 
+from echoed_text import echoed_text
 from review_launch import brief_from_blocks, verdict_lines_from_user_message
 
 
@@ -219,11 +220,13 @@ def _content_of(entry, role: str) -> list:
 
 
 def _said_body(blk) -> str:
-    """The text a Write|Edit tool_use puts into a said-file, else ""."""
+    """The text a Write|Edit tool_use puts into a said-file, or a lone `echo` prints, else ""."""
     if not isinstance(blk, dict) or blk.get("type") != "tool_use":
         return ""
     name = blk.get("name")
     inp = blk.get("input")
+    if name == "Bash" and isinstance(inp, dict):
+        return echoed_text(inp.get("command"))
     if name not in ("Write", "Edit") or not isinstance(inp, dict):
         return ""
     if not is_said_file(inp.get("file_path")):
