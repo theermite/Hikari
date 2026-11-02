@@ -51,7 +51,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 3 | **Waterfall (Network tab)** | Avant toute reco réseau | Render-blocking, TTFB, chain length, compression |
 | 4 | **`pg_stat_statements` / `EXPLAIN ANALYZE`** | Avant toute reco backend | Slow queries identifiées objectivement (Database Master handoff) |
 | 5 | **mémoire Shinzo** (`Grep` dans `Shinzo/05-Memoire/`) | Avant L2 | Pattern d'optim peut déjà exister, anti-pattern peut être documenté |
-| 6 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Avant web research | Pattern Shinkofa-spécifique connu |
+| 6 | **SKB** (Shinkofa Knowledge Base, lue dans `Shinzo/Eichi/` avec Grep et Read) | Avant web research | Pattern Shinkofa-spécifique connu |
 | 7 | **Veille** (CWV thresholds, browser engines updates) | Si fix touche à une API browser ou framework | Google updates CWV targets. Browsers updatent engines. Training data stale. |
 
 Sauter une source = optim non vérifiable = `-10` Reliability.

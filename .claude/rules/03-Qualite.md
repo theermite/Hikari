@@ -93,18 +93,7 @@ pour trouver la **cause racine**, avant d'en tenter une autre. C'est le travail 
 vers Jay : lui regarde l'ensemble et propose une autre direction quand la racine n'a pas été trouvée de
 manière évidente — on le consulte dans ce cas, pas systématiquement.
 
-**Le marqueur obligatoire** sur tout commit `fix:` ou `hotfix:` (tenu par un garde-fou) :
-
-```
-[ROBUSTNESS]
-- 6 mois: <pourquoi ça tient dans 6 mois>
-- cause racine: <oui — laquelle | non — symptôme supposé parce que ...>
-- alternative durable: <aucune valable | voici X, différé parce que Y>
-- appelants reels: <oui — comment vérifié (grep, appels) | non-applicable — pourquoi>
-- garde a l'envers: <le test rougit-il si on retire le garde-fou ? oui | non-applicable>
-```
-
-Dispense légitime, motif fermé : `[ROBUSTNESS-SKIP] motif: <typo|revert|test-fix|lint-fix|formatting|comment-only>`.
+**Le marqueur obligatoire** sur tout commit `fix:` ou `hotfix:` (tenu par un garde-fou) : `[ROBUSTNESS]` à cinq lignes (6 mois · cause racine · alternative durable · appelants réels · garde à l'envers), ou `[ROBUSTNESS-SKIP] motif: <typo|revert|test-fix|lint-fix|formatting|comment-only>`. Le garde renvoie le gabarit exact ; il est aussi dans l'annexe `Debug-Et-Blocage`.
 
 ## 7. Le test de fin de séance
 
@@ -122,26 +111,8 @@ Six questions, six réponses honnêtes. Un « non » injustifié est un défaut 
 Journaux d'abord, puis les commits récents, puis le code. Jamais d'hypothèse avant d'avoir lu.
 Un test rouge trouvé en arrivant est à corriger, quelle qu'en soit l'origine.
 
-## Annexes
-
-Lues au moment du travail qui les requiert — un garde-fou bloque l'écriture sinon (règle 01 § 7).
-
-| Annexe | Quand |
-|---|---|
-| `Socle-Minimal` | au début de tout projet : les lignes à imprimer dans le cahier des charges et les portes de qualité humaines |
-| `Tests-Et-Mesures` | avant d'écrire un test, un seuil, un compteur ou un réglage d'analyse |
-| `Interface` | avant toute interface : pièces existantes, accessibilité, performance, dignité |
-| `Debug-Et-Blocage` | l'arrêt sur défaut quand un garde-fou n'est pas disponible |
-
 ## Sans hook
 
 Les seuils de couverture et de mutation ne sont pas tenus par du code : c'est écrit ici, et ça se
 mesure à la passe hebdomadaire. Le reste — veille, complexité, taille de fichier, tests — est tenu
 par des garde-fous.
-
-## Ce que cette règle remplace
-
-`Quality.md`, `Monozukuri.md`, `Autonomous-Session.md`, `QE-V2-Retroactive.md`. Le **principe** de
-Monozukuri (la qualité est une identité, pas une étape) et ses **six gestes** vivent dans la doctrine,
-section « La manière de bâtir » ; son **marqueur de correctif** et son **test de fin de séance** sont
-repris ici, aux § 6 et 7. Rien n'est perdu.

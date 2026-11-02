@@ -326,3 +326,50 @@ def test_the_real_hook_flags_the_models_trailer():
 
 def test_the_real_hook_flags_a_missing_trailer():
     assert "trailer" in _hook_output("git commit -m 'feat(x): y'")
+
+
+# --- check_git_add_broad: a session OPENED inside Shinzo (cwd) -----------------
+#
+# Once Shinzo receives the rules (lot 5, 2026-11-02), sessions open with Shinzo as
+# the working directory: no `-C`, no `cd`. The guard must read the session's cwd,
+# otherwise `git add 05-Memoire/` there is not seen as a shared-repo directory add.
+
+SHINZO_CWD = "D:/30-Dev-Projects/Shinzo"
+
+
+def test_directory_pathspec_blocked_when_session_cwd_is_shinzo():
+    assert bg.check_git_add_broad("git add 05-Memoire/", cwd=SHINZO_CWD) is not None
+
+
+def test_directory_pathspec_blocked_when_session_cwd_is_inside_shinzo():
+    assert bg.check_git_add_broad("git add 02-Projets/", cwd=SHINZO_CWD + "/Takumi") is not None
+
+
+def test_directory_pathspec_passes_when_session_cwd_is_another_repo():
+    assert bg.check_git_add_broad("git add src/", cwd="D:/30-Dev-Projects/Kata") is None
+
+
+def test_explicit_file_passes_when_session_cwd_is_shinzo():
+    assert bg.check_git_add_broad("git add -- 02-Projets/Kata.md", cwd=SHINZO_CWD) is None
+
+
+def test_cd_to_another_repo_overrides_a_shinzo_session_cwd():
+    assert bg.check_git_add_broad("cd D:/30-Dev-Projects/Kata && git add src/", cwd=SHINZO_CWD) is None
+
+
+def test_relative_cd_inside_a_shinzo_session_keeps_the_shared_repo():
+    assert bg.check_git_add_broad("cd 05-Memoire && git add sub/", cwd=SHINZO_CWD) is not None
+
+
+def test_relative_cd_outside_a_non_shared_session_stays_free():
+    assert bg.check_git_add_broad("cd src && git add lib/", cwd="D:/30-Dev-Projects/Kata") is None
+
+
+def test_cd_to_a_sibling_repo_leaves_the_shared_repo_from_a_shinzo_session():
+    assert bg.check_git_add_broad("cd ../Kata && git add src/", cwd=SHINZO_CWD) is None
+    assert bg.check_git_add_broad('cd "../Kata" && git add src/', cwd=SHINZO_CWD) is None
+    assert bg.check_git_add_broad("cd .. && cd Kata && git add src/", cwd=SHINZO_CWD) is None
+
+
+def test_cd_to_a_sibling_shinzo_from_another_repo_is_still_shared():
+    assert bg.check_git_add_broad("cd ../Shinzo && git add 05-Memoire/", cwd="D:/30-Dev-Projects/Kata") is not None

@@ -46,7 +46,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 2 | **`@shinkofa/i18n` namespaces** (20 namespaces, `rules/03-Qualite.md`) | Toujours avant toute string user-facing | Hardcoded string = hook write-guard.py bloque |
 | 3 | **`@shinkofa/types`** | Toujours avant toute déclaration de type partagé | Schema source of truth, pas de duplication frontend/backend |
 | 4 | **Veille stack** (React 19, Next 16, Tailwind 4 release notes) | Avant pattern nouveau ou décision archi | Format `[VEILLE] <techno>@<version> verifie <date> via <source>` |
-| 5 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Avant tout choix de pattern UX/UI | Patterns ND-friendly, neurodiversité, design adaptatif déjà documentés |
+| 5 | **SKB** (Shinkofa Knowledge Base, lue dans `Shinzo/Eichi/` avec Grep et Read) | Avant tout choix de pattern UX/UI | Patterns ND-friendly, neurodiversité, design adaptatif déjà documentés |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **CDC + PET du projet** (`docs/CDC.md` + `docs/PET.md`) | Avant feature impactant le comportement métier | CDC = intention. PET = exécution. Frontend implémente, ne décide pas. |
 | 8 | **Universal Project Checklist** (`rules/03-Qualite.md`) | Jour 1 de tout nouveau projet | Themes + reduced-motion + responsive + i18n + Feedback Widget OBLIGATOIRES |

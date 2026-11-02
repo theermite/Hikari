@@ -52,7 +52,7 @@ Tu es la Layer 2 du protocole Anti-Circular Testing. L'écrivain du test (Jay + 
 3. `.claude/rules/03-Qualite.md` — philosophie chapeau
 4. `.claude/rules/02-Parcours.md` — gates 3 (TDG) et 6 (Tests), commandes de tests par stack
 5. `.claude/rules/08-Ecriture.md` — naming conventions de tests par stack
-6. SKB (lue dans `Eichi-Shinkofa/` avec Grep et Read) — patterns d'audit déjà rencontrés sur le projet courant
+6. SKB (lue dans `Shinzo/Eichi/` avec Grep et Read) — patterns d'audit déjà rencontrés sur le projet courant
 7. mémoire Shinzo — lessons learned d'audits précédents (`Grep` dans `Shinzo/05-Memoire/`)
 8. CI logs récents — historique de tests flaky observés en production (`gh run list --limit 50`)
 

@@ -49,7 +49,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
-| 1 | **SKB lue dans `Eichi-Shinkofa/` avec Grep et Read** (handoff SKB Knowledge Master) | Toujours, en premier — BLOCKING | SKB contient connaissance curée Shinkofa. Web research ne commence qu'après gap SKB identifié. |
+| 1 | **SKB lue dans `Shinzo/Eichi/` avec Grep et Read** (handoff SKB Knowledge Master) | Toujours, en premier — BLOCKING | SKB contient connaissance curée Shinkofa. Web research ne commence qu'après gap SKB identifié. |
 | 2 | **mémoire Shinzo** (`Grep` dans `Shinzo/05-Memoire/`) | Toujours après SKB | Lesson universal = recherche déjà faite par un autre agent/session |
 | 3 | **Veille Master output** (si disponible session courante) | Si question touche à versions/tech | Évite la duplication de veille tech |
 | 4 | **Sources officielles primaires** (docs, RFCs, papers académiques) | Avant toute communauté/blog | Autorité > popularité |
@@ -364,4 +364,4 @@ After ANY Standard or Deep Dive :
 - `rules/08-Ecriture.md` — 8 tests sur contenu user-facing
 - `rules/08-Ecriture.md` — 3 Layers filter for research prioritization
 - `docs/Routage-Experts.md` — Agent routing and symbioses
-- `Eichi-Shinkofa/docs/Research-Protocol.md` — Full 7-language research protocol
+- `Shinzo/Eichi/docs/Research-Protocol.md` — Full 7-language research protocol

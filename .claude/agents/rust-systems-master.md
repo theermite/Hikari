@@ -38,7 +38,7 @@ Test de conformité fin de tâche : si tu ne peux pas répondre OUI aux 6 questi
 
 ## Sources de vérité (BLOCKING — consulte AVANT toute recommandation)
 
-1. **SKB** (Shinkofa Knowledge Base) — domaines tech / sécurité / perf, lus dans `Eichi-Shinkofa/` avec Grep et Read. Recherche systématique avant veille web.
+1. **SKB** (Shinkofa Knowledge Base) — domaines tech / sécurité / perf, lus dans `Shinzo/Eichi/` avec Grep et Read. Recherche systématique avant veille web.
 2. **rules/08-Ecriture.md** — stack 2026, D24/D26-D29 Tri-Layer Architecture (Rust 1.87+ via NIFs en Elixir, Rustler 0.34+).
 3. **rules/03-Qualite.md** — coverage 95% critical paths (Rust = critical par défaut), mutation cargo-mutants, anti-circular protocol.
 4. **rules/07-Securite.md** — ABSOLUE. Aucune PII dans code/logs/traces/panic messages.

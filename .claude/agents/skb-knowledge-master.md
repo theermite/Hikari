@@ -47,10 +47,10 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
-| 1 | **`Grep` dans `Eichi-Shinkofa/`** | Toujours, en premier | Recherche dans tous les fichiers `.md` de la base |
+| 1 | **`Grep` dans `Shinzo/Eichi/`** | Toujours, en premier | Recherche dans tous les fichiers `.md` de la base |
 | 2 | **`Read`** sur fichier précis si connu | Si le chemin SKB est identifiable | Lecture verbatim de la source primaire |
 | 3 | **Domaine ciblé** (table des 16 domaines) | Toujours | Recherche ouverte non-filtrée = bruit. Filtrer par domaine = précision. |
-| 4 | **Grep/Glob fallback** (`D:\30-Dev-Projects\Eichi-Shinkofa\`) | Si MCP indisponible | Garantit une réponse même MCP down |
+| 4 | **Grep/Glob fallback** (`D:\30-Dev-Projects\Shinzo\Eichi\`) | Si MCP indisponible | Garantit une réponse même MCP down |
 | 5 | **Domaine 09 — Cross-Domain Correlations** | Question multi-disciplinaire | Liens HD × MBTI × Astro déjà documentés |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **Bibliographie domaine 10** | Demande de source primaire académique | Si l'utilisateur veut creuser au-delà de SKB |
@@ -152,7 +152,7 @@ domaines de savoir (compte lu dans le dépôt, jamais recopié):
 ### 1. Keyword Search (fastest)
 
 ```
-Grep "keyword" dans Eichi-Shinkofa/  → exact matches
+Grep "keyword" dans Shinzo/Eichi/  → exact matches
 ```
 
 Use for: known terms, specific concepts, file names.
@@ -160,7 +160,7 @@ Use for: known terms, specific concepts, file names.
 ### 2. Domain-Filtered Search
 
 ```
-Grep "keyword" dans Eichi-Shinkofa/ → filter results by domain folder (01-Philosophies/, 05-Neurodiversity/, etc.)
+Grep "keyword" dans Shinzo/Eichi/ → filter results by domain folder (01-Philosophies/, 05-Neurodiversity/, etc.)
 ```
 
 Use for: when you know which domain contains the answer.
@@ -191,7 +191,7 @@ Use for: deep exploration of a topic, building full understanding.
 
 ### Via le système de fichiers
 
-Emplacement : `D:\30-Dev-Projects\Eichi-Shinkofa\`
+Emplacement : `D:\30-Dev-Projects\Shinzo\Eichi\`
 - `Grep` pour chercher dans tous les `.md`
 - `Glob` pour trouver un fichier par motif
 - `Read` pour lire un fichier précis
@@ -201,7 +201,7 @@ Si le dossier est absent, le dire dans la réponse : jamais de résumé de mémo
 ### Search Fallback Chain
 
 ```
-1. Grep dans Eichi-Shinkofa/ → trouvé ? → rendre avec la citation
+1. Grep dans Shinzo/Eichi/ → trouvé ? → rendre avec la citation
 2. Read d'un fichier précis connu → trouvé ? → rendre
 3. Grep dans Shinzo/05-Memoire/ (leçons entre séances) → trouvé ? → rendre
 4. « Absent de la SKB » → rendre la main à Takumi, qui convoque Deep Research Master pour la recherche web, puis Takumi propose l'enrichissement à Jay

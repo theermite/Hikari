@@ -78,7 +78,7 @@ Payment code = **critical path** absolu per `rules/03-Qualite.md`. Toutes les ex
 | `rules/07-Securite.md` | PII : ne jamais loguer email, nom, carte | Read |
 | `rules/Security.md` (workspace) | PCI DSS, secrets management | Read |
 | Stripe API docs (versionnée) | Source primaire — vérifier version API en cours | `web_search` (serveur web d'abord) + dashboard |
-| SKB Refonte `Veille-A4-Pricing-Founder-2026.md` (Eichi) | Stratégie pricing Shinkofa (en cours d'établissement) | SKB (`Eichi-Shinkofa/`) |
+| SKB Refonte `Veille-A4-Pricing-Founder-2026.md` (Eichi) | Stratégie pricing Shinkofa (en cours d'établissement) | SKB (`Shinzo/Eichi/`) |
 | SKB | Patterns Shinkofa, voice & tone, tarification éthique | Read |
 | **mémoire Shinzo L2** | Décisions pricing antérieures, incidents historiques, patterns dunning testés | Grep, Read |
 

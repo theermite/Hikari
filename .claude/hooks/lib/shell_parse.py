@@ -27,9 +27,10 @@ Honest limits — this is not a shell:
 
 from __future__ import annotations
 
+import re
 import shlex
 
-SEPARATORS = {"&&", "||", ";", "|", "&"}
+SEPARATORS = {"&&", "||", ";", "|", "|&", "&"}
 
 # A heredoc delimiter always carries a letter (EOF, PY, SQL). Requiring one keeps
 # an arithmetic shift — `$((5 << 2))` — from being read as a heredoc.
@@ -48,19 +49,32 @@ def _is_heredoc_delimiter(token: str) -> bool:
     return any(char.isalpha() or char == "_" for char in token)
 
 
+def _heredoc_at(tokens: list[str], i: int) -> tuple[str, int] | None:
+    """(delimiter, tokens consumed) when `tokens[i]` opens a heredoc, else None. `<<-` takes tabs: the dash is not
+    part of the delimiter (`<<-EOF`, or `<<- 'EOF'` where the dash is a word of its own)."""
+    if tokens[i] not in _HEREDOC_OPENERS:
+        return None
+    following = tokens[i + 1] if i + 1 < len(tokens) else ""
+    after_dash = tokens[i + 2] if i + 2 < len(tokens) else ""
+    if following == "-" and _is_heredoc_delimiter(after_dash):
+        return after_dash, 3
+    if following.startswith("-") and _is_heredoc_delimiter(following[1:]):
+        return following[1:], 2
+    return (following, 2) if _is_heredoc_delimiter(following) else None
+
+
 def _strip_heredoc(tokens: list[str]) -> tuple[list[str], str | None]:
     """Remove `<< DELIM` from a token list. Return (tokens, delimiter or None)."""
     kept: list[str] = []
     delimiter = None
     i = 0
     while i < len(tokens):
-        token = tokens[i]
-        following = tokens[i + 1] if i + 1 < len(tokens) else ""
-        if token in _HEREDOC_OPENERS and _is_heredoc_delimiter(following):
-            delimiter = following
-            i += 2
+        opened = _heredoc_at(tokens, i)
+        if opened:
+            delimiter, consumed = opened
+            i += consumed
             continue
-        kept.append(token)
+        kept.append(tokens[i])
         i += 1
     return kept, delimiter
 
@@ -166,6 +180,41 @@ def _bash_leaves_quotes_open(text: str) -> bool:
     return in_single or in_double
 
 
+_ESCAPED_QUOTE = re.compile(r"\\['\"]")
+
+
+def _bash_separators(line: str) -> list[str] | None:
+    """Les séparateurs de commandes de la ligne lue avec les échappements de bash; None si bash ne la ferme pas."""
+    lexer = shlex.shlex(line, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        return [token for token in lexer if token in SEPARATORS]
+    except ValueError:
+        return None
+
+
+def _boundaries_agree(line: str, tokens: list[str]) -> bool:
+    """Le découpeur (antislash littéral) et bash coupent la ligne aux MÊMES séparateurs.
+
+    Elle ne se vérifie que si la ligne porte un guillemet protégé (`\\"`, `\\'`) : sans lui les deux lectures
+    ne divergent que sur un chemin Windows ou sur `\\;`, que les garde-fous lisent déjà du côté prudent
+    (relecture 7.7.0 : deux lectures peuvent finir dans le même état et couper ailleurs).
+    """
+    if not _ESCAPED_QUOTE.search(line):
+        return True
+    return _bash_separators(line) == [token for token in tokens if token in SEPARATORS]
+
+
+def _refuse_if_untrustworthy(line: str, tokens: list[str], spans_lines: bool) -> None:
+    """ValueError (the callers fail closed) when the tokens cannot be trusted as bash's reading of `line`."""
+    if spans_lines and _has_live_substitution(line):
+        raise ValueError("a multi-line string holds a command substitution: it is code, not text")
+    if spans_lines and '\\"' in line:
+        raise ValueError("a multi-line string holds an escaped quote: the tokenizer cannot be trusted on it")
+    if not _boundaries_agree(line, tokens):
+        raise ValueError("the tokenizer and bash split this line at different command separators")
+
+
 def _tokenize_logical_line(lines: list[str], i: int) -> tuple[list[str], int]:
     """Tokens of the command starting at `lines[i]`, and the index of its LAST physical line.
 
@@ -191,10 +240,7 @@ def _tokenize_logical_line(lines: list[str], i: int) -> tuple[list[str], int]:
             last += 1
             line += "\n" + lines[last]
             continue
-        if last > i and _has_live_substitution(line):
-            raise ValueError("a multi-line string holds a command substitution: it is code, not text")
-        if last > i and '\\"' in line:
-            raise ValueError("a multi-line string holds an escaped quote: the tokenizer cannot be trusted on it")
+        _refuse_if_untrustworthy(line, tokens, spans_lines=last > i)
         return tokens, last
 
 

@@ -66,6 +66,11 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/port-claim-bash-guard.py",
+            "description": "Prévient quand `docker run -p` ou un serveur de développement ouvre un port inscrit ou absent du registre (ne bloque jamais, 2026-11-01)"
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" memory/memory-recall.py",
             "description": "Plan pt3 - rappel de memoire avant une commande (rappelle, ne bloque jamais)"
           },
@@ -173,6 +178,11 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/pre-deploy-audit-check.py",
             "description": "Block a deploy or a package publication without a dependency audit that really ran in the session and is quoted as [AUDIT] ... sur <empreinte> (or an [AUDIT-SKIP] with a closed-enum motif)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/expert-push-check.py",
+            "description": "Block `git push` while an unpushed commit touches payment, a migration, authentication or Rust unsafe and the matching expert (agents-wiring.json) was not launched since; closed-list excuse `# EXPERT-OK: <motif>`"
           },
           {
             "type": "command",
@@ -286,8 +296,8 @@
           },
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/matter-expert-suggest.py",
-            "description": "Plan pt1 - convocation par la matiere (suggere, ne bloque jamais)"
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/expert-reminder.py",
+            "description": "Remind the expert a file belongs to (agents-wiring.json), once per session and expert, never blocks; each reminder is traced in expert-reminders.jsonl and measured weekly"
           },
           {
             "type": "command",
@@ -524,7 +534,7 @@
           {
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/clear-recap-check.py",
-            "description": "Une question a Jay s'ouvre sur En clair / Ce que ca change / Ce que ca apporte ; un long compte rendu sur En clair et Ce que ca change ; pas de jargon accumule ni de numero de commit : garde le tour ouvert une fois (Jay 2026-11-01)"
+            "description": "Une question a Jay s'ouvre sur L'essentiel / Pour toi / Gains et limites (titres de niveau 2 avec leur pastille) ; un long compte rendu sur L'essentiel et Pour toi ; pas de jargon accumule ni de numero de commit : garde le tour ouvert une fois (Jay 2026-11-01)"
           },
           {
             "type": "command",

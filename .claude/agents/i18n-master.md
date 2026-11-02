@@ -52,7 +52,7 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 | 5 | **`rules/08-Ecriture.md`** | TOUJOURS — agent user-facing | Ton factuel, jamais condescendant, pas de dark patterns dans copy |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **Unicode CLDR** | Pour règles de pluralization, format date/nombre | Source canonique multi-langues |
-| 8 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Pour voix brand par locale | Domain 11 Communication & Marketing |
+| 8 | **SKB** (Shinkofa Knowledge Base, lue dans `Shinzo/Eichi/` avec Grep et Read) | Pour voix brand par locale | Domain 11 Communication & Marketing |
 
 Sauter une source = `-10` Reliability + risque de raw key prod ou ton brand cassé.
 

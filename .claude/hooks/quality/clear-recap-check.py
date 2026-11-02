@@ -7,8 +7,8 @@ coder, alors que c'est noyé dans toutes les commandes. Je veux des récaps et d
 contexte en langage simple, l'impact, et ce que ça apporte ou non. »
 
 Trois contrôles de FORME (lib/clear_language.py), jamais de justesse :
-- une question à Jay s'ouvre sur « En clair », « Ce que ça change », « Ce que ça apporte, ou non » ;
-- un long compte rendu s'ouvre sur « En clair » et « Ce que ça change » ;
+- une question à Jay s'ouvre sur « L'essentiel », « Pour toi », « Gains et limites » ;
+- un long compte rendu s'ouvre sur « L'essentiel » et « Pour toi » ;
 - le vocabulaire que Jay n'a pas ne s'accumule pas (trois termes distincts, ou un numéro de commit en plus).
 
 Une fois par tour (stop_hook_active), lit last_assistant_message, ouvre la porte sur tout ce qui est illisible.

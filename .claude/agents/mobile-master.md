@@ -49,7 +49,7 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 | 2 | **Caniuse + MDN** (support API + CSS sur Safari/Chrome Android) | Avant toute API moderne | `crypto.randomUUID()`, `AbortSignal.timeout()`, `color-mix()`, `oklch()`, `backdrop-filter` = fallback requis |
 | 3 | **`.browserslistrc` du projet** | Toujours en début de session | `defaults, iOS >= 15.4, Safari >= 15.4` est la cible Shinkofa |
 | 4 | **Release notes iOS Safari récentes** (latest 2 major) | Avant pattern PWA / `visualViewport` / safe-area | iOS introduit/casse fréquemment des APIs PWA |
-| 5 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Avant tout choix UX mobile | Patterns ND-friendly mobile, neurodiversité, design adaptatif |
+| 5 | **SKB** (Shinkofa Knowledge Base, lue dans `Shinzo/Eichi/` avec Grep et Read) | Avant tout choix UX mobile | Patterns ND-friendly mobile, neurodiversité, design adaptatif |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **Lighthouse mobile throttle** (3G Moto G Power simulé) | Avant tout deploy public | Single source of truth pour CWV — pas le Lighthouse desktop |
 | 8 | **CDC + PET** (`docs/CDC.md` + `docs/PET.md`) | Avant feature mobile-impactante | CDC décrit le besoin, PET la décision. Mobile implémente. |

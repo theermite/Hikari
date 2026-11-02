@@ -238,3 +238,50 @@ def test_r8_committing_in_the_neighbouring_repository_neither_blocks_nor_is_bloc
     _lancer(depot, "C", "Write", {"file_path": str(depot / "a.txt"), "content": "x"})
     sans_ici = _lancer(depot, "D", "Bash", {"command": "cd ../Shinzo && git add -- a && git commit -m z"})
     assert sans_ici.returncode == 0                                                         # D ne touche pas ce dépôt
+
+
+# --- Shinzo exempté (Jay, 2026-11-02) : le dépôt de notes écrit par toutes les séances et par un hook de mémoire ---
+
+@pytest.fixture()
+def shinzo(tmp_path):
+    racine = tmp_path / "Shinzo"
+    racine.mkdir()
+    (racine / ".git").mkdir()
+    return racine
+
+
+def test_shinzo_never_reports_another_writer(shinzo):
+    writer_lock.battre(shinzo, "A", maintenant=1000.0)
+    assert writer_lock.autre_ecrivain(shinzo, "B", maintenant=1060.0) is None
+
+
+def test_the_exemption_is_by_repository_name_not_by_substring(tmp_path):
+    for nom in ("Shinzo-copie", "MonShinzo", "shinzo-test"):
+        racine = tmp_path / nom
+        racine.mkdir()
+        (racine / ".git").mkdir()
+        writer_lock.battre(racine, "A", maintenant=1000.0)
+        assert writer_lock.autre_ecrivain(racine, "B", maintenant=1060.0) is not None, nom
+
+
+def test_a_commit_in_shinzo_is_never_blocked_by_another_session(shinzo):
+    _lancer(shinzo, "A", "Write", {"file_path": str(shinzo / "a.md"), "content": "x"})
+    r = _lancer(shinzo, "B", "Bash", {"command": "git commit -m x"})
+    assert r.returncode == 0
+    assert "ÉCRIVAIN" not in r.stderr
+
+
+def test_only_shinzo_is_exempt_other_known_repositories_keep_the_rule(tmp_path):
+    assert writer_lock.DEPOTS_EXEMPTES == {"Shinzo"}
+    for nom in ("Takumi", "Kata", "Kobo", "Eichi-Shinkofa"):
+        racine = tmp_path / nom
+        racine.mkdir()
+        (racine / ".git").mkdir()
+        writer_lock.battre(racine, "A", maintenant=1000.0)
+        assert writer_lock.autre_ecrivain(racine, "B", maintenant=1060.0) is not None, nom
+
+
+def test_shinzo_exemption_removes_the_refusal_but_the_heartbeat_is_still_written(shinzo):
+    r = _lancer(shinzo, "A", "Write", {"file_path": str(shinzo / "a.md"), "content": "x"})
+    assert r.returncode == 0
+    assert (shinzo / ".claude" / "state" / "writer-lock.json").exists()

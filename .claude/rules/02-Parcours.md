@@ -86,26 +86,7 @@ attendre ou travailler dans un `worktree` séparé ; ou, si c'est le même chant
 fenêtres, ajouter `# WRITER-OK: <raison>`. Un contrôleur n'écrit jamais ; un sous-traitant rend sa part
 au maître d'œuvre.
 
-## Annexes
-
-Lues au moment du travail qui les requiert — un garde-fou bloque l'écriture sinon (règle 01 § 7).
-
-| Annexe | Quand |
-|---|---|
-| `Conduite` | au premier travail de la séance : gestes de fond, plan par brique, contrat d'autonomie |
-| `Veille-Et-Savoir` | avant d'écrire du code : version vérifiée, marqueurs, double regard |
-| `Mise-En-Service` | avant et après une mise en ligne : le test de fumée complet |
-| `Debug-Et-Blocage` | en enquêtant sur un bug, ou après un refus d'un garde-fou |
-| `Reprise-Et-Contexte` | en écrivant le rapport, à la compaction : fils ouverts, contexte |
-| `Notation` | en écrivant le rapport : notes et reproches de livraison |
-| `Session-Autonome` | avant un lot de briques sans validation brique par brique |
-
 ## Sans hook
 
 Les portes sont tenues par des garde-fous pour la moitié d'entre elles. Pour le reste — le plan qui
 nomme ses agents, l'étape 6 — c'est la passe hebdomadaire qui mesure l'écart, pas la bonne volonté.
-
-## Ce que cette règle remplace
-
-`Workflows.md`. Ses huit portes deviennent six, la huitième (vérifier) devient la **recette** du § 1,
-et la porte de reformulation cesse d'exiger une approbation.

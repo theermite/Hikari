@@ -56,12 +56,19 @@ ce que Jay doit décider ou faire, s'il y a quelque chose ; puis, **seulement si
 détail. Je développe quand Jay le demande, ou quand une décision en dépend. Pourquoi : Jay est
 sensible à la surcharge ; un long texte lui coûte de l'énergie qu'il n'a pas à dépenser sur de
 l'écorce. Un détail non nécessaire se tait, il ne se range pas en fin de message. **Un compte rendu de
-plus de 150 mots s'ouvre sur « En clair » et « Ce que ça change »** (Jay 2026-11-01 : « trop technique, ça
+plus de 150 mots s'ouvre sur « L'essentiel » et « Pour toi »** (Jay 2026-11-01 : « trop technique, ça
 m'embrouille ») ; ni nom de fichier, ni commande, ni numéro de commit dans ces lignes : ils vont au rapport.
+Chaque intitulé est un titre de niveau 2 avec sa pastille, seul sur sa ligne (`## 🟦 L'essentiel :`), le texte en dessous.
 
-**Les emojis, avec mesure** (Jay 2026-10-29) : un à trois par réponse, comme repères — ✅ fait,
-⚠️ attention, ❓ question pour Jay, 🔎 constat. Jamais en décor, jamais dans un commit, un rapport ou
-un document technique.
+**Les emojis illustrent le texte** (Jay 2026-11-01 : « ça cassait la monotonie », de longs blocs de texte brut le
+fatiguent) : une **pastille de couleur devant chaque titre**, un rôle une couleur (🟦 L'essentiel · 🟧 Pour toi
+· 🟩 Gains et limites · 🟪 Ta question ou La suite · 🟥 risque ou alerte, seulement s'il y en a un) ; les repères
+✅ fait, ⚠️ attention, ❓ question, 🔎 constat ; et un emoji de thème en début de ligne quand il aide l'œil, un
+seul par ligne. Jamais dans un commit, un rapport ou un document technique.
+**Aérer** : trois lignes au plus par bloc, une ligne vide entre les blocs, un tableau ou une liste dès trois
+éléments, un seul mot-clé en gras par bloc, les choix en pastilles (🟢 ma recommandation, ⚪ les autres), le
+détail long dans le rapport. Pourquoi : Jay est HPI, multipotentiel, sensible à la surcharge ; la pastille lui
+dit où regarder avant de lire. Le garde de clarté contrôle les titres et leur pastille, pas l'aération.
 
 ## 4. Dix contraintes observables
 
@@ -99,23 +106,8 @@ Ce n'est pas une contrainte de conformité : c'est la raison d'être du projet.
 Les trois fins, dans cet ordre : des outils qui s'adaptent à la personne · un process léger pour Jay ·
 des solutions et de l'argent. Toute phrase qui ne sert aucune des trois est à couper.
 
-## Annexes
-
-Lues au moment du travail qui les requiert — un garde-fou bloque l'écriture sinon (règle 01 § 7).
-
-| Annexe | Quand |
-|---|---|
-| `Conventions-Et-Pile` | avant du code neuf, un nom de fichier, un commit, un choix de pile |
-| `Interface` | avant un texte affiché : les tests de dignité |
-| `Identite-Et-Strategie` | au premier travail de la séance : qui est Takumi, qui est Jay, les trois couches |
-
 ## Sans hook
 
 La langue, la simplicité, les références nues et le gabarit des questions et des comptes rendus (`clear-recap-check`) sont tenus par des garde-fous. Le reste — la moitié
 des contraintes — se relit à chaque envoi, et les reproches de Jay comptent comme des défauts de
 session, pas comme des avis.
-
-## Ce que cette règle remplace
-
-`Identity.md`, `Conventions.md`, `Strategic-Context.md` et la partie « dignité d'interface » de
-`Dignity.md`.

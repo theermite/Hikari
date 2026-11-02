@@ -45,8 +45,11 @@ command that names a secret is refused, even a harmless one).
 judged (`git commit -m "$(cat .env)"`, `gh pr create --title "$(head -1 .env)"`) — it would write the
 value into git history or send it to GitHub. Three attempts to judge substitutions with patterns each
 opened a new hole or blocked ordinary commits; Jay had decided on 2026-10-18 to stop hardening this
-text guard. This hole closes with the vault, not here. A multi-line message that NAMES a secret file
+text guard. A multi-line message that NAMES a secret file
 in `-m "$(cat <<'EOF' ...)"` is refused; `git commit -F - <<'EOF'` carries it.
+2026-11-01 (7.7.0 review, remark kept as an open limit): the narrow slice is now closed. A message value that
+holds a substitution AND names a secret file is judged (`_runs_a_secret_read`); no other substitution is
+analysed, so `$(date)` and `$(cat <<'EOF' ...)` stay free. Test: test_secret_file_read_guard_review11.py.
 Real protection of the secrets belongs to the vault, not to this guard; the output masking and
 the all-tools filter stay the backstop.
 """
@@ -187,7 +190,16 @@ def _inner_commands(args: list[str]) -> list[str]:
 def _text_flag_values(program: str, args: list[str]) -> set[int]:
     """Values of --title/--body/-m for the programs that carry free text (gh, git commit/tag...)."""
     carries_text = program == "gh" or (program == "git" and _git_subcommand(args) in _TEXT_GIT_SUBCOMMANDS)
-    return {i + 1 for i, t in enumerate(args) if carries_text and t in _TEXT_FLAGS}
+    return {i + 1 for i, t in enumerate(args)
+            if carries_text and t in _TEXT_FLAGS and not _runs_a_secret_read(args[i + 1 : i + 2])}
+
+
+def _runs_a_secret_read(values: list[str]) -> bool:
+    """A message value that holds a substitution AND names a secret file executes the read (2026-11-01).
+
+    Narrow on purpose: a message with no substitution, or a substitution that names no secret (`$(date)`,
+    `$(cat <<'EOF' ... EOF)`), stays free: three broader attempts blocked ordinary commits (2026-10-19)."""
+    return any(_SUBSTITUTION.search(v) and _secret_in(v) for v in values)
 
 
 def _search_pattern_indexes(args: list[str]) -> set[int]:

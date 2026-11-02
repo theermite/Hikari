@@ -44,6 +44,11 @@ DEPLOYS = [
     "ssh vps ./deploy.sh",
     "git pull && docker compose up -d",
     "git pull origin main && systemctl restart kobo",
+    # options globales de docker avant « compose » : un démon distant reçoit la mise en ligne (relecture 7.7.0)
+    "docker --context vps compose up -d --build",
+    "docker -H tcp://10.0.0.5:2376 compose up -d",
+    "docker --host ssh://vps compose -f prod.yml up -d",
+    "docker -c vps compose up",
 ]
 
 

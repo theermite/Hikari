@@ -2,7 +2,7 @@
 
 Trois contrôles de FORME, jamais de justesse :
 - une question à Jay s'ouvre sur son contexte en mots simples, son effet, et ce qu'elle apporte ou non ;
-- un long compte rendu s'ouvre sur « En clair » et « Ce que ça change » ;
+- un long compte rendu s'ouvre sur « L'essentiel » et « Pour toi » ;
 - le vocabulaire que Jay n'a pas (et les numéros de commit) ne s'accumule pas : trois termes distincts suffisent.
 
 Mesure de départ (3 jours, 682 messages de plus de 40 mots) : 53 des 98 questions à Jay sont techniques, 73 messages
@@ -60,17 +60,27 @@ _FENCE = re.compile(r"```.*?```", re.DOTALL)
 _INLINE = re.compile(r"`[^`\n]*`")
 _QUOTED = re.compile("«[^»]*»|“[^”]*”")
 _SENTENCE = re.compile(r"(?<=[.!?…])\s+|\n+")
-_BULLET = r"^[\s*_>•\-]*"
-_EN_CLAIR = re.compile(rf"(?im){_BULLET}en clair\b")
-_CHANGE = re.compile(rf"(?im){_BULLET}(?:ce que (?:ça|ca|cela) change|impact)\b")
-_APPORTE = re.compile(rf"(?im){_BULLET}ce que (?:ça|ca|cela) apporte\b")
+_BULLET = r"^[\s#*_>•\-\U0001F300-\U0001FAFF☀-➿️]*"
+_ESSENTIEL = re.compile(rf"(?im){_BULLET}l['’]essentiel\b")
+_POUR_TOI = re.compile(rf"(?im){_BULLET}pour toi\b")
+_GAINS = re.compile(rf"(?im){_BULLET}gains?\b")
 
 TEMPLATE = (
-    "**En clair** : <ce qui s'est passé, en mots de tous les jours, comme si Jay n'avait rien vu du code>\n"
-    "**Ce que ça change pour toi** : <l'effet concret>\n"
-    "**Ce que ça apporte, ou non** : <le gain, et ce qui reste inchangé>\n"
-    "puis la question, en une phrase, avec ce que chaque réponse change."
+    "## 🟦 L'essentiel :\n<ce qui s'est passé, en mots de tous les jours, comme si Jay n'avait rien vu du code>\n\n"
+    "## 🟧 Pour toi :\n<l'effet concret, et ce que tu dois faire s'il y a quelque chose>\n\n"
+    "## 🟩 Gains et limites :\n<ce que ça apporte, et ce qui reste non réglé ou non vérifié>\n\n"
+    "## 🟪 Ta question :\n<la question en une phrase, avec ce que chaque réponse change ; sans question : « La suite »>\n"
+    "Chaque intitulé est un titre de niveau 2 (##) avec sa pastille de couleur devant, suivi d'un saut de ligne : "
+    "le texte est en dessous, trois lignes au plus par bloc."
 )
+FORMAT_DETAIL = (
+    "chaque intitulé est un titre de niveau 2 seul sur sa ligne, avec sa pastille de couleur devant "
+    "(## 🟦 L'essentiel :, 🟧 Pour toi, 🟩 Gains et limites, 🟪 Ta question ou La suite), le texte en dessous"
+)
+# un intitulé conforme : « ## », le titre, un deux-points facultatif, rien d'autre sur la ligne
+_H2_LINE = re.compile(r"^##\s+[^\n:]*:?\s*$")
+# un rôle, une couleur, toujours la même (Jay 2026-11-01) : le titre doit porter la pastille de son rôle
+_DOT = {"essentiel": "🟦", "pour toi": "🟧", "gains": "🟩"}
 
 
 def prose(text: str) -> str:
@@ -95,16 +105,31 @@ def _vocabulary_detail(found: list[str]) -> str:
     return "mots à remplacer : " + " ; ".join(f"« {name} » → {PLAIN[name]}" for name in found)
 
 
+def _titles_not_h2(text: str) -> bool:
+    """Un intitulé (L'essentiel, Pour toi, Gains et limites) qui n'est pas un titre de niveau 2 seul sur sa ligne."""
+    for role, pattern in (("essentiel", _ESSENTIEL), ("pour toi", _POUR_TOI), ("gains", _GAINS)):
+        found = pattern.search(text)  # le PREMIER seul : « Impact : … » plus bas est du contenu, pas un titre (7.8.0)
+        if found is None:
+            continue
+        start = text.rfind("\n", 0, found.end()) + 1  # le motif peut avaler les lignes vides qui précèdent
+        end = text.find("\n", found.end())
+        line = text[start : end if end != -1 else len(text)]
+        if not _H2_LINE.match(line) or _DOT[role] not in line:
+            return True
+    return False
+
+
 def _form_problem(text: str, words: int) -> tuple[str, str] | None:
-    """La forme : une question ouvre sur trois lignes ; un long compte rendu ouvre sur deux."""
-    plain = bool(_EN_CLAIR.search(text) and _CHANGE.search(text))
+    """La forme : une question ouvre sur trois titres ; un long compte rendu sur deux ; chaque titre est un H2."""
+    plain = bool(_ESSENTIEL.search(text) and _POUR_TOI.search(text))
     if has_question(text):
-        if plain and _APPORTE.search(text):
-            return None
-        return ("question", "une question à Jay s'ouvre sur trois lignes : En clair, Ce que ça change, Ce que ça apporte")
-    if words >= LONG_REPORT_WORDS and not plain:
-        return ("rapport", "un long compte rendu s'ouvre sur En clair et Ce que ça change")
-    return None
+        if not (plain and _GAINS.search(text)):
+            return ("question", "une question à Jay s'ouvre sur trois titres : L'essentiel, Pour toi, Gains et limites")
+    elif not (words >= LONG_REPORT_WORDS):
+        return None
+    elif not plain:
+        return ("rapport", "un long compte rendu s'ouvre sur L'essentiel et Pour toi")
+    return ("format", FORMAT_DETAIL) if _titles_not_h2(text) else None
 
 
 def problems(text: str) -> list[tuple[str, str]]:

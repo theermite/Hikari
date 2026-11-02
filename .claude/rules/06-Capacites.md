@@ -76,7 +76,3 @@ La sonde `lifecycle/capacites-check.py` annonce au démarrage ce qui est déclar
 vérifiable (registre : `.claude/rules-ondemand/capacites.json`). Sa limite est écrite : elle ne voit pas les outils
 réellement chargés, donc « déclarée » n'est pas « connectée ». La confirmation reste au modèle, d'après sa
 propre liste d'outils (outils différés compris : `ToolSearch`), en première ligne du rapport. Le coût et l'usage se mesurent à la passe hebdomadaire.
-
-## Ce que cette règle remplace
-
-Rien : elle est nouvelle. Elle répond aux exigences 45 à 48 du programme de réécriture.

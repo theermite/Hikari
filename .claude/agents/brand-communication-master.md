@@ -47,7 +47,7 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 
 | # | Source | Quand consulter | Pourquoi |
 |---|--------|----------------|----------|
-| 1 | **SKB domaine 11 — Communication & Marketing** (lue dans `Eichi-Shinkofa/` avec Grep et Read) | TOUJOURS — source autoritative de la voix | Voix Shinkofa et Ermite documentées, exemples Jay |
+| 1 | **SKB domaine 11 — Communication & Marketing** (lue dans `Shinzo/Eichi/` avec Grep et Read) | TOUJOURS — source autoritative de la voix | Voix Shinkofa et Ermite documentées, exemples Jay |
 | 2 | **`rules/08-Ecriture.md`** | Avant copy en voix Ermite | Profile Jay : ton direct, no-BS, expérience over théorie |
 | 3 | **`rules/08-Ecriture.md`** | TOUJOURS — agent user-facing | 8 tests BLOCKING, 7 moments de vérité |
 | 4 | **`docs/Archives/Mnk/13-Visibility.md`** | Avant copy de visibilité (landing, social, pitch) | Stratégie magnetic visibility (Projector) |

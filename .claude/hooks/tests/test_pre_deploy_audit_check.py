@@ -247,7 +247,9 @@ def test_local_dev_dispense_lets_a_local_compose_up_through():
 def test_local_dev_dispense_is_refused_for_anything_that_leaves_the_machine():
     for command in ("ssh vps docker compose up -d", "ssh vps 'cd apps/x && docker compose up -d'", "npm publish",
                     "pnpm -r publish", "vercel --prod", "fly deploy", "kubectl apply -f x.yml", "twine upload dist/*",
-                    "gh workflow run deploy.yml", "docker compose up -d && rsync -a build/ vps:/srv/x"):
+                    "gh workflow run deploy.yml", "docker compose up -d && rsync -a build/ vps:/srv/x",
+                    "docker push ghcr.io/theermite/app:1", "docker image push registry.example/app",
+                    "docker --context vps compose up -d", "docker -H tcp://10.0.0.5:2376 compose up -d"):
         message = _verdict([f"[AUDIT-SKIP] motif: local-dev sur {HEAD[:7]}"], command=command, ran=[])
         assert message is not None and "local-dev" in message, command
 
@@ -284,3 +286,25 @@ def test_an_audit_run_through_a_wrapper_or_an_option_is_recognised():
         text = f"[AUDIT] outil: {tool} sur abc1234 — critiques: 0, hautes: 0"
         for command in commands:
             assert _verdict([text], ran=[command]) is None, command
+
+
+def test_uv_run_with_its_own_options_is_still_an_audit():
+    text = "[AUDIT] outil: pip-audit sur abc1234 — critiques: 0, hautes: 0"
+    for command in ("uv run --with pip-audit pip-audit", "uv run --python 3.13 --no-sync pip-audit -r req.txt",
+                    "uv run --directory api pip-audit"):
+        assert _verdict([text], ran=[command]) is None, command
+
+
+def test_commands_that_verify_something_else_are_not_an_audit():
+    text_npm = "[AUDIT] outil: npm-audit sur abc1234 — critiques: 0, hautes: 0"
+    text_pip = "[AUDIT] outil: pip-audit sur abc1234 — critiques: 0, hautes: 0"
+    for text, command in ((text_npm, "npm audit signatures"), (text_pip, "pip-audit --version"),
+                          (text_pip, "pip-audit -h"), (text_npm, "npm --prefix web audit signatures")):
+        assert _verdict([text], ran=[command]) is not None, command
+
+
+def test_uv_run_with_an_option_that_takes_a_value_is_not_an_audit_of_what_it_launches():
+    text = "[AUDIT] outil: pip-audit sur abc1234 — critiques: 0, hautes: 0"
+    for command in ("uv run --with pip-audit python build.py", "uv run --python 3.13 python -m http.server"):
+        assert _verdict([text], ran=[command]) is not None, command
+    assert _verdict([text], ran=["uv run --no-sync pip-audit"]) is None

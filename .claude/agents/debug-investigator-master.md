@@ -49,7 +49,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 1 | **Logs** (app, server, browser, docker) | Toujours, en premier | Les logs disent la vérité. Tout le reste est interprétation. |
 | 2 | **Commits récents** (`git log --oneline -20`) | Toujours | 80% des bugs récents = régression d'un commit récent |
 | 3 | **CDC + PET du projet** (`docs/CDC.md` + `docs/PET.md` si présents) | Avant toute correction qui touche au comportement métier | CDC = intention (ce qui était voulu). PET = exécution (ce qui a été décidé). Le bug est peut-être en réalité une feature mal comprise — ou une dérive non-tracée. |
-| 4 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Avant toute recherche web (L2) | Bug peut être déjà documenté. Pattern peut déjà être connu. |
+| 4 | **SKB** (Shinkofa Knowledge Base, lue dans `Shinzo/Eichi/` avec Grep et Read) | Avant toute recherche web (L2) | Bug peut être déjà documenté. Pattern peut déjà être connu. |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 6 | **Project notes Shinzo** (`[SHINZO]/02-Projets/[project].md` section "Bugs") | L1 systématique | Bugs déjà reportés sur le projet courant, contexte d'équipe |
 | 7 | **Veille** (versions stack, CVE, release notes) | Si le bug touche à une dépendance ou un comportement runtime | Training data stale. Le fix officiel est peut-être déjà sorti. |

@@ -54,7 +54,7 @@ Une seule violation = `-10` sur Reliability + flag rapport session.
 | 5 | **`.claude/rules/08-Ecriture.md`** | Avant audit ND-friendly | HECQ framework, design par neurotype, ND beyond WCAG |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
 | 7 | **axe-core rules documentation** (deque) | Pour comprendre une violation | Comprendre la règle avant de la fixer ou la suppress |
-| 8 | **SKB** (Shinkofa Knowledge Base, lue dans `Eichi-Shinkofa/` avec Grep et Read) | Patterns neurodiversité, profils utilisateurs | Connaissance ND deep |
+| 8 | **SKB** (Shinkofa Knowledge Base, lue dans `Shinzo/Eichi/` avec Grep et Read) | Patterns neurodiversité, profils utilisateurs | Connaissance ND deep |
 
 Sauter une source = `-10` Reliability + risque de pattern ARIA cassé pour un screen reader.
 

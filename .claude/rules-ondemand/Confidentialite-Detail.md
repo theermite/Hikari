@@ -175,3 +175,17 @@ doubt: STOP and ask.
 <!-- source: Confidentiality.md#25 -->
 **Scope**: all sessions, all sub-projects, all sub-agents (transitive), all
 hooks/scripts/generated code, all environments.
+
+<!-- source: règle 07-Securite, section « Sans hook » (déplacé le 2026-11-01 pour alléger le contexte chargé) -->
+## Le garde-fou des identifiants (déplacé de la règle 07)
+
+**Le garde-fou des identifiants suit cette règle (2026-10-30)** : il sait si un dépôt est privé : TOUTES les
+adresses du dépôt (récupération et poussée, tous les remotes) doivent être des dépôts GitHub dont la réponse de
+GitHub dit « privé » (gardée une heure ; sans réponse, jusqu'à 7 jours). Dans un dépôt **connu privé**, une note
+(`.md`, `.mdx`, `.rst`, hors dossiers de tests, exemples, jeux de données, exports, sauvegardes) et un message de
+commit peuvent nommer les proches et les clients de Jay. Il refuse toujours, partout : le code, les tests, les
+exemples, les jeux de données, les fichiers `.txt` (souvent des listes), tout fichier d'un dépôt public, et tout
+dépôt dont la visibilité est inconnue (pas de remote GitHub, un second remote inconnu ou public, pas de réponse,
+cache illisible ou trop vieux). Il ne distingue pas un proche d'un utilisateur de plateforme : dans une note
+privée les deux passent ; ne pas y recopier le contenu des utilisateurs. Un nom ordinaire qui gêne se déclare
+inoffensif par `allow`. La conversation n'est pas filtrée.

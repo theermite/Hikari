@@ -53,9 +53,12 @@ Jamais élargir son propre mandat, ni dans un sens ni dans l'autre.
 
 ## 4. Comment poser une question
 
-- Une question s'ouvre sur trois lignes que Jay lit sans avoir vu le code : **En clair** (le contexte, en
-  mots de tous les jours), **Ce que ça change** pour lui, **Ce que ça apporte, ou non**. Puis la question en
-  **une phrase**, numérotée, avec ce que chaque réponse change. Tenu par `clear-recap-check`.
+- Une question s'ouvre sur trois titres que Jay lit sans avoir vu le code : **L'essentiel** (ce qui s'est passé,
+  en mots de tous les jours), **Pour toi** (l'effet, et ce qu'il doit faire), **Gains et limites** (ce que ça
+  apporte, et ce qui reste non réglé ou non vérifié). Puis **Ta question**, en **une phrase**, numérotée, avec ce
+  que chaque réponse change (**La suite** quand il n'y en a pas). Chaque intitulé est un titre de niveau 2 avec sa
+  pastille (`## 🟦 L'essentiel :`, 🟧, 🟩, 🟪), seul sur sa ligne, le texte en dessous. Titres choisis par Jay le
+  2026-11-01, à l'essai trois jours. Tenu par `clear-recap-check`.
 - **Toutes les options pertinentes** sont présentées, jamais moins de deux.
 - Aucune étiquette nue : un choix, une brique, un identifiant porte son contenu dans la même phrase.
 - Zéro jargon non expliqué. Si Jay doit ouvrir un fichier pour comprendre la question, elle est ratée.
@@ -104,9 +107,3 @@ correspondance avec les seize anciennes règles est `docs/regles/Couverture.md`.
 
 Cette règle tient par discipline. Sa violation est **visible en un message** : si Jay est consulté
 hors des cinq arrêts, il le dit et la cause est corrigée dans la foulée.
-
-## Ce que cette règle remplace
-
-`Interpretation-Protocol.md` en entier. Les trois phrases qui produisaient le comportement de
-stagiaire — « non trivial → attendre une validation », « ambigu → demander », « en cas de doute,
-l'interprétation la plus restrictive » — ont disparu : elles sont remplacées par § 2 et § 3.

@@ -40,10 +40,10 @@ from common import (  # noqa: E402
     block,
     find_repo_root,
     get_command,
-    looks_like_deploy,
     pass_through,
     read_hook_input,
 )
+from deploy_reader import is_gated  # noqa: E402
 from shell_parse import simple_commands  # noqa: E402
 from transcript_reader import iter_spoken_text, iter_tool_calls  # noqa: E402
 
@@ -60,8 +60,8 @@ SKIP_MOTIFS = (
 
 # What each tool is recognised by in a REAL command, and the line to run when it is missing.
 TOOLS = {
-    "npm-audit": (re.compile(r"\bnpm(?:\s+--?prefix(?:=|\s+)\S+)?\s+audit\b"), "npm audit --omit=dev"),
-    "pnpm-audit": (re.compile(r"\bpnpm(?:\s+(?:-r|--recursive|(?:--filter|--dir|-C)(?:=|\s+)\S+))*\s+audit\b"), "pnpm audit --prod"),
+    "npm-audit": (re.compile(r"\bnpm(?:\s+--?prefix(?:=|\s+)\S+)?\s+audit\b(?!\s+signatures)"), "npm audit --omit=dev"),
+    "pnpm-audit": (re.compile(r"\bpnpm(?:\s+(?:-r|--recursive|(?:--filter|--dir|-C)(?:=|\s+)\S+))*\s+audit\b(?!\s+signatures)"), "pnpm audit --prod"),
     "pip-audit": (re.compile(r"\bpip[-_]audit\b"), "pip-audit"),
     "mix-deps-audit": (re.compile(r"\bmix\s+(?:deps|hex)\.audit\b"), "mix deps.audit"),
     "cargo-audit": (re.compile(r"\bcargo\s+audit\b"), "cargo audit"),
@@ -91,58 +91,9 @@ _DEPENDENCY_FILES = re.compile(
     r"(requirements|constraints)[\w.-]*\.txt|requirements/[\w./-]+\.txt)$"
 )
 # A runner in front of the tool does not change what ran.
-_RUNNER = re.compile(r"^(?:npx|uvx|pnpm\s+dlx|python3?\s+-m|uv\s+run|poetry\s+run|pipx\s+run|npm\s+exec\s+--)\s+")
+_RUNNER = re.compile(r"^(?:npx|uvx|pnpm\s+dlx|python3?\s+-m|uv\s+run(?:\s+(?:--(?:with|with-requirements|from|python|directory|project|group|extra|env-file)|-p)(?:=|\s+)\S+|\s+--?[\w-]+)*|poetry\s+run|pipx\s+run|npm\s+exec\s+--)\s+")
 
-_PUBLISH = re.compile(
-    r"npm\s+publish|pnpm\s+(?:(?:-r|--recursive)\s+)?publish|yarn\s+publish|twine\s+upload|cargo\s+publish|"
-    r"mix\s+hex\.publish|uv\s+publish|poetry\s+publish|hatch\s+publish",
-    re.IGNORECASE,
-)
-# These read a file or print an argument; they never run it.
-_PRINTERS = {
-    "echo", "print", "printf", "cat", "grep", "rg", "head", "tail", "less", "more", "sed", "awk", "nl",
-    "sort", "uniq", "cut", "tr", "jq", "ls", "wc", "diff", "stat", "file", "basename", "dirname", "realpath",
-}
-_SUBSTITUTION = re.compile(r"\$\(|`")
-_RUNS_WHAT_FOLLOWS = {"-exec", "-execdir", "-ok", "-okdir"}
-
-
-def _program_name(token):
-    return token.replace("\\", "/").rsplit("/", 1)[-1].lower()
-
-
-def _after_exec_flag(segment):
-    """What `find -exec` hands to the shell: the search itself ships nothing, only what it runs can."""
-    for i, token in enumerate(segment):
-        if token in _RUNS_WHAT_FOLLOWS and i + 1 < len(segment):
-            command = [t for t in segment[i + 1 :] if t not in ("{}", ";", "\\", "+")]
-            matched = [t for t in segment[:i] if not t.startswith("-")]
-            return command + matched
-    return None
-
-
-def _ships(segment, printers_are_safe=True):
-    if not segment:
-        return False
-    if _program_name(segment[0]) == "find":
-        nested = _after_exec_flag(segment)
-        return _ships(nested, printers_are_safe) if nested is not None else False
-    if _program_name(segment[0]) in _PRINTERS and printers_are_safe:
-        return False
-    if _program_name(segment[0]) == "git" or segment[:2] == ["gh", "pr"] or segment[:2] == ["gh", "issue"]:
-        return False  # a commit message or a log search that names « npm publish » ships nothing
-    text = " ".join(segment)
-    return looks_like_deploy(text) or bool(_PUBLISH.search(text))
-
-
-def _is_gated(command):
-    """True when any real command in the line deploys or publishes. Unparseable input is read raw."""
-    try:
-        segments = simple_commands(command)
-    except ValueError:
-        segments = [[command or ""]]  # fail closed
-    printers_are_safe = not _SUBSTITUTION.search(command or "")
-    return any(_ships(segment, printers_are_safe) for segment in segments)
+_is_gated = is_gated
 
 
 def _spoken(text):
@@ -217,6 +168,9 @@ def dirty_dependency_files():
     return [p for p in paths if _DEPENDENCY_FILES.search(p.replace("\\", "/"))]
 
 
+_ONLY_ASKS_ABOUT_ITSELF = {"--help", "-h", "--version", "-V"}  # ces options n'auditent rien
+
+
 def _ran_tool(pattern, commands):
     """True when a real command RUNS the tool: it opens a command of the line, not an argument of another."""
     for command in commands:
@@ -226,7 +180,7 @@ def _ran_tool(pattern, commands):
             continue
         for segment in segments:
             text = _RUNNER.sub("", " ".join(segment))
-            if pattern.match(text) and "--help" not in segment:
+            if pattern.match(text) and not _ONLY_ASKS_ABOUT_ITSELF.intersection(segment):
                 return True
     return False
 
@@ -298,6 +252,7 @@ def _coverage_message(audit, head, changed):
 _LEAVES_THE_MACHINE = re.compile(
     r"(?i)\b(?:ssh|scp|rsync|sftp|kubectl|helm|ansible-playbook|fly|vercel|netlify|railway|twine|publish)\b|\bgh\s+workflow\b"
     r"|\bdocker\s+stack\s+deploy\b|\bdeploy\.sh\b"
+    r"|\bdocker\s+(?:image\s+)?push\b|\bdocker\s+(?:-H|--host|--context|-c)\b"  # registre, ou démon distant (2026-11-01)
 )
 
 

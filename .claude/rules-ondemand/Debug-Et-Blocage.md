@@ -61,3 +61,21 @@ hooks: the AI is its own Jidoka). Stop to RESOLVE, not to block:
 Honesty: these depend on discipline (~text-level reliability), not a gate. An external
 verifier (Jay, a 2nd model) remains the only hard guarantee (Jidoka Portability Bridge,
 `Quality.md` A9).
+
+<!-- source: règle 03-Qualite § 6 (déplacé le 2026-11-01 pour alléger le contexte chargé) -->
+<!-- source: Monozukuri.md#6 -->
+*[Amendé 2026-11-01 : bloc déplacé de la règle 03 § 6 vers cette annexe, gabarit de la règle v2 inchangé.]*
+## Le marqueur de correctif, gabarit complet (déplacé de la règle 03)
+
+**Le marqueur obligatoire** sur tout commit `fix:` ou `hotfix:` (tenu par un garde-fou) :
+
+```
+[ROBUSTNESS]
+- 6 mois: <pourquoi ça tient dans 6 mois>
+- cause racine: <oui — laquelle | non — symptôme supposé parce que ...>
+- alternative durable: <aucune valable | voici X, différé parce que Y>
+- appelants reels: <oui — comment vérifié (grep, appels) | non-applicable — pourquoi>
+- garde a l'envers: <le test rougit-il si on retire le garde-fou ? oui | non-applicable>
+```
+
+Dispense légitime, motif fermé : `[ROBUSTNESS-SKIP] motif: <typo|revert|test-fix|lint-fix|formatting|comment-only>`.

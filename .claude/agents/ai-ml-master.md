@@ -38,7 +38,7 @@ appele-par: "geste: /pre-rag-audit · matiere: pipelines RAG, configuration Olla
 |--------|------|-----------------|
 | **Logs LLM** | Logs structurés (PII scrubbed) — latence, tokens, refusals, hallucinations détectées | TOUJOURS L1 avant toute hypothèse pipeline |
 | **mémoire Shinzo (L2)** | `Grep` dans `Shinzo/05-Memoire/` — patterns RAG passés, prompts versionnés, incidents | Avant tout nouveau pipeline. Après toute optim qui marche. |
-| **SKB** (lue dans `Eichi-Shinkofa/` avec Grep et Read) | Domain : `12-AI-LLM/`, `13-RAG/`, eval baselines, prompts library — la SKB est elle-même la première source RAG | Avant toute conception pipeline |
+| **SKB** (lue dans `Shinzo/Eichi/` avec Grep et Read) | Domain : `12-AI-LLM/`, `13-RAG/`, eval baselines, prompts library — la SKB est elle-même la première source RAG | Avant toute conception pipeline |
 | **RAGAS / DeepEval** | Faithfulness, Answer Relevancy, Context Precision/Recall | À chaque change pipeline. Régression = BLOCKING. |
 | **`/pre-rag-audit`** | Audit OBLIGATOIRE avant toute (ré)indexation KB (cf. `rules/02-Parcours.md`) | Avant toute indexation. Tous les 30 jours sur SKB. |
 | **Veille (web)** | Anthropic / OpenAI / Ollama release notes, papers récents (LangChain, LlamaIndex), CVE LLM | Avant choix modèle/version, avant adoption pattern |

@@ -95,32 +95,10 @@ S'arrêter, nommer la porte franchie, annuler si c'est réversible, écrire l'in
 Une violation se juge sur **la porte franchie**, jamais sur la présence d'une donnée dans un fichier
 de travail interne.
 
-## Annexes
-
-Lues au moment du travail qui les requiert — un garde-fou bloque l'écriture sinon (règle 01 § 7).
-
-| Annexe | Quand |
-|---|---|
-| `Confidentialite-Detail` | avant tout envoi vers l'extérieur : les trois portes en détail, défauts autorisés, non-autorisations |
-
 ## Sans hook
 
 Les secrets, la lecture des fichiers de secrets et les données d'autrui sont tenus par des garde-fous.
 Le reste — destination, accord, base légale — tient par discipline, et se relit à la passe
 hebdomadaire.
 
-**Le garde-fou des identifiants suit cette règle (2026-10-30)** : il sait si un dépôt est privé : TOUTES les
-adresses du dépôt (récupération et poussée, tous les remotes) doivent être des dépôts GitHub dont la réponse de
-GitHub dit « privé » (gardée une heure ; sans réponse, jusqu'à 7 jours). Dans un dépôt **connu privé**, une note
-(`.md`, `.mdx`, `.rst`, hors dossiers de tests, exemples, jeux de données, exports, sauvegardes) et un message de
-commit peuvent nommer les proches et les clients de Jay. Il refuse toujours, partout : le code, les tests, les
-exemples, les jeux de données, les fichiers `.txt` (souvent des listes), tout fichier d'un dépôt public, et tout
-dépôt dont la visibilité est inconnue (pas de remote GitHub, un second remote inconnu ou public, pas de réponse,
-cache illisible ou trop vieux). Il ne distingue pas un proche d'un utilisateur de plateforme : dans une note
-privée les deux passent ; ne pas y recopier le contenu des utilisateurs. Un nom ordinaire qui gêne se déclare
-inoffensif par `allow`. La conversation n'est pas filtrée.
-
-## Ce que cette règle remplace
-
-`Confidentiality.md`, avec deux ajouts : la sortie par destination (§ 2) et les obligations légales
-datées (§ 4), qui n'existaient dans aucune règle.
+Le garde-fou des identifiants suit cette règle : il sait si un dépôt est privé (toutes les adresses du dépôt doivent être des dépôts GitHub privés) ; dans un dépôt **connu privé** une note et un message de commit peuvent nommer les proches et les clients de Jay, partout ailleurs il refuse. Détail, limites et sorties : annexe `Confidentialite-Detail`.

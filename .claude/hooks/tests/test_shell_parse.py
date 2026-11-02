@@ -255,9 +255,46 @@ def test_an_escaped_quote_on_a_single_line_still_parses_when_the_readings_agree(
     assert simple_commands('echo "a\\"b\\"c"; ls') == [["echo", "a\\b\\c"], ["ls"]]
 
 
+@pytest.mark.parametrize("command", [
+    # relecture 7.7.0: les deux lectures finissent dans le même état mais coupent les chaînes ailleurs
+    'echo "a\\" "; cat notes.txt; echo "\\""',
+    "echo \\' ; git push --force ; echo \\'",
+    'echo "x\\" y"; git push --force origin main; echo "\\" z"',
+])
+def test_escaped_quotes_that_move_a_command_boundary_fail_closed(command):
+    with pytest.raises(ValueError):
+        simple_commands(command)
+
+
+@pytest.mark.parametrize("command, expected", [
+    ("find . -name x -exec rm {} \\;", [["find", ".", "-name", "x", "-exec", "rm", "{}", "\\"], []]),
+    ('git commit -m "fix \\"x\\" ok"; git push', [["git", "commit", "-m", "fix \\x\\ ok"], ["git", "push"]]),
+    ("cd C:\\Git\\bin && ls", [["cd", "C:\\Git\\bin"], ["ls"]]),
+])
+def test_legitimate_backslashes_are_not_refused(command, expected):
+    assert [s for s in simple_commands(command) if s] == [s for s in expected if s]
+
+
+@pytest.mark.parametrize("opener", ["cat <<-EOF", "cat <<- EOF", "cat <<-'EOF'", "cat <<- 'EOF'", 'cat <<-"EOF"'])
+def test_a_heredoc_with_tabs_ends_at_its_delimiter_and_the_next_command_is_seen(opener):
+    """`<<-` (fiche Kata) : le délimiteur était lu « -EOF », donc tout ce qui suit passait pour du corps."""
+    segments = simple_commands(f"{opener}\n\tcorps; ls\n\tEOF\npwd")
+    assert segments == [["cat"], ["pwd"]]
+
+
+def test_a_heredoc_fed_to_a_shell_with_tabs_is_still_read_as_code():
+    segments = simple_commands("bash <<-EOF\n\tgit push --force origin main\n\tEOF\npwd")
+    assert ["git", "push", "--force", "origin", "main"] in segments and ["pwd"] in segments
+
+
 def test_an_escaped_quote_inside_double_quotes_does_not_hide_a_live_substitution():
     """Relecture 2026-11-01: bash reads \\" as a literal quote and stays in double quotes; an apostrophe after it
     must not make the reader think it is in single quotes, with a command substitution behind."""
     command = 'echo "A\\"\' $(cat .env) \'"\necho \\"'
     with pytest.raises(ValueError):
         simple_commands(command)
+
+
+def test_pipe_and_stderr_is_a_command_separator():
+    """`|&` (relecture 7.8.0) : la commande placée juste après n'était pas lue comme une commande."""
+    assert simple_commands("ls |& cat notes.txt") == [["ls"], ["cat", "notes.txt"]]

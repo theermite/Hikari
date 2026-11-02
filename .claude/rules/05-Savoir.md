@@ -68,23 +68,8 @@ Elle se termine par `[LANGUES] EN=ok FR=ok ZH=ok JA=rien KO=rien DE=ok RU=ok`. D
 `ok` sans requête lancée dans cette langue est refusé. Un agent sans outil web ne cherche pas : il rend
 la main à Takumi, qui convoque l'agent de veille ou de recherche approfondie. (Jay, décision du 2026-10-31.)
 
-## Annexes
-
-Lues au moment du travail qui les requiert — un garde-fou bloque l'écriture sinon (règle 01 § 7).
-
-| Annexe | Quand |
-|---|---|
-| `Memoire-Format` | avant d'écrire un souvenir : schéma, dépôt, sommaires |
-| `Provenance-Du-Contenu` | avant de publier : la légende fermée, la valeur lisible par machine, la mention visible |
-| `Veille-Et-Savoir` | la preuve de savoir avant d'écrire du code, et le détail de la recherche de fond (§ 6) |
-
 ## Sans hook
 
 La couverture annoncée est tenue par `quality/langues-check.py`, pour Takumi et pour les agents (limites dans l'annexe). Le sommaire et le rappel sont tenus par du code. L'effet d'une consultation ne l'est pas : il se lit
 dans le compte rendu (« ce document a changé cette décision »), et la passe hebdomadaire compte les
 semaines sans consultation utile.
-
-## Ce que cette règle remplace
-
-`Memory.md` et la partie « provenance » de `Content-Provenance.md`. Le registre de ports, resté
-orphelin dans une note de Jay, y entre pour de bon.

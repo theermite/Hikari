@@ -190,9 +190,11 @@ def format_warn(reason: str, action: str, reference: str | None = None) -> str:
 
 # Options may sit between `compose` and the verb: `docker compose -f prod.yml up`, `--profile prod up`.
 _COMPOSE_OPTS = r"(?:-\S+\s+(?:[^\s-]\S*\s+)?)*"
+# Options globales de docker AVANT « compose » : `docker --context vps compose up`, `docker -H tcp://h:2376 compose up`.
+_DOCKER_GLOBAL_OPTS = _COMPOSE_OPTS
 
 _DEPLOY_PATTERNS = [
-    re.compile(r"\bdocker(?:-compose)?\s+(?:compose\s+)?" + _COMPOSE_OPTS + r"up\b"),
+    re.compile(r"\bdocker(?:-compose)?\s+" + _DOCKER_GLOBAL_OPTS + r"(?:compose\s+)?" + _COMPOSE_OPTS + r"up\b"),
     re.compile(r"\bdocker\s+stack\s+deploy\b"),
     re.compile(r"\bdeploy\.sh\b"),
     re.compile(r"\bvercel\s+(?:--prod|deploy)\b"),

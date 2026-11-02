@@ -14,7 +14,7 @@ model: sonnet
 
 1. **DETECT SCOPE**: Determine what to audit:
    - If run in a project repo: scan `docs/`, `README.md`, `CLAUDE.md`, `CHANGELOG.md`, and any `.md` files at root
-   - If run with `--target skb`: scan SKB (Shinkofa Knowledge Base) via Obsidian MCP or filesystem (`D:/30-Dev-Projects/Eichi-Shinkofa/`) (806+ files, 18 domains)
+   - If run with `--target skb`: scan SKB (Shinkofa Knowledge Base) via Obsidian MCP or filesystem (`D:/30-Dev-Projects/Shinzo/Eichi/`) (806+ files, 18 domains)
    - If run with `--target <path>`: scan the specified directory
 
 2. **RUN 7 CHECKS**:
@@ -110,7 +110,7 @@ model: sonnet
 | `--quick` | Skip semantic duplicate detection (Check 5 deep mode) |
 | `--deep` | Enable embedding-based semantic duplicate detection |
 | `--target <path>` | Scan a specific directory instead of current project |
-| `--target skb` | Scan SKB (Shinkofa Knowledge Base) via filesystem (`D:/30-Dev-Projects/Eichi-Shinkofa/`) or Obsidian MCP |
+| `--target skb` | Scan SKB (Shinkofa Knowledge Base) via filesystem (`D:/30-Dev-Projects/Shinzo/Eichi/`) or Obsidian MCP |
 | `--fix-auto` | Auto-fix trivial issues (update dates, remove exact dupes) |
 
 ## Rules

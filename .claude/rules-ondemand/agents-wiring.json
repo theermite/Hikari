@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "doc": "Cablage des experts (Jay 2026-11-01) : un expert qu'aucun evenement n'appelle ne sert a rien (27 agents sur 32 n'avaient ete lances nulle part en 30 jours). Ce registre dit quel expert un commit NON POUSSE exige avant `git push`, selon les fichiers qu'il touche. Lu par hooks/lib/agent_wiring.py et hooks/guards/expert-push-check.py. Mode 'bloquant' = classes Critique et Sensible seulement (rules/03-Qualite.md 2 bis) ; les autres declencheurs (rappel trace) viendront dans ce meme registre. Un declencheur : agent, chemin (regex sur le chemin du fichier), exclusion optionnelle, diff optionnel (regex sur une ligne AJOUTEE du commit). Une exclusion par defaut ecarte les fichiers de test.",
+  "exclusion_par_defaut": "(^|/)(tests?|__tests__|spec)/|(^|/)test_[^/]*$|_test\\.|\\.test\\.|\\.spec\\.|\\.(md|mdx|txt)$|(^|/)\\.claude/agents/",
+  "fenetre_avant_commit_minutes": 120,
+  "dispenses": ["docs-only", "test-only", "no-behavior-change"],
+  "declencheurs": [
+    {
+      "id": "paiement",
+      "agent": "Payment Master",
+      "mode": "bloquant",
+      "classe": "critique",
+      "chemin": "(^|/)(stripe|payment|paiement|checkout|billing)(/|_|-|\\.)"
+    },
+    {
+      "id": "migration",
+      "agent": "Database Master",
+      "mode": "bloquant",
+      "classe": "critique",
+      "chemin": "(^|/)migrations?/|\\.sql$|(^|/)schema\\.prisma$"
+    },
+    {
+      "id": "authentification",
+      "agent": "Security Master",
+      "mode": "bloquant",
+      "classe": "critique",
+      "chemin": "(^|/)(auth|authn|authz|authenticat\\w*|authoriz\\w*|login|signin|oauth|jwt|crypto|passwords?)(/|_|-|\\.)"
+    },
+    {
+      "id": "rust-unsafe",
+      "agent": "Rust Systems Master",
+      "mode": "bloquant",
+      "classe": "sensible",
+      "chemin": "\\.rs$",
+      "diff": "^\\+.*\\bunsafe\\b"
+    },
+    {"id": "elixir", "agent": "Elixir Phoenix Master", "mode": "rappel", "chemin": "\\.(ex|exs)$|(^|/)mix\\.exs$"},
+    {"id": "rust", "agent": "Rust Systems Master", "mode": "rappel", "chemin": "\\.rs$|(^|/)Cargo\\.toml$"},
+    {"id": "interface-code", "agent": "Frontend Master", "mode": "rappel", "chemin": "\\.(tsx|jsx)$"},
+    {"id": "interface-accessibilite", "agent": "Accessibility Master", "mode": "rappel", "chemin": "\\.(tsx|jsx|html|css|scss)$"},
+    {"id": "interface-ergonomie", "agent": "UX Design Master", "mode": "rappel", "chemin": "\\.(tsx|jsx|html|css|scss)$"},
+    {"id": "dependances", "agent": "Dependency Master", "mode": "rappel", "chemin": "(^|/)(package\\.json|pnpm-lock\\.ya?ml|package-lock\\.json|uv\\.lock|pyproject\\.toml|requirements\\.txt|mix\\.exs|mix\\.lock|Cargo\\.toml|Cargo\\.lock)$"},
+    {"id": "infrastructure", "agent": "Infrastructure Master", "mode": "rappel", "chemin": "(^|/)(Dockerfile|docker-compose\\.ya?ml|compose\\.ya?ml)$|(^|/)nginx/"},
+    {"id": "integration-continue", "agent": "GitHub CI Master", "mode": "rappel", "chemin": "(^|/)\\.github/workflows/.*\\.ya?ml$"},
+    {"id": "bureau", "agent": "Desktop App Master", "mode": "rappel", "chemin": "(^|/)tauri\\.conf\\.json$|(^|/)electron/"},
+    {"id": "diffusion", "agent": "Video Streaming Master", "mode": "rappel", "chemin": "(^|/)(obs|streaming|overlays?)/"},
+    {"id": "ia-rag", "agent": "AI ML Master", "mode": "rappel", "chemin": "(^|/)(rag|embeddings?|ollama)(/|_|-|\\.)"},
+    {"id": "api", "agent": "Backend API Master", "mode": "rappel", "chemin": "(^|/)(routes?|controllers?)/"},
+    {"id": "traductions", "agent": "I18n Master", "mode": "rappel", "chemin": "(^|/)(locales?|i18n|translations?)/"},
+    {"id": "mobile", "agent": "Mobile Master", "mode": "rappel", "chemin": "manifest\\.(web)?json$|\\.webmanifest$"},
+    {"id": "performance", "agent": "Performance Master", "mode": "rappel", "chemin": "(^|/)(vite|webpack|next|rollup)\\.config\\.[cm]?[jt]s$"}
+  ]
+}

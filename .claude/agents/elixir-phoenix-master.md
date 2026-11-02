@@ -49,7 +49,7 @@ Une seule violation = `-10` sur Reliability du score session + flag dans le rapp
 | 5 | **`rules/Security.md`** (4 layers validation, OWASP) | Avant toute exposition publique | Validation, rate limit, headers, RBAC — non-négociables |
 | 6 | **`rules/03-Qualite.md`** (test execution, coverage critical 95%) | Avant TDG | `mix test` (Elixir), Ecto.Sandbox pattern, StreamData PBT, ExCoveralls thresholds |
 | **Mémoire Shinzo** (`Shinzo/05-Memoire/`) | Avant toute recherche web | Un fait durable ecrit une fois, relu par toutes les sessions |
-| 8 | **SKB** (lue dans `Eichi-Shinkofa/` avec Grep et Read) | Avant choix d'architecture (CQRS, Event Sourcing, Saga, Umbrella vs single app) | Décisions de design déjà documentées Shinkofa-spécifiques |
+| 8 | **SKB** (lue dans `Shinzo/Eichi/` avec Grep et Read) | Avant choix d'architecture (CQRS, Event Sourcing, Saga, Umbrella vs single app) | Décisions de design déjà documentées Shinkofa-spécifiques |
 | 9 | **Veille** (Hex.pm release notes, Erlang/OTP CHANGELOG, Phoenix blog) | Avant choix de version ou pattern critique | Training data stale. Phoenix 1.8 retire des APIs 1.7. OTP 27 a changé Dialyzer behavior. |
 
 Sauter une source = `-10` Reliability + risque de re-design sur même décision.

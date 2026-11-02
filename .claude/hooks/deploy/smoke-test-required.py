@@ -25,11 +25,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 from common import (  # noqa: E402
     format_warn,
     get_command,
-    looks_like_deploy,
     pass_through,
     read_hook_input,
     warn,
 )
+from deploy_reader import is_gated  # noqa: E402
 from session_state import mark_once, read_state, write_state  # noqa: E402
 
 STATE_NAME = "deploy-smoke"
@@ -71,7 +71,7 @@ def main() -> None:
             write_state(STATE_NAME, state, sid)
         pass_through()
 
-    if looks_like_deploy(cmd):
+    if is_gated(cmd, publishes=False):  # une note qui CITE « docker compose up » n'est pas une mise en ligne
         state.update({"pending_deploy": True, "smoke_seen": False})
         write_state(STATE_NAME, state, sid)
         pass_through()

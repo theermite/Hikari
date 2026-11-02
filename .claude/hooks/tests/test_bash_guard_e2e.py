@@ -203,3 +203,16 @@ def test_force_push_of_several_refspecs_including_main_is_blocked():
 def test_force_push_of_several_feature_branches_is_not_blocked():
     result = _run("git push --force origin feature/x feature/y")
     assert result.returncode == 0, result.stderr
+
+
+def _run_in(command: str, cwd: str):
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}, "cwd": cwd})
+    return subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True)
+
+
+def test_directory_add_is_blocked_when_the_session_cwd_is_shinzo():
+    # The harness sends the session's cwd next to tool_input: a session opened in Shinzo
+    # has no -C and no cd, so only the cwd tells the guard the repository is shared.
+    result = _run_in("git add 05-Memoire/", "D:/30-Dev-Projects/Shinzo")
+    assert result.returncode == 2, result.stderr
+    assert "shared repo" in result.stderr

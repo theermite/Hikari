@@ -38,7 +38,7 @@ appele-par: "matiere: migrations, schemas, requetes SQL/Ecto"
 |--------|------|-----------------|
 | **Logs PostgreSQL** | `/var/log/postgresql/postgresql-*.log` — slow query, deadlock, autovacuum | TOUJOURS L1 avant toute hypothèse |
 | **mémoire Shinzo (L2)** | `Grep` dans `Shinzo/05-Memoire/` — incidents passés, schemas critiques, recettes de migration | Avant toute migration sur table critique, après tout incident |
-| **SKB** (lue dans `Eichi-Shinkofa/` avec Grep et Read) | Domain : `08-Database-Patterns/`, `10-Infrastructure/PostgreSQL/`, retours incidents | Avant toute décision d'architecture data |
+| **SKB** (lue dans `Shinzo/Eichi/` avec Grep et Read) | Domain : `08-Database-Patterns/`, `10-Infrastructure/PostgreSQL/`, retours incidents | Avant toute décision d'architecture data |
 | **`pg_stat_*` views** | `pg_stat_activity`, `pg_stat_statements`, `pg_stat_user_indexes`, `pg_locks` | Diagnostic perf, locks, indices morts |
 | **Migration folder** | `priv/repo/migrations/` (Ecto), `alembic/versions/` (Python), `prisma/migrations/` (TS) | Avant écriture migration : qui touche cette table ? quand ? pourquoi ? |
 | **Veille (web)** | PostgreSQL release notes (18.x), Ecto/SQLAlchemy/Prisma docs, CVE PostgreSQL | Avant adoption feature, avant version upgrade |

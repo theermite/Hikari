@@ -22,7 +22,7 @@ from git_push_guard import (  # noqa: E402
 
 
 def read_input():
-    """Return (raw stdin text, command). `command` comes from the shared,
+    """Return (raw stdin text, command, session cwd or None). `command` comes from the shared,
     nested-aware reader (lib/common.py) — this file's own copy read
     `data["command"]` at the top level, so it was always "" on a real
     invocation (the harness nests it under `tool_input`), and every check
@@ -34,7 +34,8 @@ def read_input():
     """
     raw, data = common.read_hook_input()
     command = common.get_command(data)
-    return raw, command
+    cwd = data.get("cwd") if isinstance(data, dict) else None
+    return raw, command, cwd if isinstance(cwd, str) and cwd else None
 
 
 def check_secrets(raw):
@@ -331,9 +332,9 @@ def check_dependency_version(raw):
 
 
 def main():
-    raw, command = read_input()
+    raw, command, cwd = read_input()
 
-    for msg in [check_secrets(raw), check_destructive(raw), check_no_verify(command), check_git_add_broad(command), check_force_push_main(command)]:
+    for msg in [check_secrets(raw), check_destructive(raw), check_no_verify(command), check_git_add_broad(command, cwd), check_force_push_main(command)]:
         if msg:
             print(msg, file=sys.stderr)
             sys.exit(2)

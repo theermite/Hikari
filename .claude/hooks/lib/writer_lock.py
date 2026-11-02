@@ -71,8 +71,24 @@ def battre(racine: Path, session: str, maintenant: float | None = None, journal:
     return True
 
 
+# Dépôts écrits par toutes les séances à la fois, où un seul écrivain n'a pas de sens (Jay, 2026-11-02):
+# Shinzo reçoit les notes, les rapports et les mémoires de chaque séance, dont un hook qui enregistre et pousse tout seul.
+# L'exemption est par nom exact du dossier. Elle ne retire que le refus; le battement reste écrit.
+# Ce qui reste exposé dans Shinzo (relecture indépendante, 2026-11-02): un `git commit` SANS chemins emporte ce qu'une autre
+# séance a déjà indexé; `git add -u`, `./`, `*` et `commit -am` passent bash-guard; rien n'interdit de changer de branche ni de
+# réécrire l'historique. À faire dans Shinzo: committer avec `git commit -- <chemins>` (comme le hook de mémoire) et ne jamais
+# changer de branche ni réécrire l'historique. Seul `git add -A`, `.` et `--all` sont refusés par bash-guard.
+DEPOTS_EXEMPTES = frozenset({"Shinzo"})
+
+
+def depot_exempte(racine: Path) -> bool:
+    return Path(racine).name in DEPOTS_EXEMPTES
+
+
 def autre_ecrivain(racine: Path, session: str, maintenant: float | None = None) -> dict | None:
     """L'autre séance qui a écrit ici récemment; une écriture certaine l'emporte sur une écriture possible."""
+    if depot_exempte(racine):
+        return None
     maintenant = time.time() if maintenant is None else maintenant
     autres = [(e["certain"], _vivacite(e), sid) for sid, e in _ecrivains(racine, maintenant).items() if sid != session]
     if not autres:

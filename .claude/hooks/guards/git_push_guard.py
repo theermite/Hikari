@@ -8,6 +8,7 @@ wired as a hook in settings.json.
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -117,16 +118,27 @@ def _git_add_violation(repo, pathspecs):
 _BROAD_ADD_FALLBACK = re.compile(r"git add (\.|--all|-A)(\s|\"|\;|&&|\||\)|$)")
 
 
-def check_git_add_broad(command):
+def _after_cd(current, target):
+    """Where a `cd` leads. A relative cd moves FROM where the session already is: replacing the
+    target would drop the shared repo the session was opened in."""
+    target = target.strip("\"'")
+    if current and not Path(target).is_absolute() and not target.startswith("~"):
+        return os.path.normpath(os.path.join(current.strip("\"'"), target))
+    return target
+
+
+def check_git_add_broad(command, cwd=None):
     try:
         segments = _simple_commands(command)
     except ValueError:
         return _broad_add_message() if _BROAD_ADD_FALLBACK.search(command) else None
 
-    cwd_target = None
+    # The session's own working directory counts as the repo when nothing else names one:
+    # a session opened inside Shinzo has no -C and no cd (lot 5, 2026-11-02).
+    cwd_target = cwd
     for segment in segments:
         if segment[0] == "cd" and len(segment) > 1:
-            cwd_target = segment[1]
+            cwd_target = _after_cd(cwd_target, segment[1])
         parsed = _parse_git_add(segment)
         if parsed is None:
             continue

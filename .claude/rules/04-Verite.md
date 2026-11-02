@@ -76,20 +76,7 @@ Un outil ouvert, maintenu, modifiable se juge sur ce qu'il peut devenir, pas sur
 blocage apparent se relit comme une **distance à franchir** : un réglage, un point d'extension, un
 fork. La preuve se fait par un essai sur une vraie tâche, jamais par une opinion.
 
-## Annexes
-
-Lues au moment du travail qui les requiert — un garde-fou bloque l'écriture sinon (règle 01 § 7).
-
-| Annexe | Quand |
-|---|---|
-| `Verite-Detail` | avant un conseil non technique, ou le rapport (motifs fermés de la trace de contradiction) |
-
 ## Sans hook
 
 La contradiction est tracée par un garde-fou ; le reste tient par discipline. Le signal qui compte
 est le compte rendu : une contradiction par décision structurante, ou le motif de son absence.
-
-## Ce que cette règle remplace
-
-`Honesty.md` et `Non-Technical-Advice.md`. Le plafond de forme, la langue simple et la longueur des
-réponses vivent dans la règle 08.

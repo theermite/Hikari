@@ -117,7 +117,7 @@ l'utilisateur. La comparaison ne se fait pas au jeton (voir l'expert des coûts)
 2. `.claude/rules/03-Qualite.md` — philosophie chapeau
 3. `.claude/rules/02-Parcours.md` — gates 6 (Tests) et 8 (Verify)
 4. `.claude/rules/08-Ecriture.md` — findings adverses user-facing
-5. SKB (lue dans `Eichi-Shinkofa/` avec Grep et Read) — patterns adverses déjà observés
+5. SKB (lue dans `Shinzo/Eichi/` avec Grep et Read) — patterns adverses déjà observés
 6. mémoire Shinzo — `Grep` dans `Shinzo/05-Memoire/`
 7. Référentiel d'attaques (OWASP Top 10, CWE-25, BLNS)
 
