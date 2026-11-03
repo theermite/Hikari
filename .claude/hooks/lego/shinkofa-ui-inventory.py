@@ -42,6 +42,8 @@ UI_COMPONENTS: frozenset[str] = load_ui_inventory()
 SKIP_SEGMENTS: tuple[str, ...] = (
     "Shinkofa-Shared/packages/",
     "shinkofa-shared/packages/",
+    "Toolbox/typescript/packages/",
+    "toolbox/typescript/packages/",
     "node_modules/",
     "__tests__/",
     ".storybook/",

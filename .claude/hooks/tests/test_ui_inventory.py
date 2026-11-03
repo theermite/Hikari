@@ -224,3 +224,61 @@ def test_should_mirror_the_rule_wording_verbatim_and_in_order():
 def test_should_never_carry_a_foundation_row_absent_from_the_rule():
     """A row smuggled into the template is a rule nobody agreed to."""
     assert set(_template_foundation()) <= set(_rule_checklist())
+
+
+# --- the library moved: Toolbox/typescript is the source since 2026-11-02 -------
+#
+# Shinkofa-Shared merged into Toolbox on 2026-11-02 (Toolbox/GEL.md): the old checkout is frozen, Toolbox/typescript
+# carries the live packages. The guards read Toolbox first and the frozen checkout only as a fallback.
+
+
+def _ui(racine: Path) -> Path:
+    ui = racine / "packages" / "ui" / "src"
+    ui.mkdir(parents=True)
+    return racine
+
+
+def test_should_read_toolbox_first_and_the_frozen_checkout_second():
+    assert ui_inventory.CANDIDATE_ROOTS[0].parts[-2:] == ("Toolbox", "typescript")
+    assert ui_inventory.CANDIDATE_ROOTS[1].name == "Shinkofa-Shared"
+
+
+def test_should_choose_the_first_candidate_that_has_the_package(tmp_path):
+    premier, second = tmp_path / "a", tmp_path / "b"
+    premier.mkdir()
+    _ui(second)
+    assert ui_inventory.choose_root((premier, second)) == second
+    _ui(premier)
+    assert ui_inventory.choose_root((premier, second)) == premier
+
+
+def test_should_keep_the_last_candidate_when_none_has_the_package(tmp_path):
+    assert ui_inventory.choose_root((tmp_path / "a", tmp_path / "b")) == tmp_path / "b"
+
+
+def test_the_library_itself_is_exempt_in_toolbox_as_it_was_in_shared():
+    import importlib.util
+
+    lego = Path(__file__).resolve().parents[1] / "lego"
+    for nom in ("i18n-no-hardcode.py", "shared-types-only.py"):
+        spec = importlib.util.spec_from_file_location(nom.replace("-", "_"), lego / nom)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        assert any("Toolbox/typescript/packages/" in s for s in module.SKIP_SEGMENTS), nom
+    sys_lib = Path(__file__).resolve().parents[1] / "lib"
+    spec = importlib.util.spec_from_file_location("ui_checks_local", sys_lib / "ui_checks.py")
+    checks = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checks)
+    assert any("Toolbox/typescript/" in p for p in checks.UI_SKIP_PATTERNS)
+
+
+def test_a_windows_path_is_exempted_like_a_posix_one():
+    """Relecture indépendante du 2026-11-03 : les antislash d'un chemin Windows laissaient passer l'exemption de la bibliothèque."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("ui_checks_win", Path(__file__).resolve().parents[1] / "lib" / "ui_checks.py")
+    checks = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checks)
+    assert checks._skips_ui_check(r"D:\Dev\Toolbox\typescript\packages\ui\src\Button.tsx", "tsx")
+    assert checks._skips_ui_check("D:/Dev/Toolbox/typescript/packages/ui/src/Button.tsx", "tsx")
+    assert not checks._skips_ui_check(r"D:\Dev\Kobo\src\Button.tsx", "tsx")

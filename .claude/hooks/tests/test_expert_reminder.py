@@ -102,3 +102,36 @@ def test_the_message_never_blocks_and_names_the_way_to_launch(tmp_path):
     fait = _lancer(repo, "lib/a.ex")
     assert fait.returncode == 0
     assert "Agent" in _contexte(fait)
+
+
+# ---------------------------------------------------------------- le chemin jugé est celui du dépôt, pas celui du disque
+
+def test_a_parent_folder_named_tests_does_not_silence_the_repository(tmp_path):
+    """Le chemin absolu contenait `/tests/` : le dépôt entier était pris pour un test et ne rappelait plus rien."""
+    repo = _depot(tmp_path / "tests" / "app")
+    assert "Elixir Phoenix Master" in _contexte(_lancer(repo, "lib/a.ex"))
+
+
+def test_a_parent_folder_named_streaming_does_not_remind_for_every_file(tmp_path):
+    """Le chemin absolu contenait `/streaming/` : chaque fichier du dépôt rappelait l'expert vidéo."""
+    repo = _depot(tmp_path / "streaming" / "app")
+    assert _contexte(_lancer(repo, "src/a.py")) == "" and _rappels(repo) == []
+
+
+def test_outside_any_repository_nothing_is_written(tmp_path):
+    """Hors dépôt, `find_repo_root` rend le dossier courant : l'état et la trace partaient dans un dossier au hasard."""
+    plain = tmp_path / "plain"
+    (plain / "lib").mkdir(parents=True)
+    _lancer(plain, "lib/a.ex")
+    assert not (plain / ".claude").exists()
+
+
+def test_a_file_of_another_repository_is_judged_by_its_own_relative_path(tmp_path):
+    """Le dépôt de travail n'est pas celui du fichier : `tests/` dans le chemin du disque ne doit pas le taire."""
+    ici = _depot(tmp_path / "ici")
+    autre = _depot(tmp_path / "tests" / "autre")
+    entree = json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Edit", "session_id": "s1", "cwd": str(ici),
+                         "tool_input": {"file_path": str(autre / "lib" / "a.ex")}})
+    fait = subprocess.run([sys.executable, str(HOOK)], input=entree, capture_output=True, text=True, cwd=str(ici))
+    assert "Elixir Phoenix Master" in _contexte(fait)
+    assert len(_rappels(autre)) == 1 and _rappels(ici) == []

@@ -28,10 +28,13 @@ Execute these steps IN ORDER. Gate 8 must pass.
    - **Reproches de livraison** — every complaint Jay made about the OUTPUT itself
      (unreadable, too dense, too technical, too much), his words verbatim + the cause found
      + what changed. −10 Value each. None this session → write « aucun ». See
-     `.claude/rules/02-Parcours.md` — Scoring V2.
+     `.claude/rules-ondemand/Notation.md` — Scoring V2.
+   - **Points de décision** — pour chaque décision structurante : retenu · écarté · preuve (doctrine § 2). Inverser une décision exige une preuve nouvelle, écrite.
+   - **Règles posées** — toute règle, annexe, garde-fou ou compétence créé ou modifié, nommé, avec ce qu'il fait, pourquoi, et ce que Jay a décidé (`.claude/rules/01-Lecture.md` § 5). Aucune règle posée → « aucune ».
+   - **Fils ouverts** — un `[EN-SUSPENS] <le fil>` par fil laissé ouvert, un `[RESOLU] <le fil>` par fil clos (`.claude/rules-ondemand/Reprise-Et-Contexte.md`).
    - **Leçon(s)** — the transferable lesson(s) from this session (复盘 grammar: Objectif → Processus → Résultat → Analyse 5-pourquoi → Leçon)
    - Pending items for next session
-   - Context Awareness status: was the 60% threshold reached? Was a handoff brief written? Note any context degradation detected.
+   - Context status: which gauge thresholds were crossed (price note 400 000, quality alert 600 000, warm resume 700 000 — `hooks/lifecycle/context-gauge.py`)? Was a handoff brief written? Note any context degradation detected.
    - Objective metrics: include unpushed commits, TODO/FIXME added, veille markers — read `.claude/state/last-session-metrics.md` (auto-written by `session-end-metrics.py` hook) or compute via `git log origin/main..HEAD` + `git diff origin/main..HEAD`.
 3. **SHINZO SYNC**: Update only the files touched by this session — not all project files:
    - `[SHINZO]/02-Projets/[current-project].md` — always (merge decisions, bugs, next steps)
@@ -40,12 +43,12 @@ Execute these steps IN ORDER. Gate 8 must pass.
    - **`[SHINZO]`** = `D:/30-Dev-Projects/Shinzo` (local) · `~/Shinzo` (VPS).
    - **DO NOT read or write all project files.** Only touch files where you have changes to write.
    - **After writing**: stage **only the files this session wrote**, by explicit path (`git add -- <path> <path>`) — never `git add -A`, `git add .`, or a whole directory. Another session may be writing Shinzo at the same time; a broad stage carries its work away under your commit message (observed 2026-08-10). Then commit + push. **Proof**: `git show --name-only HEAD` lists only paths this session wrote. (Memory files under `05-Memoire/` need nothing — the memory hook commits each one on its own, scoped to its path.)
-4. **TRIM CHECK**: Verify each updated `[SHINZO]/02-Projets/[project].md` stays under **~5 KB / ~150 lines**. If over, apply the 4 trimming rules (see `.claude/rules/02-Parcours.md` "Obsidian Project File Hygiene") before saving:
+4. **TRIM CHECK**: Verify each updated `[SHINZO]/02-Projets/[project].md` stays under **~5 KB / ~150 lines** (mesure du 2026-11-03 : 37 fiches sur 78 dépassent, la plus lue à chaque départ, celle de Kata, fait 25 Ko ; la limite n'est tenue par aucun code). If over, apply the 4 trimming rules before saving:
    1. Session reports → max 1-liner in project file (`| date | scope | score |`). Full detail stays in `docs/Sessions/`.
    2. Superseded decisions → remove from file. Git history preserves them. Keep only ACTIVE decisions.
    3. Resolved bugs → remove or keep as 1-liner max (`- ~~Bug X~~ done date`).
    4. Out-of-scope sections → move to the correct project file.
-5. **DOCS UPDATE**: Ensure CDC and PET reflect current state. Update if changed. (Blueprint is archived to `.claude/rules/02-Parcours.md` since v5.0.0 — no per-project Blueprint document.)
+5. **DOCS UPDATE**: Ensure CDC and PET reflect current state. Update if changed. (There is no per-project Blueprint document any more.)
 6. **PENDING**: List remaining items explicitly.
 7. **SCORING V2**: Score three dimensions independently, then compute weighted total:
    - **Value (40%)**: Did the session produce something deployable, publishable, or usable?
@@ -54,7 +57,7 @@ Execute these steps IN ORDER. Gate 8 must pass.
    - **Formula**: `Score = (Value × 0.4) + (Reliability × 0.3) + (Process × 0.3)`. Verify with arithmetic: e.g., V=85, R=80, P=90 → (85×0.4)+(80×0.3)+(90×0.3) = 34+24+27 = **85** (not an average).
    - In LITE_MODE, do NOT penalize absence of tests in Process dimension.
    - Human Quality Gates compliance: if public-facing features were built, note whether the 5 gates were verified (Cognitive Load, Sensory Comfort, Error Resilience, Adaptation, Dignity).
-8. **VISIBILITY CHECK**: Evaluate if this session produced something shareable. For each candidate, append a ready-to-publish entry to `[SHINZO]/02-Projets/Contenu.md` under the "Idées / candidates" section (one bullet per idea with title + format + status). Options: mini-repo (reusable standalone solution), article (educational, common problem solved), PR/contribution (fix or improvement to an existing open-source project). If nothing qualifies, document "nothing shareable this session" in the report.
+8. **VISIBILITY CHECK**: Evaluate if this session produced something shareable. For each candidate, append a ready-to-publish entry to `[SHINZO]/02-Projets/Contenu.md` under the "Idées / candidates" section (one bullet per idea with title + format + status). `Contenu.md` fait environ 450 Ko : n'en lis pas le contenu entier, ajoute la ligne avec un `Edit` ciblé ou une insertion. Options: mini-repo (reusable standalone solution), article (educational, common problem solved), PR/contribution (fix or improvement to an existing open-source project). If nothing qualifies, document "nothing shareable this session" in the report.
 9. **SAVE**: Store report in `docs/Sessions/Session-YYYY-MM-DD-NNN.md`.
 
 ## Rules
@@ -66,4 +69,4 @@ Execute these steps IN ORDER. Gate 8 must pass.
 - Never end a session with uncommitted work (atomic commit check).
 - If a hook, tool, or system rule blocks any of these steps: apply the Post-Block Recovery Protocol (`.claude/rules/01-Lecture.md`). Never stay passive.
 
-See `.claude/rules/02-Parcours.md` WF-10 for full details.
+See `.claude/rules/02-Parcours.md` § 6 (a report is a trace, not a closure: only Jay decides a session is over) and `.claude/rules/03-Qualite.md` § 7 (the six end-of-session questions).

@@ -31,7 +31,7 @@ Execute these steps IN ORDER. Gate 4 must pass.
 - No console.log in production code (hook warns).
 - Backup tag every 3-4 commits.
 
-See `.claude/rules/02-Parcours.md` WF-06 for full details.
+Voir `.claude/rules/02-Parcours.md` § 3 (portes qualité) et `.claude/rules/03-Qualite.md` § 6 (marqueur des correctifs).
 
 ## End of the brick — the three proofs (recette)
 

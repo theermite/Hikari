@@ -81,3 +81,40 @@ def manquants(projets: list[str], dossier: Path) -> list[str]:
     return [n for n in projets
             if (dossier / n).is_dir() and fichiers_cdc(dossier / n) and a_une_interface(dossier / n)
             and not a_la_section(dossier / n)]
+
+
+_TITRE_NIVEAU_RE = re.compile(r"^(#{1,6})[ \t]")
+SECTION_MAX = 1800   # le rappel cite, il ne recopie pas un chapitre entier dans le contexte
+
+
+def section_modele_texte(cdc: str) -> str | None:
+    """La section « Modèle d'interaction » d'un CDC, titre compris, jusqu'au titre suivant de même niveau ou plus haut."""
+    lignes = cdc.splitlines()
+    debut = next((i for i, l in enumerate(lignes) if _TITRE_RE.match(l)), None)
+    if debut is None:
+        return None
+    niveau = len(_TITRE_NIVEAU_RE.match(lignes[debut]).group(1))
+    return "\n".join(lignes[debut:_fin_de_section(lignes, debut, niveau)]).strip()
+
+
+def _fin_de_section(lignes: list[str], debut: int, niveau: int) -> int:
+    """Index du titre suivant de même niveau ou plus haut ; un `# commentaire` dans un bloc de code n'est pas un titre."""
+    dans_un_bloc = False
+    for i in range(debut + 1, len(lignes)):
+        if lignes[i].lstrip().startswith(("```", "~~~")):
+            dans_un_bloc = not dans_un_bloc
+        elif not dans_un_bloc and (m := _TITRE_NIVEAU_RE.match(lignes[i])) and len(m.group(1)) <= niveau:
+            return i
+    return len(lignes)
+
+
+def section_du_depot(racine: Path) -> str | None:
+    """Le texte de la section dans le premier CDC du dépôt qui l'a, ou None."""
+    for f in fichiers_cdc(racine):
+        try:
+            texte = section_modele_texte(f.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+        if texte:
+            return texte
+    return None

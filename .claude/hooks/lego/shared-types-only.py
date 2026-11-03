@@ -49,6 +49,8 @@ SHARED_TYPES: frozenset[str] = frozenset({
 SKIP_SEGMENTS: tuple[str, ...] = (
     "Shinkofa-Shared/packages/",
     "shinkofa-shared/packages/",
+    "Toolbox/typescript/packages/",
+    "toolbox/typescript/packages/",
     "node_modules/",
     "__tests__/",
     "/dist/",

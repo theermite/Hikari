@@ -39,6 +39,8 @@ from common import (  # noqa: E402
 SKIP_SEGMENTS: tuple[str, ...] = (
     "Shinkofa-Shared/packages/",
     "shinkofa-shared/packages/",
+    "Toolbox/typescript/packages/",
+    "toolbox/typescript/packages/",
     "node_modules/",
     "__tests__/",
     ".storybook/",

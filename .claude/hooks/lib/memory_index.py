@@ -100,26 +100,45 @@ def _ligne(fiche: dict) -> str:
     return f"- [{fiche['name']}]({fiche['fichier']}) — {desc}"
 
 
-# Le harnais coupe MEMORY.md a 200 lignes OU 25 Ko, selon ce qui arrive en premier
-# (mesure reelle 2026-09-18 : la coupure tombait a la ligne 115, pas 200 -- nos
-# descriptions completes pesaient trop lourd en octets). Le sommaire CHARGE porte
-# donc une description courte ; README.md (jamais charge automatiquement) garde
-# la description entiere.
-#
-# La valeur n'est pas arbitraire : sur 184 fiches chargees (mesure du jour), le
-# seul texte "- [Titre](fichier.md) — " pese deja ~20 Ko avant la moindre
-# description. 25 caracteres de description est le maximum mesure qui tient
-# encore sous 25 Ko avec ce nombre de fiches -- baisser encore le nombre de
-# fiches chargees (chantier en cours) redonnera de la marge pour l'allonger.
-LIMITE_DESCRIPTION_CHARGEE = 25
+# Le harnais coupe MEMORY.md a 200 lignes OU 25 Ko, selon ce qui arrive en premier. Mesure du 2026-11-02 :
+# 275 souvenirs charges, 286 lignes et 37,6 Ko -- 84 lignes de fin de liste etaient COUPEES sans que personne le voie.
+# Meme le seul lien `[titre](fichier)` de chaque souvenir pese 28,7 Ko : il n'y a pas de forme a une ligne par
+# souvenir qui tienne. Le sommaire charge ne porte donc que le NOM DE FICHIER (sans .md), range a plusieurs par
+# ligne ; titre et description complets restent dans README.md, jamais charge. Et si meme cela deborde, il le dit.
+MAX_LIGNES_CHARGEES = 190   # sous les 200 du harnais : marge pour l'en-tete qu'il ajoute
+MAX_OCTETS_CHARGES = 24_000  # sous les 25 Ko
+LARGEUR_LIGNE = 150
+SEPARATEUR = " · "
 
 
-def _ligne_courte(fiche: dict) -> str:
-    desc = fiche["description"] or "(sans description)"
-    if len(desc) > LIMITE_DESCRIPTION_CHARGEE:
-        coupe = desc[:LIMITE_DESCRIPTION_CHARGEE].rsplit(" ", 1)[0].rstrip()
-        desc = f"{coupe}…"
-    return f"- [{fiche['name']}]({fiche['fichier']}) — {desc}"
+def _entrees(fiches: list[dict]) -> list[tuple[str, str]]:
+    """[(type, nom de fichier sans .md)] : user d'abord, puis feedback, chacun par ordre alphabetique."""
+    return [(t, f["fichier"].removesuffix(".md")) for t in TYPES_CHARGES
+            for f in sorted((f for f in fiches if f["type"] == t), key=lambda f: f["fichier"].lower())]
+
+
+def _paquets(noms: list[str]) -> list[str]:
+    lignes: list[str] = []
+    courante = ""
+    for nom in noms:
+        if courante and len(courante) + len(SEPARATEUR) + len(nom) > LARGEUR_LIGNE:
+            lignes.append(courante)
+            courante = ""
+        courante = f"{courante}{SEPARATEUR}{nom}" if courante else nom
+    return lignes + ([courante] if courante else [])
+
+
+def _corps_charge(entrees: list[tuple[str, str]]) -> list[str]:
+    blocs: list[str] = []
+    for type_ in TYPES_CHARGES:
+        noms = [n for t, n in entrees if t == type_]
+        if noms:
+            blocs += [f"\n## {type_} — {LEGENDE.get(type_, '')} ({len(noms)})\n", *_paquets(noms)]
+    return blocs
+
+
+def _tient(texte: str) -> bool:
+    return len(texte.splitlines()) <= MAX_LIGNES_CHARGEES and len(texte.encode("utf-8")) <= MAX_OCTETS_CHARGES
 
 
 def _sections(fiches: list[dict], types: tuple[str, ...], rendre=_ligne) -> list[str]:
@@ -149,18 +168,31 @@ def rendre_index_complet(fiches: list[dict]) -> str:
     return "\n".join(tete + _sections(fiches, types)) + "\n"
 
 
-def rendre_index_charge(fiches: list[dict]) -> str:
-    retenus = [f for f in fiches if f["type"] in TYPES_CHARGES]
+def _index_charge_pour(fiches: list[dict], retenus: list[tuple[str, str]], total: int) -> str:
     tete = [
         "# Mémoire",
         "",
         MARQUE,
-        f"> **{len(retenus)} souvenirs qui changent la façon de travailler**, sur "
-        f"{len(fiches)} au total.",
+        f"> **{total} souvenirs qui changent la façon de travailler**, sur {len(fiches)} au total.",
+        "> Chaque entrée est un fichier de ce dossier (ajouter `.md`). Titres et descriptions : `README.md`.",
         "> Sommaire généré par `Kata/.claude/hooks/lib/memory_index.py` — ne pas éditer.",
-        "> Le reste (projet, référence) vit dans `README.md`, à ouvrir quand le sujet le demande.",
     ]
-    return "\n".join(tete + _sections(retenus, TYPES_CHARGES, rendre=_ligne_courte)) + "\n"
+    reste = total - len(retenus)
+    queue = [f"\n> … et {reste} souvenirs de plus, rangés dans README.md (le sommaire chargé ne tient pas plus)."] if reste else []
+    return "\n".join(tete + _corps_charge(retenus) + queue) + "\n"
+
+
+def rendre_index_charge(fiches: list[dict]) -> str:
+    """Le sommaire que l'outil charge : tous les souvenirs qui changent le comportement, tant que 200 lignes / 25 Ko tiennent."""
+    entrees = _entrees(fiches)
+    bas, haut = 0, len(entrees)
+    while bas < haut:  # le plus grand nombre d'entrees qui tient (la taille croit avec le nombre)
+        milieu = (bas + haut + 1) // 2
+        if _tient(_index_charge_pour(fiches, entrees[:milieu], len(entrees))):
+            bas = milieu
+        else:
+            haut = milieu - 1
+    return _index_charge_pour(fiches, entrees[:bas], len(entrees))
 
 
 def ecrire_index(dossier: Path | None = None) -> dict:

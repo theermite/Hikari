@@ -114,7 +114,7 @@ def test_the_new_memory_appears_in_the_loaded_summary(tmp_path):
     root = _init_repo(tmp_path)
     _lancer(_ecrire_souvenir(root), root)
     charge = (root / "05-Memoire" / "MEMORY.md").read_text(encoding="utf-8")
-    assert "feedback-essai.md" in charge
+    assert "feedback-essai" in charge  # le sommaire chargé nomme le fichier sans .md
 
 
 # --- ce qui ne doit pas changer ---------------------------------------------

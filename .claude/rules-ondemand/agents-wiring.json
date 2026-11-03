@@ -48,6 +48,19 @@
     {"id": "api", "agent": "Backend API Master", "mode": "rappel", "chemin": "(^|/)(routes?|controllers?)/"},
     {"id": "traductions", "agent": "I18n Master", "mode": "rappel", "chemin": "(^|/)(locales?|i18n|translations?)/"},
     {"id": "mobile", "agent": "Mobile Master", "mode": "rappel", "chemin": "manifest\\.(web)?json$|\\.webmanifest$"},
-    {"id": "performance", "agent": "Performance Master", "mode": "rappel", "chemin": "(^|/)(vite|webpack|next|rollup)\\.config\\.[cm]?[jt]s$"}
+    {"id": "performance", "agent": "Performance Master", "mode": "rappel", "chemin": "(^|/)(vite|webpack|next|rollup)\\.config\\.[cm]?[jt]s$"},
+    {"id": "veille-versions", "agent": "Veille Master", "mode": "rappel", "chemin": "(^|/)(package\\.json|pyproject\\.toml|requirements\\.txt|mix\\.exs|Cargo\\.toml|Dockerfile)$"},
+    {"id": "marque", "agent": "Brand Communication Master", "mode": "rappel", "chemin": "(^|/)(landing|marketing|newsletters?|campaigns?|emails?|pitch)/|\\.mjml$"},
+    {"id": "supervision", "agent": "Monitoring Master", "mode": "rappel", "chemin": "(^|/)(monitoring|observability|alerting|sentry|glitchtip|grafana|prometheus)/"},
+    {"id": "incident", "agent": "Incident Response Master", "mode": "rappel", "chemin": "(^|/)(runbooks?|incidents?|oncall)/"},
+    {"id": "conformite", "agent": "Compliance Auditor Master", "mode": "rappel", "chemin": "(^|/)(privacy|gdpr|rgpd|consent|cookies?|sbom)(/|[-_.])"}
+  ],
+  "moments_doc": "Experts sans fichier a eux : leur declencheur est un GESTE (commit, mise en ligne). Rappel trace, jamais bloquant ; lu par hooks/lib/agent_moments.py et hooks/quality/expert-moment-reminder.py. SKB Knowledge Master et Veille Master avant la recherche sont appeles par le texte de /session-start (etapes 4 et 8), Deep Research Master l'est au deuxieme correctif d'un meme fichier (rules/05-Savoir.md 6).",
+  "moments": [
+    {"id": "commit-gros", "moment": "commit", "agents": ["Code Quality Master"], "seuil_fichiers": 6},
+    {"id": "commit-tests", "moment": "commit", "agents": ["Test Auditor Master"]},
+    {"id": "commit-refactor", "moment": "commit", "agents": ["Refactor Safe Master"]},
+    {"id": "correctif-repete", "moment": "commit", "agents": ["Debug Investigator Master", "Rebuild Arbiter Master", "Deep Research Master"], "fenetre_jours": 30},
+    {"id": "mise-en-ligne", "moment": "deploy", "agents": ["Security Master", "Compliance Auditor Master", "Performance Master", "Build Deploy Test Master", "Monitoring Master"]}
   ]
 }

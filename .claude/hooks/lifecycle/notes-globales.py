@@ -38,16 +38,17 @@ sys.path.insert(0, str(LIB_DIR))
 
 from common import find_repo_root  # type: ignore # noqa: E402
 
-DEPOT_PORTEUR = "Takumi"
-CHEMIN_NOTES = ("Shinzo", "08-Notes", "inbox.md")
+# Takumi a fusionne dans Shinzo le 2026-11-02 : le depot porteur est Shinzo, et l'inbox est DANS ce depot.
+DEPOT_PORTEUR = "Shinzo"
+CHEMIN_NOTES = ("08-Notes", "inbox.md")
 # Le gabarit du fichier vide, mot pour mot. Une inbox qui ne porte que sa propre
 # phrase d'accueil n'a rien a trier.
 VIDE = "(Inbox vide"
 
 
 def notes_globales(racine: Path) -> Path:
-    """Shinzo vit en frere de l'atelier, jamais dans le depot courant."""
-    return Path(racine).parent.joinpath(*CHEMIN_NOTES)
+    """L'inbox vit dans le depot porteur lui-meme (Shinzo), plus en frere d'un autre depot."""
+    return Path(racine).joinpath(*CHEMIN_NOTES)
 
 
 def _ardoise(racine: Path) -> Path:
@@ -91,7 +92,7 @@ def _depot_principal(racine: Path) -> str:
 
 
 def _est_le_depot_porteur(racine: Path) -> bool:
-    """Sommes-nous dans Takumi — ou dans l'un de ses worktrees, quel que soit son nom ?
+    """Sommes-nous dans Shinzo — ou dans l'un de ses worktrees, quel que soit son nom ?
 
     TROIS VERSIONS EN DEUX JOURS, deux defauts opposes, un troisieme evite.
     La comparaison stricte rendait le hook muet EN SILENCE sur `takumi` et

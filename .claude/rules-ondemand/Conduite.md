@@ -153,10 +153,13 @@ timing and priority.
   session reports** (after each session).
 
 <!-- source: Workflows.md#6 -->
-## Plan Mode per brick (BLOCKING when a PET exists)
+## Plan Mode per brick (when a PET exists)
 
-If a PET has unstarted bricks, implementation goes through native plan mode. The approved
-plan = the reformulation + the authorization. One atomic commit per brick (never a giant
+If a PET has unstarted bricks, the plan of the next brick is drawn in native plan mode. The plan informs; it is not an approval request
+(règle 01 § 2): the work starts on the announcement, no approval word is awaited. The plan = the reformulation,
+and a plan Jay accepts is the authorization.
+*[Amendé 2026-11-02 : le titre perd « BLOCKING » (un plan qui informe ne bloque pas) ; « implementation goes through native plan mode. The approved plan = the reformulation + the
+authorization » devient un plan qui informe — l'audit du 2026-11-01 y lisait une porte d'approbation hors des cinq arrêts.]* One atomic commit per brick (never a giant
 commit for N bricks). The plan authorizes scope, never quality (TDG/veille/tests/lint/
 security apply).
 A design document (`docs/PET.md`, `docs/CDC.md`, `docs/Briefs/*.md`) shown to Jay and

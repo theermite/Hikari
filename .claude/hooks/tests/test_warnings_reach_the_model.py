@@ -1,9 +1,9 @@
-"""Un avertissement de garde-fou doit ATTEINDRE le modele (2026-10-30).
+"""Les avertissements qui n'ont pas de refus derrière arrivent AU MODÈLE, pas seulement dans la console de Jay.
 
-Constat : un garde qui ecrit son avertissement sur stderr et sort 0 n'est vu que dans un journal ; le modele n'en
-lit rien. Les avertissements Lego et traductions etaient donc muets : 367 fichiers sur 3 695 importent la
-bibliotheque, 362 portent du texte en dur sans traduction. Le canal qui atteint le modele est le JSON
-`hookSpecificOutput.additionalContext` (celui du masque de secrets), lu seulement quand la sortie est 0.
+Constat du 2026-10-30 (lego, traductions) étendu aux garde-fous restants : un avertissement écrit sur stderr avec une sortie 0
+n'est vu que dans un journal. Sondé le 2026-11-02 : bash-guard (version précise dans un install, message de commit hors
+convention, trailer de commit absent) et post-write-guard (console.log, fichier trop long, test vide…) parlaient dans le vide :
+le trailer exigé par le dépôt est resté inconnu du modèle pendant toute une séance.
 """
 
 from __future__ import annotations
@@ -11,109 +11,95 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
 
 HOOKS = Path(__file__).resolve().parents[1]
-LIB = HOOKS / "lib"
 
 
-def _courir(script: Path, entree: dict, cwd: Path | None = None) -> subprocess.CompletedProcess:
-    return subprocess.run([sys.executable, str(script)], input=json.dumps(entree), capture_output=True, text=True,
-                          timeout=30, cwd=str(cwd) if cwd else None)
+def _run(script: str, payload: dict, cwd: Path):
+    return subprocess.run([sys.executable, str(HOOKS / script)], input=json.dumps(payload).encode("utf-8"),
+                          capture_output=True, cwd=str(cwd))
 
 
-def _mini_hook(tmp_path: Path, corps: str) -> Path:
-    chemin = tmp_path / "mini.py"
-    chemin.write_text(
-        "import sys\n"
-        f"sys.path.insert(0, {str(LIB)!r})\n"
-        "from common import read_hook_input, warn\n"
-        "read_hook_input()\n" + textwrap.dedent(corps), encoding="utf-8")
-    return chemin
+def _context(done) -> str:
+    return json.loads(done.stdout)["hookSpecificOutput"]["additionalContext"] if done.stdout.strip() else ""
 
 
-def _contexte(sortie: subprocess.CompletedProcess) -> dict:
-    return json.loads(sortie.stdout)["hookSpecificOutput"]
+def _bash(command: str, cwd: Path):
+    return _run("guards/bash-guard.py", {"hook_event_name": "PreToolUse", "tool_name": "Bash", "session_id": "t",
+                                         "cwd": str(cwd), "tool_input": {"command": command}}, cwd)
 
 
-def test_a_warning_reaches_the_model_in_the_events_that_accept_context(tmp_path):
-    hook = _mini_hook(tmp_path, 'warn("WARNING: un"); warn("WARNING: deux"); sys.exit(0)\n')
-    for evenement in ("PreToolUse", "PostToolUse", "UserPromptSubmit", "SessionStart"):
-        sortie = _courir(hook, {"hook_event_name": evenement})
-        sortant = _contexte(sortie)
-        assert sortant["hookEventName"] == evenement and sortie.returncode == 0, evenement
-        assert "un" in sortant["additionalContext"] and "deux" in sortant["additionalContext"], evenement
+def test_bash_guard_hands_the_commit_message_warning_to_the_model(tmp_path):
+    done = _bash('git commit -m "update stuff"', tmp_path)
+    assert done.returncode == 0 and "Conventional Commits" in _context(done)
+    assert b"Conventional Commits" in done.stderr   # la console de Jay le voit toujours
 
 
-def test_two_warnings_are_one_json_document(tmp_path):
-    hook = _mini_hook(tmp_path, 'warn("a"); warn("b"); sys.exit(0)\n')
-    sortie = _courir(hook, {"hook_event_name": "PreToolUse"})
-    assert len(sortie.stdout.strip().splitlines()) == 1
+def test_bash_guard_hands_the_trailer_warning_to_the_model(tmp_path):
+    assert "trailer" in _context(_bash('git commit -m "feat: x"', tmp_path)).lower()
 
 
-def test_the_warning_stays_on_stderr_for_the_human(tmp_path):
-    hook = _mini_hook(tmp_path, 'warn("WARNING: visible"); sys.exit(0)\n')
-    assert "WARNING: visible" in _courir(hook, {"hook_event_name": "PreToolUse"}).stderr
+def test_bash_guard_hands_the_pinned_version_warning_to_the_model(tmp_path):
+    assert "Specific version" in _context(_bash("npm install left-pad@1.3.0", tmp_path))
 
 
-def test_an_event_that_takes_no_context_gets_no_json(tmp_path):
-    hook = _mini_hook(tmp_path, 'warn("x"); sys.exit(0)\n')
-    for evenement in ("Stop", "SessionEnd", "PreCompact", ""):
-        assert _courir(hook, {"hook_event_name": evenement} if evenement else {}).stdout.strip() == "", evenement
+def test_bash_guard_stays_silent_when_nothing_is_wrong(tmp_path):
+    assert _bash("ls -la", tmp_path).stdout.strip() == b""
 
 
-def test_no_warning_means_no_output(tmp_path):
-    hook = _mini_hook(tmp_path, "sys.exit(0)\n")
-    assert _courir(hook, {"hook_event_name": "PreToolUse"}).stdout == ""
+def test_a_blocking_message_is_not_turned_into_context(tmp_path):
+    done = _bash("git add -A", tmp_path)
+    assert done.returncode == 2 and done.stdout.strip() == b""
 
 
-def test_the_exit_code_the_hook_chose_is_kept(tmp_path):
-    for code in (0, 1, 2):
-        hook = _mini_hook(tmp_path, f'warn("x"); sys.exit({code})\n')
-        assert _courir(hook, {"hook_event_name": "PreToolUse"}).returncode == code
+def test_post_write_guard_hands_a_console_log_warning_to_the_model(tmp_path):
+    fichier = tmp_path / "a.ts"
+    fichier.write_text("console.log('x')\n", encoding="utf-8")
+    done = _run("guards/post-write-guard.py", {"hook_event_name": "PostToolUse", "tool_name": "Write", "session_id": "t",
+                                               "tool_input": {"file_path": str(fichier)}, "tool_response": {}}, tmp_path)
+    assert done.returncode == 0 and "console.log" in _context(done)
 
 
-# --- les gardes reels : Lego et traductions -----------------------------------------------------------------
+def test_a_crashed_end_user_guard_says_so_to_the_model(monkeypatch, capsys):
+    """« Rien n'a été vérifié » (sortie 0) est la phrase la plus importante à faire lire au modèle."""
+    import importlib.util
+    import io
 
-_DEMO = "export function MaCarteUnique() {\n  return <p>%s</p>;\n}\n"
-
-
-def _ecriture(texte: str) -> dict:
-    return {"hook_event_name": "PreToolUse", "tool_name": "Write",
-            "tool_input": {"file_path": "C:/projet/src/Carte.tsx", "content": _DEMO % texte}}
-
-
-def test_the_i18n_guard_reaches_the_model():
-    sortie = _courir(HOOKS / "lego" / "i18n-no-hardcode.py", _ecriture("Bonjour tout le monde ici present"))
-    assert "hardcoded UI text" in _contexte(sortie)["additionalContext"] and sortie.returncode == 0
-
-
-def test_a_write_guard_warning_reaches_the_model():
-    entree = {"hook_event_name": "PreToolUse", "tool_name": "Write",
-              "tool_input": {"file_path": "C:/projet/Dockerfile", "content": "FROM node:20\n"}}
-    sortie = _courir(HOOKS / "guards" / "write-guard.py", entree)
-    assert "Docker image version" in _contexte(sortie)["additionalContext"] and sortie.returncode == 0
+    spec = importlib.util.spec_from_file_location("eug", HOOKS / "guards" / "end-user-data-guard.py")
+    guard = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(guard)
+    monkeypatch.setattr(guard, "store_present", lambda: True)
+    monkeypatch.setattr(guard, "_check", lambda payload: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Write"})))
+    assert guard.main() == 0
+    sortie = capsys.readouterr()
+    assert "rien n'a été vérifié" in sortie.err
+    assert "rien n'a été vérifié" in json.loads(sortie.out)["hookSpecificOutput"]["additionalContext"]
 
 
-def test_french_text_with_accents_is_caught_by_the_i18n_guard():
-    sortie = _courir(HOOKS / "lego" / "i18n-no-hardcode.py", _ecriture("Bienvenue, ton espace est prêt à l'emploi !"))
-    assert "hardcoded" in _contexte(sortie)["additionalContext"].lower()
+# --- relecture indépendante du 2026-11-02 (R3) : maintenant que les avertissements arrivent au modèle, les fausses alertes comptent ---
 
 
-def test_a_translated_component_gets_no_warning():
-    entree = _ecriture("{t('carte:titre')}")
-    assert _courir(HOOKS / "lego" / "i18n-no-hardcode.py", entree).stdout.strip() == ""
+def test_a_script_that_only_quotes_a_commit_does_not_trigger_the_trailer_warning(tmp_path):
+    commande = "python - <<'EOF'\nprint('git commit -m \"feat: x\"')\nEOF"
+    assert "trailer" not in _context(_bash(commande, tmp_path)).lower()
 
 
-def test_a_blocking_message_still_blocks_without_json():
-    entree = {"hook_event_name": "PreToolUse", "tool_name": "Write",
-              "tool_input": {"file_path": "C:/projet/src/Button.tsx",
-                             "content": "export function Button() { return <button>x</button>; }\n"}}
-    sortie = _courir(HOOKS / "guards" / "write-guard.py", entree)
-    assert sortie.returncode == 2 and "already exists in @shinkofa/ui" in sortie.stderr and sortie.stdout.strip() == ""
+def test_a_script_that_only_quotes_a_deploy_does_not_trigger_the_vps_warning(tmp_path):
+    commande = "cat > notes.txt <<'EOF'\nssh vps systemctl restart nginx\nEOF"
+    assert "VPS deploy" not in _context(_bash(commande, tmp_path))
 
 
-def test_the_frozen_copy_alert_does_not_print_two_documents():
-    source = (HOOKS / "guards" / "frozen-copy-alert.py").read_text(encoding="utf-8")
-    assert "additionalContext" not in source, "common.warn s'en charge : un second JSON ferait refuser la sortie"
+def test_a_real_remote_restart_still_warns(tmp_path):
+    assert "VPS deploy" in _context(_bash('ssh vps "systemctl restart nginx"', tmp_path))
+
+
+def test_a_real_commit_without_the_trailer_still_warns(tmp_path):
+    assert "trailer" in _context(_bash('git commit -m "feat: x"', tmp_path)).lower()
+
+
+def test_scp_rsync_and_remote_restarts_still_warn(tmp_path):
+    for commande in ("scp dist.tgz vps:/srv/app", "rsync -az dist/ vps:/srv/app",
+                     "ssh vps 'systemctl --user restart kobo'", "ssh vps pm2 restart all"):
+        assert "VPS deploy" in _context(_bash(commande, tmp_path)), commande

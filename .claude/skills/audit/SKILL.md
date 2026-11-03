@@ -105,7 +105,7 @@ Findings are prioritized by **logical dependency + user impact**, not audit weig
 - Every finding MUST have a Finding ID. No untracked findings.
 - Remediation plan MUST follow the dependency order above. Justify any deviation.
 
-See `.claude/rules/02-Parcours.md` WF-09 for full details.
+Voir `.claude/rules/03-Qualite.md` (seuils, risques) et `.claude/rules/02-Parcours.md` § 3.
 
 ## End of the brick — the three proofs (recette)
 

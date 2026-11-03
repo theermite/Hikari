@@ -78,7 +78,7 @@ Tableau complet et raison d etre : `docs/Routage-Experts.md`.
 - Quality gates are BLOCKING — zero derogation.
 - For critical paths: recommend a dedicated Test Auditor session (Anti-Circular Layer 2). Propose to Jay, do not auto-launch.
 
-See `.claude/rules/02-Parcours.md` WF-04 and ``.claude/skills/`` for full details.
+Voir `.claude/rules/02-Parcours.md` § 1 à § 3 (parcours et portes qualité) et `.claude/rules/03-Qualite.md`.
 
 ## End of the brick — the three proofs (recette)
 

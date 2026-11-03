@@ -81,8 +81,8 @@ def get_command(data: dict[str, Any]) -> str:
 
 
 def block(message: str) -> None:
-    """Print message to stderr and exit 2 (block the tool call)."""
-    print(message, file=sys.stderr)
+    """Print message to stderr and exit 2 (block the tool call). Old rule names after « See » are translated (voir_actuel)."""
+    print(voir_actuel(message), file=sys.stderr)
     sys.exit(2)
 
 
@@ -105,6 +105,7 @@ def _flush_pending() -> None:
 
 def warn(message: str) -> None:
     """Warn without blocking: on stderr for the human AND, at exit, to the model. Caller exits 0."""
+    message = voir_actuel(message)
     print(message, file=sys.stderr)
     if not _PENDING:
         atexit.register(_flush_pending)
@@ -148,11 +149,19 @@ ANCIENNES_REGLES = {
     "Static-Analysis.md": ".claude/rules-ondemand/Tests-Et-Mesures.md",
 }
 _REF_ANCIENNE = re.compile(r"(?:\.claude/)?rules/(" + "|".join(re.escape(n) for n in ANCIENNES_REGLES) + ")")
+# Une mention libre ne se traduit que derriere « See » : un nom de fichier cite comme DONNEE (« rules/Quality.md a derive »)
+# reste tel quel, sinon le message mentirait sur le fichier qu il designe.
+_VOIR_ANCIENNE = re.compile(r"(\bSee\s+)" + _REF_ANCIENNE.pattern)
 
 
 def reference_actuelle(reference: str) -> str:
     """`rules/Quality.md > Lego Library` -> `.claude/rules/03-Qualite.md (+ annexes …) > Lego Library`."""
     return _REF_ANCIENNE.sub(lambda m: ANCIENNES_REGLES[m.group(1)], reference)
+
+
+def voir_actuel(message: str) -> str:
+    """Traduit les « See rules/<ancienne regle>.md » d'un message libre, jamais un nom de fichier cite comme donnee."""
+    return _VOIR_ANCIENNE.sub(lambda m: m.group(1) + ANCIENNES_REGLES[m.group(2)], message)
 
 
 def format_block(reason: str, recovery: str, reference: str | None = None) -> str:

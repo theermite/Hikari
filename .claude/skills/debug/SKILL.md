@@ -75,4 +75,4 @@ Tableau complet et raison d etre : `docs/Routage-Experts.md`.
 - Gate 7 applies: every diagnostic verified via external source, not assumption.
 - Never present uncertainty as fact. If unsure, say so.
 
-See `.claude/rules/02-Parcours.md` WF-05 for full details.
+Voir `.claude/rules/03-Qualite.md` § 8 (l'erreur est une donnée) et l'annexe `.claude/rules-ondemand/Debug-Et-Blocage.md`.

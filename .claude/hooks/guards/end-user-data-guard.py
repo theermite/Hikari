@@ -453,6 +453,13 @@ def _check(payload: dict) -> int:
     return 0
 
 
+def _tell_the_model(payload: dict, message: str) -> None:
+    """A stderr message with exit 0 never reaches the model: hand it over as additionalContext."""
+    from common import emit_context  # noqa: PLC0415 — imported here: the guard otherwise needs nothing from common
+
+    emit_context(str(payload.get("hook_event_name") or ""), [message])
+
+
 def main() -> int:
     try:
         payload = json.loads(sys.stdin.read() or "{}")
@@ -463,7 +470,9 @@ def main() -> int:
     try:
         return _check(payload)
     except Exception as exc:  # noqa: BLE001 — a crashed guard must say so, never block everything
-        print(f"WARNING: end-user-data-guard a échoué ({type(exc).__name__}) — rien n'a été vérifié.", file=sys.stderr)
+        message = f"WARNING: end-user-data-guard a échoué ({type(exc).__name__}) — rien n'a été vérifié."
+        print(message, file=sys.stderr)
+        _tell_the_model(payload, message)
         return 0
 
 

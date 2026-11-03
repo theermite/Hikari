@@ -137,7 +137,7 @@ If rollback fails → **ESCALATE TO JAY IMMEDIATELY**.
 - **Zero silent failures**: every command must have its output checked. No `|| true`. No swallowed errors.
 - **Evidence over assertion**: paste the actual command output as proof. Never say "it should work."
 
-See `.claude/rules/02-Parcours.md` WF-07 for full details.
+Voir `.claude/rules/02-Parcours.md` § 3 et § 4 (portes, mise en service) et l'annexe `.claude/rules-ondemand/Mise-En-Service.md`.
 
 ## End of the brick — the three proofs (recette)
 

@@ -451,7 +451,7 @@ def _emit_blockers(file_path):
 
 
 def _emit_warnings(file_path, size_msg):
-    """Print all non-blocking findings to stderr."""
+    """Hand all non-blocking findings to Jay (stderr) AND to the model (additionalContext, via common.warn)."""
     warnings = [
         size_msg,
         check_empty_tests(file_path),
@@ -462,7 +462,7 @@ def _emit_warnings(file_path, size_msg):
     ]
     for msg in warnings:
         if msg:
-            print(msg, file=sys.stderr)
+            common.warn(msg)
 
 
 def main():

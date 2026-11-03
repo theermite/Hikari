@@ -14,6 +14,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import common  # noqa: E402
+from agent_moments import parse_commit  # noqa: E402
+from shell_parse import simple_commands  # noqa: E402
 from git_push_guard import (  # noqa: E402
     check_force_push_main,
     check_force_push_warn,
@@ -233,6 +235,8 @@ def check_co_authored_by(command, raw):
         return None
     if re.search(r"--amend", command):
         return None
+    if parse_commit(command) is None:   # a script or a heredoc that only QUOTES « git commit » is not a commit (review 2026-11-02)
+        return None
     lines = [l.replace("\\", "").strip(" \t\"'") for l in re.findall(r"^[ \t]*Co-Authored-By:[^\n]*", command, re.M | re.I)]
     if lines and all(l == TAKUMI_TRAILER.rstrip('"') for l in lines):
         return None
@@ -292,13 +296,27 @@ def check_vitest_oom(command):
     )
 
 
-def check_deploy(raw):
+_QUOTING_PROGRAMS = {"git", "gh", "echo", "printf", "cat", "grep", "rg", "tee", "sed", "awk"}   # they QUOTE text, they run nothing
+
+
+def _runs_one_of(command, patterns, raw):
+    """True when a REAL command of the line (not a heredoc body, not a message of git/echo/grep) matches a pattern.
+    Unreadable line: judged raw, as before."""
+    try:
+        segments = simple_commands(command)
+    except ValueError:
+        return any(re.search(p, raw, re.IGNORECASE) for p in patterns)
+    return any(re.search(p, " ".join(s), re.IGNORECASE) for s in segments
+               if s and s[0].replace("\\", "/").rsplit("/", 1)[-1].lower() not in _QUOTING_PROGRAMS for p in patterns)
+
+
+def check_deploy(raw, command):
     deploy_patterns = [
         r"scp .* vps|rsync .* vps",
         r"ssh .*(deploy|restart|systemctl)",
         r"docker compose.*up.*-d.*vps|docker-compose.*up.*-d.*vps",
     ]
-    is_deploy = any(re.search(p, raw, re.IGNORECASE) for p in deploy_patterns)
+    is_deploy = _runs_one_of(command, deploy_patterns, raw)   # the real commands, not a note that quotes one
     if is_deploy:
         return (
             "WARNING: VPS deploy detected. "
@@ -339,9 +357,9 @@ def main():
             print(msg, file=sys.stderr)
             sys.exit(2)
 
-    for msg in [check_refactor_file_count(raw), check_deploy(raw), check_db_migration(raw), check_dependency_version(raw), check_conventional_commit(command, raw), check_co_authored_by(command, raw), check_force_push_warn(command), check_vitest_oom(command)]:
+    for msg in [check_refactor_file_count(raw), check_deploy(raw, command), check_db_migration(raw), check_dependency_version(raw), check_conventional_commit(command, raw), check_co_authored_by(command, raw), check_force_push_warn(command), check_vitest_oom(command)]:
         if msg:
-            print(msg, file=sys.stderr)
+            common.warn(msg)   # stderr for Jay AND additionalContext for the model (a stderr-only warning is never seen by it)
 
     sys.exit(0)
 

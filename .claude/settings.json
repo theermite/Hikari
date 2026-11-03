@@ -186,6 +186,11 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/expert-moment-reminder.py",
+            "description": "Rappelle (sans bloquer, trace) les experts du controle au geste : gros commit, tests, refonte, deuxieme correctif d'un meme fichier, mise en ligne (agents-wiring.json, section moments)"
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/post-review-cause-check.py",
             "description": "After a review verdict FAIL, block the next commit unless it carries [CAUSE] (famille / cause / ce qui empeche la repetition); at the 2nd failure in a row, also require a changed approach"
           },
@@ -198,6 +203,16 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/writer-lock.py",
             "description": "One writer per repository: warn when another session wrote recently, block shared-state gestures"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__shinkofa-web__web_check|mcp__shinkofa-web__browser_open|mcp__shinkofa-web__browser_act|mcp__shinkofa-web__browser_screenshot",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" deploy/smoke-test-required.py",
+            "description": "Un appel au serveur web de Jay (web_check, navigateur sans ecran) est un controle reel apres une mise en ligne : leve la dette du garde de fumee (decision du 2026-10-30)"
           }
         ]
       },
@@ -301,6 +316,11 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/interaction-model-reminder.py",
+            "description": "Premiere modification d'un fichier d'interface par seance : met sous les yeux la section Modele d'interaction du CDC (ou dit qu'elle manque) ; rappel, jamais bloquant (note de Jay 2026-08-30)"
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/challenge-trace-check.py"
           },
           {
@@ -401,6 +421,11 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/pasted-secret-alert.py",
             "description": "Si Jay colle une valeur qui ressemble a un secret : lui dit de la renouveler, interdit a Takumi de la repeter (Jay 2026-10-18)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/clear-format-inject.py",
+            "description": "Pose le gabarit L'essentiel / Pour toi / Gains et limites AVANT l'ecriture (a l'ouverture, puis tous les 25 messages) pour que Takumi n'ecrive pas deux fois : le filet clear-recap-check reste (Jay 2026-11-02)"
           },
           {
             "type": "command",
@@ -530,6 +555,11 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/handoff-nudge.py",
             "description": "Si Takumi demande a Jay de taper une commande sans raison de la liste fermee (secret, consentement, droits admin, geste physique) : garde le tour ouvert une fois, avec le rappel de la bonne route (Jay 2026-10-18)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/online-claim-check.py",
+            "description": "Refuse (une fois par tour) l'affirmation « c'est en ligne » tant que la mise en ligne de la seance n'a eu aucun controle reel depuis : web_check ou curl, sortie citee (Jay 2026-10-30, annexe Mise-En-Service)"
           },
           {
             "type": "command",

@@ -28,6 +28,11 @@ recommended" and stop the fixes until Jay decides.
 once per threshold — **600 000** enters the zone where quality can degrade, **700 000**
 advises the warm resume (write the `[EN-SUSPENS]` threads, `/clear`, continue on the
 brief). Never block: it is a gauge, not a gate.
+*[Amendé 2026-11-03 — Jay, entre 300 000 et 450 000]* A third threshold speaks about PRICE, not quality:
+**400 000**. Every answer re-reads the whole context, so the price of each answer grows with it (measured over
+7 days: 34 % of the re-reads happened above 250 000). At 400 000 the gauge says a warm resume is a good moment
+if the work is at a stopping point; it is advice, never a stop. The weekly pass (`garde-methode.py`) now reads the
+real usage from the session journals to show whether the threshold helps.
 
 <!-- source: Workflows.md#11 -->
 **Why the old proxy went**: « ~40 exchanges or ~15 file reads (~60 %) » measures nothing —

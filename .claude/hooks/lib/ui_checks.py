@@ -31,7 +31,7 @@ LEGO_COMPONENTS = (
 # Generated / vendored / test material: a Lego duplicate or a hardcoded string
 # there is not the defect these checks exist to catch.
 UI_SKIP_PATTERNS = (
-    "Shinkofa-Shared/", "node_modules/", ".test.", ".spec.",
+    "Shinkofa-Shared/", "Toolbox/typescript/", "node_modules/", ".test.", ".spec.",
     ".stories.", "__tests__", ".claude/",
 )
 
@@ -39,7 +39,8 @@ UI_SKIP_PATTERNS = (
 def _skips_ui_check(file_path, ext):
     if ext not in ("tsx", "jsx"):
         return True
-    return any(p in file_path for p in UI_SKIP_PATTERNS)
+    normal = str(file_path).replace("\\", "/")   # un chemin Windows porte des antislash (relecture du 2026-11-03)
+    return any(p in normal for p in UI_SKIP_PATTERNS)
 
 
 def check_lego_library(file_path, ext, content):

@@ -48,6 +48,7 @@ from common import (  # noqa: E402
     pass_through,
     read_hook_input,
 )
+from git_exec import git_runs_a_deploy, substitution_ships  # noqa: E402
 from shell_parse import simple_commands  # noqa: E402
 from transcript_reader import iter_spoken_text  # noqa: E402
 from model_trace import SKIP_LINE, record_clearance  # noqa: E402
@@ -298,6 +299,10 @@ def _after_exec_flag(segment):
     return None
 
 
+def _is_deploy_text(text):
+    return looks_like_deploy(text) or bool(_PROPAGATION.search(text))
+
+
 def _ships(segment, printers_are_safe=True):
     nested = _after_exec_flag(segment)
     if nested is not None:
@@ -310,6 +315,11 @@ def _ships(segment, printers_are_safe=True):
     if _is_forced_push(segment) or _runs_a_propagation(segment):
         return True
     text = " ".join(segment)
+    if segment[0] == "git" or segment[:2] in (["gh", "pr"], ["gh", "issue"]):
+        # A commit message or a log search that CITES « docker compose up » ships nothing (3 commits refused, 2026-11-02) ;
+        # but git also RUNS things (aliases, sshCommand, foreach, bisect run, rebase -x, filter-branch…) and a message can hold a
+        # live substitution (independent review, 2026-11-02, R1): those stay judged.
+        return git_runs_a_deploy(segment, text, _is_deploy_text) or substitution_ships(text, _is_deploy_text)
     return looks_like_deploy(text) or bool(_PROPAGATION.search(text))
 
 

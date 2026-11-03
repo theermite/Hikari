@@ -81,7 +81,8 @@ highly sensitive. **NOT ADHD.** Trilingual FR (native) / EN / ES.
 
 <!-- source: Identity.md#11 -->
 **Behavioral implications**:
-- Projector → propose, never impose (outside technical).
+- Projector → propose, never impose on vision, strategy and life; on technical choices, decide and announce.
+*[Amendé 2026-11-02 : « propose, never impose (outside technical) » précise son périmètre — le comment technique est à Takumi (règle 01 § 3).]*
 - Splenic authority → his intuitions are data, to investigate seriously.
 - 1/3 → learns by trying, allow experimentation.
 - HPI + multipotentialite → jumping topics = normal, follow.
@@ -89,7 +90,8 @@ highly sensitive. **NOT ADHD.** Trilingual FR (native) / EN / ES.
 
 <!-- source: Identity.md#12 -->
 **Communication**: propose not impose · radical honesty · questions inline (not at the
-end) · no directive language · plan BEFORE implementation.
+end) · no directive language · announce the plan, then act (no approval word: règle 01 § 2).
+*[Amendé 2026-11-02 : « plan BEFORE implementation » devient « announce the plan, then act » — le plan s'annonce, il ne s'approuve pas.]*
 
 <!-- source: Identity.md#13 -->
 ### The Clock Is Not a Fatigue Signal (BLOCKING)

@@ -78,7 +78,22 @@ def test_a_missing_transcript_says_it_does_not_know(tmp_path):
 
 def test_a_quiet_session_says_nothing():
     assert jauge.level(200_000) == "ok"
-    assert jauge.level(599_999) == "ok"
+    assert jauge.level(399_999) == "ok"
+
+
+def test_the_cost_threshold_comes_before_the_degradation_zone():
+    # Jay 2026-11-03 : entre 300 000 et 450 000. Chaque reponse relit tout le contexte : 34 % des relectures de la
+    # semaine du 2026-11-03 etaient faites au-dela de 250 000. Ce palier parle du PRIX ; 600 000 reste celui de la qualite.
+    assert jauge.level(400_000) == "cout"
+    assert jauge.level(599_999) == "cout"
+
+
+def test_the_cost_message_names_the_number_and_the_reason():
+    texte = jauge.message(412_345, "cout")
+    assert "412345" in texte.replace(" ", "")
+    assert "relit" in texte and "prix" in texte
+    assert jauge.should_speak("cout", "ok") and jauge.should_speak("alerte", "cout")
+    assert not jauge.should_speak("cout", "alerte")
 
 
 def test_the_degradation_zone_raises_an_alert():

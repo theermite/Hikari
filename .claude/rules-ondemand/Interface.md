@@ -79,6 +79,10 @@ auto-save), zero timer, minimal distractions, customization.
 If not → code it in `Shinkofa-Shared/packages/ui/` first (tests + story), then import. All
 text via `@shinkofa/i18n` (FR/EN/ES, FR source). All shared types via `@shinkofa/types`.
 Coding a duplicate = BLOCKING. i18n workflow → Shinzo.
+*[Amendé 2026-11-03 — fusion du 2026-11-02]* Shinkofa-Shared a fusionné dans Toolbox : la bibliothèque se code
+désormais dans `Toolbox/typescript/packages/ui/` (l'ancien dossier est gelé, aucune séance n'y écrit), et l'index
+`Toolbox/INDEX.md` dit quelles briques existent et qui les utilise. Les garde-fous lisent l'inventaire de composants
+dans Toolbox d'abord, dans l'ancien dossier ensuite tant qu'il existe.
 *[Amendé 2026-10-30 : le texte en dur est REFUSÉ par `lego/i18n-no-hardcode.py` dans un projet dont un
 package.json déclare une bibliothèque de traduction (averti seulement dans les autres). Sortie, liste
 fermée : `// I18N-OK: internal-tool | editorial-content | already-translated`. Décision de Jay.]*

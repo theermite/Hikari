@@ -33,17 +33,17 @@ sys.modules["notes_globales"] = notes
 _spec.loader.exec_module(notes)
 
 
-def _atelier(tmp_path, contenu="", depot="Takumi"):
-    """Un atelier jetable : un depot, et Shinzo en frere."""
+def _atelier(tmp_path, contenu="", depot="Shinzo"):
+    """Un atelier jetable : le depot Shinzo, qui porte ses notes globales en `08-Notes/inbox.md` (Takumi y a fusionne le 2026-11-02)."""
     racine = tmp_path / depot
     (racine / ".claude" / "state").mkdir(parents=True)
-    inbox = tmp_path / "Shinzo" / "08-Notes" / "inbox.md"
+    inbox = racine / "08-Notes" / "inbox.md"
     inbox.parent.mkdir(parents=True)
     inbox.write_text(contenu, encoding="utf-8")
     return racine
 
 
-def test_les_notes_remontent_dans_takumi(tmp_path):
+def test_les_notes_remontent_dans_shinzo(tmp_path):
     racine = _atelier(tmp_path, "## Concernant l'ecosysteme\nune idee qui traine\n")
     texte = notes.rapport(racine)
     assert "08-Notes/inbox.md" in texte
@@ -51,7 +51,7 @@ def test_les_notes_remontent_dans_takumi(tmp_path):
 
 
 def test_ailleurs_le_hook_se_tait(tmp_path):
-    """Une note globale dans chaque depot serait du bruit — Jay a nomme Takumi."""
+    """Une note globale dans chaque depot serait du bruit — Jay a nomme le depot porteur."""
     racine = _atelier(tmp_path, "une idee qui traine\n", depot="Kobo")
     assert notes.rapport(racine) == ""
 
@@ -92,7 +92,7 @@ def test_le_depot_se_reconnait_malgre_la_casse(tmp_path):
     """
     # Un espace par nom : Windows ne distingue pas `takumi` de `TAKUMI`, et deux
     # ateliers au meme endroit se marcheraient dessus.
-    for i, nom in enumerate(("takumi", "TAKUMI")):
+    for i, nom in enumerate(("shinzo", "SHINZO")):
         racine = _atelier(tmp_path / f"essai{i}", "une idee qui traine\n", depot=nom)
         assert notes.rapport(racine) != "", nom
 
@@ -109,21 +109,21 @@ def test_un_worktree_parle_quel_que_soit_son_nom(tmp_path):
     """
     import subprocess
 
-    principal = tmp_path / "Takumi"
+    principal = tmp_path / "Shinzo"
     (principal / ".claude" / "state").mkdir(parents=True)
-    inbox = tmp_path / "Shinzo" / "08-Notes" / "inbox.md"
+    inbox = principal / "08-Notes" / "inbox.md"
     inbox.parent.mkdir(parents=True)
     inbox.write_text("une idee qui traine\n", encoding="utf-8")
     lancer = lambda *a: subprocess.run(a, cwd=principal, check=True, capture_output=True)
     lancer("git", "init", "-q", ".")
     (principal / "x.txt").write_text("x", encoding="utf-8")
-    lancer("git", "add", "x.txt")
+    lancer("git", "add", "x.txt", "08-Notes/inbox.md")  # suivie par git, donc presente dans chaque worktree
     lancer("git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")
 
     annexe = tmp_path / "NomQueGitNImposePas"
     lancer("git", "worktree", "add", "-q", str(annexe), "-b", "essai")
     (annexe / ".claude" / "state").mkdir(parents=True, exist_ok=True)
-    assert notes.rapport(annexe) != "", "un worktree de Takumi doit parler, quel que soit son nom"
+    assert notes.rapport(annexe) != "", "un worktree de Shinzo doit parler, quel que soit son nom"
 
 
 def test_un_depot_homonyme_ne_voit_pas_les_notes_privees(tmp_path):
@@ -134,7 +134,7 @@ def test_un_depot_homonyme_ne_voit_pas_les_notes_privees(tmp_path):
     privees de Jay dans un depot sans rapport. Le defaut d'hier taisait un
     signal ; celui-la le divulgue. La liste fermee tranche les deux.
     """
-    for i, nom in enumerate(("TakumiTools", "Takumi-Docs-Sans-Rapport", "Kobo")):
+    for i, nom in enumerate(("ShinzoTools", "Shinzo-Docs-Sans-Rapport", "Takumi", "Kobo")):
         racine = _atelier(tmp_path / f"autre{i}", "une idee privee\n", depot=nom)
         assert notes.rapport(racine) == "", nom
 
@@ -142,7 +142,7 @@ def test_un_depot_homonyme_ne_voit_pas_les_notes_privees(tmp_path):
 def test_une_note_modifiee_reparle(tmp_path):
     racine = _atelier(tmp_path, "une idee qui traine\n")
     notes.rapport(racine)
-    (tmp_path / "Shinzo" / "08-Notes" / "inbox.md").write_text(
+    (racine / "08-Notes" / "inbox.md").write_text(
         "une idee qui traine\net une deuxieme\n", encoding="utf-8")
     assert notes.rapport(racine) != ""
 
@@ -152,8 +152,8 @@ def test_une_note_vide_ne_dit_rien(tmp_path):
     assert notes.rapport(racine) == ""
 
 
-def test_shinzo_absent_n_arrete_jamais_une_session(tmp_path):
-    racine = tmp_path / "Takumi"
+def test_inbox_absente_n_arrete_jamais_une_session(tmp_path):
+    racine = tmp_path / "Shinzo"
     (racine / ".claude" / "state").mkdir(parents=True)
     assert notes.rapport(racine) == ""
 

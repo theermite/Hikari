@@ -48,6 +48,9 @@ from transcript_reader import iter_entries  # noqa: E402
 # une fraction changerait de sens le jour ou la fenetre change.
 SEUIL_ALERTE = 600_000
 SEUIL_REPRISE = 700_000
+# Palier du PRIX, pas de la qualite (Jay 2026-11-03, entre 300 000 et 450 000) : chaque reponse relit tout le contexte, donc
+# plus il est gros, plus chaque reponse coute. Releve de la semaine : 34 % des relectures au-dela de 250 000.
+SEUIL_COUT = 400_000
 
 _ETAT = "context-gauge"
 
@@ -110,17 +113,19 @@ def context_size(transcript_path) -> int | None:
 
 
 def level(tokens: int | None) -> str:
-    """Le palier : ok · alerte · reprise · inconnu."""
+    """Le palier : ok · cout · alerte · reprise · inconnu."""
     if tokens is None:
         return "inconnu"
     if tokens >= SEUIL_REPRISE:
         return "reprise"
     if tokens >= SEUIL_ALERTE:
         return "alerte"
+    if tokens >= SEUIL_COUT:
+        return "cout"
     return "ok"
 
 
-_RANG = {"ok": 0, "alerte": 1, "reprise": 2}
+_RANG = {"ok": 0, "cout": 1, "alerte": 2, "reprise": 3}
 
 
 def should_speak(palier: str, precedent: str) -> bool:
@@ -136,6 +141,12 @@ def should_speak(palier: str, precedent: str) -> bool:
 
 def message(tokens: int, palier: str) -> str:
     milliers = f"{tokens:,}".replace(",", " ")
+    if palier == "cout":
+        return (
+            f"[CONTEXTE] {milliers} jetons occupes — chaque reponse relit tout ce contexte : le prix de chaque "
+            "reponse monte avec lui. Si tu es a un point d'arret, c'est un bon moment pour une reprise a chaud : "
+            "fils ouverts avec [EN-SUSPENS], puis /clear. Sinon, continue : la qualite n'est pas encore en jeu."
+        )
     if palier == "reprise":
         return (
             f"[CONTEXTE] {milliers} jetons occupes — zone de degradation depassee. "

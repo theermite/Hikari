@@ -647,3 +647,79 @@ def test_a_marker_quoted_mid_line_lifts_no_gate_even_when_the_head_is_unknown():
     citation = "voyez [REVIEW-SKIP] motif: rollback sur abc1234 dans le rapport"
     assert gate.find_skip(citation) is None
     assert gate.verdict("./deploy.sh", [citation], head=None) is not None
+
+
+# --- un message de commit qui CITE une commande de mise en ligne n'en est pas une (constaté le 2026-11-02) -------------
+
+
+def test_a_commit_message_quoting_a_deploy_command_is_not_gated():
+    """Trois tentatives de commit refusées, parce que le message citait « docker compose up » : le texte entre guillemets est une donnée."""
+    assert not gate._is_gated('git commit -m "feat: la note cite docker compose up dans un exemple"')
+    assert not gate._is_gated("git commit -F - <<'EOF'\nfix: ssh vps docker compose up -d\nEOF")
+
+
+def test_a_real_deploy_after_a_commit_is_still_gated():
+    assert gate._is_gated('git commit -m "fix: x" && docker compose up -d')
+    assert gate._is_gated("git pull --ff-only && ./deploy.sh")
+    assert gate._is_gated("ssh vps docker compose up -d")
+
+
+def test_a_forced_push_is_still_gated():
+    assert gate._is_gated("git push --force origin main")
+
+
+# --- relecture indépendante du 2026-11-02 (R1) : l'exemption git ne rouvre aucune voie qui était gardée -------------------
+
+_VOIES_GARDEES = (
+    'git commit -m "$(docker compose up -d)"',
+    "git commit -m `./deploy.sh`",
+    "gh issue comment 1 --body \"$(ssh vps ./deploy.sh)\"",
+    "git -c alias.x='!docker compose up -d' x",
+    "git -c alias.d='!ssh vps ./deploy.sh' d",
+    "git -c core.sshCommand='ssh vps ./deploy.sh' fetch",
+    "git submodule foreach 'docker compose up -d'",
+    "git bisect run ./deploy.sh",
+    "git rebase -x './deploy.sh' main",
+    "git filter-branch --tree-filter './deploy.sh' HEAD",
+    "git difftool -x ./deploy.sh",
+)
+
+
+def test_every_route_that_was_gated_before_the_git_exemption_still_is():
+    for command in _VOIES_GARDEES:
+        assert gate._is_gated(command), command
+
+
+def test_a_one_line_commit_message_citing_options_and_a_deploy_is_still_free():
+    assert not gate._is_gated('git commit -m "fix: x -x --exec docker compose up"')
+    assert not gate._is_gated('git log --grep "docker compose up" --oneline')
+
+
+# Limite écrite (décision de Jay du 2026-10-19 : aucune analyse de substitution par motifs dans la lecture des commandes) :
+# un message de commit en bloc `-m "$(cat <<'EOF' … EOF)"` qui CITE une commande de livraison n'est pas analysable, donc
+# lu en brut et refusé. Contournement : ne pas citer la commande dans le message.
+
+
+# --- relecture ciblée du 2026-11-02 (PASS, remarque 3) : treize voies de plus -----------------------------------------------
+
+_AUTRES_VOIES = (
+    "git -c core.sshcommand='ssh vps ./deploy.sh' fetch",
+    "git -c ALIAS.x='!./deploy.sh' x",
+    "git rebase --exec='./deploy.sh' main",
+    "git rebase --exec=./deploy.sh main",
+    "git fetch --upload-pack='ssh vps ./deploy.sh'",
+    "git -c core.pager='./deploy.sh' log",
+    "git -c credential.helper='!./deploy.sh' fetch",
+    "git config alias.d '!./deploy.sh'",
+    "git commit -F <(./deploy.sh)",
+    'git commit -m "$( (docker compose up -d) )"',
+)
+
+
+def test_more_routes_that_were_gated_before_the_git_exemption_still_are():
+    for command in _AUTRES_VOIES:
+        assert gate._is_gated(command), command
+
+
+def test_a_message_naming_a_config_key_is_still_free():
+    assert not gate._is_gated('git commit -m "docs: core.sshCommand et docker compose up -d"')

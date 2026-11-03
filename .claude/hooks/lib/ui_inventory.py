@@ -32,9 +32,23 @@ from pathlib import Path
 
 SNAPSHOT = Path(__file__).resolve().parent.parent / "lego" / "ui-inventory.json"
 
-# The workspace layout: Kata and Shinkofa-Shared are siblings.
+# The workspace layout: Kata, Toolbox and Shinkofa-Shared are siblings.
 # This file sits at <repo>/.claude/hooks/lib/, so the workspace is 4 levels up.
-DEFAULT_SHARED_ROOT = Path(__file__).resolve().parents[4] / "Shinkofa-Shared"
+# Shinkofa-Shared merged into Toolbox on 2026-11-02 (Toolbox/GEL.md): `Toolbox/typescript` carries the live packages,
+# the old checkout is frozen and only serves as a fallback while it stays on disk.
+_WORKSPACE = Path(__file__).resolve().parents[4]
+CANDIDATE_ROOTS = (_WORKSPACE / "Toolbox" / "typescript", _WORKSPACE / "Shinkofa-Shared")
+
+
+def choose_root(candidates: tuple[Path, ...]) -> Path:
+    """The first candidate that carries `packages/ui/src`, else the last one (its path still names the missing source)."""
+    for root in candidates:
+        if (Path(root) / "packages" / "ui" / "src").is_dir():
+            return Path(root)
+    return Path(candidates[-1])
+
+
+DEFAULT_SHARED_ROOT = choose_root(CANDIDATE_ROOTS)
 
 # `export { A, B as C } from './x'` — the braces only, so `export default` and
 # `export * from` (which name nothing here) are ignored.
