@@ -21,7 +21,11 @@ plus à Jay : le quoi (règle 01 § 3), le plan (règle 02 § 1), un travail non
 relecture FAIL : sans eux, 57 % des blocages visaient une question légitime.
 
 Le garde ne bloque que ce qui ressemble à une demande d'autorisation (ou à « ouvre le tableau de bord du
-fournisseur ») et ne porte pas cette déclaration. Une fois par tour (stop_hook_active). Une déclaration fausse se voit
+fournisseur ») et ne porte pas cette déclaration. Une fois par tour (stop_hook_active). Ajout du 2026-11-04 (retour de Jay, journaux Shizen/Kobo/Compendium) :
+l'étiquette ne doit pas servir de laissez-passer. Un `[ARRET] sortant` dont l'acte est UN DES ACTES QUE LA RÈGLE 01 § 2
+NOMME COMME NON-ARRÊTS (un push ou un commit sur le dépôt de Jay, une mise en ligne sur son serveur) est refusé, sauf si
+la raison dit aussi un vrai risque (force, suppression, envoi, publication, paiement, client...). Les autres motifs ne
+sont pas jugés. Une déclaration fausse se voit
 dans la réponse que Jay lit ; le garde ne la juge pas. Limites écrites : la détection de la demande est lexicale (une
 question déguisée passe) ; un vrai arrêt non déclaré est arrêté une fois et passe au second essai.
 Contrat du hook Stop vérifié le 2026-11-01 (code.claude.com/docs/en/hooks) : exit 2 + stderr fait continuer le tour.
@@ -37,6 +41,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 from common import block, pass_through, read_hook_input  # noqa: E402
 
 MESSAGES = {
+    "non_arret": (
+        "Ton [ARRET] sortant porte sur un acte que le mandat (règle 01 § 2) ne compte PAS parmi les arrêts : un push ou "
+        "un commit sur le dépôt de Jay, une mise en ligne sur son serveur avec test de fumée, une doc à jour. Ce n'est "
+        "pas un arrêt : fais-le, puis rends compte (fait, vérifié avec la commande et sa sortie, fils ouverts). Si "
+        "l'acte est vraiment irréversible ou sortant (force-push, suppression de données, envoi, publication, "
+        "paiement), dis-le dans la raison : « suppression de la base de production », « envoi à 40 clients ». "
+        "Réécris ta réponse."
+    ),
     "permission": (
         "Tu demandes à Jay la permission de faire quelque chose. Si la question est de celles que les règles lui "
         "laissent, déclare-la sur une ligne qui ouvre sa ligne : "
@@ -99,6 +111,32 @@ _PROVIDER = re.compile(
 _UI_GESTURE = re.compile(r"(?i)\b(?:clique|cliquez|tableau de bord|dashboard|interface|console|paramètres|settings)\b")
 
 
+_SORTANT = re.compile(
+    r"(?im)^[ \t>*\-•\W]{0,12}\[ARR[EÊ]T\]\W{0,3}[ \t]*sortant[ \t  ]*:[ \t]*([^\n]+)"
+)
+# Les actes que la règle 01 § 2 nomme comme NON-arrêts, avec leur lieu : le dépôt de Jay, son serveur.
+_PUSH = re.compile(r"(?i)\b(?:pouss\w*|push\w*)\b")
+_COMMIT = re.compile(r"(?i)\bcommit\w*\b")  # a commit is local: no destination needed
+_REPO = re.compile(r"(?i)\b(?:d[ée]p[ôo]t|repo|branche|main|master|origin|principale)\b")
+_DEPLOY = re.compile(r"(?i)(?<![A-Za-zÀ-ÿ])(?:mise en ligne|mettre en ligne|mets en ligne|(?:re)?d[ée]ploy\w*|(?:re)?d[ée]ploi\w*)")
+_OWN_SERVER = re.compile(r"(?i)\b(?:(?:ton|son|le) (?:serveur|vps)|staging|test de fum[ée]e|smoke)\b")
+# Un vrai risque dit dans la raison garde l'arrêt : le garde ne juge pas ce cas.
+_RISK = re.compile(
+    r"(?i)(?<![A-Za-zÀ-ÿ])(?:force|réécri|rewrite|suppr|effac|écras|purg|delete|drop\b|détrui|publi|envoi|envoy|mail|courriel|"
+    r"client|paie|pay|factur|npm|registre|public|irréversibl|sans retour|tiers|abonn|utilisateur|secret|clé|\.env|token|fork)"
+)
+
+
+def _non_stop_sortant(reply: str) -> bool:
+    """`[ARRET] sortant` dont la raison est un push/commit sur le dépôt de Jay ou une mise en ligne sur son serveur."""
+    for reason in _SORTANT.findall(_FENCE.sub(" ", reply).split("```")[0]):
+        own = (_COMMIT.search(reason) or (_PUSH.search(reason) and _REPO.search(reason))
+               or (_DEPLOY.search(reason) and _OWN_SERVER.search(reason)))
+        if own and not _RISK.search(reason):
+            return True
+    return False
+
+
 def declared(reply: str) -> bool:
     """Une déclaration `[ARRET]` valide ouvre une ligne de la réponse, hors bloc de code."""
     return bool(_DECLARATION.search(_FENCE.sub(" ", reply).split("```")[0]))
@@ -142,10 +180,10 @@ def _is_handoff(text: str) -> bool:
 
 
 def classify(reply: str) -> str | None:
-    """"permission", "handoff" ou None."""
+    """"permission", "handoff", "non_arret" (arrêt déclaré pour un acte que la règle ne compte pas) ou None."""
     text = reply.replace("\u2019", "'")
     if declared(text):
-        return None
+        return "non_arret" if _non_stop_sortant(text) else None
     if _is_handoff(text):
         return "handoff"
     return "permission" if _asks_permission(text) else None

@@ -101,6 +101,11 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/tests-before-commit-check.py",
+            "description": "Refuse un git commit si la derniere execution de tests du tour est rouge ou en erreur, ou si tests et commit sont enchaines par ; || ou un tube : lis la sortie avant de commiter (Jay 2026-11-04). Sortie : # TESTS-ROUGES-OK: raison"
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/atomic-commit-check.py",
             "description": "Warn on git commit spanning >= 3 distinct scopes (atomic commit heuristic)"
           },
@@ -425,7 +430,7 @@
           {
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/clear-format-inject.py",
-            "description": "Pose le gabarit L'essentiel / Pour toi / Gains et limites AVANT l'ecriture (a l'ouverture, puis tous les 25 messages) pour que Takumi n'ecrive pas deux fois : le filet clear-recap-check reste (Jay 2026-11-02)"
+            "description": "Rappelle en 100 mots au plus les principes de reponse de Jay (essentiel, court, pragmatique ; listes, tableaux, emojis moderes), sans gabarit impose, a l'ouverture puis tous les 25 messages (Jay 2026-11-04)"
           },
           {
             "type": "command",
@@ -564,7 +569,17 @@
           {
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/clear-recap-check.py",
-            "description": "Une question a Jay s'ouvre sur L'essentiel / Pour toi / Gains et limites (titres de niveau 2 avec leur pastille) ; un long compte rendu sur L'essentiel et Pour toi ; pas de jargon accumule ni de numero de commit : garde le tour ouvert une fois (Jay 2026-11-01)"
+            "description": "Forme libre (plus de gabarit, Jay 2026-11-04) ; refuse seulement le jargon accumule (3 termes internes) et les numeros de commit dans la conversation : garde le tour ouvert une fois"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/announce-without-doing-check.py",
+            "description": "Si le tour se termine sur l'annonce d'une action que Takumi peut faire seul (ensuite je..., prochaine etape : je...), sans question ni attente d'un evenement exterieur : garde le tour ouvert une fois, fais-le (Jay 2026-11-04). Sortie : [ANNONCE-OK] raison"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/memory-admission-check.py",
+            "description": "Si la reponse avoue un defaut de verification (de memoire, sans avoir verifie) alors qu'un fichier a ete ecrit sans verification apres : garde le tour ouvert une fois pour verifier tout de suite (Jay 2026-11-04)"
           },
           {
             "type": "command",

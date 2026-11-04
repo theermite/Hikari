@@ -78,6 +78,8 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at the fina
 
    **Lire `maquette.md` avant de commencer cette étape** — les règles y sont, elles s'appliquent toutes.
 
+   **Recette tirée de la maquette (depuis 2026-10-17)** : la liste des écrans et des rôles de la maquette validée (à exporter dans `docs/Recette-Parcours.json` ; à défaut, la dresser depuis la maquette) devient le script de recette du contrat d'autonomie (étape 8bis) : le livrable est « fini » quand ce parcours passe sur l'application réelle.
+
 6ter. **INTÉGRATION** (BLOCKING): avant le PET, remplir PET §0 : ce que ça change pour qui utilise déjà, parcours complet, 13 dépendances jamais citées, phases implicites, ce qu'on a découvert. Une §0 incomplète bloque la feuille de route.
 
    **Lire `integration.md` avant de commencer cette étape** — les règles y sont, elles s'appliquent toutes.
@@ -103,6 +105,15 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at the fina
    - [ ] Cross-check against `.claude/rules/03-Qualite.md` — QE V2, 25 décisions (archive d'origine : `docs/Archives/Mnk/improvements/004-QE-V2-Composition-Brief.md`)
    - If any gap found: fix CDC or PET, then re-verify. Do not proceed with gaps.
 
+8bis. **CONTRAT D'AUTONOMIE** (BLOCKING — depuis 2026-10-17): write `docs/Contrat-Autonomie.md` from `.claude/skills/concevoir/contrat-autonomie-template.md` (in this skill's folder, so it propagates with the skill). Then RUN `python .claude/hooks/lib/contract_lint.py docs/Contrat-Autonomie.md --cdc-version <CDC> --pet-version <PET>` — any `ERROR` line blocks step 9; the linter, not you, decides if the contract is valid. Reference: `docs/Briefs/Contrat-Autonomie-2026-10-17.md`. Plain language first (step 0bis applies), ONE question at a time, STOP after each:
+   0. **Mode projet : la liste des briques se calcule** — `python .claude/hooks/lib/plan_bricks.py docs/PET.md` produit `briques:` depuis la feuille de route du PET et REFUSE (sortie 1) tant que le PET se contredit : TOUT identifiant de brique écrit n'importe où dans le PET (tableau, citation, bloc de code, titre, phrase) doit exister dans la feuille de route, avec son numéro de ligne dans le message ; une plage écrite `B40-B43` ou `B02a-c` est développée et chaque brique qu'elle nomme doit exister, et TOUT trou dans la numérotation de la feuille de route (B13 puis B15) est un problème, quelle que soit la façon d'écrire la plage en toutes lettres (« B11 à B15 », « B11-15 »), à accepter explicitement avec `--trou B14` ou `--numerotation-libre` ; les travaux sans identifiant de brique (tableaux de priorités, de séances) ne sont PAS dans la liste ; statut inconnu ou à plusieurs valeurs, doublon, tableau « brique » sans identifiants. La feuille de route est ANCRÉE : seuls comptent les tableaux (colonne de statut + colonne d'identifiants `B09a`, `B-001`, `K-B1`) situés dans la section intitulée « Roadmap » ou « Feuille de route » (`--section TITRE` pour la désigner) ; un tableau ailleurs (risques, historique) n'est jamais fusionné, mais ses briques doivent exister dans la feuille de route. Hors garantie : une brique oubliée en début ou en fin de numérotation et écrite nulle part ailleurs ou seulement en abrégé (`B03-05`, `B24a/b/c`, `B15/16/17`, `B-008→010`), un mauvais statut dans la feuille de route, des identifiants hors format `B` (T12, B1000), une famille entière absente. Trancher chaque cas à la main, visible dans la sortie : `--inclure B38,B39` (brique réelle absente de la feuille de route, état supposé à faire), `--connu B1` (ce n'est pas une brique : une revue, un modèle), `--ignorer-tableau « Entête »`. Après écriture du contrat : `plan_bricks.py docs/PET.md --check docs/Contrat-Autonomie.md` doit dire « Aucun écart ».
+   1. **Mode** — « Tu veux que je développe une brique, un lot de briques, ou le projet entier jusqu'au livrable ? » (`brique` / `lot` / `projet`)
+   2. **Livrable** — proposer les preuves depuis la liste des écrans de la maquette (`docs/Recette-Parcours.json` si elle existe) et le CDC §3 ; Jay corrige.
+   3. **Budget** — proposer coût / jetons / durée plafonds à partir des journaux de run précédents (jamais un chiffre inventé : sans historique, le dire et demander le plafond).
+   4. **Points de contrôle** — proposer 2 à 4 moments où Jay teste en direct, avec ce qu'il verra ; indiquer lesquels bloquent et lesquels sont un simple digest.
+   5. **Déploiement** — `jamais` par défaut ; `staging` ou `prod-apres-checkpoint` seulement si Jay l'écrit.
+   Renseigner `cdc_version` et `pet_version`. **Pourquoi** : sans contrat, la validation de la conception n'autorise rien de précis et chaque run redemande à Jay ce qu'il a déjà décidé ; avec lui, la validation vaut reformulation pour tout le run (`Session-Autonome.md`). Un contrat sans budget, ou en mode `projet` sans point de contrôle bloquant, est BLOCKING : ne pas passer à l'étape 9.
+
 9. **PRESENT** (BLOCKING): diaporama HTML partageable à n'importe qui : langage non technique, bénéfices, format slides, charte de la maquette, vrais écrans, finir sur la maquette. Test : quelqu'un qui ne connaît rien au projet comprend-il et a-t-il envie ?
 
    **Lire `presentation.md` avant de commencer cette étape** — les règles y sont, elles s'appliquent toutes.
@@ -110,7 +121,7 @@ Execute these steps IN ORDER. No skipping. Wait for Jay's validation at the fina
 
 10. **SHINZO SYNC**: Create `[SHINZO]/02-Projets/[project].md` with sections: Notes, Décisions, Bugs, Prochaines étapes, Connexions. Add an entry to `[SHINZO]/02-Projets/_Index.md`. Reference `docs/CDC.md` + `docs/PET.md`. Commit + push Shinzo. `[SHINZO]` = `D:/30-Dev-Projects/Shinzo` (local) · `~/Shinzo` (VPS).
 
-11. **VALIDATE**: Wait for Jay's explicit approval before ANY coding.
+11. **VALIDATE**: Wait for Jay's explicit approval before ANY coding. The approval covers the CDC, the PET **and the autonomy contract**: it is what authorises a later autonomous run (`.claude/rules-ondemand/Session-Autonome.md`). If CDC or PET changes afterwards, the contract is void until Jay validates it again.
 
 ## Questionnaire (6 questions for Jay — asked ONE AT A TIME in step 1 bis)
 
@@ -132,7 +143,7 @@ After Jay validates the recap, suggest ALL technical choices. Jay validates.
 - **CDC = intention** : modifié uniquement quand l'intention change.
 - **PET = exécution** : modifié à chaque brick (avant + après).
 - **Cross-référence asymétrique** : PET référence CDC. CDC ne référence PAS le PET (l'intention est stable, n'a pas besoin de connaître l'exécution).
-- **Order (changed 2026-08-30)**: CDC -> mock-up -> INTEGRATION -> PET -> Verify -> presentation. The mock-up now comes BEFORE the PET: the interaction model is born in the mock-up, and planning the execution of screens nobody has seen is what made the PET blind to it.
+- **Order (changed 2026-08-30)**: CDC -> mock-up -> INTEGRATION -> PET -> Verify -> autonomy contract (2026-10-17) -> presentation. The mock-up now comes BEFORE the PET: the interaction model is born in the mock-up, and planning the execution of screens nobody has seen is what made the PET blind to it.
 - **Mock-up = charte graphique de référence** : la présentation (slides) et le dev réutilisent son design system. Cohérence présentation ↔ prototype ↔ écran final.
 - **Présentation = slides, jamais un one-pager à scroller.** Public non-tech, charte de la plateforme.
 - Everything is potentially sellable — visibility-first (CDC §12).

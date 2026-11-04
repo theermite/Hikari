@@ -277,3 +277,101 @@ def test_a_short_trailing_line_is_not_the_answer_to_the_question():
 def test_a_real_answer_still_cancels_the_question():
     for tail in ("Non.", "Oui, fait.", "Pas encore.", "Rien d'autre."):
         assert _kind("Fait. Dois-je noter autre chose ? " + tail) is None, tail
+
+
+# --- l'étiquette [ARRET] n'est pas un laissez-passer (retour de Jay, 2026-11-04) ----------------------------------------
+#
+# Lecture des journaux Shizen, Kobo, Compendium du 2026-11-04 : Takumi écrit `[ARRET] sortant : …` pour un push sur le
+# dépôt de Jay ou une mise en ligne sur son serveur, que la règle 01 § 2 classe EXPRESSÉMENT parmi ce qui n'est pas un
+# arrêt (« un commit · une mise en ligne sur le serveur de Jay avec test de fumée »). Le garde ne juge pas la raison
+# d'un arrêt en général (méthode du 2026-11-01) ; il refuse seulement un arrêt `sortant` dont l'acte est UN DES
+# ACTES QUE LA RÈGLE NOMME COMME NON-ARRÊTS, sauf si la raison dit aussi un vrai risque (force, suppression, envoi...).
+
+
+def test_a_sortant_stop_for_a_push_on_jays_own_repo_is_not_a_stop():
+    for reason in ("pousser le code serveur dans la branche principale de ton dépôt",
+                   "je pousse le travail demandé sur main",
+                   "git push du correctif sur origin",
+                   "commit des corrections et du rapport de séance"):
+        assert _kind(_declared("sortant", reason) + "Je pousse ?") == "non_arret", reason
+
+
+def test_a_sortant_stop_for_a_deploy_on_jays_own_server_is_not_a_stop():
+    for reason in ("mettre en ligne sur ton serveur de production, avec test de fumée",
+                   "déploiement sur ton serveur du correctif demandé",
+                   "mise en ligne sur ton VPS puis vérification"):
+        assert _kind(_declared("sortant", reason) + "Oui, mets en ligne ?") == "non_arret", reason
+
+
+def test_a_real_irreversible_or_outgoing_act_stays_a_stop():
+    for reason in ("force-push de main, réécriture de l'historique distant",
+                   "suppression en production de la base, sans retour possible",
+                   "envoi du courriel à quarante clients",
+                   "publication de l'article sur le site public",
+                   "paiement de la facture du fournisseur",
+                   "pousser la branche puis publier la version sur npm"):
+        assert _kind(_declared("sortant", reason) + "On y va ?") is None, reason
+
+
+def test_a_risk_word_next_to_a_deploy_keeps_the_stop():
+    assert _kind(_declared("sortant", "mise en ligne sur ton serveur avec suppression des anciennes données") + "Je lance ?") is None
+
+
+def test_the_other_declared_motives_are_not_judged_by_this_rule():
+    for motif in ("secret", "blocage", "tiers", "gout", "quoi", "plan", "perimetre"):
+        assert _kind(_declared(motif, "pousser le code ou mettre en ligne sur ton serveur, deux voies possibles") + "Laquelle ?") is None, motif
+
+
+def test_the_message_names_the_act_and_says_to_do_it():
+    msg = pac.MESSAGES["non_arret"]
+    assert "pas un arrêt" in msg and "règle 01" in msg and "fais-le" in msg.lower()
+
+
+def test_the_hook_blocks_once_with_that_message_then_lets_through():
+    reply = "[ARRET] sortant : pousser le code serveur dans la branche principale de ton dépôt\nJe pousse ?"
+    first = subprocess.run([sys.executable, str(HOOK)], input=json.dumps({"hook_event_name": "Stop", "last_assistant_message": reply}).encode(),
+                           capture_output=True, timeout=20)
+    assert first.returncode == 2 and b"pas un arr" in first.stderr
+    again = subprocess.run([sys.executable, str(HOOK)], input=json.dumps({"hook_event_name": "Stop", "stop_hook_active": True,
+                           "last_assistant_message": reply}).encode(), capture_output=True, timeout=20)
+    assert again.returncode == 0
+
+
+def test_a_plain_statement_with_no_declaration_is_untouched():
+    assert _kind("J'ai poussé le code sur main, tests verts.") is None
+
+
+def test_a_push_or_a_deploy_without_its_own_place_is_left_as_a_stop():
+    for reason in ("pousser la version vers l'extérieur", "mise en ligne de la nouvelle version", "déployer chez le prestataire"):
+        assert _kind(_declared("sortant", reason) + "On y va ?") is None, reason
+
+
+def test_force_alone_keeps_the_stop():
+    assert _kind(_declared("sortant", "force-push sur main") + "On y va ?") is None
+    assert _kind(_declared("sortant", "push --force de la branche principale") + "On y va ?") is None
+
+
+# --- relecture 1 (FAIL) : « déployer » n'était pas reconnu ; mots de risque cherchés en début de mot ----------------------
+
+
+def test_every_form_of_the_deploy_verb_on_jays_server_is_recognised():
+    for reason in ("déployer sur ton serveur la nouvelle version",
+                   "déployer la version 2 sur ton serveur avec test de fumée",
+                   "redéployer sur ton serveur",
+                   "je déploie sur ton serveur", "déploiement sur ton serveur", "deployer sur ton VPS",
+                   "mise en ligne sur ton serveur", "mettre en ligne sur ton serveur"):
+        assert _kind(_declared("sortant", reason) + "On y va ?") == "non_arret", reason
+
+
+def test_risk_words_are_looked_for_at_the_start_of_a_word():
+    for reason in ("pousser les chantiers sur main", "déployer le renforcement des tests sur ton serveur",
+                   "pousser le dropdown corrigé sur main", "déployer le renvoi corrigé sur ton serveur"):
+        assert _kind(_declared("sortant", reason) + "Je lance ?") == "non_arret", reason
+
+
+def test_more_real_risks_keep_the_stop():
+    for reason in ("pousser sur main, la CI écrase la base de production",
+                   "pousser le fichier .env dans le dépôt", "commiter la clé privée dans le dépôt",
+                   "pousser le token dans le dépôt", "déployer sur ton serveur en purgeant les sauvegardes",
+                   "pousser sur le fork d'un autre"):
+        assert _kind(_declared("sortant", reason) + "On y va ?") is None, reason

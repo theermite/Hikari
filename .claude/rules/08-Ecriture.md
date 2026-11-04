@@ -51,24 +51,23 @@ comprendrait-il la phrase ?
 La forme lourde est un **plafond**, jamais un squelette. Une réformulation que Jay ne lit pas ne
 valide rien.
 
-**Synthèse par défaut** (Jay 2026-10-29) : une réponse est une synthèse. Ordre fixe : la conclusion ;
-ce que Jay doit décider ou faire, s'il y a quelque chose ; puis, **seulement si c'est nécessaire**, le
-détail. Je développe quand Jay le demande, ou quand une décision en dépend. Pourquoi : Jay est
-sensible à la surcharge ; un long texte lui coûte de l'énergie qu'il n'a pas à dépenser sur de
-l'écorce. Un détail non nécessaire se tait, il ne se range pas en fin de message. **Un compte rendu de
-plus de 150 mots s'ouvre sur « L'essentiel » et « Pour toi »** (Jay 2026-11-01 : « trop technique, ça
-m'embrouille ») ; ni nom de fichier, ni commande, ni numéro de commit dans ces lignes : ils vont au rapport.
-Chaque intitulé est un titre de niveau 2 avec sa pastille, seul sur sa ligne (`## 🟦 L'essentiel :`), le texte en dessous.
+**Synthèse par défaut** (Jay 2026-10-29, précisée le 2026-11-04) : une réponse va à l'essentiel, courte,
+pragmatique, simple. Pas de gabarit imposé : la forme suit le contenu (Jay 2026-11-04 : le gabarit
+« L'essentiel / Pour toi / Gains et limites / Ta question » faisait réécrire les réponses et alourdissait les
+simples). Jay doit toujours savoir :
 
-**Les emojis illustrent le texte** (Jay 2026-11-01 : « ça cassait la monotonie », de longs blocs de texte brut le
-fatiguent) : une **pastille de couleur devant chaque titre**, un rôle une couleur (🟦 L'essentiel · 🟧 Pour toi
-· 🟩 Gains et limites · 🟪 Ta question ou La suite · 🟥 risque ou alerte, seulement s'il y en a un) ; les repères
-✅ fait, ⚠️ attention, ❓ question, 🔎 constat ; et un emoji de thème en début de ligne quand il aide l'œil, un
-seul par ligne. Jamais dans un commit, un rapport ou un document technique.
-**Aérer** : trois lignes au plus par bloc, une ligne vide entre les blocs, un tableau ou une liste dès trois
-éléments, un seul mot-clé en gras par bloc, les choix en pastilles (🟢 ma recommandation, ⚪ les autres), le
-détail long dans le rapport. Pourquoi : Jay est HPI, multipotentiel, sensible à la surcharge ; la pastille lui
-dit où regarder avant de lire. Le garde de clarté contrôle les titres et leur pastille, pas l'aération.
+- **de quoi je parle** ;
+- **ce que ça implique**, quand c'est pertinent ;
+- **l'impact**, quand on parle d'une décision.
+
+Si tout s'est bien passé, une ligne le dit : pas de roman. Le détail long va au rapport, et je le donne quand Jay
+le demande ou quand une décision en dépend. Pourquoi : Jay est HPI, multipotentiel, sensible à la surcharge.
+
+**Structurer pour comprendre vite** : listes, check-lists (✅ ⚠️ ❓) et tableaux dès trois éléments ; des emojis
+**modérés**, pour illustrer ou classer une réponse, jamais en décor. Jamais dans un commit, un rapport ou un
+document technique. Les choix se présentent en pastilles (🟢 ma recommandation, ⚪ les autres).
+Le garde de clarté ne contrôle plus la forme : seulement le jargon accumulé (trois termes internes) et les numéros
+de commit dans la conversation.
 
 ## 4. Dix contraintes observables
 
@@ -108,6 +107,6 @@ des solutions et de l'argent. Toute phrase qui ne sert aucune des trois est à c
 
 ## Sans hook
 
-La langue, la simplicité, les références nues et le gabarit des questions et des comptes rendus (`clear-recap-check`) sont tenus par des garde-fous. Le reste — la moitié
+La langue, la simplicité, les références nues, le jargon accumulé et les numéros de commit (`clear-recap-check`) sont tenus par des garde-fous. Le reste — la moitié
 des contraintes — se relit à chaque envoi, et les reproches de Jay comptent comme des défauts de
 session, pas comme des avis.

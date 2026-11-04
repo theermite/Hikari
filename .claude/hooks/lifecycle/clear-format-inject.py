@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""Clear-format inject — UserPromptSubmit. Dit la forme de réponse AVANT que Takumi écrive.
+"""Clear-format inject — UserPromptSubmit. Rappelle à Takumi ce que Jay attend d'une réponse, AVANT qu'il écrive.
 
-Reproche de Jay (2026-11-02) : quality/clear-recap-check.py (Stop) corrige après coup ; la réponse est écrite deux
-fois, ce qui coûte des jetons (mesure corrigée du 2026-11-02 : 4 réécritures en 7 jours, 1 664 mots jetés) et alourdit la lecture.
-Aucun crochet ne lit une réponse avant son envoi : le seul levier en amont est de poser le gabarit dans le contexte
-au moment où la réponse se prépare.
+Décision de Jay (2026-11-04) : plus de gabarit imposé (il faisait réécrire les réponses et alourdissait les
+simples). Le rappel redit les principes de Jay en 100 mots au plus, sans titre obligatoire.
 
 Coût borné : une fois à l'ouverture de la séance, puis tous les 25 messages (le contexte se compacte, la consigne
-s'use). Le gabarit vient de lib/clear_language.py, source unique avec le filet ; le filet reste en place.
+s'use). Le filet clear-recap-check ne contrôle plus que le jargon et les numéros de commit.
 """
 
 from __future__ import annotations
@@ -16,7 +14,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
-from clear_language import LONG_REPORT_WORDS, TEMPLATE  # noqa: E402
 from common import read_hook_input  # noqa: E402
 from session_state import read_state, write_state  # noqa: E402
 
@@ -24,12 +21,11 @@ STATE_NAME = "clear-format-told"
 REMIND_EVERY = 25
 
 REMINDER = (
-    "[FORME DES RÉPONSES À JAY — à appliquer dès la première ligne, pour ne pas réécrire ensuite]\n"
-    f"Si ta réponse dépasse {LONG_REPORT_WORDS} mots, ou se termine par une question à Jay, elle s'écrit sous "
-    "cette forme, sans nom de fichier, de commande ni de numéro de commit dans ces lignes (ils vont au rapport). "
-    "Une réponse courte sans question reste libre.\n"
-    f"{TEMPLATE}\n"
-    "Sans question : la dernière rubrique devient « La suite »."
+    "[RÉPONSES À JAY — ses principes, forme libre]\n"
+    "Va à l'essentiel : court, pragmatique, simple. Jay doit toujours savoir de quoi tu parles, ce que ça implique "
+    "(si pertinent) et l'impact d'une décision (si on décide). Tout s'est bien passé : dis-le en une ligne. "
+    "Listes, check-lists et tableaux pour structurer ; emojis modérés pour catégoriser. "
+    "Pas de nom de commande ni de numéro de commit dans le chat."
 )
 
 

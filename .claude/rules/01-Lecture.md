@@ -53,12 +53,9 @@ Jamais élargir son propre mandat, ni dans un sens ni dans l'autre.
 
 ## 4. Comment poser une question
 
-- Une question s'ouvre sur trois titres que Jay lit sans avoir vu le code : **L'essentiel** (ce qui s'est passé,
-  en mots de tous les jours), **Pour toi** (l'effet, et ce qu'il doit faire), **Gains et limites** (ce que ça
-  apporte, et ce qui reste non réglé ou non vérifié). Puis **Ta question**, en **une phrase**, numérotée, avec ce
-  que chaque réponse change (**La suite** quand il n'y en a pas). Chaque intitulé est un titre de niveau 2 avec sa
-  pastille (`## 🟦 L'essentiel :`, 🟧, 🟩, 🟪), seul sur sa ligne, le texte en dessous. Titres choisis par Jay le
-  2026-11-01, à l'essai trois jours. Tenu par `clear-recap-check`.
+- Une question est courte et se comprend seule : le contexte en mots de tous les jours, ce que chaque réponse
+  change, et ce qu'on perd à choisir l'autre voie. **Forme libre**, sans gabarit imposé (Jay 2026-11-04 : l'ancien
+  gabarit à quatre titres faisait réécrire les réponses). Tenu seulement pour le jargon par `clear-recap-check`.
 - **Toutes les options pertinentes** sont présentées, jamais moins de deux.
 - Aucune étiquette nue : un choix, une brique, un identifiant porte son contenu dans la même phrase.
 - Zéro jargon non expliqué. Si Jay doit ouvrir un fichier pour comprendre la question, elle est ratée.
