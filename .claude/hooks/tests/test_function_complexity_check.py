@@ -93,11 +93,12 @@ def test_missing_file_passes(project_tmp):
 # --- block: function too long ----------------------------------------------
 
 
-def test_long_function_blocks(project_tmp):
+def test_long_function_warns_without_blocking(project_tmp):
+    # Jay 2026-11-09: 84 refus en 18 séances, un rappel suffit (le rapport de fin porte la dette).
     body = "def big():\n" + "".join(f"    x{i} = {i}\n" for i in range(31))
     f = _write(project_tmp / "long.py", body)
     res = _run(f)
-    assert res.returncode == 2
+    assert res.returncode == 0
     assert b"big" in res.stderr
     assert b"30" in res.stderr
 
@@ -113,13 +114,13 @@ def test_function_exactly_30_lines_passes(project_tmp):
 # --- block: complexity too high --------------------------------------------
 
 
-def test_high_complexity_blocks(project_tmp):
+def test_high_complexity_warns_without_blocking(project_tmp):
     # 11 if-statements -> CC = 1 + 11 = 12 > 10. Few lines, so length is fine:
     # isolates the complexity signal.
     body = "def branchy(a):\n" + "".join(f"    if a == {i}:\n        a += 1\n" for i in range(11))
     f = _write(project_tmp / "cc.py", body)
     res = _run(f)
-    assert res.returncode == 2
+    assert res.returncode == 0
     assert b"branchy" in res.stderr
     assert b"complex" in res.stderr.lower()
 
@@ -130,7 +131,7 @@ def test_boolean_operators_count_toward_complexity(project_tmp):
     body = f"def booly(a):\n    if {cond}:\n        return 1\n    return 0\n"
     f = _write(project_tmp / "bool.py", body)
     res = _run(f)
-    assert res.returncode == 2
+    assert res.returncode == 0
     assert b"booly" in res.stderr
 
 

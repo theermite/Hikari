@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 
 LAUNCHERS = ("Agent", "Task")
+# A reviewer resumed for another pass is told what to read here (Dogu, 2026-11-08).
+RESUMERS = ("SendMessage",)
 _BRIEF_FIELDS = (
     ("objectif", r"objectif"),
     ("perimetre", r"p[ée]rim[èe]tre"),
@@ -37,15 +39,23 @@ def brief_from_prompt(prompt) -> str:
 def brief_from_blocks(blocks) -> str:
     """The brief of the first reviewer launch among an assistant message's content blocks."""
     for blk in blocks:
-        if not isinstance(blk, dict) or blk.get("type") != "tool_use":
-            continue
-        if blk.get("name") not in LAUNCHERS or not isinstance(blk.get("input"), dict):
-            continue
-        if "review" not in str(blk["input"].get("subagent_type", "")).lower():
-            continue
-        brief = brief_from_prompt(blk["input"].get("prompt"))
+        brief = _brief_of_call(blk)
         if brief:
             return brief
+    return ""
+
+
+def _brief_of_call(blk) -> str:
+    """The brief one content block carries, or "": a reviewer launched, or one resumed."""
+    if not isinstance(blk, dict) or blk.get("type") != "tool_use":
+        return ""
+    name, tool_input = blk.get("name"), blk.get("input")
+    if not isinstance(tool_input, dict):
+        return ""
+    if name in RESUMERS:
+        return brief_from_prompt(tool_input.get("message"))
+    if name in LAUNCHERS and "review" in str(tool_input.get("subagent_type", "")).lower():
+        return brief_from_prompt(tool_input.get("prompt"))
     return ""
 
 

@@ -34,6 +34,7 @@ from typing import Any
 
 
 _EVENT = ""             # the harness event of this run, learned when the input is read
+_INPUT: dict = {}       # the parsed hook input, kept so a refusal can be journaled (friction_log)
 _PENDING: list[str] = []  # warnings waiting to be handed to the model at exit
 # The events whose `additionalContext` the harness gives to the model. Elsewhere (Stop, SessionEnd...) the field
 # does not exist: printing it would only be noise, so those warnings stay on stderr.
@@ -46,13 +47,16 @@ def read_hook_input() -> tuple[str, dict[str, Any]]:
     Hooks receive JSON on stdin from the Claude Code harness. If stdin is
     malformed or empty, return raw='', data={}.
     """
-    global _EVENT
+    global _EVENT, _INPUT
     raw = sys.stdin.read()
     try:
         data = json.loads(raw) if raw else {}
     except (json.JSONDecodeError, ValueError):
         data = {}
-    _EVENT = str(data.get("hook_event_name") or "") if isinstance(data, dict) else ""
+    if not isinstance(data, dict):
+        data = {}  # un JSON valide qui n'est pas un objet (liste, chaîne) ne doit pas faire planter un garde-fou
+    _EVENT = str(data.get("hook_event_name") or "")
+    _INPUT = data
     return raw, data
 
 
@@ -83,7 +87,24 @@ def get_command(data: dict[str, Any]) -> str:
 def block(message: str) -> None:
     """Print message to stderr and exit 2 (block the tool call). Old rule names after « See » are translated (voir_actuel)."""
     print(voir_actuel(message), file=sys.stderr)
+    trace_refus(message)
     sys.exit(2)
+
+
+def remember_input(donnees: object) -> None:
+    """Pour un garde-fou qui lit lui-même son entrée: la trace du refus en aura l'outil, la cible et la séance."""
+    global _INPUT
+    _INPUT = donnees if isinstance(donnees, dict) else {}
+
+
+def trace_refus(message: str, donnees: dict | None = None) -> None:
+    """Une ligne dans le journal de frictions. Pour les garde-fous qui sortent eux-mêmes en code 2 (relecture 2026-11-09:
+    bash-guard et write-guard n'appelaient pas `block`, leurs refus étaient invisibles). Ne lève jamais."""
+    try:
+        import friction_log
+        friction_log.refus(message, donnees if donnees is not None else _INPUT, Path(sys.argv[0]).name)
+    except Exception:  # noqa: BLE001 — la trace ne doit jamais empêcher le refus
+        pass
 
 
 def emit_context(event: str, messages: list[str]) -> None:

@@ -310,6 +310,8 @@ def subject_demands_full_marker(subject: str) -> str | None:
 
 def _block(msg: str) -> None:
     print(msg, file=sys.stderr)
+    from common import trace_refus
+    trace_refus(msg)
     sys.exit(2)
 
 

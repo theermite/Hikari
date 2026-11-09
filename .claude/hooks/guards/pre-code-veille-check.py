@@ -92,9 +92,12 @@ _SANS_RAPPORT_STOPWORDS = frozenset({"le", "la", "les", "de", "du", "des", "un",
 
 def read_input() -> dict:
     try:
-        return json.loads(sys.stdin.read())
+        data = json.loads(sys.stdin.read())
     except (json.JSONDecodeError, ValueError):
         return {}
+    from common import remember_input
+    remember_input(data)
+    return data
 
 
 def get_tool_input(data: dict) -> dict:
@@ -165,6 +168,8 @@ def _persist(session_id: str | None, repo_root: Path, *, skip_count: int,
 
 def block(msg: str) -> None:
     print(msg, file=sys.stderr)
+    from common import trace_refus
+    trace_refus(msg)
     sys.exit(2)
 
 

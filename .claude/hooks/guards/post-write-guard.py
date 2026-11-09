@@ -447,6 +447,7 @@ def _emit_blockers(file_path):
     for msg in blockers:
         if msg:
             print(msg, file=sys.stderr)
+            common.trace_refus(msg)
             sys.exit(2)
 
 
@@ -476,6 +477,7 @@ def main():
     size_msg = check_file_size(file_path)
     if size_msg and size_msg.startswith("BLOCKED"):
         print(size_msg, file=sys.stderr)
+        common.trace_refus(size_msg)
         sys.exit(2)
 
     _emit_warnings(file_path, size_msg)

@@ -87,7 +87,7 @@ GABARIT_RE = re.compile(r"^\s*<[^>]+>")
 # declarer la liste close. Une liste fermee ne vaut que par l'etendue de ce
 # qu'on a regarde — d'ou le test qui relit de VRAIS transcripts et echoue sur
 # toute forme non couverte (`test_hook_blocks_shapes.py`).
-EVENEMENT_RE = re.compile(r'^(?:(?:Pre|Post)ToolUse:|BLOCKED:|WARNING:|\[bash "|\[HOOK=)')
+EVENEMENT_RE = re.compile(r'^(?:(?:Pre|Post)ToolUse:|BLOCKED:|WARNING:|\[bash "|\[HOOK=|\[command hook \d+\]: )')
 
 STATE_REL = ".claude/state/hook-blocks.jsonl"
 

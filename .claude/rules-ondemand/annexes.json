@@ -1,6 +1,17 @@
 {
   "version": 1,
   "doc": "Registre des annexes: quand chacune doit etre lue. Lu par hooks/guards/annexes-gate.py (blocage de l'ecriture tant que l'annexe du moment n'est pas lue) et par scripts/check-couverture-regles.py. Un declencheur: outils + chemins | nouveaux_fichiers | commandes | travail. Une annexe sans declencheur nomme son porteur et sa limite. Une ecriture par Bash n'est jugee que par les declencheurs dont 'outils' nomme Bash (hooks/lib/actes.py lit la commande: redirections, cp, tee, sed -i, python -c...).",
+  "au_demarrage": {
+    "toujours": [
+      "conduite",
+      "identite-et-strategie"
+    ],
+    "projet_code": [
+      "veille-et-savoir",
+      "conventions-et-pile",
+      "tests-et-mesures"
+    ]
+  },
   "exemptions": [
     ".claude/rules-ondemand/",
     ".claude/rules/",

@@ -21,10 +21,19 @@ MANIFESTE = Path(".claude") / "rules-ondemand" / "annexes.json"
 
 OUTILS_TRAVAIL = ("Write", "Edit", "MultiEdit", "NotebookEdit", "Bash")
 
+ETAT_LUES = "annexes-lues"  # état de séance partagé par le garde et la pré-lecture du démarrage
+
+# Un de ces fichiers à la racine = projet de code (même liste que l'étape 0 de /session-start).
+MARQUEURS_CODE = ("package.json", "pyproject.toml", "Cargo.toml", "go.mod", "Makefile",
+                  "docker-compose.yml", "pom.xml", "build.gradle", "pytest.ini", "mix.exs",
+                  "tsconfig.json", "requirements.txt")
+
+
 class Registre(list):
     """La liste des annexes, avec les chemins exemptés (les annexes elles-mêmes)."""
 
     exemptions: tuple[str, ...] = ()
+    au_demarrage: dict = {}
 
 
 def charger(racine: Path) -> Registre:
@@ -36,7 +45,18 @@ def charger(racine: Path) -> Registre:
         return registre
     registre.extend(doc.get("annexes", []))
     registre.exemptions = tuple(doc.get("exemptions", []))
+    registre.au_demarrage = doc.get("au_demarrage") or {}
     return registre
+
+
+def a_precharger(registre: Registre, racine: Path) -> list[dict]:
+    """Les annexes dont le démarrage demande la lecture d'entrée: le socle toujours, et celles du code si le projet en est un."""
+    groupes = registre.au_demarrage
+    ids = list(groupes.get("toujours", []))
+    if any((Path(racine) / m).exists() for m in MARQUEURS_CODE):
+        ids += groupes.get("projet_code", [])
+    par_id = {a["id"]: a for a in registre}
+    return [par_id[i] for i in ids if i in par_id]
 
 
 def _regex(motif: str) -> str:

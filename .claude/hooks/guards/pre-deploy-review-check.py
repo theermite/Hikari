@@ -255,6 +255,8 @@ def _missing_brief_message():
         "RECOVERY: before launching the reviewer, emit '[REVIEW-BRIEF]' then four "
         f"lines — {fields} — where `consigne` asks to REFUTE, never to validate. "
         "Then relaunch the review and emit its verdict. "
+        "Surest route: put these four fields, one per line, in the reviewer's own prompt "
+        "(Agent, or SendMessage when you resume it): a tool call is never lost. "
         f"{_WHEN_TO_WRITE} "
         "Why: a reviewer without the project's goal can only check that the code "
         "agrees with itself, which is the bias Jay reported on 2026-08-30. And "

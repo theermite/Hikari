@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
-from common import emit_context  # noqa: E402
+from common import emit_context, trace_refus  # noqa: E402
 from ui_checks import check_lego_library  # noqa: E402
 from transcript_reader import is_said_file, norm_path  # noqa: E402
 
@@ -415,6 +415,7 @@ def main():
     for msg in _blockers(raw, file_path, filename, name, ext, dirname, content):
         if msg:
             print(msg, file=sys.stderr)
+            trace_refus(msg, data)
             sys.exit(2)
 
     avertissements = [msg for msg in _warnings(file_path, filename, name, ext, content) if msg]

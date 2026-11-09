@@ -37,7 +37,7 @@ from common import (  # noqa: E402
 from session_state import read_state, write_state  # noqa: E402
 from transcript_reader import has_instructions_attachment, has_read_file  # noqa: E402
 
-ETAT = "annexes-lues"
+ETAT = annexes.ETAT_LUES
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 

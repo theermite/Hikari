@@ -4,7 +4,7 @@
 Décision de Jay (2026-11-04) : plus de gabarit imposé (il faisait réécrire les réponses et alourdissait les
 simples). Le rappel redit les principes de Jay en 100 mots au plus, sans titre obligatoire.
 
-Coût borné : une fois à l'ouverture de la séance, puis tous les 25 messages (le contexte se compacte, la consigne
+Coût borné : une fois à l'ouverture de la séance, puis tous les 6 messages (environ 80 mots) (le contexte se compacte, la consigne
 s'use). Le filet clear-recap-check ne contrôle plus que le jargon et les numéros de commit.
 """
 
@@ -18,14 +18,14 @@ from common import read_hook_input  # noqa: E402
 from session_state import read_state, write_state  # noqa: E402
 
 STATE_NAME = "clear-format-told"
-REMIND_EVERY = 25
+REMIND_EVERY = 6  # Jay 2026-11-09: tous les 25 messages, la consigne s'usait avant la fin des séances
 
 REMINDER = (
     "[RÉPONSES À JAY — ses principes, forme libre]\n"
-    "Va à l'essentiel : court, pragmatique, simple. Jay doit toujours savoir de quoi tu parles, ce que ça implique "
-    "(si pertinent) et l'impact d'une décision (si on décide). Tout s'est bien passé : dis-le en une ligne. "
-    "Listes, check-lists et tableaux pour structurer ; emojis modérés pour catégoriser. "
-    "Pas de nom de commande ni de numéro de commit dans le chat."
+    "Va à l'essentiel : court, pragmatique, simple. Jay doit savoir de quoi tu parles, ce que ça implique "
+    "et l'impact d'une décision. Fin de travail réussie : une ligne « fait, vérifié », puis seulement ce qui est "
+    "à corriger ou à décider ; le détail va au rapport, donné si Jay le demande. Jamais le récit de ce que tu as "
+    "fait. Listes, tableaux, emojis modérés. Pas de nom de commande ni de numéro de commit dans le chat."
 )
 
 

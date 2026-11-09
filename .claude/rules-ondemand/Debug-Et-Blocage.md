@@ -79,3 +79,17 @@ verifier (Jay, a 2nd model) remains the only hard guarantee (Jidoka Portability 
 ```
 
 Dispense légitime, motif fermé : `[ROBUSTNESS-SKIP] motif: <typo|revert|test-fix|lint-fix|formatting|comment-only>`.
+
+<!-- source: ajout 2026-11-09 (journal de frictions, Jay) -->
+## Un refus injustifié se note (Jay 2026-11-09)
+
+Chaque refus de garde-fou laisse déjà une ligne dans `~/.claude/state/frictions.jsonl` (garde-fou, outil,
+cible, motif; jamais le texte d'une commande). Quand tu juges qu'un refus était **injustifié** (lecture ou
+écriture légitime refusée, garde qui compte mal, aller-retour pour rien), ajoute une note en une commande,
+sans quitter ton travail :
+
+    python .claude/hooks/lib/friction_log.py "le garde X refuse Y alors que Z"
+
+Au démarrage de Kata, `lifecycle/frictions-digest.py` dit combien de refus et de notes attendent. Jay les
+traite en revenant dans Kata. **Proof**: la note apparaît dans le journal (`friction_log.lire()`).
+Sans hook : si la commande est indisponible, écris la ligne dans `Shinzo/02-Projets/Kata-Notes-Jay.md`.

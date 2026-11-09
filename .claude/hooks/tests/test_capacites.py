@@ -201,8 +201,9 @@ def test_the_desktop_app_provides_a_builtin_test_browser():
 def test_outside_the_desktop_app_the_test_browser_needs_a_declared_server():
     assert _etat("navigateur-de-test", entrypoint="cli") == "non-declaree"
     assert _etat("navigateur-de-test") == "non-declaree"
-    assert _etat("navigateur-de-test", entrypoint="cli", serveurs_mcp={"playwright"}) == "declaree"
-    # notre propre serveur web (shinkofa-web, 2026-10-29) est la preuve attendue ; il remplace le serveur Playwright
+    # le serveur Playwright a ete supprime (2026-11-09) : il n'est plus une preuve
+    assert _etat("navigateur-de-test", entrypoint="cli", serveurs_mcp={"playwright"}) == "non-declaree"
+    # notre propre serveur web (shinkofa-web, 2026-10-29) est la preuve attendue
     assert _etat("navigateur-de-test", entrypoint="cli", serveurs_mcp={"shinkofa-web"}) == "declaree"
 
 

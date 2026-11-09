@@ -470,6 +470,16 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/annexes-preload.py",
+            "description": "Demande de lire d'entree, en un tour, les annexes du moment (socle, et code si le projet en est un): evite le refus du garde en plein geste. Ne livre pas le texte (plafond 10 000 caracteres par hook) et n'inscrit rien comme lu — ne bloque jamais"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/frictions-digest.py",
+            "description": "Journal de frictions: dans Kata seulement, dit combien de refus et de notes de Takumi attendent depuis la derniere lecture — annonce, ne bloque jamais"
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/capacites-check.py",
             "description": "Capacites que les regles supposent: declarees, refusees, non verifiables — annonce, ne bloque jamais"
           },

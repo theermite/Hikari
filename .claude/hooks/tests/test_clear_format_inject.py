@@ -68,12 +68,18 @@ def test_should_inject_again_when_session_differs(tmp_path):
     assert _run(repo, {"session_id": "s2"}).stdout.strip()
 
 
-def test_should_remind_every_twenty_fifth_prompt(tmp_path):
-    """Le contexte se compacte et la consigne s'use : un rappel espacé, pas un rappel à chaque message."""
+def test_should_remind_every_sixth_prompt(tmp_path):
+    """La consigne s'use vite (Jay 2026-11-09: les rapports de fin restent trop détaillés) : un rappel tous les 6 messages."""
     repo = _repo(tmp_path)
-    outs = [_run(repo, {"session_id": "s1"}).stdout for _ in range(26)]
+    outs = [_run(repo, {"session_id": "s1"}).stdout for _ in range(13)]
     told = [i for i, o in enumerate(outs) if o]
-    assert told == [0, 25]
+    assert told == [0, 6, 12]
+
+
+def test_should_say_what_a_successful_end_of_work_looks_like(tmp_path):
+    """Jay 2026-11-09: pas le récit de tout ce qui a été fait quand tout va bien."""
+    text = _first(tmp_path).lower()
+    assert "fait" in text and "vérifié" in text and "récit" in text and "détail" in text
 
 
 def test_should_fail_open_when_input_is_broken(tmp_path):

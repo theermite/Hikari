@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""function-complexity-check.py — Maintainability gate (per-function).
+"""function-complexity-check.py — Maintainability reminder (per-function). WARNS, no longer blocks (2026-11-09).
 
 Closes the only robust gap found by the F1 BLOCKING inventory (2026-06-13):
 - function length > 30 lines  (rules/Quality.md Maintainability)
@@ -16,7 +16,7 @@ there would need a fragile brace-counter (rejected — file-length already guard
 TS/JS). Test files are excluded per the rule ("Max 30 lines per function,
 excluding tests").
 
-Exit codes: 0 pass, 2 block (mirrors post-write-guard.py).
+Exit code: always 0 (a new or worsened violation is a warning, an inherited one is a softer warning).
 """
 
 from __future__ import annotations
@@ -194,18 +194,14 @@ def main() -> int:
             "function already over the limit before this edit (not made worse)\n" + "\n".join(inherited),
             "not blocking; split it when you next work on it.",
             reference="rules/Quality.md (Maintainability)"))
-    if not new:
-        return 0
-
-    common.block(
-        common.format_block(
+    if new:
+        # Avertit, ne bloque plus (Jay 2026-11-09): 84 refus en 18 séances. Le rappel suffit,
+        # la dette se range dans le rapport de fin plutôt que d'arrêter l'écriture.
+        common.warn(common.format_warn(
             "Maintainability: function over the limit\n" + "\n".join(new),
-            "Split the function into smaller cohesive units (one concept each). "
-            "A 30-line function with low complexity reads better than a clever dense one.",
-            reference="rules/Quality.md (Maintainability)",
-        )
-    )
-    return 2  # unreached (common.block exits), kept for clarity
+            "not blocking; split into smaller cohesive units (one concept each) before the commit.",
+            reference="rules/Quality.md (Maintainability)"))
+    return 0
 
 
 if __name__ == "__main__":

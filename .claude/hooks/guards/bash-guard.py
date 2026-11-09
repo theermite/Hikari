@@ -355,6 +355,7 @@ def main():
     for msg in [check_secrets(raw), check_destructive(raw), check_no_verify(command), check_git_add_broad(command, cwd), check_force_push_main(command)]:
         if msg:
             print(msg, file=sys.stderr)
+            common.trace_refus(msg)  # l'entrée est déjà lue par common.read_hook_input: jamais relire le texte brut
             sys.exit(2)
 
     for msg in [check_refactor_file_count(raw), check_deploy(raw, command), check_db_migration(raw), check_dependency_version(raw), check_conventional_commit(command, raw), check_co_authored_by(command, raw), check_force_push_warn(command), check_vitest_oom(command)]:
