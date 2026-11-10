@@ -91,8 +91,10 @@ def test_le_registre_reel_ne_nomme_que_des_annexes_existantes():
     assert {"conduite", "identite-et-strategie"} <= set(groupes["toujours"])
 
 
-def test_kata_lui_meme_est_reconnu_comme_projet_de_code():
-    ids = {a["id"] for a in annexes.a_precharger(annexes.charger(RACINE), RACINE)}
+def test_le_registre_reel_ajoute_veille_conventions_tests_a_un_projet_de_code(tmp_path):
+    """Le dossier d'exécution varie selon le dépôt qui porte la copie: le marqueur de code vient donc d'un dossier neuf."""
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    ids = {a["id"] for a in annexes.a_precharger(annexes.charger(RACINE), tmp_path)}
     assert {"veille-et-savoir", "conventions-et-pile", "tests-et-mesures"} <= ids
 
 
