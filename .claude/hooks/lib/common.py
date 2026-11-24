@@ -93,8 +93,9 @@ def block(message: str) -> None:
 
 def remember_input(donnees: object) -> None:
     """Pour un garde-fou qui lit lui-même son entrée: la trace du refus en aura l'outil, la cible et la séance."""
-    global _INPUT
+    global _INPUT, _EVENT
     _INPUT = donnees if isinstance(donnees, dict) else {}
+    _EVENT = _EVENT or str(_INPUT.get("hook_event_name") or "")  # sans cela l'avertissement ne parvient pas au modèle
 
 
 def trace_refus(message: str, donnees: dict | None = None) -> None:
@@ -131,6 +132,31 @@ def warn(message: str) -> None:
     if not _PENDING:
         atexit.register(_flush_pending)
     _PENDING.append(message)
+
+
+def _deja_dit(message: str) -> bool:
+    """Un même avertissement n'est dit qu'une fois par séance (relecture 2026-11-22: une porte qui se réarme le répétait à
+    chaque appel d'outil). Un texte différent, ou une autre séance, avertit de nouveau. Ne lève jamais: en cas de doute, on dit."""
+    try:
+        import hashlib
+        from session_state import mark_once
+        empreinte = hashlib.sha256(message.encode("utf-8")).hexdigest()[:16]
+        return not mark_once("procedure-warned", empreinte, session_id=_INPUT.get("session_id") or None)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def procedure_warn(message: str) -> None:
+    """Un refus de PROCÉDURE devenu avertissement (Jay, 2026-11-22): dit au modèle et à l'humain, laisse passer (code 0).
+
+    Réservé aux garde-fous de procédure (annexe non lue, lecture de départ, marqueur de veille). Un garde de sécurité
+    (secret, donnée d'autrui, envoi sortant, déploiement sans audit) continue d'appeler `block`.
+    Ne figure pas au journal des refus: un avertissement n'est pas un refus, le taux de faux refus ne le compte pas.
+    """
+    if _deja_dit(message):
+        sys.exit(0)
+    warn(message.replace("BLOCKED:", "AVERTISSEMENT (procédure, ne bloque pas):", 1))
+    sys.exit(0)
 
 
 def pass_through() -> None:
@@ -281,6 +307,29 @@ def find_repo_root(start: Path | None = None) -> Path:
         if (parent / ".git").exists():
             return parent
     return here
+
+
+_LEADING_CD = re.compile(r"""^\s*cd\s+(?P<path>"[^"]+"|'[^']+'|[^\s;&|]+)\s*(?:&&|;)""")
+
+
+def command_repo_root(command: str | None) -> Path | None:
+    """Root of the repository a leading `cd <dir> &&` points at; None when the command names none.
+
+    A deploy shipped from another repository than the one the hook runs in (the site of a project,
+    shipped from the Kobo session) was judged against the wrong HEAD and refused. Only a real
+    repository counts: a `cd` to any other folder falls back to the hook's own (None)."""
+    match = _LEADING_CD.match(command or "")
+    if not match:
+        return None
+    raw = match.group("path").strip("\"'")
+    if re.match(r"^/[a-zA-Z]/", raw):  # git-bash drive path -> Windows path
+        raw = f"{raw[1].upper()}:{raw[2:]}"
+    folder = Path(raw)
+    try:
+        root = find_repo_root(folder) if folder.is_dir() else None
+    except Exception:  # noqa: BLE001 -- an unreadable target is "no target", never a refusal
+        return None
+    return root if root is not None and (root / ".git").exists() else None
 
 
 def canonical_project_name(start: Path | None = None) -> str:

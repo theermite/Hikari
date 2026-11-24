@@ -83,22 +83,41 @@ def commit_diff(root: Path, sha: str) -> str:
     return _git(root, "show", "--format=", "--unified=0", sha) or ""
 
 
+def _journal_roots(root: Path) -> list[Path]:
+    """Le dépôt, et le dépôt PRINCIPAL quand `root` est un dossier de travail séparé (`git worktree`).
+
+    Le hook de suivi des agents écrit le journal du dépôt principal ; le garde, lui, juge le dossier séparé.
+    Sans cette lecture, un expert réellement lancé restait invisible et la poussée était refusée à tort
+    (Kobo, 2026-11-12). Le journal du dossier séparé, s'il existe, reste lu aussi.
+    """
+    roots = [root]
+    common = _git(root, "rev-parse", "--git-common-dir")
+    if common and common.strip():
+        shared = Path(common.strip())
+        main = (shared if shared.is_absolute() else root / shared).resolve().parent
+        if main != root.resolve() and (main / ".git").exists():
+            roots.append(main)
+    return roots
+
+
 def launches(root: Path) -> dict[str, list[datetime]]:
-    """Launch times per agent key, read from the repository's journal. Unreadable lines are skipped."""
+    """Launch times per agent key, read from the repository's journal (and the main one for a worktree). Unreadable lines are skipped."""
     found: dict[str, list[datetime]] = {}
-    try:
-        lines = (root / JOURNAL).read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return found
-    for line in lines:
+    for base in _journal_roots(root):
         try:
-            event = json.loads(line)
-            if event.get("event") != "SubagentStart":
-                continue
-            found.setdefault(agent_key(event.get("agent") or ""), []).append(datetime.fromisoformat(event["at"]))
-        except (ValueError, KeyError, TypeError, AttributeError):
+            lines = (base / JOURNAL).read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
             continue
+        for line in lines:
+            try:
+                event = json.loads(line)
+                if event.get("event") != "SubagentStart":
+                    continue
+                found.setdefault(agent_key(event.get("agent") or ""), []).append(datetime.fromisoformat(event["at"]))
+            except (ValueError, KeyError, TypeError, AttributeError):
+                continue
     return found
+
 
 
 def missing_experts(root: Path, commit_time: int, wanted: set[str], registry: dict | None = None) -> list[str]:

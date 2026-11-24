@@ -4,6 +4,9 @@
 Décision de Jay (2026-11-04) : plus de gabarit imposé (il faisait réécrire les réponses et alourdissait les
 simples). Le rappel redit les principes de Jay en 100 mots au plus, sans titre obligatoire.
 
+Étiquette de projet (Jay 2026-11-19: une seule conversation, étiquetée par projet): le rappel donne le nom du
+projet courant, celui du dépôt principal même dans un worktree (`canonical_project_name`).
+
 Coût borné : une fois à l'ouverture de la séance, puis tous les 6 messages (environ 80 mots) (le contexte se compacte, la consigne
 s'use). Le filet clear-recap-check ne contrôle plus que le jargon et les numéros de commit.
 """
@@ -14,7 +17,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
-from common import read_hook_input  # noqa: E402
+from common import canonical_project_name, read_hook_input  # noqa: E402
 from session_state import read_state, write_state  # noqa: E402
 
 STATE_NAME = "clear-format-told"
@@ -25,7 +28,8 @@ REMINDER = (
     "Va à l'essentiel : court, pragmatique, simple. Jay doit savoir de quoi tu parles, ce que ça implique "
     "et l'impact d'une décision. Fin de travail réussie : une ligne « fait, vérifié », puis seulement ce qui est "
     "à corriger ou à décider ; le détail va au rapport, donné si Jay le demande. Jamais le récit de ce que tu as "
-    "fait. Listes, tableaux, emojis modérés. Pas de nom de commande ni de numéro de commit dans le chat."
+    "fait. Listes, tableaux, emojis modérés. Pas de nom de commande ni de numéro de commit dans le chat.\n"
+    "Étiquette : ouvre chaque réponse par [{projet}] (le projet de cette conversation)."
 )
 
 
@@ -40,7 +44,7 @@ def main() -> None:
         count = 0
     write_state(STATE_NAME, {"prompts": count + 1}, session_id=session_id)
     if count % REMIND_EVERY == 0:
-        sys.stdout.buffer.write((REMINDER + "\n").encode("utf-8"))  # LF et UTF-8 : pas de \r\n sous Windows
+        sys.stdout.buffer.write((REMINDER.format(projet=canonical_project_name()) + "\n").encode("utf-8"))  # LF et UTF-8 : pas de \r\n sous Windows
         sys.stdout.buffer.flush()
 
 

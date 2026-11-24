@@ -10,6 +10,7 @@ Stdlib only. Cross-platform (Windows + Linux).
 
 from __future__ import annotations
 
+import base64
 import json
 import posixpath
 import re
@@ -141,8 +142,27 @@ def assistant_text_blocks(entry: dict) -> list[str]:
     content = msg.get("content")
     if not isinstance(content, list):
         return []
-    return [b.get("text", "") for b in content
-            if isinstance(b, dict) and b.get("type") == "text" and b.get("text")]
+    return [_spoken_of(b) for b in content if _spoken_of(b)]
+
+
+def _is_narration(block: dict) -> bool:
+    """A « thinking » block whose signature says « narration »: since 2026-11-10 the journal keeps the
+    sentence Takumi said to Jay in that form (Kobo session: 9 such blocks, 0 text block, so every
+    veille marker was invisible and writes were refused). A hidden thought carries another label."""
+    if block.get("type") != "thinking" or not block.get("thinking"):
+        return False
+    try:
+        return b"narration" in base64.b64decode(str(block.get("signature", "")) + "==", validate=False)
+    except (ValueError, TypeError):
+        return False
+
+
+def _spoken_of(block) -> str:
+    if not isinstance(block, dict):
+        return ""
+    if block.get("type") == "text":
+        return block.get("text") or ""
+    return block.get("thinking") or "" if _is_narration(block) else ""
 
 
 def iter_assistant_text(transcript_path: str | Path, limit: int = 20) -> Iterator[str]:

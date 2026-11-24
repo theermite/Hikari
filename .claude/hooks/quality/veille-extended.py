@@ -32,7 +32,7 @@ HOOK_DIR = Path(__file__).resolve().parent
 LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
-from common import block, get_file_path, pass_through, read_hook_input  # type: ignore  # noqa: E402
+from common import get_file_path, pass_through, procedure_warn, read_hook_input  # type: ignore  # noqa: E402
 from transcript_reader import errored_tool_ids, spoken_blocks  # type: ignore  # noqa: E402
 
 # Extended scope: paths that require veille evidence beyond source code
@@ -128,10 +128,10 @@ def main() -> None:
     if scan_transcript_for_marker(transcript_path):
         pass_through()
 
-    block(
+    procedure_warn(
         f"BLOCKED: Veille / SKB evidence missing for extended-scope doc.\n"
         f"Target: {file_path}\n"
-        "RECOVERY: Output one of the three strict markers BEFORE retrying:\n"
+        "RECOVERY: Output one of the three strict markers before going further:\n"
         "  [VEILLE] <techno>@<version> verifie <YYYY-MM-DD> via <source>\n"
         "  [SKB] consulte: <chemin1>, <chemin2>\n"
         "  [VEILLE-SKIP] motif: <raison concrete>\n"

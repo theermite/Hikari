@@ -42,7 +42,7 @@ _ABSENT = object()
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 from common import (  # noqa: E402
     block,
-    find_repo_root,
+    command_repo_root, find_repo_root,
     get_command,
     looks_like_deploy,
     pass_through,
@@ -358,7 +358,7 @@ def _block_message(command):
     )
 
 
-def head_courant():
+def head_courant(racine=None):
     """L'empreinte du commit actuel, ou None quand on ne peut pas la lire.
 
     None n'est pas un refus : un garde-fou qui bloque ce qu'il ne sait pas lire
@@ -369,7 +369,7 @@ def head_courant():
     # donc a desactiver le controle entier — le repli redevient la porte de
     # sortie qu'il ne doit pas etre (relecture croisee, 2026-09-07).
     try:
-        racine = find_repo_root()
+        racine = racine or find_repo_root()
     except Exception:
         racine = None
     try:
@@ -455,7 +455,7 @@ def verdict(command, recent_texts, head=_ABSENT, racine=None):
     Depuis le 2026-09-07, un PASS doit AUSSI nommer le commit qu'il a relu.
     """
     if head is _ABSENT:
-        head = head_courant()
+        head = head_courant(racine)
     if not _is_gated(command):
         return None
     for index, text in enumerate(recent_texts):
@@ -488,11 +488,11 @@ def main():
     transcript = data.get("transcript_path", "")
     texts = list(iter_spoken_text(transcript, limit=TRANSCRIPT_LOOKBACK, include_reviewer=True)) if transcript else []
 
-    message = verdict(command, texts)
+    message = verdict(command, texts, racine=(target := command_repo_root(command)))  # the repo the command ships
     if message:
         block(message)
     if transcript:
-        record_clearance(texts, transcript, head_courant(), find_repo_root)
+        record_clearance(texts, transcript, head_courant(target), lambda: target or find_repo_root())
     pass_through()
 
 

@@ -85,3 +85,22 @@ def test_should_say_what_a_successful_end_of_work_looks_like(tmp_path):
 def test_should_fail_open_when_input_is_broken(tmp_path):
     out = _run(_repo(tmp_path), b"not json")
     assert out.returncode == 0
+
+
+def test_should_name_the_project_label_to_open_every_reply(tmp_path):
+    """Jay 2026-11-19: une seule conversation, étiquetée par projet. Le rappel donne l'étiquette du dossier courant."""
+    text = _first(tmp_path)
+    assert f"[{tmp_path.name}]" in text and "étiquette" in text.lower()
+
+
+def test_should_label_with_the_main_repo_name_inside_a_worktree(tmp_path):
+    """Dans un worktree le dossier porte le nom de la branche: l'étiquette est celle du dépôt principal."""
+    principal = tmp_path / "Mon-Projet"
+    principal.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=principal, check=True)
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"],
+                   cwd=principal, check=True)
+    arbre = tmp_path / "claude-une-branche"
+    subprocess.run(["git", "worktree", "add", "-q", str(arbre), "-b", "claude/une-branche"], cwd=principal, check=True)
+    text = _run(arbre, {"session_id": "w1", "prompt": "x"}).stdout.decode("utf-8")
+    assert "[Mon-Projet]" in text and "[claude-une-branche]" not in text

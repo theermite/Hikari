@@ -308,3 +308,58 @@ def test_uv_run_with_an_option_that_takes_a_value_is_not_an_audit_of_what_it_lau
     for command in ("uv run --with pip-audit python build.py", "uv run --python 3.13 python -m http.server"):
         assert _verdict([text], ran=[command]) is not None, command
     assert _verdict([text], ran=["uv run --no-sync pip-audit"]) is None
+
+
+# --- the repository the command targets, not the one the hook runs in -----------------------------
+# Real case (2026-11-13): the site of a project was audited and shipped from the Kobo session. The
+# guard compared the audit's commit with the Kobo repository's HEAD, found two unrelated histories,
+# and refused a correct audit. A command that starts with `cd <repo> &&` names the repository.
+
+
+def _fake_repo(tmp_path):
+    repo = tmp_path / "site"
+    (repo / ".git").mkdir(parents=True)
+    (repo / "apps").mkdir()
+    return repo
+
+
+def test_a_leading_cd_names_the_repository_the_command_ships(tmp_path):
+    repo = _fake_repo(tmp_path)
+    root = gate.target_root(f'cd "{repo}/apps" && ssh vps "docker compose up -d"')
+    assert root == repo.resolve()
+
+
+def test_a_git_bash_drive_path_is_read_as_a_windows_path(tmp_path, monkeypatch):
+    repo = _fake_repo(tmp_path)
+    monkeypatch.setattr(gate.Path, "is_dir", lambda self: True)
+    seen = []
+    monkeypatch.setattr(gate, "find_repo_root", lambda start=None: seen.append(str(start)) or repo)
+    gate.target_root("cd /d/30-Dev-Projects/The-Ermite && ssh vps up")
+    assert seen and seen[0].replace("\\", "/").upper().startswith("D:/30-DEV-PROJECTS/THE-ERMITE")
+
+
+def test_without_a_leading_cd_the_hook_repository_is_used():
+    assert gate.target_root("ssh vps 'docker compose up -d'") is None
+    assert gate.target_root("echo cd /tmp && ssh vps up") is None
+
+
+def test_a_cd_to_a_missing_folder_falls_back_to_the_hook_repository(tmp_path):
+    assert gate.target_root(f"cd {tmp_path / 'nope'} && ssh vps up") is None
+
+
+def test_head_follows_the_targeted_repository(tmp_path, monkeypatch):
+    seen = []
+
+    class Done:
+        returncode, stdout = 0, "feedbeef\n"
+
+    monkeypatch.setattr(gate.subprocess, "run", lambda *a, **k: seen.append(k.get("cwd")) or Done())
+    monkeypatch.setattr(gate, "_target", tmp_path)
+    assert gate.head_courant() == "feedbeef"
+    assert seen == [str(tmp_path)]
+
+
+def test_a_cd_to_an_existing_folder_that_is_not_a_repository_falls_back_to_the_hook_repository(tmp_path):
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    assert gate.target_root(f"cd {plain} && ls") is None

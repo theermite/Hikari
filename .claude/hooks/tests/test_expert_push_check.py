@@ -102,6 +102,39 @@ def test_ordinary_files_require_nothing():
 
 # ---------------------------------------------------------------- le garde sur de vrais dépôts
 
+# ----------------------------------------------- un dossier de travail séparé (git worktree)
+def _dossier_separe(depot: Path, tmp_path: Path) -> Path:
+    """Un `git worktree` du dépôt : le journal des agents est écrit côté dépôt principal (Kobo, 2026-11-12)."""
+    separe = tmp_path / "separe"
+    _git(depot, "worktree", "add", "-q", "-b", "travail", str(separe))
+    return separe
+
+
+def test_an_expert_logged_in_the_main_checkout_counts_for_a_separate_worktree(tmp_path):
+    depot = _depot(tmp_path)
+    separe = _dossier_separe(depot, tmp_path)
+    _commit(separe, src__payment__hook="p = 1\n")
+    # Le hook de suivi a écrit le lancement dans le dépôt principal, pas dans le dossier séparé.
+    _journal(depot, ("Payment Master", 0))
+    assert _lancer(separe).returncode == 0
+
+
+def test_a_separate_worktree_without_any_launch_is_still_refused(tmp_path):
+    depot = _depot(tmp_path)
+    separe = _dossier_separe(depot, tmp_path)
+    _commit(separe, src__payment__hook="p = 1\n")
+    fait = _lancer(separe)
+    assert fait.returncode == 2 and "Payment Master" in fait.stderr
+
+
+def test_an_old_launch_in_the_main_checkout_does_not_count_for_the_worktree(tmp_path):
+    depot = _depot(tmp_path)
+    separe = _dossier_separe(depot, tmp_path)
+    _commit(separe, src__payment__hook="p = 1\n")
+    _journal(depot, ("Payment Master", 600))
+    assert _lancer(separe).returncode == 2
+
+
 def test_push_without_sensitive_commits_passes(tmp_path):
     repo = _depot(tmp_path)
     _commit(repo, src__b="y = 2\n")

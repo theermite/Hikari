@@ -37,7 +37,7 @@ from transcript_reader import (  # type: ignore
 
 BRIEF_NAME_TEMPLATE = "handoff-{session_id}.md"
 RECENT_TOOLS_LIMIT = 15
-RECENT_USER_MSGS = 3
+RECENT_USER_MSGS = 6  # 3 perdait une décision posée quatre messages avant la compaction (essai 2026-11-22)
 USER_MSG_PREVIEW = 200
 ASSISTANT_TEXT_MAX = 500
 
@@ -289,6 +289,9 @@ def write_brief(brief: str, repo_root: Path, session_id: str) -> Path:
     tmp = path.with_suffix(".md.tmp")
     tmp.write_text(brief, encoding="utf-8", newline="\n")
     tmp.replace(path)
+    # Le démarrage de session lit `handoff-latest.md` (session-start-handoff.py): sans cette copie, le résumé d'une
+    # compaction n'était jamais remonté au modèle (essai de bout en bout, 2026-11-22).
+    (state_dir(repo_root) / "handoff-latest.md").write_text(brief, encoding="utf-8", newline="\n")
     return path
 
 

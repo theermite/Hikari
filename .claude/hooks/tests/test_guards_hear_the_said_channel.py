@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+
+from avertissement_helpers import avertit
 import subprocess
 import sys
 from pathlib import Path
@@ -85,9 +87,10 @@ def test_pre_code_veille_check_hears_the_said_channel(tmp_path):
     # Control first: the guard remembers a marker for the session once seen.
     tool_input = {"file_path": "lib/app/foo.ex", "content": "def hello, do: :world\n"}
     silent = _transcript(tmp_path, _said("rien"))
-    assert _run("guards/pre-code-veille-check.py", tmp_path, silent, "Write", tool_input).returncode == 2
+    assert avertit(_run("guards/pre-code-veille-check.py", tmp_path, silent, "Write", tool_input))
     heard = _transcript(tmp_path, _said("[SKB] consulte: 11-Communication/Voice-Tone.md"))
-    assert _run("guards/pre-code-veille-check.py", tmp_path, heard, "Write", tool_input).returncode == 0
+    entendu = _run("guards/pre-code-veille-check.py", tmp_path, heard, "Write", tool_input)
+    assert entendu.returncode == 0 and b"AVERTISSEMENT" not in entendu.stderr
 
 
 def test_veille_markers_latest_marker_hears_the_said_channel(tmp_path):

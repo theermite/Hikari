@@ -723,3 +723,56 @@ def test_more_routes_that_were_gated_before_the_git_exemption_still_are():
 
 def test_a_message_naming_a_config_key_is_still_free():
     assert not gate._is_gated('git commit -m "docs: core.sshCommand et docker compose up -d"')
+
+
+# --- the repository the command targets, not the one the hook runs in -----------------------------
+# Real case (2026-11-13): the site of a project was reviewed (PASS on its commit) and shipped from the
+# Kobo session. The guard compared the review's commit with the Kobo repository's HEAD and refused a
+# correct review. A command that starts with `cd <repo> &&` names the repository.
+
+
+def _fake_repo(tmp_path):
+    repo = tmp_path / "site"
+    (repo / ".git").mkdir(parents=True)
+    (repo / "apps").mkdir()
+    return repo
+
+
+def test_a_leading_cd_names_the_repository_the_command_ships(tmp_path):
+    from common import command_repo_root
+
+    repo = _fake_repo(tmp_path)
+    assert command_repo_root(f'cd "{repo}/apps" && ls') == repo.resolve()
+
+
+def test_no_leading_cd_or_a_folder_that_is_not_a_repository_names_no_target(tmp_path):
+    from common import command_repo_root
+
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    assert command_repo_root("ls") is None
+    assert command_repo_root("echo cd /tmp && ls") is None
+    assert command_repo_root(f"cd {plain} && ls") is None
+    assert command_repo_root(f"cd {tmp_path / 'nope'} && ls") is None
+
+
+def test_head_is_read_from_the_targeted_repository(tmp_path, monkeypatch):
+    seen = []
+
+    class Done:
+        returncode, stdout = 0, "feedbeef\n"
+
+    monkeypatch.setattr(gate.subprocess, "run", lambda *a, **k: seen.append(k.get("cwd")) or Done())
+    assert gate.head_courant(tmp_path) == "feedbeef"
+    assert seen == [str(tmp_path)]
+
+
+def test_verdict_judges_the_review_against_the_targeted_repository(tmp_path, monkeypatch):
+    seen = []
+
+    class Done:
+        returncode, stdout = 0, "feedbeef\n"
+
+    monkeypatch.setattr(gate.subprocess, "run", lambda *a, **k: seen.append(k.get("cwd")) or Done())
+    gate.verdict("docker compose up -d", [], racine=tmp_path)
+    assert seen and all(cwd == str(tmp_path) for cwd in seen)

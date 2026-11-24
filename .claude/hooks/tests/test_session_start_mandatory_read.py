@@ -9,6 +9,8 @@ signale comme manquant, alors que Takumi a deja le contenu sous les yeux.
 
 from __future__ import annotations
 
+from avertissement_helpers import avertit
+
 import json
 import sys
 from pathlib import Path
@@ -67,7 +69,7 @@ def test_all_three_mandatory_files_pass_when_all_are_in_the_attachment(tmp_path)
 
 def _regles(tmp_path: Path, noms: list[str]) -> Path:
     dossier = tmp_path / ".claude" / "rules"
-    dossier.mkdir(parents=True)
+    dossier.mkdir(parents=True, exist_ok=True)
     for nom in noms:
         (dossier / nom).write_text("x", encoding="utf-8")
     return tmp_path
@@ -103,3 +105,43 @@ def test_should_keep_the_legacy_set_while_the_v2_copy_is_incomplete(tmp_path):
 def test_should_let_a_v2_file_be_edited_without_the_gate(tmp_path):
     data = {"tool_name": "Edit", "tool_input": {"file_path": r"D:\Kata\.claude\rules\03-Qualite.md"}}
     assert mandatory_read._targets_a_mandatory_file(data)
+
+
+# --- décision de Jay, 2026-11-22 : une lecture oubliée avertit, elle ne bloque plus --------------
+
+def _lancer_garde(tmp_path: Path, session: str):
+    import subprocess
+    racine = _regles(tmp_path, V2)
+    (racine / ".git").mkdir(exist_ok=True)
+    t = tmp_path / "t.jsonl"
+    t.write_text("", encoding="utf-8")
+    charge = {"tool_name": "Write", "tool_input": {"file_path": str(racine / "a.txt"), "content": "x"},
+              "session_id": session, "transcript_path": str(t), "hook_event_name": "PreToolUse"}
+    garde = Path(__file__).resolve().parents[1] / "lifecycle" / "session-start-mandatory-read.py"
+    return subprocess.run([sys.executable, str(garde)], input=json.dumps(charge), capture_output=True,
+                          text=True, cwd=racine, encoding="utf-8")
+
+
+def test_should_warn_and_not_block_when_the_mandatory_rules_are_unread(tmp_path):
+    r = _lancer_garde(tmp_path, "sm-1")
+    assert avertit(r)
+    assert "01-Lecture.md" in r.stderr
+
+
+def test_should_hand_the_warning_to_the_model_not_only_to_the_log(tmp_path):
+    r = _lancer_garde(tmp_path, "sm-2")
+    contexte = json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "AVERTISSEMENT" in contexte and "01-Lecture.md" in contexte
+
+
+def test_should_not_repeat_the_same_warning_every_tool_call(tmp_path):
+    """Relecture 2026-11-22: la porte se réarme, l'avertissement revenait à chaque appel (≈10 fois le même texte)."""
+    premier = _lancer_garde(tmp_path, "sm-3")
+    second = _lancer_garde(tmp_path, "sm-3")
+    assert avertit(premier)
+    assert second.returncode == 0 and second.stderr == "" and second.stdout == ""
+
+
+def test_should_warn_again_in_another_session(tmp_path):
+    assert avertit(_lancer_garde(tmp_path, "sm-4"))
+    assert avertit(_lancer_garde(tmp_path, "sm-5"))

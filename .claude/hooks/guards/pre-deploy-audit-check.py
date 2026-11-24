@@ -129,10 +129,37 @@ def find_skip(text):
     return None
 
 
+_LEADING_CD = re.compile(r"""^\s*cd\s+(?P<path>"[^"]+"|'[^']+'|[^\s;&|]+)\s*(?:&&|;)""")
+_target = None  # repository named by the command itself (set by main); None = the hook's own repository
+
+
+def target_root(command):
+    """Root of the repository a leading `cd <dir> &&` points at; None when the command names none.
+
+    A deploy shipped from another repository than the hook's own (the site of a project, audited and
+    shipped from the Kobo session) was judged against the wrong HEAD and refused."""
+    match = _LEADING_CD.match(command or "")
+    if not match:
+        return None
+    raw = match.group("path").strip("\"'")
+    if re.match(r"^/[a-zA-Z]/", raw):  # git-bash drive path -> Windows path
+        raw = f"{raw[1].upper()}:{raw[2:]}"
+    folder = Path(raw)
+    try:
+        root = find_repo_root(folder) if folder.is_dir() else None
+        return root if root is not None and (root / ".git").exists() else None  # not a repository: the hook's own
+    except Exception:
+        return None
+
+
+def _racine():
+    return _target or find_repo_root()
+
+
 def head_courant():
     """The current commit, read from the repository root; None when unreadable (never a refusal)."""
     try:
-        racine = find_repo_root()
+        racine = _racine()
     except Exception:
         racine = None
     try:
@@ -147,7 +174,7 @@ def head_courant():
 def changed_files(old, new):
     """Paths changed between two commits, or None when git cannot say."""
     try:
-        racine = find_repo_root()
+        racine = _racine()
         out = subprocess.run(["git", "diff", "--name-only", f"{old}..{new}"], capture_output=True, text=True,
                              check=False, cwd=str(racine))
     except Exception:
@@ -161,7 +188,7 @@ def dirty_dependency_files():
     """Dependency files modified in the working tree but not committed; [] when git cannot say."""
     try:
         out = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=False,
-                             cwd=str(find_repo_root()))
+                             cwd=str(_racine()))
     except Exception:
         return []
     paths = [line[3:].strip().strip('"') for line in out.stdout.splitlines() if len(line) > 3]
@@ -341,6 +368,8 @@ def main():
     command = get_command(data)
     if not _is_gated(command):
         pass_through()  # most Bash calls ship nothing: do not read the journal
+    global _target
+    _target = target_root(command)
     transcript = data.get("transcript_path", "")
     texts = list(iter_spoken_text(transcript, limit=TRANSCRIPT_LOOKBACK)) if transcript else []
     ran = [str(call.get("input", {}).get("command", "")) for call in iter_tool_calls(transcript, "Bash")] if transcript else []

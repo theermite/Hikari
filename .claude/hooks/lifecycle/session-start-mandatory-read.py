@@ -27,12 +27,12 @@ LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
 from common import (  # noqa: E402
-    block,
     find_repo_root,
     format_block,
     get_command,
     get_file_path,
     pass_through,
+    procedure_warn,
     read_hook_input,
 )
 from session_state import mark_once  # noqa: E402
@@ -117,9 +117,9 @@ def main() -> None:
     if missing:
         _reset_marker(session_id)  # re-fire the gate until satisfied
         listing = "\n  - ".join([""] + missing)
-        block(format_block(
+        procedure_warn(format_block(
             f"MANDATORY FIRST READ not satisfied — {len(missing)}/{len(exigees)} file(s) unread",
-            f"Read the missing file(s) before any Edit/Write/Bash:{listing}\n"
+            f"Read the missing file(s) before going further:{listing}\n"
             "These are the BLOCKING files declared in CLAUDE.md (MANDATORY FIRST READ). "
             "They define how Takumi reads every other rule",
             reference="CLAUDE.md MANDATORY FIRST READ",

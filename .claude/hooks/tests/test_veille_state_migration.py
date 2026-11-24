@@ -22,6 +22,8 @@ its value is irrelevant, only the missing `digest_algo` marks the state legacy.
 from __future__ import annotations
 
 import json
+
+from avertissement_helpers import avertit
 import subprocess
 import sys
 import uuid
@@ -133,7 +135,7 @@ def test_threshold_still_blocks_on_a_migrated_state(tmp_path):
     try:
         transcript = _write_transcript(tmp_path, SKIP_MARKER)
         result = _run(transcript, session_id, str(tmp_path / "probe.py"))
-        assert result.returncode == 2, "the 3rd consecutive skip must still block"
+        assert avertit(result), "the 3rd consecutive skip must now warn, not block (Jay 2026-11-22)"
         assert b"threshold" in result.stderr.lower()
     finally:
         state.unlink(missing_ok=True)

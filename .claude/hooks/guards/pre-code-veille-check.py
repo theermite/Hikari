@@ -167,17 +167,17 @@ def _persist(session_id: str | None, repo_root: Path, *, skip_count: int,
 
 
 def block(msg: str) -> None:
-    print(msg, file=sys.stderr)
-    from common import trace_refus
-    trace_refus(msg)
-    sys.exit(2)
+    """Un manque de veille avertit, il ne bloque plus (Jay, 2026-11-22: procédure). Le nom `block` reste, pour
+    que chaque appel garde son chemin de sortie: la fonction ne rend jamais la main."""
+    from common import procedure_warn
+    procedure_warn(msg)
 
 
 def _block_missing_marker(file_path: str) -> None:
     block(
         "BLOCKED: Veille / SKB evidence missing before writing source code.\n"
         f"Target: {file_path}\n"
-        "RECOVERY: Output one of the strict markers BEFORE retrying:\n"
+        "RECOVERY: Output one of the strict markers before going further:\n"
         "  [VEILLE] <techno>@<version> verifie <YYYY-MM-DD> via <source>\n"
         "  [SKB] consulte: <chemin1>, <chemin2>\n"
         f"  [VEILLE-SKIP] motif: <one of {sorted(ALLOWED_SKIP_MOTIFS)}>\n"
@@ -196,7 +196,7 @@ def _enforce_sensitive(file_path: str, reason: str, marker_type: str, transcript
             f"Target: {file_path}\n"
             f"Trigger: {reason}\n"
             f"Latest marker: [{marker_type}] (insufficient for sensitive change)\n"
-            "RECOVERY: Output a real veille marker BEFORE retrying:\n"
+            "RECOVERY: Output a real veille marker before going further:\n"
             "  [VEILLE] <techno>@<version> verifie <YYYY-MM-DD> via <source>\n"
             "Layer B refuses [SKB] and [VEILLE-SKIP] on sensitive content."
         )

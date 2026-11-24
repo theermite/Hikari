@@ -90,6 +90,43 @@ def lire(chemin: Path | None = None) -> list[dict]:
     return sortie
 
 
+VERDICTS = ("vrai", "faux")
+SEUIL_FAUX = 0.1  # au-delà d'un dixième de faux refus parmi les refus jugés, le garde-fou avertit au lieu de refuser
+
+
+def _est_refus(e: dict) -> bool:
+    return not e.get("manuel") and "verdict" not in e
+
+
+def verdict(ts: str, valeur: str, chemin: Path | None = None) -> bool:
+    """Juge un refus: `vrai` (le garde-fou protégeait) ou `faux` (il gênait à tort). Le refus est désigné par son
+    horodatage. Rend False, sans rien écrire, si la valeur est inconnue ou si aucun refus ne porte cet horodatage."""
+    if valeur not in VERDICTS or not any(_est_refus(e) and e.get("ts") == ts for e in lire(chemin)):
+        return False
+    append({"verdict": valeur, "ref": ts}, chemin=chemin)
+    return True
+
+
+def taux_par_garde(evenements: list[dict]) -> dict[str, dict]:
+    """Par garde-fou: refus, jugés vrais, jugés faux. Le dernier verdict d'un refus l'emporte; un refus non jugé n'est
+    compté ni vrai ni faux (l'absence de jugement n'est pas un jugement)."""
+    derniers = {e["ref"]: e["verdict"] for e in evenements if "verdict" in e and "ref" in e}
+    sortie: dict[str, dict] = {}
+    for e in filter(_est_refus, evenements):
+        t = sortie.setdefault(e.get("garde", "?"), {"refus": 0, "faux": 0, "vrai": 0, "juges": 0})
+        t["refus"] += 1
+        v = derniers.get(e.get("ts"))
+        if v in VERDICTS:
+            t[v] += 1
+            t["juges"] += 1
+    return sortie
+
+
+def gardes_a_desarmer(evenements: list[dict]) -> list[str]:
+    """Les garde-fous dont plus d'un dixième des refus jugés sont faux (règle de la machine, budget de garde-fous)."""
+    return sorted(g for g, t in taux_par_garde(evenements).items() if t["juges"] and t["faux"] / t["juges"] > SEUIL_FAUX)
+
+
 def _lignes_refus(refus_auto: list[dict], top: int) -> list[str]:
     exemples = {}
     for e in refus_auto:
@@ -100,7 +137,7 @@ def _lignes_refus(refus_auto: list[dict], top: int) -> list[str]:
 
 def resume(evenements: list[dict], top: int = 4) -> str:
     """Le résumé court: total, garde-fous les plus fréquents, notes à la main."""
-    refus_auto = [e for e in evenements if not e.get("manuel")]
+    refus_auto = [e for e in evenements if _est_refus(e)]
     notes = [e for e in evenements if e.get("manuel")]
     tete = f"Frictions: {len(evenements)} nouvelle(s) ligne(s) ({len(refus_auto)} refus, {len(notes)} note(s) à la main)."
     lignes_notes = [f"- note ({e.get('projet') or '?'}): {e.get('motif', '')[:160]}" for e in notes[-top:]]
@@ -109,6 +146,12 @@ def resume(evenements: list[dict], top: int = 4) -> str:
 
 def _main(argv: list[str]) -> int:
     """`python .claude/hooks/lib/friction_log.py "texte"`: Takumi note un refus injustifié, sans quitter son travail."""
+    if argv[:1] == ["verdict"]:
+        if len(argv) != 3 or not verdict(argv[1], argv[2]):
+            print("usage: friction_log.py verdict <ts-du-refus> vrai|faux (le refus doit exister)", file=sys.stderr)
+            return 2
+        print("verdict noté")
+        return 0
     texte = " ".join(argv).strip()
     if not texte:
         print("usage: friction_log.py <note>", file=sys.stderr)

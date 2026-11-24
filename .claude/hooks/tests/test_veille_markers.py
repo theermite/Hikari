@@ -113,3 +113,30 @@ def test_should_ignore_a_marker_inside_a_tool_use_input(tmp_path):
     }
     transcript = _transcript(tmp_path, entry)
     assert veille_markers.latest_marker(transcript) is None
+
+
+def _narration(texte: str) -> dict:
+    """Forme réelle relevée le 2026-11-10 (session Kobo): la phrase dite à Jay est journalisée comme bloc
+    « thinking » dont la signature porte l'étiquette « narration »; le vrai texte n'existe plus."""
+    import base64
+    signature = base64.b64encode(b"\x08\x13\x18\x02\x38\x01B\x09narration\x12\x0c" + b"x" * 20).decode()
+    return {"message": {"role": "assistant", "content": [{"type": "thinking", "thinking": texte, "signature": signature}]}}
+
+
+def _reflexion_cachee(texte: str) -> dict:
+    import base64
+    signature = base64.b64encode(b"\x08\x13\x18\x02\x38\x01B\x08thinking\x12\x0c" + b"x" * 20).decode()
+    return {"message": {"role": "assistant", "content": [{"type": "thinking", "thinking": texte, "signature": signature}]}}
+
+
+MARQUEUR = "[VEILLE] @shinkofa/ui@0.26.0 verifie 2026-11-10 via npm.shinkofa.com"
+
+
+def test_une_narration_journalisee_comme_reflexion_compte_comme_dite(tmp_path):
+    chemin = _transcript(tmp_path, _narration(MARQUEUR))
+    assert veille_markers.latest_marker(chemin)[0] == "VEILLE"
+
+
+def test_une_vraie_reflexion_cachee_ne_compte_pas_comme_dite(tmp_path):
+    chemin = _transcript(tmp_path, _reflexion_cachee(MARQUEUR))
+    assert veille_markers.latest_marker(chemin) is None

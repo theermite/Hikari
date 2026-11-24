@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pytest
 
+from avertissement_helpers import avertit
+
 RACINE = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(RACINE / ".claude/hooks/lib"))
 
@@ -167,7 +169,7 @@ def test_the_gate_blocks_a_cdc_write_until_the_annexes_are_read(tmp_path):
     depot = _depot(tmp_path)
     t = _transcript(tmp_path, [])
     r = _lancer(depot, t, "Write", {"file_path": str(depot / "docs/CDC.md"), "content": "x"}, "s1")
-    assert r.returncode == 2
+    assert avertit(r)
     assert "Socle-Minimal.md" in r.stderr
     assert "RECOVERY" in r.stderr
 
@@ -339,7 +341,7 @@ def test_s1_a_sub_agent_is_judged_on_its_own_journal():
 def test_s1_a_sub_agent_that_read_nothing_is_still_asked():
     import tempfile
     with tempfile.TemporaryDirectory() as d:
-        assert _depot_agent(Path(d), [], "abc124").returncode == 2
+        assert avertit(_depot_agent(Path(d), [], "abc124"))
 
 
 def test_s1_a_sub_agent_without_a_readable_journal_is_never_blocked():

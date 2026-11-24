@@ -45,12 +45,12 @@ LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
 from common import (  # noqa: E402
-    block,
     canonical_project_name,
     find_repo_root,
     format_block,
     get_command,
     pass_through,
+    procedure_warn,
     read_hook_input,
 )
 from session_state import mark_once  # noqa: E402
@@ -197,10 +197,10 @@ def _block_missing(project, missing, required, session_id, repo) -> None:
         f"\n  [SHINZO] = D:/30-Dev-Projects/Shinzo (local) | ~/Shinzo (VPS)"
     )
     loaded = len(required) - len(missing)
-    block(format_block(
+    procedure_warn(format_block(
         f"MANDATORY FIRST READ not satisfied — {loaded}/{len(required)} file(s) unread",
         "Read the missing file(s) from Shinzo 02-Projets/ via the Read tool "
-        f"before any Edit/Write/Bash:{listing}\n"
+        f"before going further:{listing}\n"
         f"Missing patterns: {', '.join(missing)}\n"
         f"If {project}.md does not exist in Shinzo 02-Projets/ (new or renamed repo), the Read fails and does not count: "
         "open a session in Shinzo and create the fiche there.\n"

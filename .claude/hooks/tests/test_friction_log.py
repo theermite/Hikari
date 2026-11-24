@@ -154,6 +154,62 @@ def test_bash_guard_refuse_en_code_2_meme_sur_une_entree_mal_formee(tmp_path):
         assert res.returncode == 2, (brut[:20], res.returncode, res.stderr[-200:])
 
 
-def test_veille_check_laisse_outil_et_cible_dans_la_trace(tmp_path):
-    source = (RACINE / ".claude/hooks/guards/pre-code-veille-check.py").read_text(encoding="utf-8")
-    assert "remember_input" in source
+def test_veille_check_avertit_sans_compter_un_refus_et_parle_au_modele(tmp_path):
+    """Décision de Jay (2026-11-22): un manque de veille avertit. Il ne figure donc pas au journal des refus (le taux de
+    faux refus ne doit pas compter ce qui ne refuse plus), et le garde, qui lit son entrée lui-même, apprend l'événement
+    par `remember_input`: sans cela l'avertissement resterait sur la sortie d'erreur et le modèle ne le verrait pas."""
+    journal = tmp_path / "f.jsonl"
+    entree = {"tool_name": "Write", "tool_input": {"file_path": "/x/projet-essai/src/app.py", "content": "print(1)"},
+              "session_id": f"veille-{__import__('uuid').uuid4().hex}", "transcript_path": "", "hook_event_name": "PreToolUse"}
+    res = _lancer_garde("pre-code-veille-check.py", json.dumps(entree).encode(), journal)
+    assert res.returncode == 0, res.stderr[-200:]
+    assert not journal.exists() or friction_log.lire(journal) == []
+    contexte = json.loads(res.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "AVERTISSEMENT" in contexte and "/x/projet-essai/src/app.py" in contexte
+
+
+# --- Verdict: un refus se juge vrai ou faux (Jay 2026-11-19, machine: « zéro faux refus » doit se mesurer) ---
+
+def _deux_refus(journal):
+    friction_log.append({"garde": "annexes-gate.py", "outil": "Read", "cible": "a.md", "motif": "BLOCKED: x", "ts": "2026-11-10T10:00:00Z"}, chemin=journal)
+    friction_log.append({"garde": "bash-guard.py", "outil": "Bash", "cible": "git", "motif": "BLOCKED: y", "ts": "2026-11-10T10:05:00Z"}, chemin=journal)
+
+
+def test_un_verdict_est_une_ligne_qui_vise_un_refus_et_n_en_est_pas_un(tmp_path):
+    journal = tmp_path / "f.jsonl"
+    _deux_refus(journal)
+    friction_log.verdict("2026-11-10T10:00:00Z", "faux", chemin=journal)
+    evenements = friction_log.lire(journal)
+    assert friction_log.taux_par_garde(evenements)["annexes-gate.py"] == {"refus": 1, "faux": 1, "vrai": 0, "juges": 1}
+    assert friction_log.resume(evenements).startswith("Frictions: 3 nouvelle(s) ligne(s) (2 refus,")
+
+
+def test_verdict_inconnu_ou_refus_introuvable_est_refuse_sans_rien_ecrire(tmp_path):
+    journal = tmp_path / "f.jsonl"
+    _deux_refus(journal)
+    avant = journal.read_text(encoding="utf-8")
+    assert friction_log.verdict("2026-11-10T10:00:00Z", "peut-etre", chemin=journal) is False
+    assert friction_log.verdict("1999-01-01T00:00:00Z", "faux", chemin=journal) is False
+    assert journal.read_text(encoding="utf-8") == avant
+
+
+def test_le_dernier_verdict_l_emporte_et_un_refus_non_juge_n_est_pas_compte_comme_vrai(tmp_path):
+    journal = tmp_path / "f.jsonl"
+    _deux_refus(journal)
+    friction_log.verdict("2026-11-10T10:00:00Z", "faux", chemin=journal)
+    friction_log.verdict("2026-11-10T10:00:00Z", "vrai", chemin=journal)
+    t = friction_log.taux_par_garde(friction_log.lire(journal))
+    assert t["annexes-gate.py"]["vrai"] == 1 and t["annexes-gate.py"]["faux"] == 0
+    assert t["bash-guard.py"] == {"refus": 1, "faux": 0, "vrai": 0, "juges": 0}
+
+
+def test_les_gardes_a_desarmer_sont_ceux_dont_plus_d_un_dixieme_des_refus_juges_sont_faux(tmp_path):
+    journal = tmp_path / "f.jsonl"
+    for i in range(10):
+        friction_log.append({"garde": "g.py", "motif": "m", "ts": f"2026-11-10T10:{i:02d}:00Z"}, chemin=journal)
+    friction_log.verdict("2026-11-10T10:00:00Z", "faux", chemin=journal)
+    for i in range(1, 10):
+        friction_log.verdict(f"2026-11-10T10:{i:02d}:00Z", "vrai", chemin=journal)
+    assert friction_log.gardes_a_desarmer(friction_log.lire(journal)) == []  # 1 faux sur 10 jugés = 1/10 : pas strictement plus
+    friction_log.verdict("2026-11-10T10:01:00Z", "faux", chemin=journal)
+    assert friction_log.gardes_a_desarmer(friction_log.lire(journal)) == ["g.py"]  # 2 sur 10 : plus d'un dixième

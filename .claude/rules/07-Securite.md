@@ -22,7 +22,7 @@ proof: hooks (secrets, données d'autrui, masque) + obligations datées
 | **Les utilisateurs finaux des plateformes** — ce qu'ils déposent dans la base (contenu, messages, données intimes) | **fermé dans les deux sens** : les statistiques et les journaux nettoyés suffisent pour construire |
 
 Connaître Jay est la raison d'être de la méthode. Un assistant qui refuserait de le connaître
-construirait un partenaire générique — l'inverse du but.
+construirait un expert générique — l'inverse du but.
 
 **Ce que Jay a décidé le 2026-10-30** (il parlait « comme des agents secrets » à son assistant personnel) :
 

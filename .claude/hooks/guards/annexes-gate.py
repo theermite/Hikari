@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Garde-fou des annexes — PreToolUse(Write|Edit|MultiEdit|Bash).
 
-Les huit règles sont courtes; leur détail vit dans des annexes. Ce garde-fou refuse un travail
-tant que l'annexe qu'il requiert n'a pas été lue (appel Read, ou texte déjà livré par le
+Les huit règles sont courtes; leur détail vit dans des annexes. Ce garde-fou AVERTIT (il refusait avant le 2026-11-22: Jay a fait de la procédure un simple avertissement) quand
+ l'annexe qu'il requiert n'a pas été lue (appel Read, ou texte déjà livré par le
 harnais). Le moment de chaque annexe est dans `.claude/rules-ondemand/annexes.json`.
 
 POURQUOI. Jay, 2026-10-26: « c'est arrivé trop de fois où l'on a démarré une plateforme, et le
@@ -26,12 +26,12 @@ sys.path.insert(0, str(LIB_DIR))
 
 import annexes  # noqa: E402
 from common import (  # noqa: E402
-    block,
     find_repo_root,
     format_block,
     get_command,
     get_file_path,
     pass_through,
+    procedure_warn,
     read_hook_input,
 )
 from session_state import read_state, write_state  # noqa: E402
@@ -91,9 +91,9 @@ def main() -> None:
     manquantes = _manquantes(requises, data, racine) if requises else []
     if manquantes:
         liste = " ; ".join(a["fichier"] for a in manquantes)
-        block(format_block(
+        procedure_warn(format_block(
             f"{len(manquantes)} annexe(s) à lire avant ce travail",
-            f"Read {liste} — puis relancer. Une annexe lue n'est plus réclamée de la séance",
+            f"Read {liste} avant de continuer. Une annexe lue n'est plus rappelée de la séance",
             reference=".claude/rules/01-Lecture.md § 7 (quand lire quelle annexe)",
         ))
     pass_through()

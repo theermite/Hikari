@@ -8,6 +8,8 @@ local ne bloque pas. En local, le garde reste tel quel.
 
 from __future__ import annotations
 
+from avertissement_helpers import avertit
+
 import json
 import os
 import subprocess
@@ -77,16 +79,16 @@ def _run(tmp_path: Path, *, cloud: bool, shinzo_on_disk: bool, calls: list[dict]
 
 
 def test_local_session_with_shinzo_on_disk_still_blocks_without_reads(tmp_path):
-    assert _run(tmp_path, cloud=False, shinzo_on_disk=True).returncode == 2
+    assert avertit(_run(tmp_path, cloud=False, shinzo_on_disk=True))
 
 
 def test_local_session_without_shinzo_clone_still_blocks(tmp_path):
     """Hors nuage, un clone manquant est un défaut de la machine de Jay : le garde ne s'assouplit pas."""
-    assert _run(tmp_path, cloud=False, shinzo_on_disk=False).returncode == 2
+    assert avertit(_run(tmp_path, cloud=False, shinzo_on_disk=False))
 
 
 def test_cloud_session_with_shinzo_on_disk_still_blocks_without_reads(tmp_path):
-    assert _run(tmp_path, cloud=True, shinzo_on_disk=True).returncode == 2
+    assert avertit(_run(tmp_path, cloud=True, shinzo_on_disk=True))
 
 
 def test_cloud_session_without_shinzo_on_disk_is_not_blocked(tmp_path):
@@ -100,40 +102,40 @@ def test_the_three_fiches_read_on_github_count_as_read_in_the_cloud(tmp_path):
 
 def test_github_reads_do_not_count_in_a_local_session(tmp_path):
     """Séance locale inchangée (Jay) : seul Read compte, une fiche locale peut être en avance sur GitHub."""
-    assert _run(tmp_path, cloud=False, shinzo_on_disk=True, calls=_github_reads()).returncode == 2
+    assert avertit(_run(tmp_path, cloud=False, shinzo_on_disk=True, calls=_github_reads()))
 
 
 def test_two_fiches_read_on_github_are_not_enough(tmp_path):
-    assert _run(tmp_path, cloud=True, shinzo_on_disk=True, calls=_github_reads()[:2]).returncode == 2
+    assert avertit(_run(tmp_path, cloud=True, shinzo_on_disk=True, calls=_github_reads()[:2]))
 
 
 def test_fiches_read_on_another_github_repo_do_not_count(tmp_path):
-    assert _run(tmp_path, cloud=True, shinzo_on_disk=True, calls=_github_reads("Kata")).returncode == 2
+    assert avertit(_run(tmp_path, cloud=True, shinzo_on_disk=True, calls=_github_reads("Kata")))
 
 
 def test_fiches_read_on_another_owner_do_not_count(tmp_path):
     calls = _github_reads()
     for c in calls:
         c["input"]["owner"] = "someone-else"
-    assert _run(tmp_path, cloud=True, shinzo_on_disk=True, calls=calls).returncode == 2
+    assert avertit(_run(tmp_path, cloud=True, shinzo_on_disk=True, calls=calls))
 
 
 def test_remote_flag_other_than_true_is_not_the_cloud(tmp_path):
-    assert _run(tmp_path, cloud=False, shinzo_on_disk=False, remote_value="1").returncode == 2
+    assert avertit(_run(tmp_path, cloud=False, shinzo_on_disk=False, remote_value="1"))
 
 
 def test_shinzo_dir_variable_counts_as_a_clone_on_disk(tmp_path):
     clone = tmp_path / "elsewhere" / "02-Projets"
     clone.mkdir(parents=True)
-    assert _run(tmp_path, cloud=True, shinzo_on_disk=False, shinzo_dir=clone.parent).returncode == 2
+    assert avertit(_run(tmp_path, cloud=True, shinzo_on_disk=False, shinzo_dir=clone.parent))
 
 
 def test_home_shinzo_counts_as_a_clone_on_disk(tmp_path):
-    assert _run(tmp_path, cloud=True, shinzo_on_disk=False, home_clone=True).returncode == 2
+    assert avertit(_run(tmp_path, cloud=True, shinzo_on_disk=False, home_clone=True))
 
 
 def test_clone_next_to_the_main_repo_is_found_from_a_worktree(tmp_path):
-    assert _run(tmp_path, cloud=True, shinzo_on_disk=True, worktree=True).returncode == 2
+    assert avertit(_run(tmp_path, cloud=True, shinzo_on_disk=True, worktree=True))
 
 
 # --- une lecture compte si elle a réussi et si c'est la vraie fiche (Jay 2026-11-04) ------------------------------
@@ -149,25 +151,25 @@ def test_the_three_real_fiches_read_with_read_pass(tmp_path):
 
 def test_a_failed_read_does_not_count(tmp_path):
     out = _run(tmp_path, cloud=False, shinzo_on_disk=True, calls=_local_reads(), failed=(0,))
-    assert out.returncode == 2 and b"_Cross-Project" in out.stderr
+    assert avertit(out) and b"_Cross-Project" in out.stderr
 
 
 def test_a_failed_github_read_does_not_count_in_the_cloud(tmp_path):
-    assert _run(tmp_path, cloud=True, shinzo_on_disk=True, calls=_github_reads(), failed=(2,)).returncode == 2
+    assert avertit(_run(tmp_path, cloud=True, shinzo_on_disk=True, calls=_github_reads(), failed=(2,)))
 
 
 def test_a_file_that_only_contains_the_name_does_not_count(tmp_path):
     calls = _local_reads(names=("_Cross-Project.md", "_Index.md.bak", "Kata.md"))
-    assert _run(tmp_path, cloud=False, shinzo_on_disk=True, calls=calls).returncode == 2
+    assert avertit(_run(tmp_path, cloud=False, shinzo_on_disk=True, calls=calls))
 
 
 def test_the_notes_of_jay_are_not_the_project_fiche(tmp_path):
     calls = _local_reads(names=("_Cross-Project.md", "_Index.md", "Kata-Notes-Jay.md"))
-    assert _run(tmp_path, cloud=False, shinzo_on_disk=True, calls=calls).returncode == 2
+    assert avertit(_run(tmp_path, cloud=False, shinzo_on_disk=True, calls=calls))
 
 
 def test_a_fiche_outside_a_projets_folder_does_not_count(tmp_path):
-    assert _run(tmp_path, cloud=False, shinzo_on_disk=True, calls=_local_reads("/tmp/notes")).returncode == 2
+    assert avertit(_run(tmp_path, cloud=False, shinzo_on_disk=True, calls=_local_reads("/tmp/notes")))
 
 
 def test_windows_paths_count(tmp_path):
@@ -184,7 +186,7 @@ def test_successful_reads_with_their_results_in_the_journal_still_count(tmp_path
 
 def test_a_failed_read_among_successful_ones_still_blocks(tmp_path):
     out = _run(tmp_path, cloud=False, shinzo_on_disk=True, calls=_local_reads(), failed=(1,), succeeded=True)
-    assert out.returncode == 2
+    assert avertit(out)
 
 
 def test_a_fiche_without_extension_counts(tmp_path):
@@ -199,4 +201,4 @@ def test_the_former_projets_folder_and_other_case_count(tmp_path):
 
 def test_the_block_message_says_what_to_do_when_the_project_fiche_does_not_exist(tmp_path):
     out = _run(tmp_path, cloud=False, shinzo_on_disk=True, calls=_local_reads(names=FICHES[:2]))
-    assert out.returncode == 2 and b"does not exist" in out.stderr
+    assert avertit(out) and b"does not exist" in out.stderr

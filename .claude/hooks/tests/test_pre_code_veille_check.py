@@ -16,6 +16,8 @@ Transcript shape mirrors Claude Code JSONL: top-level {role, content}.
 
 from __future__ import annotations
 
+from avertissement_helpers import avertit
+
 import json
 import subprocess
 import sys
@@ -88,8 +90,8 @@ def test_sensitive_veille_blocks_without_web_call(tmp_path):
     # Marker present but NO web tool call anywhere -> blocked (Chantier D).
     transcript = _write_transcript(tmp_path, _veille_marker())
     r = _run(transcript, file_path="mix.exs", content='{:phoenix, "~> 1.8.8"}')
-    assert r.returncode == 2, "VEILLE text without a real web call must block"
-    assert b"BLOCKED" in r.stderr
+    assert avertit(r), "VEILLE text without a real web call must block"
+    assert b"AVERTISSEMENT" in r.stderr
 
 
 # --- Unchanged behaviors (regression locks) ----------------------------------
@@ -99,7 +101,7 @@ def test_sensitive_skb_still_blocks(tmp_path):
     # Layer B: [SKB] is insufficient for a sensitive change, regardless of web.
     transcript = _write_transcript(tmp_path, _skb_marker(), _web_call("WebSearch"))
     r = _run(transcript, file_path="mix.exs", content='{:phoenix, "~> 1.8.8"}')
-    assert r.returncode == 2
+    assert avertit(r)
     assert b"VEILLE" in r.stderr
 
 
@@ -139,7 +141,7 @@ def _skip_marker(motif: str) -> dict:
 def test_known_root_cause_skip_is_refused_after_a_fail_verdict(tmp_path):
     transcript = _write_transcript(tmp_path, _review_fail(), _skip_marker("hotfix-known-root-cause"))
     r = _run(transcript, file_path="lib/app/payment.ex", content="def charge, do: :ok\n")
-    assert r.returncode == 2, "known-root-cause during an open FAIL must block"
+    assert avertit(r), "known-root-cause during an open FAIL must block"
     assert b"hotfix-known-root-cause" in r.stderr
 
 
@@ -191,7 +193,7 @@ def test_sans_rapport_is_refused_when_the_file_shares_the_failing_family(tmp_pat
         "famille: paiement-arrondi-montant, des defauts")
     transcript = _write_transcript(tmp_path, fail, _skip_marker("sans-rapport"))
     r = _run(transcript, file_path="lib/app/paiement_montant.ex", content="def noop, do: :ok\n")
-    assert r.returncode == 2, "un fichier qui touche la famille en echec ne peut pas dire 'sans rapport'"
+    assert avertit(r), "un fichier qui touche la famille en echec ne peut pas dire 'sans rapport'"
     assert b"sans-rapport" in r.stderr
 
 
@@ -216,7 +218,7 @@ def test_sans_rapport_is_refused_when_the_fail_names_no_family(tmp_path):
     fail = _review_fail("[REVIEW] par contexte-neuf le 2026-09-08 — verdict: FAIL, des defauts")
     transcript = _write_transcript(tmp_path, fail, _skip_marker("sans-rapport"))
     r = _run(transcript, file_path="lib/app/dictee_vocale.ex", content="def noop, do: :ok\n")
-    assert r.returncode == 2, "une famille non nommee ne peut pas prouver l'absence de rapport"
+    assert avertit(r), "une famille non nommee ne peut pas prouver l'absence de rapport"
 
 
 def test_sans_rapport_ignores_the_workspace_path_when_comparing(tmp_path):
@@ -234,8 +236,8 @@ def test_sans_rapport_ignores_the_workspace_path_when_comparing(tmp_path):
 def test_missing_marker_blocks(tmp_path):
     transcript = _write_transcript(tmp_path, {"role": "assistant", "content": [{"type": "text", "text": "no marker"}]})
     r = _run(transcript, file_path="lib/app/foo.ex", content="def hello, do: :world\n")
-    assert r.returncode == 2
-    assert b"BLOCKED" in r.stderr
+    assert avertit(r)
+    assert b"AVERTISSEMENT" in r.stderr
 
 
 # --- Manifest dependency-diff: rename without dep change is NOT sensitive -----
@@ -298,7 +300,7 @@ def test_package_json_dependency_add_still_sensitive(tmp_path):
     r = _run_edit(transcript, file_path=str(pkg),
                   old_string='"react": "^19.0.0"',
                   new_string='"react": "^19.0.0",\n    "left-pad": "^1.3.0"')
-    assert r.returncode == 2, f"adding a dependency must stay sensitive: {r.stderr!r}"
+    assert avertit(r), f"adding a dependency must stay sensitive: {r.stderr!r}"
     assert b"VEILLE" in r.stderr
 
 
@@ -368,7 +370,7 @@ def test_genuinely_new_import_stays_sensitive(tmp_path):
         old_string="import os",
         new_string="import os\nimport requests",
     )
-    assert r.returncode == 2, f"a brand-new import must stay sensitive: {r.stderr!r}"
+    assert avertit(r), f"a brand-new import must stay sensitive: {r.stderr!r}"
     assert b"VEILLE" in r.stderr
 
 
@@ -415,7 +417,7 @@ def test_sticky_does_not_cover_sensitive(tmp_path):
     # sensitive write (dep manifest) with NO fresh marker -> must still block.
     t2 = _write_transcript(tmp_path / "later", {"role": "assistant", "content": [{"type": "text", "text": "x"}]})
     r2 = _run_sid(t2, file_path="mix.exs", content='{:phoenix, "~> 1.8.8"}', session_id=sid)
-    assert r2.returncode == 2, f"sticky must not cover a sensitive change: {r2.stderr!r}"
+    assert avertit(r2), f"sticky must not cover a sensitive change: {r2.stderr!r}"
 
 
 def test_sticky_survives_a_skip(tmp_path):
@@ -438,7 +440,7 @@ def test_no_marker_fresh_session_still_blocks(tmp_path):
     sid = f"test-{uuid.uuid4().hex[:12]}"
     t = _write_transcript(tmp_path, {"role": "assistant", "content": [{"type": "text", "text": "no marker"}]})
     r = _run_sid(t, file_path="lib/app/foo.ex", content="def a, do: :ok\n", session_id=sid)
-    assert r.returncode == 2, f"fresh session with no veille must block: {r.stderr!r}"
+    assert avertit(r), f"fresh session with no veille must block: {r.stderr!r}"
 
 
 # --- pytest-convention test files are exempt from veille (Jay 2026-06-24) -----
@@ -480,4 +482,4 @@ def test_production_py_with_new_import_still_blocks(tmp_path):
     # when no marker is present (the exemption is scoped to test files only).
     r = _run(None, file_path="src/app/service.py",
              content="import requests\n\ndef fetch():\n    return requests.get('x')\n")
-    assert r.returncode == 2, f"production file must still require evidence: {r.stderr!r}"
+    assert avertit(r), f"production file must still require evidence: {r.stderr!r}"
