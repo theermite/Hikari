@@ -40,9 +40,14 @@ then, after the review comes back:
 [REVIEW] par <relecteur> le <YYYY-MM-DD> sur <empreinte> — verdict: <PASS|FAIL>, <ce qui en est sorti>
 ```
 
-`<relecteur>` = a sub-agent of a level EQUAL OR SUPERIOR to the writer's, in a fresh AND complete context (the
-full brief, not an empty one), or a human (Jay 2026-10-28).
-Never a weaker reviewer, never the writer's own conversation. A sentence
+`<relecteur>` = a sub-agent in a fresh AND complete context (the full brief, not an empty one), held by the
+whole review framework below, or a human. Admitted models (Jay 2026-11-24, replacing the 2026-10-28 « equal
+or superior level » criterion): **Opus** for any writer, Fable-written code from Jay's own sessions
+included; **DeepSeek** via `llm-gateway` once admitted by calibration for the risk class (measure condition already
+written 2026-10-28; § Calibrating a reviewer). Sonnet and Haiku stay excluded (unchanged), and so does the
+writer's own conversation. For a **Fable** writer on the **critical** class: Opus alone until DeepSeek is
+admitted for the critical class. Once admitted (Jay 2026-11-24): Opus AND DeepSeek, each with its own marker
+(discipline, not yet code). A sentence
 saying "I had it reviewed" is NOT proof — it is a self-attestation, and a model produces
 one as easily as the truth (`Rule-Format.md`).
 
@@ -171,6 +176,23 @@ live in this rule and in the reviewer's own definition (`agents/cross-model-revi
 yet code**: a required `usage` field in the brief, the model trace read from the journal, and the
 count of consecutive FAILs on the same files. Until then they hold by discipline — and the audit says
 what discipline alone produced.
+
+## Calibrating a reviewer — measured, not assumed (BLOCKING — Jay 2026-11-24)
+
+**Why**: « equal or superior level » is impossible when the writer is Fable (nothing is above it) and it
+never proved a reviewer catches anything. What a reviewer catches is measured, and the framework above is
+what makes the measure fair. A weaker reviewer can still miss what the writer misses: framework and
+calibration lower that risk, they do not remove it.
+
+**Protocol** (Jay 2026-11-24): take a representative module, plant at least ten known defects spread over the four FAIL
+cases and the concurrency family, hand it to the reviewer with the standard brief, blind. Score = defects
+found / planted, per class, written as a memory in Shinzo `05-Memoire/` (date, model, module, score).
+A reviewer is admitted for a risk class when its score there is at least Opus's score minus a margin that
+Jay sets after the first measurement. Until a score and Jay's margin exist, DeepSeek is NOT an admitted reviewer.
+Opus is run on the SAME planted module, blind to the list, so both scores compare; Takumi plants the defects
+and launches the runs, never the reviewer. The list of planted defects is written and committed BEFORE the
+runs (its commit hash goes in the memory). A remark counts only if it cites the right `path:line` and the right
+mechanism; doubtful cases are decided by Jay or by a session that did not plant the defects. Re-measure when the model version changes. **Not yet code**: the guard does not read the scores.
 
 ## A FAIL is not a warning — it opens an obligation (BLOCKING)
 

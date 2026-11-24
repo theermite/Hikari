@@ -13,6 +13,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from avertissement_helpers import lu_comme_un_refus  # noqa: E402
+
 HOOKS = Path(__file__).resolve().parents[1]
 SMOKE = HOOKS / "deploy" / "smoke-test-required.py"
 CLAIM = HOOKS / "quality" / "online-claim-check.py"
@@ -23,9 +26,13 @@ def _repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def _run(script: Path, repo: Path, payload: dict):
+def _run_brut(script: Path, repo: Path, payload: dict):
     return subprocess.run([sys.executable, str(script)], input=json.dumps(payload).encode("utf-8"),
                           capture_output=True, timeout=30, cwd=str(repo))
+
+
+def _run(*args, **kwargs):
+    return lu_comme_un_refus(_run_brut(*args, **kwargs))
 
 
 def _bash(repo: Path, command: str, session: str = "s1"):

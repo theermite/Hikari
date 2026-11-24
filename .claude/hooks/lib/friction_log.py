@@ -91,7 +91,7 @@ def lire(chemin: Path | None = None) -> list[dict]:
 
 
 VERDICTS = ("vrai", "faux")
-SEUIL_FAUX = 0.1  # au-delà d'un dixième de faux refus parmi les refus jugés, le garde-fou avertit au lieu de refuser
+SEUIL_FAUX = 0.1  # au-delà d'un dixième de faux refus parmi les refus jugés, un garde-fou est DÉSIGNÉ à désarmer (rien ne le désarme seul)
 
 
 def _est_refus(e: dict) -> bool:
@@ -123,7 +123,11 @@ def taux_par_garde(evenements: list[dict]) -> dict[str, dict]:
 
 
 def gardes_a_desarmer(evenements: list[dict]) -> list[str]:
-    """Les garde-fous dont plus d'un dixième des refus jugés sont faux (règle de la machine, budget de garde-fous)."""
+    """Les garde-fous dont plus d'un dixième des refus jugés sont faux (règle de la machine, budget de garde-fous).
+
+    Désigne seulement: aucun garde-fou n'appelle cette fonction pour s'armer ou se désarmer (relecture du 2026-11-24).
+    Si quelqu'un la branche, il doit exclure les garde-fous de sécurité (secrets, envois, déploiement): dix pour cent
+    de verdicts « faux » ne doivent jamais en désarmer un."""
     return sorted(g for g, t in taux_par_garde(evenements).items() if t["juges"] and t["faux"] / t["juges"] > SEUIL_FAUX)
 
 

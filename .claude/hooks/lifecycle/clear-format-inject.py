@@ -29,7 +29,7 @@ REMINDER = (
     "et l'impact d'une décision. Fin de travail réussie : une ligne « fait, vérifié », puis seulement ce qui est "
     "à corriger ou à décider ; le détail va au rapport, donné si Jay le demande. Jamais le récit de ce que tu as "
     "fait. Listes, tableaux, emojis modérés. Pas de nom de commande ni de numéro de commit dans le chat.\n"
-    "Étiquette : ouvre chaque réponse par [{projet}] (le projet de cette conversation)."
+    "Étiquette : ouvre chaque réponse par 🟦 {projet}."
 )
 
 

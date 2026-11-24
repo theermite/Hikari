@@ -107,5 +107,5 @@ activates the estimate.
 <!-- source: Autonomous-Session.md#9 -->
 **Trust model**: never believe the agent's textual "it works". Truth comes from sources
 independent of the agent — re-executed commands (exit codes), git state (does a commit
-exist?), coverage numbers, and a reviewer of equal or superior level (fresh and complete context) on Critical modules.
-*[Amendé 2026-10-28 : « a different model on Critical modules » remplacé par un relecteur de niveau égal ou supérieur, en contexte frais et complet (Jay 2026-10-28).]*
+exist?), coverage numbers, and a reviewer in a fresh and complete context under the full review framework (Opus, or DeepSeek once admitted by calibration for the class) on Critical modules.
+*[Amendé 2026-10-28 : « a different model on Critical modules » remplacé par un relecteur de niveau égal ou supérieur, en contexte frais et complet (Jay 2026-10-28). Amendé 2026-11-24 : le critère de niveau est remplacé par le cadre de relecture complet, Opus ou DeepSeek mesuré (Jay 2026-11-24).]*

@@ -38,7 +38,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
-from common import block, pass_through, read_hook_input  # noqa: E402
+from common import pass_through, rappel, read_hook_input  # noqa: E402
 
 MESSAGES = {
     "non_arret": (
@@ -46,8 +46,7 @@ MESSAGES = {
         "un commit sur le dépôt de Jay, une mise en ligne sur son serveur avec test de fumée, une doc à jour. Ce n'est "
         "pas un arrêt : fais-le, puis rends compte (fait, vérifié avec la commande et sa sortie, fils ouverts). Si "
         "l'acte est vraiment irréversible ou sortant (force-push, suppression de données, envoi, publication, "
-        "paiement), dis-le dans la raison : « suppression de la base de production », « envoi à 40 clients ». "
-        "Réécris ta réponse."
+        "paiement), dis-le dans la raison : « suppression de la base de production », « envoi à 40 clients »."
     ),
     "permission": (
         "Tu demandes à Jay la permission de faire quelque chose. Si la question est de celles que les règles lui "
@@ -61,14 +60,14 @@ MESSAGES = {
         "ligne sur son serveur avec test de fumée, une doc à jour, un choix d'implémentation, l'étape suivante "
         "d'un travail demandé ne s'autorisent pas. Si la question porte sur le comment et que tu as une "
         "recommandation, applique-la. Rends compte ensuite (fait, vérifié avec la commande et sa sortie, fils "
-        "ouverts). Réécris ta réponse."
+        "ouverts)."
     ),
     "handoff": (
         "Tu dis à Jay d'aller faire un geste chez un fournisseur. L'as-tu fait toi-même (API, ligne de commande, "
         "navigateur intégré, outil connecté) ? Si oui et que ça échoue, déclare-le : "
         "[ARRET] blocage|secret|tiers : <ce que tu as essayé et la cause exacte>, avec les autres issues. "
         "Si tu ne l'as pas essayé, fais-le. Il ne reste à Jay que le consentement d'un tiers, une double "
-        "authentification, la valeur d'un secret ou un geste physique. Réécris ta réponse."
+        "authentification, la valeur d'un secret ou un geste physique."
     ),
 }
 
@@ -196,7 +195,7 @@ def main() -> None:
     reply = data.get("last_assistant_message")
     kind = classify(reply) if isinstance(reply, str) else None
     if kind:
-        block(MESSAGES[kind])
+        rappel("permission", MESSAGES[kind])
     pass_through()
 
 

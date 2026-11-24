@@ -424,7 +424,7 @@ Auth / payment / encryption = 95% coverage + MC/DC (conditions 4+). Anti-Circula
 
 - **Layer 1 (algorithmic)** : StreamData PBT sur invariants, Mutant.ex sur fonctions critiques, Schemathesis fuzzing sur API
 - **Layer 2 (different context)** : Writer/Reviewer sessions, holdout tests dans `test/__holdout__/`
-- **Layer 3 (relecteur égal ou supérieur, contexte frais et complet)** : Cross-Model-Reviewer Master sur les paths critiques
+- **Layer 3 (relecteur Opus ou DeepSeek admis par la calibration, contexte frais et complet, cadre entier)** : Cross-Model-Reviewer Master sur les paths critiques
 
 Real DB via `Ecto.Sandbox` — JAMAIS mock le Repo sur integration tests.
 

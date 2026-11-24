@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 HOOK = Path(__file__).resolve().parents[1] / "guards" / "eichi-ajout-guard.py"
-FICHIER = "D:/30-Dev-Projects/Shinzo/Eichi/17-Developpement-Logiciel-Architecture/Phoenix.md"
+FICHIER = "D:/Essai-Eichi/Eichi/17-Developpement-Logiciel-Architecture/Phoenix.md"  # chemin d'essai: jamais le vrai fichier de Jay
 URL = "https://hexdocs.pm/phoenix/1.8.0/overview.html"
 EXTRAIT = "une nouvelle structure de projet et des composants de base"
 TEXTE_PAGE = f"# Phoenix 1.8\n\nCette version apporte **{EXTRAIT}** plus simples à adapter. " + "Voir le guide. " * 20

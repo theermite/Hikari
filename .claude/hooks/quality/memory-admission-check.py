@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
-from common import block, pass_through, read_hook_input  # noqa: E402
+from common import pass_through, rappel, read_hook_input  # noqa: E402
 from turn_log import tool_runs  # noqa: E402
 
 _VERB = r"(?:rev[ée]rifi|v[ée]rifi|relu|lu\b|contr[ôo]l|test|regard)\w*"
@@ -61,7 +61,7 @@ def main() -> None:
         pass_through()
     reply = data.get("last_assistant_message")
     if isinstance(reply, str) and _admits(reply) and _unchecked_write(data.get("transcript_path") or ""):
-        block(MESSAGE)
+        rappel("memoire", MESSAGE)
     pass_through()
 
 

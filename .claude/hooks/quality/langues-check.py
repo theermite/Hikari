@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
-from common import block, format_block, pass_through, read_hook_input  # type: ignore  # noqa: E402
+from common import block, format_block, pass_through, rappel, read_hook_input  # type: ignore  # noqa: E402
 from langues_couverture import LANGUES, parse_marker, problemes  # type: ignore  # noqa: E402
 from transcript_reader import entry_message, iter_entries  # type: ignore  # noqa: E402
 from user_turns import _is_real_user_message  # type: ignore  # noqa: E402
@@ -88,7 +88,11 @@ def main() -> None:
     requetes, delegue = requetes_et_delegation(chemin)
     erreurs = problemes(marqueur, requetes, delegue)
     if erreurs:
-        block(message_de_refus(erreurs))
+        if data.get("hook_event_name") == "SubagentStop":
+            # Jay ne lit pas la fin de message d'un sous-agent: aucune « double lecture » à éviter. Le refus le fait
+            # corriger son marqueur AVANT de rendre la main à Takumi (relecture du 2026-11-24).
+            block(message_de_refus(erreurs))
+        rappel("langues", message_de_refus(erreurs))
     pass_through()
 
 

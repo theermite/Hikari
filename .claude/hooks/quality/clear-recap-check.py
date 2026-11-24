@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 from clear_language import problems  # noqa: E402
-from common import block, pass_through, read_hook_input  # noqa: E402
+from common import pass_through, rappel, read_hook_input  # noqa: E402
 
 
 def message(found: list[tuple[str, str]]) -> str:
@@ -37,7 +37,7 @@ def main() -> None:
     reply = data.get("last_assistant_message")
     found = problems(reply) if isinstance(reply, str) else []
     if found:
-        block(message(found))
+        rappel("recap", message(found))
     pass_through()
 
 

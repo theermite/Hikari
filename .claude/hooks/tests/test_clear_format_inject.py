@@ -90,7 +90,8 @@ def test_should_fail_open_when_input_is_broken(tmp_path):
 def test_should_name_the_project_label_to_open_every_reply(tmp_path):
     """Jay 2026-11-19: une seule conversation, étiquetée par projet. Le rappel donne l'étiquette du dossier courant."""
     text = _first(tmp_path)
-    assert f"[{tmp_path.name}]" in text and "étiquette" in text.lower()
+    assert f"🟦 {tmp_path.name}" in text and "étiquette" in text.lower()
+    assert f"[{tmp_path.name}]" not in text, "Jay 2026-11-24: plus de crochets, une pastille et le nom"
 
 
 def test_should_label_with_the_main_repo_name_inside_a_worktree(tmp_path):
@@ -103,4 +104,4 @@ def test_should_label_with_the_main_repo_name_inside_a_worktree(tmp_path):
     arbre = tmp_path / "claude-une-branche"
     subprocess.run(["git", "worktree", "add", "-q", str(arbre), "-b", "claude/une-branche"], cwd=principal, check=True)
     text = _run(arbre, {"session_id": "w1", "prompt": "x"}).stdout.decode("utf-8")
-    assert "[Mon-Projet]" in text and "[claude-une-branche]" not in text
+    assert "🟦 Mon-Projet" in text and "claude-une-branche" not in text

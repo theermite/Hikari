@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
-from common import block, pass_through, read_hook_input  # noqa: E402
+from common import pass_through, rappel, read_hook_input  # noqa: E402
 from session_state import read_state  # noqa: E402
 
 STATE_NAME = "deploy-smoke"
@@ -48,7 +48,7 @@ _QUOTED = re.compile(r"«[^»]*»|\"[^\"\n]*\"|“[^”]*”|`[^`\n]*`")   # jam
 RECOVERY = (
     "BLOCKED: tu annonces que c'est en ligne, mais la mise en ligne de cette séance n'a eu aucun contrôle depuis. RECOVERY: lance "
     "`web_check` (serveur web shinkofa-web) sur l'adresse publique et sur un parcours critique ; sans ce serveur : "
-    "`curl -fsS -o /dev/null -w \"%{http_code}\" <url>` sur l'adresse et sur ce parcours. Cite la sortie, puis réécris ta réponse : "
+    "`curl -fsS -o /dev/null -w \"%{http_code}\" <url>` sur l'adresse et sur ce parcours. Cite la sortie dans ton prochain message : "
     "« en ligne » veut dire joignable ET fonctionnel (un site qui répond mais plante sur son parcours critique n'est pas en ligne). "
     "Si le contrôle est impossible, dis-le et dis pourquoi au lieu d'affirmer. See .claude/rules-ondemand/Mise-En-Service.md "
     "(Live check before saying « online »)."
@@ -71,7 +71,7 @@ def main() -> None:
         pass_through()
     state = read_state(STATE_NAME, data.get("session_id") or None)
     if state.get("pending_deploy"):
-        block(RECOVERY)
+        rappel("online-claim", RECOVERY)
     pass_through()
 
 

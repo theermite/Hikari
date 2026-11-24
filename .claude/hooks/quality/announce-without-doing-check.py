@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
-from common import block, pass_through, read_hook_input  # noqa: E402
+from common import pass_through, rappel, read_hook_input  # noqa: E402
 from turn_log import tool_runs  # noqa: E402
 
 _TAIL = 400
@@ -50,7 +50,7 @@ MESSAGE = (
     "Jay devrait te relancer : c'est du va-et-vient. Fais-le maintenant, dans ce tour, puis rends compte (fait, vérifié "
     "avec la commande et sa sortie, fils ouverts). Si tu attends un événement extérieur, dis lequel (« dès que la "
     "relecture revient »). Si c'est une vraie décision de Jay, pose la question. Si Jay a demandé le plan et non "
-    "l'exécution, ajoute la ligne : [ANNONCE-OK] <pourquoi>. Réécris ta réponse."
+    "l'exécution, ajoute la ligne : [ANNONCE-OK] <pourquoi>."
 )
 
 
@@ -74,7 +74,7 @@ def main() -> None:
     reply = data.get("last_assistant_message")
     background = any(r.name in _BACKGROUND or r.background for r in tool_runs(data.get("transcript_path") or ""))
     if isinstance(reply, str) and announces(reply, background):
-        block(MESSAGE)
+        rappel("announce", MESSAGE)
     pass_through()
 
 

@@ -16,6 +16,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from avertissement_helpers import lu_comme_un_refus  # noqa: E402
+
 HOOK = Path(__file__).resolve().parents[1] / "quality" / "announce-without-doing-check.py"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from transcript_builder import Journal  # noqa: E402
@@ -82,9 +85,13 @@ def test_a_declared_stop_and_the_explicit_marker_let_it_through():
     assert not _flag("Voici ce que je ferai, comme demandé : je vais d'abord lire puis corriger.\n[ANNONCE-OK] Jay a demandé le plan, pas l'exécution")
 
 
-def _run(tmp_path, journal: Journal, reply: str, **extra):
+def _run_brut(tmp_path, journal: Journal, reply: str, **extra):
     payload = {"hook_event_name": "Stop", "last_assistant_message": reply, "transcript_path": journal.write_to(tmp_path / "t.jsonl"), **extra}
     return subprocess.run([sys.executable, str(HOOK)], input=json.dumps(payload).encode("utf-8"), capture_output=True, timeout=20)
+
+
+def _run(*args, **kwargs):
+    return lu_comme_un_refus(_run_brut(*args, **kwargs))
 
 
 def test_the_hook_blocks_once_with_a_message_that_says_to_do_it(tmp_path):

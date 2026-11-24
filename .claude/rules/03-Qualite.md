@@ -49,7 +49,7 @@ ailleurs.
 
 | Niveau | Ce qui est touché | Couverture minimum | Preuve supplémentaire |
 |---|---|---|---|
-| **Critique** | authentification, paiement, crypto, données personnelles, migration | **95 %** | tests de propriété + mutation + MC/DC ; un relecteur de niveau égal ou supérieur, en contexte frais et complet, relit |
+| **Critique** | authentification, paiement, crypto, données personnelles, migration | **95 %** | tests de propriété + mutation + MC/DC ; un relecteur en contexte frais et complet, tenu par le cadre de relecture entier (Opus, ou DeepSeek une fois admis par la calibration pour cette classe) ; rédacteur Fable : Opus seul tant que DeepSeek n'est pas admis pour le critique (ensuite Opus et DeepSeek, Jay 2026-11-24) |
 | **Sensible** | calcul métier, API publique, synchronisation | **90 %** | relecture indépendante obligatoire |
 | **Standard** | fonctionnalité visible, interface | **80 %** | relecture si l'interface est nouvelle |
 | **Outillage** | script interne, documentation, outil de développeur | **60 %** | aucun contrôle indépendant requis |
@@ -60,7 +60,7 @@ Un niveau déclaré après coup est un niveau choisi pour ce qui a été fait.
 ## 3. Le contrôle indépendant
 
 Le contexte qui écrit ne valide jamais seul. Trois couches : un test qui peut échouer, un contexte
-neuf qui cherche à réfuter, et — sur le critique — un relecteur de niveau égal ou supérieur, en contexte frais et complet (jamais plus faible que le rédacteur).
+neuf qui cherche à réfuter, et — sur le critique — un relecteur en contexte frais et complet, tenu par le cadre de relecture (annexe `Independent-Review`). Ce n'est pas le niveau du modèle qui garantit la relecture, c'est le cadre et la mesure : Opus, ou DeepSeek admis par la calibration pour la classe du code ; jamais la conversation du rédacteur (Jay 2026-11-24).
 
 **Le brief de contrôle est un artefact de preuve** : périmètre, zones suspectes, et l'ordre de
 **réfuter**, jamais de valider. Un contrôle qui répond « ça me semble bon » n'a pas eu lieu.

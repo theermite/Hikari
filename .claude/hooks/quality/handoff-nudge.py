@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
-from common import block, pass_through, read_hook_input  # type: ignore  # noqa: E402
+from common import pass_through, rappel, read_hook_input  # type: ignore  # noqa: E402
 from transcript_reader import entry_message, iter_entries  # type: ignore  # noqa: E402
 from user_turns import _is_real_user_message, _user_text  # type: ignore  # noqa: E402
 
@@ -31,7 +31,7 @@ MESSAGE = (
     "2) Si un droit te manque, lance-la dans son terminal avec run_in_terminal : il valide "
     "d'un clic au lieu de la taper. 3) Ne la lui laisse que pour un secret à saisir, un "
     "consentement ou une action chez un fournisseur, des droits administrateur ou un geste "
-    "physique, et dis laquelle de ces raisons s'applique. Réécris ta réponse."
+    "physique, et dis laquelle de ces raisons s'applique."
 )
 
 _FENCE = re.compile(r"```(?:bash|sh|shell|powershell|ps1|pwsh|cmd|zsh)\s*\n.+?```", re.DOTALL | re.IGNORECASE)
@@ -75,7 +75,7 @@ def main() -> None:
     path = data.get("transcript_path")
     if isinstance(path, str) and path and _JAY_ASKED.search(_last_jay_text(path)):
         pass_through()
-    block(MESSAGE)
+    rappel("handoff", MESSAGE)
 
 
 if __name__ == "__main__":

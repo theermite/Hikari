@@ -18,6 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 HOOK = Path(__file__).resolve().parents[1] / "quality" / "permission-ask-check.py"
 _spec = importlib.util.spec_from_file_location("permission_ask_check", HOOK)
 pac = importlib.util.module_from_spec(_spec)
@@ -181,10 +182,33 @@ def _run(payload: dict):
                           capture_output=True, timeout=20)
 
 
-def test_the_hook_blocks_once_then_lets_the_second_stop_through():
+def _depot(tmp_path: Path) -> Path:
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    return tmp_path
+
+
+def _run_in(depot: Path, payload: dict):
+    return subprocess.run([sys.executable, str(HOOK)], input=json.dumps(payload).encode("utf-8"),
+                          capture_output=True, timeout=20, cwd=depot)
+
+
+def test_the_hook_never_forces_a_rewrite_it_leaves_a_reminder_for_the_next_turn(tmp_path):
+    """Jay 2026-11-24: la réécriture forcée montrait deux fois la même réponse. Le garde ne refuse plus (code 0):
+    il garde un rappel que le tour suivant lira (lifecycle/permission-ask-inject.py)."""
+    depot = _depot(tmp_path)
     reply = "Tout est fait. Veux-tu que je commite maintenant ?"
-    assert _run({"hook_event_name": "Stop", "last_assistant_message": reply}).returncode == 2
-    assert _run({"hook_event_name": "Stop", "stop_hook_active": True, "last_assistant_message": reply}).returncode == 0
+    r = _run_in(depot, {"hook_event_name": "Stop", "session_id": "s1", "last_assistant_message": reply})
+    assert r.returncode == 0 and b"BLOCKED" not in r.stderr
+    from session_state import read_state
+    etat = read_state("rappel-permission", session_id="s1", repo_root=depot)
+    assert etat.get("pending") is True and "permission" in etat.get("message", "").lower()
+
+
+def test_a_clean_reply_leaves_no_reminder(tmp_path):
+    from session_state import read_state
+    depot = _depot(tmp_path)
+    assert _run_in(depot, {"hook_event_name": "Stop", "session_id": "s2", "last_assistant_message": "Fait et vérifié."}).returncode == 0
+    assert not read_state("rappel-permission", session_id="s2", repo_root=depot).get("pending")
 
 
 def test_the_hook_lets_a_declared_stop_through():
@@ -327,14 +351,15 @@ def test_the_message_names_the_act_and_says_to_do_it():
     assert "pas un arrêt" in msg and "règle 01" in msg and "fais-le" in msg.lower()
 
 
-def test_the_hook_blocks_once_with_that_message_then_lets_through():
+def test_a_non_stop_declared_as_a_stop_leaves_the_matching_reminder(tmp_path):
+    from session_state import read_state
+    depot = _depot(tmp_path)
     reply = "[ARRET] sortant : pousser le code serveur dans la branche principale de ton dépôt\nJe pousse ?"
-    first = subprocess.run([sys.executable, str(HOOK)], input=json.dumps({"hook_event_name": "Stop", "last_assistant_message": reply}).encode(),
-                           capture_output=True, timeout=20)
-    assert first.returncode == 2 and b"pas un arr" in first.stderr
-    again = subprocess.run([sys.executable, str(HOOK)], input=json.dumps({"hook_event_name": "Stop", "stop_hook_active": True,
-                           "last_assistant_message": reply}).encode(), capture_output=True, timeout=20)
-    assert again.returncode == 0
+    first = _run_in(depot, {"hook_event_name": "Stop", "session_id": "s3", "last_assistant_message": reply})
+    assert first.returncode == 0
+    etat = read_state("rappel-permission", session_id="s3", repo_root=depot)
+    assert "pas un arrêt" in etat.get("message", "")
+    assert "Réécris" not in etat.get("message", ""), "plus aucune consigne de réécriture"
 
 
 def test_a_plain_statement_with_no_declaration_is_untouched():

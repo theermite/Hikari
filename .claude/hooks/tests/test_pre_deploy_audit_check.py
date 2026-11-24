@@ -333,7 +333,8 @@ def test_a_git_bash_drive_path_is_read_as_a_windows_path(tmp_path, monkeypatch):
     repo = _fake_repo(tmp_path)
     monkeypatch.setattr(gate.Path, "is_dir", lambda self: True)
     seen = []
-    monkeypatch.setattr(gate, "find_repo_root", lambda start=None: seen.append(str(start)) or repo)
+    # le calcul vit dans `common` (partagé avec la porte de relecture): c'est là que `find_repo_root` se lit
+    monkeypatch.setitem(gate.command_repo_root.__globals__, "find_repo_root", lambda start=None: seen.append(str(start)) or repo)
     gate.target_root("cd /d/30-Dev-Projects/The-Ermite && ssh vps up")
     assert seen and seen[0].replace("\\", "/").upper().startswith("D:/30-DEV-PROJECTS/THE-ERMITE")
 

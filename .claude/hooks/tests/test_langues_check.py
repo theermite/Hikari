@@ -13,6 +13,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from avertissement_helpers import lu_comme_un_refus  # noqa: E402
+
 HOOKS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HOOKS / "lib"))
 import langues_couverture as lc  # noqa: E402
@@ -112,9 +115,13 @@ def _journal(tmp_path: Path, queries: list[str], outil="WebSearch") -> Path:
     return p
 
 
-def _run(payload) -> subprocess.CompletedProcess:
+def _run_brut(payload) -> subprocess.CompletedProcess:
     raw = json.dumps(payload).encode("utf-8")
     return subprocess.run([sys.executable, str(HOOK)], input=raw, capture_output=True, timeout=10)
+
+
+def _run(*args, **kwargs):
+    return lu_comme_un_refus(_run_brut(*args, **kwargs))
 
 
 def test_hook_blocks_a_claim_the_searches_do_not_back(tmp_path):
@@ -276,3 +283,14 @@ def test_hook_passes_when_the_journal_is_missing():
               "agent_transcript_path": "/nope/x.jsonl"})
     assert r.returncode == 0
     assert _run({"last_assistant_message": TOUT_OK}).returncode == 0
+
+
+def test_subagent_stop_refuse_vraiment_sans_passer_par_un_rappel(tmp_path):
+    """Jay ne lit pas un sous-agent (relecture 2026-11-24): le refus (code 2) le fait corriger avant de rendre la main.
+    Le code est lu BRUT: `_run` rendrait 2 aussi pour un simple rappel, ce qui ne prouverait rien."""
+    principal = _journal(tmp_path, ["PostgreSQL 18 异步 I/O 性能 实测"])
+    agent = _journal_agent(tmp_path, ["pg async io performance benchmark"])
+    marque = "[LANGUES] EN=ok FR=rien ZH=ok JA=rien KO=rien DE=rien RU=rien"
+    r = _run_brut({"hook_event_name": "SubagentStop", "last_assistant_message": marque,
+                   "transcript_path": str(principal), "agent_transcript_path": str(agent)})
+    assert r.returncode == 2 and b"RAPPEL (tour suivant" not in r.stderr

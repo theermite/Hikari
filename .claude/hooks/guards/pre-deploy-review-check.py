@@ -348,7 +348,7 @@ def _block_message(command):
         "BLOCKED: shipping without an independent review. "
         f"COMMAND: {command.strip()[:120]}. "
         "RECOVERY: have a context that did NOT write this code read the diff "
-        "(a sub-agent of a level EQUAL OR SUPERIOR to the writer's, in a fresh AND complete context, or a human), then emit: "
+        "(a sub-agent in a fresh AND complete context under the full review framework: Opus, or DeepSeek once calibrated; or a human), then emit: "
         "'[REVIEW] par <relecteur> le <YYYY-MM-DD> - verdict: <PASS|FAIL>, "
         "<ce qui en est sorti>' and retry. "
         f"Legitimate skip: '[REVIEW-SKIP] motif: <{motifs}>'. "

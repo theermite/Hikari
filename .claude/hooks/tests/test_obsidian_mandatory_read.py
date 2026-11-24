@@ -8,7 +8,7 @@ local ne bloque pas. En local, le garde reste tel quel.
 
 from __future__ import annotations
 
-from avertissement_helpers import avertit
+from avertissement_helpers import avertit, dit_au_modele
 
 import json
 import os
@@ -72,14 +72,26 @@ def _run(tmp_path: Path, *, cloud: bool, shinzo_on_disk: bool, calls: list[dict]
         env["SHINZO_DIR"] = str(shinzo_dir)
     if shinzo_on_disk:
         (tmp_path / "work" / "Shinzo" / "02-Projets").mkdir(parents=True)
-    payload = {"session_id": "s1", "tool_name": "Bash", "tool_input": {"command": "mkdir build"},
+    payload = {"hook_event_name": "PreToolUse", "session_id": "s1", "tool_name": "Bash", "tool_input": {"command": "mkdir build"},
                "transcript_path": _transcript(tmp_path, calls or [], failed, succeeded)}
     return subprocess.run([sys.executable, str(HOOK)], input=json.dumps(payload).encode("utf-8"),
                           capture_output=True, cwd=repo, env=env, timeout=30)
 
 
 def test_local_session_with_shinzo_on_disk_still_blocks_without_reads(tmp_path):
-    assert avertit(_run(tmp_path, cloud=False, shinzo_on_disk=True))
+    r = _run(tmp_path, cloud=False, shinzo_on_disk=True)
+    assert avertit(r) and dit_au_modele(r)
+
+
+def test_the_warning_counts_the_files_still_missing_and_no_longer_says_it_blocks(tmp_path):
+    """Relecture du 2026-11-24: « 2/3 unread » comptait les fichiers LUS, et « BLOCKING » restait dans le texte."""
+    import re
+    r = _run(tmp_path, cloud=False, shinzo_on_disk=True)
+    texte = r.stderr.decode("utf-8", "replace")
+    compte = re.search(r"(\d+)/(\d+) file\(s\) unread", texte)
+    manquants = texte.split("Missing patterns:")[1].splitlines()[0].split(",")
+    assert compte and int(compte.group(1)) == len(manquants), texte
+    assert "BLOCKING files" not in texte
 
 
 def test_local_session_without_shinzo_clone_still_blocks(tmp_path):

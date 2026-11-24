@@ -13,6 +13,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from avertissement_helpers import lu_comme_un_refus  # noqa: E402
+
 HOOK = Path(__file__).resolve().parents[1] / "quality" / "clear-recap-check.py"
 _spec = importlib.util.spec_from_file_location("clear_recap_check", HOOK)
 crc = importlib.util.module_from_spec(_spec)
@@ -92,9 +95,13 @@ def test_the_refusal_keeps_its_opening_and_imposes_no_template():
 # --- le garde tel que l'application le lance -----------------------------------------------------------------------
 
 
-def _run(payload: dict):
+def _run_brut(payload: dict):
     return subprocess.run([sys.executable, str(HOOK)], input=json.dumps(payload).encode("utf-8"),
                           capture_output=True, timeout=20)
+
+
+def _run(*args, **kwargs):
+    return lu_comme_un_refus(_run_brut(*args, **kwargs))
 
 
 def test_the_hook_blocks_jargon_once_then_lets_the_second_stop_through():

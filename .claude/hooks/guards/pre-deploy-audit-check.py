@@ -38,6 +38,7 @@ _ABSENT = object()
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 from common import (  # noqa: E402
     block,
+    command_repo_root,
     find_repo_root,
     get_command,
     pass_through,
@@ -129,27 +130,12 @@ def find_skip(text):
     return None
 
 
-_LEADING_CD = re.compile(r"""^\s*cd\s+(?P<path>"[^"]+"|'[^']+'|[^\s;&|]+)\s*(?:&&|;)""")
 _target = None  # repository named by the command itself (set by main); None = the hook's own repository
 
-
-def target_root(command):
-    """Root of the repository a leading `cd <dir> &&` points at; None when the command names none.
-
-    A deploy shipped from another repository than the hook's own (the site of a project, audited and
-    shipped from the Kobo session) was judged against the wrong HEAD and refused."""
-    match = _LEADING_CD.match(command or "")
-    if not match:
-        return None
-    raw = match.group("path").strip("\"'")
-    if re.match(r"^/[a-zA-Z]/", raw):  # git-bash drive path -> Windows path
-        raw = f"{raw[1].upper()}:{raw[2:]}"
-    folder = Path(raw)
-    try:
-        root = find_repo_root(folder) if folder.is_dir() else None
-        return root if root is not None and (root / ".git").exists() else None  # not a repository: the hook's own
-    except Exception:
-        return None
+# One implementation, shared with the review gate: two copies of the same reading would age apart
+# (review of 2026-11-24). A deploy shipped from another repository than the hook's own is judged
+# against that repository's HEAD.
+target_root = command_repo_root
 
 
 def _racine():

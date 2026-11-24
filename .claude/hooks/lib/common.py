@@ -91,6 +91,32 @@ def block(message: str) -> None:
     sys.exit(2)
 
 
+MARQUE_RAPPEL = "RAPPEL (tour suivant, ne bloque pas) :"
+
+
+def rappel(nom: str, message: str) -> None:
+    """Garde de FIN DE MESSAGE (Stop): ne refuse pas, garde un rappel pour le tour suivant puis sort 0.
+
+    Pourquoi (Jay 2026-11-24): le refus d'un Stop arrive après l'affichage de la réponse; la réécrire la montre deux
+    fois. Voir `rappels.py` et `lifecycle/rappel-inject.py`. Ne figure pas au journal des refus: ce n'est pas un refus.
+    Un nom inconnu LÈVE (faute de frappe visible, jamais un rappel perdu en silence). Sans identifiant de séance, rien
+    n'est rangé (il serait dit à une autre séance): le texte n'est que sur la sortie d'erreur. Un rangement qui échoue
+    est dit sur la sortie d'erreur SANS la marque, pour qu'un test de détection le voie."""
+    from rappels import NOMS, garder
+    if nom not in NOMS:
+        raise ValueError(f"rappel inconnu: {nom!r} (connus: {', '.join(NOMS)})")
+    texte = voir_actuel(message).replace("BLOCKED:", "").strip()
+    session = str(_INPUT.get("session_id") or "")
+    if session:
+        try:
+            garder(nom, texte, session_id=session)
+        except Exception as exc:  # noqa: BLE001 — un rappel perdu ne doit jamais casser la fin d'un tour
+            print(f"RAPPEL PERDU ({nom}): {exc}", file=sys.stderr)
+            sys.exit(0)
+    print(f"{MARQUE_RAPPEL} {texte}", file=sys.stderr)  # journal de la console: jamais lu comme un refus
+    sys.exit(0)
+
+
 def remember_input(donnees: object) -> None:
     """Pour un garde-fou qui lit lui-même son entrée: la trace du refus en aura l'outil, la cible et la séance."""
     global _INPUT, _EVENT

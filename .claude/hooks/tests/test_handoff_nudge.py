@@ -14,6 +14,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from avertissement_helpers import lu_comme_un_refus  # noqa: E402
+
 HOOK = Path(__file__).resolve().parents[1] / "quality" / "handoff-nudge.py"
 
 FENCE = "```"
@@ -27,10 +30,14 @@ def _journal(tmp_path: Path, jay_text: str) -> Path:
     return p
 
 
-def _run(payload) -> subprocess.CompletedProcess:
+def _run_brut(payload) -> subprocess.CompletedProcess:
     raw = payload if isinstance(payload, (bytes, str)) else json.dumps(payload)
     raw = raw.encode("utf-8") if isinstance(raw, str) else raw
     return subprocess.run([sys.executable, str(HOOK)], input=raw, capture_output=True, timeout=10)
+
+
+def _run(*args, **kwargs):
+    return lu_comme_un_refus(_run_brut(*args, **kwargs))
 
 
 def _msg(text, tmp_path, jay="lance le deploiement"):

@@ -12,6 +12,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from avertissement_helpers import lu_comme_un_refus  # noqa: E402
+
 HOOK = Path(__file__).resolve().parents[1] / "quality" / "french-reply-check.py"
 
 ENGLISH = (
@@ -35,10 +38,14 @@ def _journal(tmp_path: Path, jay_text: str, assistant_text: str | None = None) -
     return p
 
 
-def _run(payload: dict | str) -> subprocess.CompletedProcess:
+def _run_brut(payload: dict | str) -> subprocess.CompletedProcess:
     raw = payload if isinstance(payload, str) else json.dumps(payload)
     return subprocess.run([sys.executable, str(HOOK)], input=raw.encode("utf-8"),
                           capture_output=True, timeout=10)
+
+
+def _run(*args, **kwargs):
+    return lu_comme_un_refus(_run_brut(*args, **kwargs))
 
 
 def test_english_reply_to_french_jay_is_refused_in_french(tmp_path):

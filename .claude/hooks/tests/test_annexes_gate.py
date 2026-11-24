@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from avertissement_helpers import avertit
+from avertissement_helpers import avertit, dit_au_modele
 
 RACINE = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(RACINE / ".claude/hooks/lib"))
@@ -160,7 +160,8 @@ def _transcript(tmp_path: Path, lus: list[str]) -> Path:
 
 
 def _lancer(depot: Path, transcript: Path, outil: str, entree: dict, sid: str):
-    charge = {"tool_name": outil, "tool_input": entree, "session_id": sid, "transcript_path": str(transcript)}
+    charge = {"hook_event_name": "PreToolUse", "tool_name": outil, "tool_input": entree, "session_id": sid,
+              "transcript_path": str(transcript)}  # le harnais dit toujours l'évènement: sans lui l'avertissement reste muet
     return subprocess.run([sys.executable, str(GARDE)], input=json.dumps(charge), capture_output=True,
                           text=True, cwd=depot, encoding="utf-8")
 
@@ -169,7 +170,7 @@ def test_the_gate_blocks_a_cdc_write_until_the_annexes_are_read(tmp_path):
     depot = _depot(tmp_path)
     t = _transcript(tmp_path, [])
     r = _lancer(depot, t, "Write", {"file_path": str(depot / "docs/CDC.md"), "content": "x"}, "s1")
-    assert avertit(r)
+    assert avertit(r) and dit_au_modele(r)
     assert "Socle-Minimal.md" in r.stderr
     assert "RECOVERY" in r.stderr
 

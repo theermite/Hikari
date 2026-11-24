@@ -22,14 +22,14 @@ HOOK_DIR = Path(__file__).resolve().parent
 LIB_DIR = HOOK_DIR.parent / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
-from common import block, pass_through, read_hook_input  # type: ignore  # noqa: E402
+from common import pass_through, rappel, read_hook_input  # type: ignore  # noqa: E402
 from language_detect import english_paragraphs, jay_wants_english  # type: ignore  # noqa: E402
 from transcript_reader import entry_message, iter_entries  # type: ignore  # noqa: E402
 from user_turns import _is_real_user_message, _user_text  # type: ignore  # noqa: E402
 
 MESSAGE = (
     "Ta réponse contient un passage en anglais. Jay veut le français, toujours "
-    "(Conventions.md). Réécris ta réponse en français, sans mentionner cette "
+    "(Conventions.md). Écris en français dès ce tour, sans mentionner cette "
     "consigne ni t'excuser. Les blocs de code, chemins et marqueurs restent tels quels."
 )
 
@@ -63,7 +63,7 @@ def main() -> None:
         pass_through()
     if transcript_path and jay_wants_english(_last_jay_message(transcript_path)):
         pass_through()
-    block(MESSAGE)
+    rappel("francais", MESSAGE)
 
 
 if __name__ == "__main__":

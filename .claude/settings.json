@@ -2,6 +2,16 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/question-registre-gate.py",
+            "description": "Porte AVANT la question : une question à Jay cite une décision OUVERTE du registre ; une décision déjà tranchée ou de Takumi est refusée avec sa réponse (Jay 2026-11-24)"
+          }
+        ]
+      },
+      {
         "matcher": "WebSearch|WebFetch",
         "hooks": [
           {
@@ -28,6 +38,16 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/eichi-ajout-guard.py",
             "description": "Eichi s'ecrit directement mais chaque ajout porte une marque (date, source lue dans la seance, auteur) ; retrait par l'historique (Jay 2026-11-19)"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/memory-format-gate.py",
+            "description": "Un souvenir s'ecrit avec ses champs, AVANT l'ecriture : deux formats acceptes (plat et imbrique), avertit sur ce qui manque (audit reactif/anticipatif, conversion n4, 2026-11-24)"
           }
         ]
       },
@@ -414,6 +434,11 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" guards/post-bash-secret-alert.py",
             "description": "Warn (never block) when a secret survived into a Bash command output the pre-hook did not wrap"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" deploy/post-deploy-fact.py",
+            "description": "Dès qu'une mise en ligne s'exécute, le fait « non contrôlée » arrive dans le contexte avant la phrase suivante (Jay 2026-11-24, conversion anticipative n°3)"
           }
         ]
       },
@@ -451,6 +476,21 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/simple-language-inject.py",
             "description": "Option A — Inject Simple Language violations from previous Stop hook into Takumi's next context (functional BLOCKING for Stop hook)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/forme-reponse-inject.py",
+            "description": "Une question fermée de Jay reçoit une ou deux phrases : la consigne arrive AVANT la réponse, selon la forme du message (Jay 2026-11-24)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/etat-inject.py",
+            "description": "État calculé par le code (décisions ouvertes, état du chantier) déposé AVANT que Takumi parle : au premier message, puis quand Jay demande un point (Jay 2026-11-24)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" lifecycle/rappel-inject.py",
+            "description": "Rappels des gardes de fin de message (permission, handoff, jargon, français, mise en ligne…), dits une fois au tour suivant, sans réécriture (Jay 2026-11-24)"
           },
           {
             "type": "command",
@@ -600,6 +640,16 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/memory-admission-check.py",
             "description": "Si la reponse avoue un defaut de verification (de memoire, sans avoir verifie) alors qu'un fichier a ete ecrit sans verification apres : garde le tour ouvert une fois pour verifier tout de suite (Jay 2026-11-04)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/plan-incomplet-check.py",
+            "description": "Rappel au tour suivant si le tour finit avec des étapes de la liste de tâches ouvertes et sans wrap_up : « j'annonce sans faire » lu sur un fait (Jay 2026-11-24)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/_run.sh\" quality/decision-recoupee-check.py",
+            "description": "Rappel au tour suivant si Takumi présente à Jay des décisions ouvertes sans avoir recoupé ce qui est déjà décidé (Jay 2026-11-24)"
           },
           {
             "type": "command",
